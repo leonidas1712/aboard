@@ -180,6 +180,8 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SetHumanMidturn(humanID, policy string) error
+	SetAgentMidturn(memberID string, policy *string) error
 	SaveFile(File) error
 	SaveTask(Task) error
 	ReserveTaskPrefix(boardID, prefix string) error

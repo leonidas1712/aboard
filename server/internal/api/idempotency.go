@@ -200,6 +200,16 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case method == http.MethodPut && path == "/v1/me/midturn":
+		var body SetMidturnPolicyJSONRequestBody
+		if err := json.Unmarshal(request, &body); err != nil {
+			return err
+		}
+		member := ""
+		if body.MemberId != nil {
+			member = *body.MemberId
+		}
+		return svc.CheckMidturnReplay(ctx, principal(ctx), member)
 	case method == http.MethodPost && strings.HasPrefix(path, "/v1/people/") && strings.HasSuffix(path, "/rename"):
 		var result struct {
 			Person struct {

@@ -22,11 +22,11 @@ func (t *tx) InsertHuman(h board.Human) error {
 		h.ID, h.Name, h.DisplayName, h.Role, h.CreatedAt)
 }
 
-const humanColumns = "id, name, display_name, role, created_at, removed_at, removed_by"
+const humanColumns = "id, name, display_name, role, created_at, removed_at, removed_by, midturn_policy"
 
 func scanHuman(row interface{ Scan(...any) error }) (board.Human, error) {
 	var h board.Human
-	err := row.Scan(&h.ID, &h.Name, &h.DisplayName, &h.Role, &h.CreatedAt, &h.RemovedAt, &h.RemovedBy)
+	err := row.Scan(&h.ID, &h.Name, &h.DisplayName, &h.Role, &h.CreatedAt, &h.RemovedAt, &h.RemovedBy, &h.MidturnPolicy)
 	return h, notFound(err)
 }
 
@@ -358,7 +358,7 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at, session"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human')"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human'), midturn_policy"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
@@ -366,7 +366,7 @@ func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var taskID, taskRef, taskTitle sql.NullString
 	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName)
+		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName, &m.MidturnOverride)
 	if taskID.Valid {
 		m.CurrentTask = &board.TaskRef{ID: taskID.String, Ref: taskRef.String, Title: taskTitle.String}
 	}
