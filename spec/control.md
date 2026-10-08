@@ -896,3 +896,21 @@ row, even when the combined payload contains only one board's messages.
   daemon it talks to come from the same build unless the person upgraded one without the
   other; `aboard doctor` reports an installed extension that differs from the one this
   aboard installs, as it does for hooks.
+
+
+## Queued session observation (D221)
+
+The additive `queued` operation reads `harness`, `session` and `boot`; its response
+has optional `queued` with the shape `QueuedMessages` in cli.yaml. It observes only
+that session's current seats, rechecks each own-token inbox and acknowledges nothing.
+A stale boot or seat is refused rather than substituted with another session. An old
+daemon's `invalid_request` leaves queue state unknown; it is never treated as no queue.
+`inbox --queued` uses this observation to select messages, then follows the ordinary
+own-token read/claim/ack path. It does not ask the daemon to acknowledge unseen gaps.
+
+`midturn-peer` on an extension's hello/welcome is a live negotiated capability. The
+same text on a profile alone cannot enable it. New combined peer context is delivered
+only on a connection that negotiated both handoff-v1 and midturn-peer, with additive
+`delivery_class: midturn_peer`; existing owner_only and mixed classes keep their
+meaning. Unknown classes must not be interpreted as owner messages. A peer context
+with no capable live connection remains queued for turn end.

@@ -213,9 +213,9 @@
           "enum": ["stop-hook", "queue", "extension", "none"]
         },
         "capabilities": {
-          "description": "How messages reach a session, each a separate capability. idle-hook: a hook waits while the session is idle and wakes it with the bundle. queue: a command puts the bundle in the session's own queue, which starts it when the turn ends. tool-boundary: a hook adds the owner's messages to a running turn after a tool call. turn-start: the prompt hook (a hook of op prompt) or the extension adds, as a turn starts, the messages that waited quietly for it in focused mode. extension: Aboard's extension inside the harness holds a connection to the daemon, registers its session and process, receives bundles and confirms them. none: the skill has the agent run aboard inbox --wait.",
+          "description": "How messages reach a session, each a separate capability. idle-hook: a hook waits while the session is idle and wakes it with the bundle. queue: a command puts the bundle in the session's own queue, which starts it when the turn ends. tool-boundary: a hook adds the owner's messages to a running turn after a tool call. turn-start: the prompt hook (a hook of op prompt) or the extension adds, as a turn starts, the messages that waited quietly for it in focused mode. extension: Aboard's extension inside the harness holds a connection to the daemon, registers its session and process, receives bundles and confirms them. midturn-peer: the adapter can add eligible same-owner urgent direct messages to a running turn without interrupting it, only when the recipient policy permits; an extension must negotiate it live. none: the skill has the agent run aboard inbox --wait.",
           "type": "array",
-          "items": { "enum": ["idle-hook", "queue", "tool-boundary", "turn-start", "extension", "none"] }
+          "items": { "enum": ["idle-hook", "queue", "tool-boundary", "turn-start", "extension", "midturn-peer", "none"] }
         },
         "queue": { "$ref": "#/$defs/argv", "description": "For queue delivery, the command that queues a bundle." },
         "hooks_file": { "type": "string", "description": "Deprecated: use install, with an item of kind hooks. Where aboard init installs the hooks for every project: under the home directory, or under the config folder when it starts with {config_dir}." },

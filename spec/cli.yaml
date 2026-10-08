@@ -1521,6 +1521,8 @@ $defs:
     type: object
     required: [board, agent, messages, acked_up_to, more]
     properties:
+      queued:
+        $ref: "#/$defs/QueuedMessages"
       board: { type: string }
       agent: { type: string }
       messages:
@@ -2356,6 +2358,8 @@ $defs:
     type: object
     required: [server, server_running, server_replaced, sandbox_blocks_network, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
+      queued:
+        $ref: "#/$defs/QueuedMessages"
       server: { $ref: "#/$defs/ServerRef" }
       sandbox_blocks_network:
         type: boolean
@@ -3860,4 +3864,47 @@ $defs:
     properties:
       server: { $ref: "#/$defs/ServerRef" }
       person: { $ref: openapi.yaml#/components/schemas/Person }
+      changed: { type: boolean }
+
+
+  QueuedMessages:
+    description: |
+      Messages queued for this session's turn end, not received. Absent means queue
+      state is unknown. Status never acknowledges. inbox --queued reads current own-token
+      messages and acknowledges only what it shows through the ordinary inbox path;
+      --peek acknowledges nothing. Entries are invalidated on seat/session changes.
+      With several seats each entry remains bound to its immutable board/member ids.
+    type: object
+    required: [count, messages]
+    properties:
+      count: { type: integer, minimum: 0 }
+      messages:
+        type: array
+        items:
+          type: object
+          required: [board_id, member_id, message_id, seq, from, boundary]
+          properties:
+            board_id: { type: string }
+            member_id: { type: string }
+            message_id: { type: string }
+            seq: { type: integer, minimum: 1 }
+            from: { type: string }
+            boundary: { const: turn_end }
+
+  MidturnDeliveryOutput:
+    description: |
+      aboard delivery midturn [owner-only|my-agents] [--as AGENT] [--board BOARD].
+      With no policy reads the person's default, or their own selected agent's override.
+      Setting is person-only; agents receive human_command_in_session, never use a human
+      login. --inherit clears a selected agent's override. With no --as the change applies
+      to the person's default on the selected issuer server. Other owners' agents refuse
+      with agent_owner_required. Per-agent overrides are immutable-member bound.
+    type: object
+    required: [server, policy, source, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      policy: { enum: [owner-only, my-agents] }
+      source: { enum: [person_default, agent_override] }
+      board: { type: string }
+      agent: { type: string }
       changed: { type: boolean }

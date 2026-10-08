@@ -857,3 +857,19 @@ Why: stacking three columns made the panels a long scroll below the conversation
 
 **D220. The board view takes the brand: the website's palette, accent, type, logo and style, with the lab's colour schemes and harness marks (decided by the maintainer; refines DESIGN.md, D217 and D218).** The tokens come from `site/src/styles/brand.css` and live in `web/app/tokens.css`: olive-tinted near-white and near-black neutrals (`#fafaf7`/`#0c0d0a` backgrounds, a new `faint` for marks only), links in ink with an underline, 8px controls and 12px boxes, and one accent per theme, green `#7cdf64` in light and teal `#14b8a6` in dark, always a fill under `on-accent` ink, with `accent-strong` (`#2b7f1c` in light, the teal in dark) for focus rings, outlines, check marks and small accent text. Attention is the accent and replaces marigold: a count, a label or a waiting bar is the accent under on-accent ink; a whole row or card that waits on the person is `attention-soft`, the accent mixed into the surface (30% in light, 20% in dark), edged in accent-strong. Problems and warnings are no longer marigold: they sit in a neutral box with the field edge. The primary button is the accent; a button on an accent bar is on-accent ink with accent text. Type is Geist and Geist Mono, self-hosted with their OFL licence, bold set at 600. The logo, favicon, PNG icons and apple-touch icon are the site's mark. Two deliberate differences from brand.css: `field-border` is `#8f9188`/`#6b6d64`, so a field keeps 3:1 against the surface (the brand's `#cfd0c8` is 1.6:1); and the teal identity tint (id-5) is steel (`#26323c`/`#c9d8e4`) in dark, as the site draws the Codex tile, because it sat too close to the teal accent. D218's tones are retuned so none collides with the accent: working is the ink (a filled dot), needing a person is the accent (an accent dot in an accent-strong ring with a soft halo), on hold stays violet in two bars, idle is a quiet grey, no session a ring. Ember (marigold accent), Tide (the brand green on a sea-green dark) and High contrast (olive neutrals, a bright green) move from the lab into the account menu beside light and dark, each with a swatch; `node web/lab/contrast.mjs` checks all five against WCAG AA. Every agent's mark is its harness tile (GEN-14) wherever it shows, people keep their initials, and a mark's letters are drawn by CSS so they stay out of the text around them.
 Why: the launch shows one product, and the website already shows what the board view looks like; a board view in different colours, type and logo would read as a different product. The accent keeps its one meaning, what needs a person, so taking it for attention costs the board view nothing and removes a second signal colour.
+
+
+**D221. A person may let their own agents reach each other at the next tool boundary
+with urgent direct messages (refines D137); queued messages are visible without being
+received.** The default is `my-agents`; `owner-only` preserves D137's earlier policy,
+and an owner may override it per agent. Eligibility uses immutable owner ids, current
+membership, explicit agent addressing, urgent permission and a verified harness
+capability. One sender may hand one peer urgent message to a recipient per turn;
+excess waits for turn end. No tool is interrupted. Other owners' agents cannot use this
+path. The framing remains `owner_agent`, never `owner`. Queue metadata is temporary
+bookkeeping; inspecting it never advances a read cursor. See spec/delivery.md for the
+cap, retry, downgrade and fallback rules. Person preferences are issuer-bound
+bookkeeping; board membership and write permissions remain unchanged.
+Why: an owner chooses how their own collaborating agents coordinate, and a sender and
+recipient should be able to see that a message is waiting instead of guessing it was
+lost.
