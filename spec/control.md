@@ -912,6 +912,24 @@ seat token, without claims, confirmation or acknowledgement. It never consumes o
 cancels a scheduled delivery. Accepted queue admission remains observed until turn
 start consumes the queue, even if the server already acknowledges those messages.
 
+The additive `shown` operation records full messages successfully emitted by a read
+command, never a summary or queued preview. It requires harness, session, the exact
+current boot, an AgentRef matching that session's current immutable seat, and
+`shown_messages`: objects with board_id, member_id, message_id and seq. The daemon
+verifies each exact identity with the seat's own token before saving observations
+bound to the current binding generation. The response has `shown: true` only after
+the journal commit. A stale boot, another seat or failed access refuses the entire
+batch; a missing daemon simply leaves normal read behavior unchanged.
+
+Observations contain no body and acknowledge nothing. They suppress only later
+automatic handoffs and notices for those exact messages in that same boot and seat
+generation. A restart retains them, while a new boot, rotated credential or different
+session cannot inherit them. They do not authorize cancellation of already accepted
+external harness queue entries. A command reports only after successful complete
+stdout emission, holds local delivery while reading when possible, and never starts
+or replaces a daemon to report. Failed emission records nothing; unseen gaps remain
+unread. An unsupported old daemon leaves the read successful without suppression.
+
 `midturn-peer` on an extension's hello/welcome is a live negotiated capability. The
 same text on a profile alone cannot enable it. New combined peer context is delivered
 only on a connection that negotiated both handoff-v1 and midturn-peer, with additive
