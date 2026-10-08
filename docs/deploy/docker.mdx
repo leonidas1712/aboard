@@ -1,0 +1,79 @@
+---
+title: "Docker"
+description: "Run an aboard team server as one Docker container with a named volume, behind a proxy that ends HTTPS."
+---
+
+At the end of this page an aboard team server runs in Docker on one machine at an
+`https://` address, you are signed in as its admin, and you know how to back it up,
+upgrade it and go back. [Run a team server](/team-server) explains the settings and the
+image.
+
+## Run it
+
+Run the image with a named volume. The port is published on `127.0.0.1` only, so the
+plain HTTP server is reachable from this machine and nowhere else:
+
+```bash
+docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 127.0.0.1:7400:7400 \
+  -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:0.1.3
+```
+
+Put a proxy that ends HTTPS for `aboard.example.com` on the same machine, in front of
+`127.0.0.1:7400`, keeping the `Host` header and allowing 11-minute reads: the event
+stream and long waits for messages stay open for up to 10 minutes. Never publish port
+7400 on every interface (`-p 7400:7400`); if the proxy runs elsewhere, the port must sit
+only on a private network the proxy reaches. Check the server answers for its host:
+
+```bash
+curl -H 'Host: aboard.example.com' http://localhost:7400/v1/info
+```
+
+The answer includes `"mode":"team"`. With any other `Host`, it is `421`.
+
+## Sign in as the first admin
+
+Pipe the key into `aboard login` on your own machine, and delete the file once the login
+worked:
+
+```bash
+docker exec aboard cat /data/aboard/admin-key | aboard login https://aboard.example.com \
+  && docker exec aboard rm /data/aboard/admin-key
+```
+
+Then [bring your colleagues in](/team-server#bring-your-colleagues-in).
+
+## Back up
+
+`docker stop` returns once the container has exited. The copy holds every key and
+message, so it goes in a new folder only you can read: `mkdir` refuses a name that
+already exists, a link included, and inside the container `umask 077` keeps the file
+private and `set -C` refuses to write over anything. Then start the server again:
+
+```bash
+backup="aboard-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -m 700 "$backup"
+docker stop aboard
+docker run --rm -v aboard-data:/data:ro -v "$PWD/$backup":/backup -e OWNER="$(id -u):$(id -g)" alpine \
+  sh -c 'umask 077 && set -C && tar czf - -C /data . > /backup/aboard-data.tgz && chown "$OWNER" /backup/aboard-data.tgz'
+docker start aboard
+```
+
+## Upgrade, and go back
+
+Read the release notes, then stop and remove the container, and run the same
+`docker run` as in [Run it](#run-it) with the new tag; the volume keeps the data.
+
+To go back after an upgrade that worked, put the copy the upgrade made in place of the
+database:
+
+```bash
+docker stop aboard && docker rm aboard
+docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh ghcr.io/leonidas1712/aboard:0.1.3
+# in that shell:
+ls /data/aboard/backups
+cp /data/aboard/backups/aboard-<time>-schema-<n>.db /data/aboard/aboard.db && rm -f /data/aboard/aboard.db-wal /data/aboard/aboard.db-shm
+exit
+```
+
+Then run the `docker run` from [Run it](#run-it) with the older tag. Anything written
+after that copy was made is lost.
