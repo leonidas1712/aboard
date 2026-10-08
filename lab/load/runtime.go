@@ -104,7 +104,7 @@ func run(ctx context.Context, o options) (r report, err error) {
 		return r, err
 	}
 	defer func() { _ = os.RemoveAll(root) }()
-	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: &http.Client{Timeout: 65 * time.Second}}
+	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: &http.Client{Timeout: 65 * time.Second, Transport: loadTransport((&net.Dialer{}).DialContext, 16)}}
 	progress := runProgress{Stage: "build"}
 	defer func() { f.finishReport(&r, progress, err); cancel(); f.close() }()
 	if f.binary == "" {
@@ -133,7 +133,7 @@ func run(ctx context.Context, o options) (r report, err error) {
 	progress.MeasurementStart = start
 	progress.Stage = "round"
 	for round := range o.Rounds {
-		if err := f.round(ctx, round, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &r); err != nil {
+		if err := f.round(ctx, round, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &progress.Write, &r); err != nil {
 			return r, err
 		}
 	}
@@ -652,7 +652,7 @@ type polled struct {
 	err  error
 }
 
-func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, streams, polls, handover *[]time.Duration, r *report) error {
+func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, streams, polls, handover, writes *[]time.Duration, r *report) error {
 	replies := make(chan polled, len(f.people)*len(f.people[0].seats))
 	started := make(chan error, cap(replies))
 	for _, p := range f.people {
@@ -694,6 +694,7 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			return err
 		}
 		v := sample{messageKey{b.ID, seq(data, "seq")}, start, marker}
+		*writes = append(*writes, time.Since(start))
 		b.Head = v.key.Seq
 		byBoard[b.ID] = v
 		markers[marker] = v

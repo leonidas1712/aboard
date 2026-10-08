@@ -87,7 +87,7 @@ func TestLoadFailureRetainsCompletedWorkAndPartialTimings(t *testing.T) {
 	r := report{Daemons: 1}
 	progress := runProgress{Stage: "round", SetupStart: time.Now().Add(-time.Second), MeasurementStart: time.Now(), Stream: []time.Duration{time.Millisecond}, Poll: []time.Duration{2 * time.Millisecond}, Handover: []time.Duration{3 * time.Millisecond}}
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
-	err := f.round(ctx, 0, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &r)
+	err := f.round(ctx, 0, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &progress.Write, &r)
 	if err == nil {
 		t.Fatal("forced round failure succeeded")
 	}
@@ -97,6 +97,19 @@ func TestLoadFailureRetainsCompletedWorkAndPartialTimings(t *testing.T) {
 	}
 	if r.Stream.Samples != 1 || r.LongPoll.Samples != 1 || r.Handover.Samples != 1 {
 		t.Fatalf("failure lost collected samples: %+v", r)
+	}
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var measured struct {
+		Write distribution `json:"request_to_write_response"`
+	}
+	if err := json.Unmarshal(raw, &measured); err != nil {
+		t.Fatal(err)
+	}
+	if measured.Write.Samples != 1 || measured.Write.P50 <= 0 {
+		t.Fatalf("failure lost the successful write response timing: %+v", measured.Write)
 	}
 }
 
