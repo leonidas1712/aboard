@@ -420,7 +420,7 @@ func (h hookCall) waitOn(conn io.ReadWriter, req delivery.Request) (code int, do
 			return 0, true
 		case resp.Event == delivery.EventDeliver:
 			_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
-			_, _ = io.WriteString(h.a.env.Stderr, "Aboard delivery: new messages for this session.\n\n"+resp.Bundle+"\n")
+			_, _ = io.WriteString(h.a.env.Stderr, resp.Bundle+"\n\nAboard delivery: new messages for this session.\n")
 			return exitWake, true
 		case resp.Event == delivery.EventRelease:
 			return 0, true
