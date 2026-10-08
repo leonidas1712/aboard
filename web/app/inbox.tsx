@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { type AskList, type Board, type Me, type Member, type Message, ackBoard, follow, get, listTasks } from "./api";
 import { Account } from "./account";
 import { AskAnswers, askChanged } from "./ask-ui";
+import { Attachments } from "./attachments";
 import { type BoardFacts, askSummary, attentionCount, orderedAsks, worthALook } from "./asks";
 import { Sheet, useBackEntry, useWide } from "./sheet";
 import { StatusWord, agentStatus, blocksOf } from "./status";
@@ -211,7 +212,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
             const status = askerStatus(current);
             return <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><SenderMark name={current.from.name} kind={current.from.kind} harness={current.from.harness} identity={identityOf(`${current.from.kind}:${current.from.name}`)} /><strong>{current.from.name}</strong><span className="text-meta text-muted">{current.from.owner && `(${current.from.owner}'s agent) `}asks you · {relativeTime(current.at, now)}</span>{status && <StatusWord status={status} dot className="asker-status" />}</p>;
           })()}
-          <div className="flex flex-col gap-2"><h2 className="text-headline font-bold break-words">{askSummary(current.body)}</h2>{rest && <p className="text-now whitespace-pre-wrap break-words">{rest}</p>}</div>
+          <div className="flex flex-col gap-2"><h2 className="text-headline font-bold break-words">{askSummary(current.body)}</h2>{rest && <p className="text-now whitespace-pre-wrap break-words">{rest}</p>}<Attachments board={current.board!} files={current.files} /></div>
           <AskAnswers message={current} board={current.board!} keyboard onAnswered={answered} />
           <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-meta text-muted">
             <a href={boardHref} onClick={leave} className="inline-flex min-h-11 items-center gap-1.5">Open on the board<CornerDownLeft className="size-3 pointer-coarse:hidden" aria-label="Enter" /></a>

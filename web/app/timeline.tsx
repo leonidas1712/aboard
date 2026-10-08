@@ -7,6 +7,7 @@
 import { lab } from "aboard-lab";
 import { TaskChips, TaskLinks } from "./task-ui";
 import { AskAnswers } from "./ask-ui";
+import { Attachments, FileLinks } from "./attachments";
 
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
 import { SenderMark } from "./agent-mark";
@@ -557,6 +558,7 @@ function MessageEntry({
         <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24 pointer-coarse:pr-0")}>
           <Body m={m} mentions={mentions} />
         </p>
+        <Attachments files={m.files} />
         {lab?.MessageFooter && receipts && <lab.MessageFooter board={receipts.board} message={m} />}
         {m.ask && receipts && <AskAnswers message={m} board={receipts.board} readOnly={!onReply} />}
         <Reactions m={m} me={me} onReact={onReact} />
@@ -722,8 +724,8 @@ type Mentions = { onMention: (target: string) => void };
 
 /**
  * Body is a message's text as written, with each mention the server recorded when it
- * was posted marked as a button that shows the member or role in the board panel. The
- * text stays text, never HTML.
+ * was posted marked as a button that shows the member or role in the board panel, and
+ * each board file's path as a link that opens the file. The text stays text, never HTML.
  */
 function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
   return segments(m.body, mentionedTargets(m)).map((s, i) =>
@@ -741,7 +743,9 @@ function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
     ) : lab?.Text ? (
       <lab.Text key={i} text={s.text} />
     ) : (
-      <Fragment key={i}><TaskLinks text={s.text} tags={m.about} /></Fragment>
+      <Fragment key={i}>
+        <FileLinks text={s.text} skip={m.files} rest={(t, k) => <TaskLinks key={k} text={t} tags={m.about} />} />
+      </Fragment>
     ),
   );
 }

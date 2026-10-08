@@ -16,6 +16,7 @@ import { TaskBoard, TaskContext, TaskDetail, type WorkBy, WorkTasks, WorkTitle, 
 import { FilePanel, FilesView, useFiles } from "./files";
 import { Brief } from "./brief";
 import { Composer } from "./composer";
+import { FilesContext } from "./attachments";
 import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
@@ -49,8 +50,10 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const taskState = useTasks(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
   const tasks = taskState.list?.tasks ?? [];
   const fileState = useFiles(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
-  const files = fileState.list?.files ?? [];
+  const files = useMemo(() => fileState.list?.files ?? [], [fileState.list]);
   const [filePanel, setFilePanel] = useState<string | null>(null);
+  // The version the panel opens at, as when an attachment opens it; n makes each request count.
+  const [fileAt, setFileAt] = useState<{ version: number | null; n: number }>({ version: null, n: 0 });
   // Tasks appears with the first task. Files is on every board whose server keeps files,
   // so a person can always put a file on the board from here.
   const views: View[] = ["conversation", ...(tasks.length > 0 ? (["tasks"] as const) : []), ...(fileState.list !== null ? (["files"] as const) : [])];
@@ -79,9 +82,10 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     if (wide) setRight({ ...rightPref, collapsed: false });
     else setSheet("right");
   }, [rightPref, setRight, wide]);
-  const openFile = useCallback((id: string) => {
+  const openFile = useCallback((id: string, version?: number) => {
     setTaskPanel(null);
     setFilePanel(id);
+    setFileAt((a) => ({ version: version ?? null, n: a.n + 1 }));
     if (wide) setRight({ ...rightPref, collapsed: false });
     else setSheet("right");
   }, [rightPref, setRight, wide]);
@@ -316,6 +320,17 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     }
   }, [tasks, openTask]);
 
+  // A link from outside the board (an attachment in the Inbox) opens a file at a version.
+  const linkedFile = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("file");
+    if (!id || linkedFile.current === id || fileState.list === null) return;
+    linkedFile.current = id;
+    const version = Number(params.get("version"));
+    openFile(id, Number.isSafeInteger(version) && version > 0 ? version : undefined);
+  }, [fileState.list, openFile]);
+
   const onToggle = useCallback((root: string, open: boolean) => prefs.setOpen(root, open), [prefs]);
 
   // A reaction shows at once from the answer; everyone else's view follows the stream.
@@ -492,6 +507,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     <FilePanel
       board={name}
       id={filePanel}
+      at={fileAt}
       activity={s.activity}
       back={() => setFilePanel(null)}
       identity={identity}
@@ -542,6 +558,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   return (
     <HarnessProvider value={harnesses}>
     <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me} asks={taskState.asks}>
+    <FilesContext board={name} files={files} open={openFile} identity={identity} me={me}>
     <TooltipProvider delayDuration={250}>
       <div className="flex min-h-0 flex-1 flex-col">
         <Header
@@ -663,6 +680,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                   me={me}
                   replyTo={replyTo}
                   replyDefault={replyDefault}
+                  files={fileState.list !== null ? files : null}
+                  onFilesChanged={fileState.reload}
                   identity={identity}
                   onCancelReply={() => setReplyTo(null)}
                   onPosted={(m) => {
@@ -716,6 +735,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
         <KeysSheet open={keysOpen} onClose={() => setKeysOpen(false)} place="board" />
       </div>
     </TooltipProvider>
+    </FilesContext>
     </TaskContext>
     </HarnessProvider>
   );

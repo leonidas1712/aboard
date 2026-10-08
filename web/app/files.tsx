@@ -32,11 +32,11 @@ import { SenderMark } from "./agent-mark";
 import { count, exactTime, relativeTime } from "./words";
 
 /** The most a board takes in one file (spec/openapi.yaml, putFile). */
-const maxBytes = 50 * 1024 * 1024;
+export const maxBytes = 50 * 1024 * 1024;
 /** The most text the panel previews; a longer file is offered as a download. */
 const maxPreview = 512 * 1024;
 
-const namePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
+export const namePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 
 export function useFiles(board: string, activity: number, head: number | undefined, enabled: boolean) {
   const [list, setList] = useState<FileList | null>(null);
@@ -117,7 +117,7 @@ export function size(bytes: number): string {
   return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
 
-function FileIcon({ name, mediaType, className }: { name: string; mediaType: string; className?: string }) {
+export function FileIcon({ name, mediaType, className }: { name: string; mediaType: string; className?: string }) {
   const kind = kindOf(name, mediaType);
   const Icon = kind === "image" ? FileImage : kind === "html" ? FileCode : kind === "other" ? FileGeneric : FileText;
   return <Icon className={cn("size-[18px] shrink-0 text-muted", className)} strokeWidth={1.5} aria-hidden />;
@@ -177,9 +177,10 @@ const shows: { key: Show; label: string }[] = [
 
 /**
  * useDrop makes an element a place to drop a file from this computer. over is true
- * while a file is dragged over it; onFile gets the first file dropped and how many came.
+ * while a file is dragged over it; onFile gets the first file dropped, how many came,
+ * and all of them.
  */
-export function useDrop(enabled: boolean, onFile: (f: File, count: number) => void) {
+export function useDrop(enabled: boolean, onFile: (f: File, count: number, all: File[]) => void) {
   const depth = useRef(0);
   const [over, setOver] = useState(false);
   const carriesFiles = (e: DragEvent) => enabled && Array.from(e.dataTransfer.types).includes("Files");
@@ -212,14 +213,14 @@ export function useDrop(enabled: boolean, onFile: (f: File, count: number) => vo
       depth.current = 0;
       setOver(false);
       const f = e.dataTransfer.files[0];
-      if (f) onFile(f, e.dataTransfer.files.length);
+      if (f) onFile(f, e.dataTransfer.files.length, Array.from(e.dataTransfer.files));
     },
   };
   return { over, props };
 }
 
 /** DropHint is the calm outline and line of text shown while a file is dragged over a drop place. */
-function DropHint({ over, text }: { over: boolean; text: string }) {
+export function DropHint({ over, text }: { over: boolean; text: string }) {
   if (!over) return null;
   return (
     <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent-strong bg-[var(--drop)] p-4 animate-fade-in">
@@ -456,7 +457,7 @@ function conflictText(e: ApiError, name: string, me: string | null, now: number)
   );
 }
 
-function uploadProblem(e: unknown, name: string, me: string | null, now: number): { text: ReactNode; conflict: boolean } {
+export function uploadProblem(e: unknown, name: string, me: string | null, now: number): { text: ReactNode; conflict: boolean } {
   if (e instanceof ApiError && (e.code === "file_exists" || e.code === "file_changed")) return { text: conflictText(e, name, me, now), conflict: true };
   if (e instanceof ApiError && e.code === "file_has_secret") return { text: "The file looks like it holds a credential, such as an API key or a private key. Nothing was uploaded. Take the credential out, then upload it again.", conflict: false };
   if (e instanceof ApiError && e.code === "file_too_large") return { text: "Files can be at most 50 MB. Nothing was uploaded.", conflict: false };
@@ -465,7 +466,7 @@ function uploadProblem(e: unknown, name: string, me: string | null, now: number)
 }
 
 /** boardName turns a local file's name into a name the board takes: no spaces or other characters a path can't hold. */
-function boardName(local: string): string {
+export function boardName(local: string): string {
   const cleaned = local.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[^A-Za-z0-9]+/, "");
   return cleaned || "file";
 }
@@ -586,9 +587,12 @@ export function FilePanel({
   me,
   canUpload,
   onShow,
+  at,
 }: {
   board: string;
   id: string;
+  /** at is the version to show first, as when an attachment opens the panel, and a count that changes with each request. */
+  at?: { version: number | null; n: number };
   activity: number;
   back: () => void;
   identity: Identity;
@@ -608,6 +612,11 @@ export function FilePanel({
     setError(null);
     setViewing(null);
   }, [board, id]);
+  const atVersion = at?.version ?? null;
+  const atN = at?.n ?? 0;
+  useEffect(() => {
+    setViewing(atVersion);
+  }, [id, atVersion, atN]);
   useEffect(() => {
     let live = true;
     getFile(board, id).then(
