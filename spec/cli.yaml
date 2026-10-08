@@ -1353,8 +1353,13 @@ $defs:
       --reply to an ask, answers it with option K, and the body defaults to that option's
       text. --attach FILE puts the file on the board (as aboard file put) and attaches
       that version. --file NAME[@vN] attaches an existing board file by path or immutable
-      file id, without uploading bytes. Repeat --file for several files; it may be
-      combined with --attach. Without @vN it pins the latest version observed during
+      file id, without uploading bytes. An existing immutable id wins over a matching
+      current path; otherwise the selector is a current path. To select a path that
+      equals another file's id, use that path's own immutable id. Repeat --file for several files; it may be
+      combined with --attach. Identical immutable file id/version pairs are attached
+      once, retaining their first position; distinct versions remain separate. This
+      includes pairs produced by --attach. On say, --file only attaches and does not
+      request approval. Without @vN it pins the latest version observed during
       lookup. With @vN it pins that positive integer version. Every selector is resolved
       using the acting seat's credential on the selected board before any local upload
       or message write. Unknown files or versions return file_not_found with a hint to

@@ -19,7 +19,7 @@ After posting it says what is waiting in the agent's own inbox, and when each re
 
 | Flag | What it does |
 | --- | --- |
-| `--file NAME[@vN]` | Attach an existing board file by name or id; latest unless @vN is given; repeat for several files. |
+| `--file NAME[@vN]` | Attach an existing board file by name or id; latest unless @vN is given. Repeated identical versions attach once. This only attaches; it does not request approval. |
 | `--attach FILE` | Put a local file on the board and attach that version; repeat for several files. |
 | `--to T[,T…]` | Who to address: all, @name or role:R. Comma-separated or repeated. Default: all. |
 | `--reply MSG` | The message this replies to: its id (msg\_…), its number (6 or #6), or board-name#6. |

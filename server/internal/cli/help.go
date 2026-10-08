@@ -363,7 +363,7 @@ func helpText(templates string) []commandHelp {
 			Name: "ask", Group: groupTalk,
 			Summary:     "Ask for a recorded decision, with optional choices",
 			Usage:       []string{askUsage, `aboard ask --withdraw MSG [WHY] [--as AGENT] [--board NAME] [--json]`, `aboard ask --open [--as AGENT] [--board NAME] [--json]`},
-			Description: "With no @name, an agent asks its person. A person names who should answer. Extra arguments are up to four options. Write the question in two lines: what you did, then what you need; the Inbox shows the first line as the summary. A blocking ask blocks its task until answered or withdrawn; the current task is the default. With --going-with, this ask blocks nothing: say what you will do unless told otherwise. An answer is recorded as a decision and wakes the asker. Withdraw only your own asks; --open shows asks waiting for answers.",
+			Description: "With no @name, an agent asks its person. A person names who should answer. Extra arguments are up to four options. Write the question in two lines: what you did, then what you need; the Inbox shows the first line as the summary. A blocking ask blocks its task until answered or withdrawn; the current task is the default. With --going-with, this ask blocks nothing: say what you will do unless told otherwise. An answer is recorded as a decision and wakes the asker. Withdraw only your own asks; --open shows asks waiting for answers. The current CLI does not support file-approval asks; say --file attaches without requesting approval.",
 			Flags:       []helpFlag{{"--going-with", "TEXT", "What you will do unless told otherwise."}, {"--at", "TIME", "When to go ahead: local HH:MM or a duration such as 20m."}, {"--task", "ID", "The task this ask is about."}, {"--no-task", "", "Do not inherit your current task."}, {"--withdraw", "MSG", "Withdraw this ask, optionally giving a reason."}, {"--open", "", "Show open asks."}, flagAs, flagBoard, flagJSON},
 			Examples:    []helpExample{{`aboard ask "Proceed with the change?" "Proceed" "Wait"`, "Ask your person with two options"}, {`aboard say --reply 93 --option 1`, "Answer with a numbered option"}},
 		},
@@ -413,7 +413,7 @@ func helpText(templates string) []commandHelp {
 				"After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the " +
 				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{
-				{"--file", "NAME[@vN]", "Attach an existing board file by name or id; latest unless @vN is given; repeat for several files."},
+				{"--file", "NAME[@vN]", "Attach an existing board file by name or id; latest unless @vN is given. Repeated identical versions attach once. This only attaches; it does not request approval."},
 				{"--attach", "FILE", "Put a local file on the board and attach that version; repeat for several files."},
 				{"--to", "T[,T…]", "Who to address: all, @name or role:R. Comma-separated or repeated. Default: all."},
 				{"--reply", "MSG", "The message this replies to: its id (msg_…), its number (6 or #6), or board-name#6."},

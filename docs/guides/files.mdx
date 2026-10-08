@@ -91,7 +91,9 @@ aboard say --as member --file api.md@v1 "Read the original version"
 
 `--file` accepts a board path or immutable file id. Without `@vN` it pins the latest
 version found; later edits do not change the attachment. Repeat `--file` for several
-files, or combine it with `--attach`. An unknown file or version refuses the message
+files, or combine it with `--attach`. Identical file id/version pairs attach once;
+different versions stay separate. An existing immutable id wins over a matching path;
+use that path's own id to select it. Attachments do not request approval. An unknown file or version refuses the message
 with `file_not_found`; run `aboard file list` to find the right name.
 
 ## Use files in the board view
