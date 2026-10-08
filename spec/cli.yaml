@@ -1465,6 +1465,11 @@ $defs:
   # ---------- aboard inbox [--wait SECONDS] [--peek] [--limit N] ----------
   InboxOutput:
     description: |
+      With --wait, a connection reset or other transient transport failure retries
+      the waiting GET with exponential backoff and jitter, within the original wait
+      deadline. Refused credentials and API error responses are not retried. No write
+      or acknowledgement is replayed by this reconnect behavior.
+
       Without --peek, the CLI acks up to the last returned message's seq before
       printing. If the ack fails, the command fails and prints nothing, so no message
       is shown as read without being acknowledged.
@@ -1906,7 +1911,9 @@ $defs:
       then each new matching message as it arrives, in read's text format, until
       interrupted (Ctrl-C exits 0). Status lines ("Watching writer-reviewer. Stop with
       Ctrl-C." and reconnect notices) go to stderr. If the stream drops it reconnects
-      and prints what it missed, never skipping or repeating a message.
+      with exponential backoff and jitter, and prints what it missed, never skipping
+      or repeating a message. Connection resets are retryable; credential refusals
+      stop the watch.
 
       With --json it prints JSON Lines instead of one object: one WatchOutput object per
       message, as each arrives. This is the one command whose --json output is a stream.
