@@ -33,6 +33,7 @@ type Class string
 const (
 	ClassOwnerOnly      Class = "owner_only"
 	ClassMixed          Class = "mixed"
+	ClassMidturnPeer    Class = "midturn_peer"
 	CapabilityHandoffV1       = "handoff-v1"
 )
 

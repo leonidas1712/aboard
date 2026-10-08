@@ -51,8 +51,21 @@ func validateManifest(m delivery.HandoffManifest) error {
 	if _, err := hex.DecodeString(m.PayloadHash); err != nil {
 		return errors.New("invalid handoff payload hash")
 	}
-	if m.Class != delivery.ClassMixed && m.Class != delivery.ClassOwnerOnly {
+	if m.Class != delivery.ClassMixed && m.Class != delivery.ClassOwnerOnly && m.Class != delivery.ClassMidturnPeer {
 		return errors.New("invalid handoff class")
+	}
+	if m.Class == delivery.ClassMidturnPeer && (m.PeerTurn == 0 || len(m.PeerSenders) == 0) {
+		return errors.New("peer handoff requires a turn and immutable senders")
+	}
+	seenSenders := map[delivery.AgentKey]bool{}
+	for _, sender := range m.PeerSenders {
+		if sender.Server == "" || sender.MemberID == "" || sender.Board != "" || sender.Name != "" || seenSenders[sender] {
+			return errors.New("invalid or duplicate peer sender")
+		}
+		seenSenders[sender] = true
+	}
+	if m.Class != delivery.ClassMidturnPeer && (m.PeerTurn != 0 || len(m.PeerSenders) != 0) {
+		return errors.New("non-peer handoff carries peer allocation")
 	}
 	if m.Session.Harness == "" || m.Session.ID == "" || m.Boot == "" || len(m.Parts) == 0 || m.CreatedAt.IsZero() {
 		return errors.New("incomplete handoff manifest")
@@ -137,6 +150,15 @@ func (j *Journal) PrepareHandoff(ctx context.Context, m delivery.HandoffManifest
 			if !bytes.Equal(left, right) {
 				return errors.New("handoff manifest changed")
 			}
+			if previous.Class == delivery.ClassMidturnPeer {
+				var current int
+				if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sessions WHERE harness = ? AND session_id = ? AND boot = ? AND open = 1 AND peer_turn_active = 1 AND peer_turn = ?`, previous.Session.Harness, previous.Session.ID, previous.Boot, previous.PeerTurn).Scan(&current); err != nil {
+					return err
+				}
+				if current != 1 {
+					return errors.New("peer handoff turn changed")
+				}
+			}
 			for _, p := range previous.Parts {
 				current, err := currentPart(ctx, tx, previous, p)
 				if err != nil {
@@ -163,6 +185,20 @@ func (j *Journal) PrepareHandoff(ctx context.Context, m delivery.HandoffManifest
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
 			return err
+		}
+		if m.Class == delivery.ClassMidturnPeer {
+			var current int
+			if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sessions WHERE harness = ? AND session_id = ? AND boot = ? AND open = 1 AND peer_turn_active = 1 AND peer_turn = ?`, m.Session.Harness, m.Session.ID, m.Boot, m.PeerTurn).Scan(&current); err != nil {
+				return err
+			}
+			if current != 1 {
+				return errors.New("peer handoff turn changed")
+			}
+			for _, sender := range m.PeerSenders {
+				if _, err := tx.ExecContext(ctx, `INSERT INTO peer_caps (harness,session_id,turn_id,sender_server,sender_member_id,handoff_id) VALUES (?,?,?,?,?,?)`, m.Session.Harness, m.Session.ID, m.PeerTurn, sender.Server, sender.MemberID, m.ID); err != nil {
+					return fmt.Errorf("reserve peer sender allowance: %w", err)
+				}
+			}
 		}
 		m.Parts = append([]delivery.HandoffPart(nil), m.Parts...)
 		for i, p := range m.Parts {

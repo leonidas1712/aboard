@@ -142,7 +142,11 @@ type SessionRecord struct {
 	Turned    bool
 	InTurn    bool
 	SeenTurns bool
-	UpdatedAt time.Time
+	// PeerTurnActive is a logical turn, not presence. Reconnects and Stop
+	// continuations keep it; only explicit turn completion closes it.
+	PeerTurnActive bool
+	PeerTurn       uint64
+	UpdatedAt      time.Time
 }
 
 // Process is one running process. Start is when it started, in the system's own units,
@@ -331,6 +335,8 @@ type HandoffManifest struct {
 	PayloadHash string
 	Parts       []HandoffPart
 	CreatedAt   time.Time
+	PeerTurn    uint64
+	PeerSenders []AgentKey
 }
 
 // HandoffPart identifies one seat's exact contribution to an immutable payload.
