@@ -496,10 +496,11 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       onPosted={() => { setStick((n) => n + 1); s.refresh(); }}
     />
   ) : (
-    <>
+    <div className="flex flex-col gap-6">
       {workBy === "task" && <WorkTasks tasks={tasks} open={openTask} />}
-      {panel(true, workBy === "agent" && tasks.length > 0)}
-    </>
+      {/* The agents, people, charter and rules sit apart from the work above them. */}
+      <div className={cn(workBy === "task" && tasks.some((t) => t.state === "open" || t.state === "in_progress") && "border-t border-rule pt-6")}>{panel(true, workBy === "agent" && tasks.length > 0)}</div>
+    </div>
   );
   // On a phone, the buttons in the header that open the two sheets. Each carries a
   // marigold dot while something there waits on the person.
@@ -560,7 +561,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
 
           <main className="board-main flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none">
             <div className={column}>
-              <div className={cn(headerRow, "items-start justify-between gap-x-4 py-1.5")}>
+              <div className={cn(headerRow, "items-start justify-between gap-x-4 py-2.5")}>
                 <NowLine parts={loading ? null : now} onShow={onShow} />
                 {!loading && s.board && (s.board.unread ?? 0) > 0 && <MarkAllRead onClick={() => markRead(s.board!)} />}
                 <FilterControl
@@ -585,7 +586,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             </div>
             {centre(
               <>
-            {views.length > 1 && <div className={`${column} shrink-0 pb-2`}><div role="tablist" aria-label="Board views" className="board-views inline-flex max-w-full gap-0.5 overflow-x-auto rounded-box border border-rule bg-surface p-1">
+            {views.length > 1 && <div className={`${column} shrink-0 pb-3`}><div role="tablist" aria-label="Board views" className="board-views inline-flex max-w-full gap-0.5 overflow-x-auto rounded-box border border-rule bg-surface p-1">
               {views.map((v, i) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={shownView === v} tabIndex={shownView === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? views[0] : e.key === "End" ? views[views.length - 1] : views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length]; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-9 shrink-0 rounded-control px-3 transition-colors duration-[140ms] ease-out pointer-coarse:min-h-11", shownView === v ? "bg-selected font-bold text-ink" : "text-muted hover:bg-hover hover:text-ink", v === "files" && "animate-appear")}>{v === "conversation" ? "Conversation" : v === "tasks" ? <>Tasks <span className="font-normal text-muted tabular-nums">{tasks.length}</span></> : <>Files <span className="font-normal text-muted tabular-nums">{files.length}</span></>}</button>)}
             </div></div>}
             {taskState.list?.more && shownView === "tasks" && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}

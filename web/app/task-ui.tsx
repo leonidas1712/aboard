@@ -205,25 +205,38 @@ export function useAgentTasks(): (name: string) => Task[] {
 
 export function WorkTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) => void }) {
   const who = useWho();
-  const active = tasks.filter(isLive);
+  const { me } = useContext(Tasks);
+  // What waits on the person first, then the work under way, the blocked, and last what nobody has taken.
+  const rank = (t: Task) => (waitsOnMe(t, me) ? 0 : t.blocked ? 2 : t.state === "in_progress" ? 1 : 3);
+  const active = tasks.filter(isLive).sort((a, b) => rank(a) - rank(b));
   if (!active.length) return null;
-  return <div className="work flex flex-col gap-4" aria-label="Work by task">
-    {active.map((t) => <section key={t.id} aria-label={`Task ${t.ref}: ${t.title}`} className="flex flex-col gap-1">
-      <h3><button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="group flex min-h-11 w-full items-baseline gap-2 text-left"><span className="shrink-0 text-meta text-muted tabular-nums">{t.ref}</span><span className="min-w-0 flex-1 font-bold group-hover:underline">{t.title}</span></button></h3>
-      {onTask(t).length > 0 ? <ul className="flex flex-col gap-1.5">
-        {onTask(t).map((m, i) => {
-          const w = who(m);
-          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 flex-col gap-0.5 text-meta">
-            <span className="flex min-w-0 items-center gap-2">
-              <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} size="sm" status={w.status?.tone} />
-              <span className="truncate">{m.name}{i === 0 && t.owner && <span className="text-muted"> · owner</span>}</span>
-              {w.status && <StatusWord status={w.status} className="ml-auto shrink-0" />}
-            </span>
-            <LineText line={w.line} late={w.late} className="pl-7" />
-          </li>;
-        })}
-      </ul> : <p className="text-meta text-muted">Not picked up</p>}
-    </section>)}
+  return <div className="work flex flex-col gap-3" aria-label="Work by task">
+    {active.map((t) => {
+      const needs = waitsOnMe(t, me);
+      const people = onTask(t);
+      return <section key={t.id} aria-label={`Task ${t.ref}: ${t.title}`} data-work-task={t.ref} className={cn("work-task flex flex-col gap-3 rounded-box border px-3.5 py-3", needs ? "border-accent-strong bg-attention-soft" : "border-rule bg-surface")}>
+        <h3><button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="group flex w-full flex-col items-start gap-1 text-left">
+          <span className="flex items-center gap-2 text-meta text-muted tabular-nums">
+            {t.ref}
+            {needs ? <span className="rounded-[4px] bg-attention px-1.5 text-on-accent">needs you</span> : t.blocked ? <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-1.5 rounded-full bg-status-hold" />blocked</span> : null}
+          </span>
+          <span className="font-bold leading-snug text-ink group-hover:underline">{t.title}</span>
+        </button></h3>
+        {people.length > 0 ? <ul className={cn("flex flex-col gap-2.5 border-t pt-3", needs ? "border-accent-strong/40" : "border-rule")}>
+          {people.map((m, i) => {
+            const w = who(m);
+            return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 flex-col gap-1 text-meta">
+              <span className="flex min-w-0 items-center gap-2">
+                <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} size="sm" status={w.status?.tone} />
+                <span className="truncate">{m.name}{i === 0 && t.owner && <span className="text-muted"> · owner</span>}</span>
+                {w.status && <StatusWord status={w.status} className="ml-auto shrink-0" />}
+              </span>
+              <LineText line={w.line} late={w.late} className="pl-7" />
+            </li>;
+          })}
+        </ul> : <p className="flex items-center gap-2 text-meta text-muted"><span aria-hidden className="size-2 shrink-0 rounded-full border border-dashed border-muted" />Not picked up yet</p>}
+      </section>;
+    })}
   </div>;
 }
 
@@ -252,14 +265,14 @@ export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) 
   return <div className="task-view quiet-scroll min-h-0 flex-1 overflow-y-auto">
     <div className="px-4 pt-4 pb-10 sm:px-6">
       <div className="task-board grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:max-w-[calc(var(--cols)*320px)] lg:grid-cols-[repeat(var(--cols),minmax(0,1fr))]" style={{ "--cols": columns.length } as CSSProperties}>
-        {columns.map((c) => <section key={c.key} aria-label={c.title} className="task-column flex min-w-0 flex-col gap-2">
+        {columns.map((c) => <section key={c.key} aria-label={c.title} className="task-column flex min-w-0 flex-col gap-3">
           <h2 id={`tasks-${c.key}`} className="flex min-h-7 items-center gap-2 text-meta font-bold text-ink">
             {c.key === "needs" ? <span className="rounded-[4px] bg-attention px-1.5 text-on-accent">{c.title} <span className="tabular-nums">{c.list.length}</span></span> : <>
               <span aria-hidden className={cn("size-2 shrink-0 rounded-full", c.key === "doing" ? "bg-status-working" : c.key === "blocked" ? "bg-status-hold" : "border border-dashed border-muted")} />
               {c.title}<span className="font-normal text-muted tabular-nums">{c.list.length}</span>
             </>}
           </h2>
-          <ul className="flex flex-col gap-2">{c.list.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={c.key === "needs"} /></li>)}</ul>
+          <ul className="flex flex-col gap-3">{c.list.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={c.key === "needs"} /></li>)}</ul>
           {c.list.length === 0 && <p className="text-meta text-muted">{c.key === "doing" ? "Nothing in progress." : "Every task has an owner."}</p>}
           {c.key === "open" && idle.length > 0 && <div className="free-agents mt-2 flex flex-col gap-2 border-t border-rule pt-3">
             <h3 className="text-meta font-bold text-muted">Free agents</h3>
@@ -313,7 +326,7 @@ function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) =>
       data-task={t.ref}
       data-needs-you={needs || undefined}
       className={cn(
-        "task-card relative flex flex-col gap-2.5 rounded-box px-3.5 py-3 transition-colors duration-[140ms] ease-out has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent-strong",
+        "task-card relative flex flex-col gap-3 rounded-box px-4 py-3.5 transition-colors duration-[140ms] ease-out has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent-strong",
         needs ? "border border-accent-strong bg-attention-soft text-ink" : cn("border hover:border-field-border hover:bg-hover", t.state === "cancelled" ? "border-dashed border-field-border bg-transparent" : done ? "border-rule bg-transparent" : "border-rule bg-surface"),
       )}
     >

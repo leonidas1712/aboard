@@ -480,15 +480,15 @@ function MessageEntry({
   return (
     <li
       className={cn(
-        "message group relative grid px-2.5 transition-colors duration-200 ease-out",
+        "message group relative grid px-3 transition-colors duration-200 ease-out",
         nested ? "reply grid-cols-[24px_minmax(0,1fr)] gap-x-2.5" : "grid-cols-[32px_minmax(0,1fr)] gap-x-3",
-        grouped ? "pt-0.5" : nested ? "pt-2" : "pt-3",
-        groupGoesOn ? "pb-0.5" : threaded ? "pb-1.5" : nested ? "pb-2" : "pb-3",
+        grouped ? "pt-1" : nested ? "pt-2.5" : "pt-4",
+        groupGoesOn ? "pb-1" : threaded ? "pb-2" : nested ? "pb-2.5" : "pb-4",
         ruled && !grouped && "border-t border-rule",
         self && "own bg-own",
         self && !grouped && "rounded-t-box",
         self && !groupGoesOn && "rounded-b-box",
-        outlined && "my-1.5 rounded-box border",
+        outlined && "my-2.5 rounded-box border",
         outlined && (m.urgent ? "urgent border-[var(--outline-strong)]" : "asks border-[var(--outline-faint)]"),
         arrived && "animate-arrive",
       )}
@@ -748,7 +748,7 @@ function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
 
 function EventLine({ e, line, now, arrived }: { e: BoardEvent; line: string; now: number; arrived: boolean }) {
   return (
-    <li className={cn("board-event flex justify-center px-6 py-2.5", arrived && "animate-arrive")}>
+    <li className={cn("board-event flex justify-center px-6 py-3", arrived && "animate-arrive")}>
       <p
         className="max-w-full rounded-full border border-rule bg-surface px-3 py-0.5 text-center text-meta text-muted"
         title={exactTime(e.at)}

@@ -43,20 +43,20 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   const needs = active.filter((b) => attentionCount(b) > 0);
   const others = active.filter((b) => attentionCount(b) === 0);
   return (
-    <div className="flex flex-col gap-5">
-      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
+    <div className="flex flex-col gap-6">
+      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("-mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
         Inbox
         {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}
       </a>
       {needs.length > 0 && (
         <section aria-label="Needs you">
-          <h3 className="mb-1 text-meta font-bold text-ink">Needs you</h3>
+          <h3 className="mb-2 text-meta font-bold text-ink">Needs you</h3>
           <BoardLinks current={current} boards={needs} onMarkRead={onMarkRead} />
         </section>
       )}
       {others.length > 0 && (
         <section aria-label={needs.length > 0 ? "Other boards" : "Your boards"}>
-          {needs.length > 0 && <h3 className="mb-1 text-meta font-bold text-muted">Other boards</h3>}
+          {needs.length > 0 && <h3 className="mb-2 text-meta font-bold text-muted">Other boards</h3>}
           <BoardLinks current={current} boards={others} onMarkRead={onMarkRead} />
         </section>
       )}
@@ -97,7 +97,7 @@ export function ArchivedGroup({ count: n, holdsCurrent, children }: { count: num
             <span className="font-normal tabular-nums">{n}</span>
           </CollapsibleTrigger>
         </h3>
-        <CollapsibleContent className="pt-1 animate-fade-in">{children}</CollapsibleContent>
+        <CollapsibleContent className="pt-2 animate-fade-in">{children}</CollapsibleContent>
       </section>
     </Collapsible>
   );
@@ -107,7 +107,7 @@ export function ArchivedGroup({ count: n, holdsCurrent, children }: { count: num
 // unread count, which it stands for.
 function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: Board[]; onMarkRead: (b: Board) => void }) {
   return (
-    <ul className="board-nav -mx-2.5 flex flex-col gap-0.5">
+    <ul className="board-nav -mx-2.5 flex flex-col gap-1">
       {boards.map((b) => {
         const here = b.name === current;
         return (
@@ -116,7 +116,7 @@ function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: 
               href={`/?board=${encodeURIComponent(b.name)}`}
               aria-current={here ? "page" : undefined}
               className={cn(
-                "flex min-h-11 items-center gap-3 rounded-control px-2.5 py-1.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-hover",
+                "flex min-h-12 items-center gap-3 rounded-control px-2.5 py-2 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-hover",
                 here && "bg-selected hover:bg-selected",
               )}
             >
@@ -198,10 +198,10 @@ export function BoardPanel({ board, members, record, me, meId, canInvite, from, 
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {showAgents && (
         <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
-          <div className="flex flex-col gap-4 pt-1">
+          <div className="flex flex-col gap-5 pt-2">
             {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
             <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} identity={identity} latest={latest} onShowMessage={onShowMessage} byAgent={byAgent} />
             {canInvite && board && <RemovedAgents key={board.name} board={board.name} />}
@@ -366,7 +366,7 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved, identity,
       ) : agents.length === 0 ? (
         <p>No agents yet.</p>
       ) : (
-        <ul className="flex flex-col gap-0.5" aria-label="Agents">
+        <ul className="flex flex-col gap-1" aria-label="Agents">
           {agents.map((a) => (
             <AgentItem
               key={a.id}
@@ -388,10 +388,10 @@ function WhosHere({ board, members, me, meId, from, onPick, onRemoved, identity,
       )}
       {people.length > 1 && (
         <section aria-labelledby="people">
-          <h4 id="people" className="mb-1 text-meta font-bold text-muted">
+          <h4 id="people" className="mb-2 text-meta font-bold text-muted">
             People
           </h4>
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-1.5">
             {people.map((p) => (
               <li key={p.id} className="flex items-baseline justify-between gap-3" data-person={p.name}>
                 <NameButton name={p.name} picked={from === p.name} onPick={() => onPick(p.name)}>
@@ -521,7 +521,7 @@ function AgentItem({
       <LineText line={agent.line} late={agent.state === "late"} className="-mt-1 pb-1 pl-7" />
       {agent.presence === "waiting" && <p className="text-meta">Its session is waiting for a person, such as at a permission prompt.</p>}
       {tasks && (
-        <p className="agent-tasks flex flex-wrap items-baseline gap-1 pb-1.5 pl-7">
+        <p className="agent-tasks flex flex-wrap items-baseline gap-1 pb-2.5 pl-7">
           {tasks.length > 0 ? <TaskChips tags={tasks.map((t) => ({ id: t.id, ref: t.ref, how: "given" }))} /> : <span className="text-meta text-muted">on no task</span>}
         </p>
       )}

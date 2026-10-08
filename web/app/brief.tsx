@@ -238,7 +238,7 @@ export function Brief({
     <section
       aria-label="Brief"
       data-open={open || undefined}
-      className={cn("brief quiet-scroll mb-3 rounded-box border bg-surface px-4 py-3", open && "max-h-[62dvh] overflow-y-auto overscroll-contain", stale ? "border-dashed border-field-border" : "border-rule")}
+      className={cn("brief quiet-scroll mb-4 rounded-box border bg-surface px-5 py-4", open && "max-h-[62dvh] overflow-y-auto overscroll-contain", stale ? "border-dashed border-field-border" : "border-rule")}
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <h2 className="text-meta font-bold text-ink">Brief</h2>
@@ -277,7 +277,7 @@ export function Brief({
         ) : text === null ? (
           <p className="mt-1 h-6 w-2/3 rounded-control bg-selected motion-safe:animate-pulse" role="status" aria-label="Loading the brief" />
         ) : !open ? (
-          <p className="brief-summary mt-1 line-clamp-2 text-now">{short || <span className="text-muted">The brief has no text yet.</span>}</p>
+          <p className="brief-summary mt-2 line-clamp-2 text-now">{short || <span className="text-muted">The brief has no text yet.</span>}</p>
         ) : (
           <div className="animate-fade-in">
             <div className="mt-2 border-t border-rule pt-3">

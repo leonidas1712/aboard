@@ -138,7 +138,7 @@ function Who({ by, me, identity }: { by: MemberRef; me: string | null; identity:
       <span className="relative inline-flex shrink-0" data-status={status?.tone}>
         <SenderMark name={by.name} kind={by.kind} identity={identity(by)} className="size-5 rounded-[5px] text-[10px]" />
         {status && (
-          <span aria-hidden className="absolute -top-1.5 -right-1.5 flex size-2.5 items-center justify-center rounded-full bg-[var(--mark-ring,var(--background))]">
+          <span aria-hidden className="absolute -top-[3px] -right-[3px] flex size-2.5 items-center justify-center rounded-full bg-[var(--mark-ring,var(--background))]">
             <StatusDot tone={status.tone} className="size-1.5" />
           </span>
         )}
@@ -390,11 +390,11 @@ function NoFiles({ upload }: { upload: ReactNode }) {
 function FileRow({ f, selected, open, identity, me, now }: { f: BoardFile; selected: boolean; open: (id: string) => void; identity: Identity; me: string | null; now: number }) {
   return (
     <article
-      className={cn("file-row group relative grid grid-cols-[18px_minmax(0,1fr)] gap-x-3 px-2 py-3 transition-colors duration-[140ms] ease-out", selected ? "bg-selected" : "hover:bg-selected/50")}
+      className={cn("file-row group relative grid grid-cols-[18px_minmax(0,1fr)] gap-x-3 px-3 py-4 transition-colors duration-[140ms] ease-out", selected ? "bg-selected" : "hover:bg-selected/50")}
       data-file={f.name}
     >
       <FileIcon name={f.name} mediaType={f.latest.media_type} className="mt-[3px]" />
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-baseline gap-x-2">
           {/* The name's button covers the row, so the whole row opens the file. */}
           <button

@@ -159,7 +159,14 @@ test("the board view in the brand, every screen and scheme", async ({ page }) =>
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole("tab", { name: "Conversation" }).click();
     await shot(page, `desktop-board-${theme}`);
+    // The whole Work panel, top to bottom, on a tall window.
+    await page.setViewportSize({ width: 1440, height: 1700 });
+    await page.mouse.move(0, 0);
+    await panel.screenshot({ path: join(dir!, `work-panel-by-task-${theme}.png`), animations: "disabled" });
     await panel.getByRole("button", { name: "by agent" }).click();
+    await page.mouse.move(0, 0);
+    await panel.screenshot({ path: join(dir!, `work-panel-by-agent-${theme}.png`), animations: "disabled" });
+    await page.setViewportSize({ width: 1440, height: 900 });
     await shot(page, `desktop-board-by-agent-${theme}`);
     await panel.getByRole("button", { name: "by task" }).click();
     await page.getByRole("tab", { name: /^Tasks/ }).click();

@@ -397,9 +397,11 @@ touch around their centre (`.tap`).
 Above the columns sits the header (product name, board name, Pause board), on the
 surface colour with a 1px rule below.
 
-Spacing follows a small scale: 4 and 8px inside a group (a name and its fields), 12 to
-14px between timeline entries' contents, 16px between sidebar sections, 20 to
-32px of column padding. Timeline entries are separated by a 1px rule, not by space or
+Spacing follows a small scale with room to breathe: 4 to 8px inside a group (a name and
+its fields), 16px of vertical padding in a timeline entry, 12px between task blocks and
+Inbox rows, 24px between panel sections, 20 to 32px of column padding, and 96px of
+empty space at the bottom of a panel or sheet so its last row never sits under
+anything floating. Timeline entries are separated by a 1px rule, not by space or
 boxes.
 
 Fields are a two-column grid: a fixed label column (72 to 76px, `meta`) and the value.
@@ -478,8 +480,9 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   member id appear first under "Needs you"; remaining boards appear under "Other
   boards". Without unresolved questions, the list has no group heading. Within each
   group, boards sort by `last_message_at` (falling back to `created_at`), newest first,
-  with board id breaking ties. Rows have 6px by 10px padding and a minimum height of
-  44px; the current board has the `selected` fill and bold text.
+  with board id breaking ties. Rows have 8px by 10px padding and a minimum height of
+  48px, 4px apart, and each group heading has 8px below it; the current board has the
+  `selected` fill and bold text.
 - **Board counts:** questions needing a direct reply have a right-aligned count on the
   accent (`attention`) with `on-accent` text, bold Meta, a 6px radius and 2px by 8px
   padding.
@@ -506,8 +509,13 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   line ("People Leo (you, admin), Priya").
 - **Work, by task or by agent:** once the board has a task, the panel's title reads
   "Work · by task | by agent", a two-button switch (the current one on `selected`,
-  bold) that each browser remembers. By task, each live task lists who is on it, then
-  the agents and the rest of the panel. By agent, the Work list gives way and each agent
+  bold) that each browser remembers. By task, each live task is its own block (surface
+  fill, rule border, 12px radius, 12px by 14px padding, 12px apart; on `attention-soft`
+  with an accent-strong edge while it waits on you): the reference on its own line with
+  "needs you" or "blocked" beside it, the title under it so a wrapped title stays
+  aligned, then below a rule who is on it, or "Not picked up yet". Tasks that wait on
+  you come first, then work under way, the blocked, and what nobody has taken. A rule
+  and 24px separate the Work list from the agents and the rest of the panel. By agent, the Work list gives way and each agent
   row carries chips for the live tasks it is on (a task's reference, and its title when
   there is one), or "on no task"; agents on a task come first. With a task or a file
   open, the title reads "Task" or "File".
@@ -544,7 +552,8 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   arrives, the outline goes and "Answered by …" links to the reply.
 - **Reply:** one `muted` Meta line under the header quoting the message it answers,
   cut to one line with an ellipsis.
-- **Separation:** a 1px rule above each entry, 14px vertical padding.
+- **Separation:** a 1px rule above each entry, 16px vertical padding (4px inside a run
+  from one sender); an outlined entry keeps 10px above and below.
 - **Waiting for your reply:** a bar on the accent with `on-accent` text ("claude is
   waiting for your reply."), its Reply button in `on-accent` ink with accent text, so
   it stays a button on the accent.
@@ -577,8 +586,8 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
 ### Task card
 
 - **Style:** the reference in Meta over the title (bold; normal weight when closed), 1px
-  rule border, surface fill, 12px radius, 12px by 14px padding. The whole card opens
-  the task; its inner controls sit above it and keep their own action.
+  rule border, surface fill, 12px radius, 14px by 16px padding, 12px apart. The whole card
+  opens the task; its inner controls sit above it and keep their own action.
 - **Who is on it:** below a rule, one row per member on the task, owner first: the
   agent mark, the name (the owner's with a dotted "owner" that explains itself in a
   tooltip), and its status as a mark and a word, with its line under it where there is
