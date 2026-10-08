@@ -9,10 +9,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Message is what the delivery text shows of one board message.
 type Message struct {
+	At    time.Time
 	Files []File
 	// About lists permanent task references recorded on this message.
 	About  []string
@@ -62,6 +64,7 @@ type File struct {
 // Context adds the receiving seat and explicit board commands when a session works
 // on several boards. An empty context keeps the single-board delivery format.
 type Context struct {
+	Now            time.Time
 	Seat           string
 	BoardQualified bool
 }
@@ -126,6 +129,9 @@ func Format(m Message, contexts ...Context) string {
 		}
 	}
 	attrs = append(attrs, [2]string{"sender", m.Sender}, [2]string{"seq", strconv.Itoa(m.Seq)})
+	if !m.At.IsZero() {
+		attrs = append(attrs, [2]string{"sent-at", m.At.UTC().Format(time.RFC3339Nano)}, [2]string{"age", messageAge(m.At, contextOf(contexts).Now)})
+	}
 	if len(m.About) > 0 {
 		attrs = append(attrs, [2]string{"about", strings.Join(m.About, " ")})
 	}
@@ -251,12 +257,15 @@ const digestLineBody = 80
 // DigestLine is one message in a digest, made the same way every time from the message
 // alone: "#17 @codex → all · reply to #12: the body's first line, cut short…". Any "<"
 // is written "&lt;", so a body can't end the digest's element.
-func DigestLine(m Message) string {
+func DigestLine(m Message, contexts ...Context) string {
 	to := "all"
 	if len(m.To) > 0 {
 		to = strings.Join(m.To, ", ")
 	}
 	line := fmt.Sprintf("#%d @%s → %s", m.Seq, m.FromName, to)
+	if !m.At.IsZero() {
+		line += " · " + messageAge(m.At, contextOf(contexts).Now)
+	}
 	if m.ReplyToSeq > 0 {
 		line += fmt.Sprintf(" · reply to #%d", m.ReplyToSeq)
 	}
@@ -293,11 +302,11 @@ const DigestLinesBytes = 4 << 10
 
 // digestLines writes one line per message, or, when those pass DigestLinesBytes, one
 // line per sender, in the order of its first message.
-func digestLines(ms []Message) string {
+func digestLines(ms []Message, contexts ...Context) string {
 	lines := make([]string, 0, len(ms))
 	n := 0
 	for _, m := range ms {
-		l := DigestLine(m)
+		l := DigestLine(m, contexts...)
 		lines = append(lines, l)
 		n += len(l) + 1
 	}
@@ -310,7 +319,15 @@ func digestLines(ms []Message) string {
 		if _, ok := seqs[m.FromName]; !ok {
 			order = append(order, m.FromName)
 		}
-		seqs[m.FromName] = append(seqs[m.FromName], "#"+strconv.Itoa(m.Seq))
+		seq := "#" + strconv.Itoa(m.Seq)
+		if !m.At.IsZero() {
+			now := time.Time{}
+			if len(contexts) > 0 {
+				now = contexts[0].Now
+			}
+			seq += " (" + messageAge(m.At, now) + ")"
+		}
+		seqs[m.FromName] = append(seqs[m.FromName], seq)
 	}
 	lines = lines[:0]
 	for _, name := range order {
@@ -334,7 +351,7 @@ func Digest(board string, full, summarized []Message, contexts ...Context) strin
 		b.WriteString(Bundle(board, full, contexts...) + "\n")
 	}
 	b.WriteString(`<aboard-digest board="` + attrEscaper.Replace(board) + `"` + seatAttribute(contexts) + ` count="` + strconv.Itoa(len(summarized)) + "\">\n")
-	b.WriteString(digestLines(summarized) + "\n</aboard-digest>\n")
+	b.WriteString(digestLines(summarized, contexts...) + "\n</aboard-digest>\n")
 	first := summarized[0].Seq
 	for _, m := range summarized {
 		first = min(first, m.Seq)
@@ -444,4 +461,21 @@ func Reopened(name, board, mode string, turnEnd bool) string {
 func Lost(name, board string) string {
 	return fmt.Sprintf("Aboard: this session was %s on %s until another session resumed %s; it has no agent now. "+
 		"To act as %s here again, run aboard resume %s, which leaves the other session without it.", name, board, name, name, name)
+}
+
+func messageAge(at, now time.Time) string {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	d := max(now.Sub(at), 0)
+	switch {
+	case d < time.Minute:
+		return "sent just now"
+	case d < time.Hour:
+		return fmt.Sprintf("sent %d min ago", int(d/time.Minute))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("sent %d h ago", int(d/time.Hour))
+	default:
+		return fmt.Sprintf("sent %d d ago", int(d/(24*time.Hour)))
+	}
 }

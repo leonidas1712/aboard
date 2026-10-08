@@ -370,6 +370,11 @@ const stopRetries = 5
 // error and exits 2, which wakes the session with it; when released it exits 0. If the
 // daemon goes away, the hook starts it again and keeps waiting.
 func (h hookCall) stop(ctx context.Context) error {
+	if h.harness == "codex" {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
 	resumed := false
 	failures := 0
 	for {
@@ -389,7 +394,9 @@ func (h hookCall) stop(ctx context.Context) error {
 		}
 		req := withHarnessProcess(h.request(delivery.OpWait))
 		req.V, req.Resumed, req.Started = delivery.ProtocolVersion, resumed, h.started
+		stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 		code, done := h.waitOn(conn, req)
+		stop()
 		_ = conn.Close()
 		if done {
 			return hookExit(code)
@@ -419,6 +426,16 @@ func (h hookCall) waitOn(conn io.ReadWriter, req delivery.Request) (code int, do
 			h.a.hookNote(resp.Error.Message)
 			return 0, true
 		case resp.Event == delivery.EventDeliver:
+			if h.harness == "codex" {
+				if err := json.NewEncoder(h.a.env.Stdout).Encode(struct {
+					Decision string `json:"decision"`
+					Reason   string `json:"reason"`
+				}{Decision: "block", Reason: resp.Bundle}); err != nil {
+					return 0, true
+				}
+				_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
+				return 0, true
+			}
 			_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
 			_, _ = io.WriteString(h.a.env.Stderr, resp.Bundle+"\n\nAboard delivery: new messages for this session.\n")
 			return exitWake, true

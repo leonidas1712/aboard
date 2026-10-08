@@ -347,7 +347,7 @@ func readEvents(r io.Reader, line func(), dispatch func(event, data string)) err
 // TextMessage turns an API message into what the delivery text shows of it.
 func TextMessage(m api.Message) deliverytext.Message {
 	t := deliverytext.Message{
-		Board: m.Board, FromName: m.From.Name, FromHuman: m.From.Kind == "human",
+		At: m.At, Board: m.Board, FromName: m.From.Name, FromHuman: m.From.Kind == "human",
 		Sender: string(m.Sender), Seq: m.Seq, Urgent: m.Urgent, ExpectsReply: m.ExpectsReply, Body: m.Body,
 	}
 	if m.Ask != nil {

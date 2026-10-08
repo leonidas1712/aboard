@@ -369,6 +369,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true
 		s.turnStarted(ctx)
+		s.saveSession(ctx)
 		if !req.Wake {
 			s.event(ctx, req.Boot)
 		}
@@ -394,6 +395,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.event(ctx, req.Boot)
 		s.inTurn, s.working = false, false
 		s.seenTurns = true
+		s.saveSession(ctx)
 		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
 			s.gatherUntil = s.now()
 		}
@@ -583,7 +585,7 @@ func (s *session) markTurned(ctx context.Context) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -647,8 +649,10 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		s.waiter.Release()
 	}
 	s.waiter = w
+	s.inTurn = false
 	s.working = false
 	s.seenTurns = true
+	s.saveSession(ctx)
 	w.accepted()
 	if !s.open {
 		s.setOpen(ctx, true)
@@ -1327,17 +1331,29 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if len(offers) > 0 {
 		// The server is the authority on what the agent has read: check just before
 		// handing, in case a read the stream reports hasn't arrived yet.
-		s.recheck(ctx)
+		if !s.recheck(ctx) {
+			s.gatherUntil = s.now().Add(QueueGather)
+			return
+		}
 		offers = s.offers(s.queueFilter())
 	}
 	notes, told := s.modeNotes()
 	limit := BundleLimit
+	stopHand := s.key.Harness == "codex" && s.waiter != nil
+	if stopHand {
+		limit = codexStopLimit
+	}
 	if notes != "" {
 		limit -= len(notes) + 1
 	}
 	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), notes)
-	s.skip(ctx, c.tooLarge)
+	if !stopHand {
+		s.skip(ctx, c.tooLarge)
+	}
 	if len(c.parts) == 0 {
+		if stopHand {
+			s.stopReadHint(ctx, offers)
+		}
 		s.scheduleRetry()
 		return
 	}
@@ -1353,7 +1369,8 @@ func (s *session) tryDeliver(ctx context.Context) {
 		first = handed[0].ID
 	}
 	began := s.now()
-	idle := s.adapter.WaitsForIdle() || !s.inTurn
+	hookHand := s.waiter != nil
+	idle := !hookHand && (s.adapter.WaitsForIdle() || !s.inTurn)
 	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, HandoffID: func() string {
 		if len(s.agents) > 1 {
 			return handoff.manifest.ID
@@ -1364,11 +1381,13 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.accepted(ctx, handed, idle)
 		s.markTold(told)
 	}
-	if s.adapter.WaitsForIdle() {
+	if s.adapter.WaitsForIdle() || hookHand {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
 	}
-	if err == nil && s.adapter.WaitsForIdle() {
+	if err == nil && (s.adapter.WaitsForIdle() || hookHand) {
+		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true // the waiting hook took the bundle and wakes the session with it
+		s.saveSession(ctx)
 	}
 	switch {
 	case err == nil && confirmed:
@@ -1400,6 +1419,40 @@ func (s *session) tryDeliver(ctx context.Context) {
 	s.scheduleRetry()
 	s.d.log.Info("bundle handed", "session", s.key.String(), "board", partBoard(c.parts), "deliveries", len(handed), "seqs", partSeqs(c.parts),
 		"bytes", len(c.text), "began", began, "error", errText(err))
+}
+
+const codexStopLimit = 2000
+
+// stopReadHint leaves bodies pending when they cannot fit a continuation reason.
+func (s *session) stopReadHint(ctx context.Context, offers []offer) {
+	text := "Aboard: queued messages need a full read. Run aboard inbox to read and acknowledge them. These hints are not receipts.\n"
+	var shown []offer
+	for _, o := range offers {
+		a := s.agents[o.agent.Key()]
+		for _, m := range o.msgs {
+			if a.previewed[m.Seq] {
+				continue
+			}
+			line := fmt.Sprintf("Board %q: #%d from @%s.\n", a.ref.Board, m.Seq, m.FromName)
+			if len(text)+len(line) > codexStopLimit {
+				break
+			}
+			text += line
+			shown = append(shown, offer{agent: o.agent, msgs: []Message{m}})
+		}
+	}
+	if len(shown) == 0 {
+		return
+	}
+	if _, err := s.hand(ctx, Handover{SessionID: s.key.ID, Bundle: text, Waiter: s.waiter}); err != nil {
+		return
+	}
+	for _, o := range shown {
+		s.agents[o.agent.Key()].previewed[o.msgs[0].Seq] = true
+	}
+	s.waiter = nil
+	s.inTurn, s.working = true, true
+	s.saveSession(ctx)
 }
 
 // accepted records that the harness took the deliveries of a bundle. Handed to an idle
@@ -1467,10 +1520,13 @@ func (s *session) forgetAwaiting() {
 	s.awaitingTurn, s.stallAt = nil, time.Time{}
 }
 
-// canTake reports whether the session can be handed a bundle now: a queueing harness
-// always can, one that waits for idle only while its hook or extension waits.
+// canTake keeps a tracked busy turn's backlog in the daemon, where reads can remove
+// it and turn end can coalesce it. An accepted idle wake waits for its turn to start.
 func (s *session) canTake() bool {
-	return !s.adapter.WaitsForIdle() || s.waiter != nil
+	if s.adapter.WaitsForIdle() {
+		return s.waiter != nil
+	}
+	return s.waiter != nil || (!s.inTurn && len(s.awaitingTurn) == 0)
 }
 
 // nextTimer is when the session next has something to do on its own: hand a bundle once
@@ -1533,6 +1589,15 @@ func (s *session) hand(ctx context.Context, h Handover) (bool, error) {
 		}
 	})
 	defer stop()
+	if s.waiter != nil && !s.adapter.WaitsForIdle() {
+		if w, ok := s.waiter.(HandoffWaiter); ok {
+			return false, w.DeliverHandoff(hctx, h)
+		}
+		if h.HandoffID != "" {
+			return false, ErrExtensionOutdated
+		}
+		return false, s.waiter.Deliver(hctx, h.ID, h.Bundle)
+	}
 	return s.adapter.Hand(hctx, h)
 }
 
@@ -1874,7 +1939,8 @@ const recheckTimeout = 5 * time.Second
 // session's goroutine, so a bundle or a notice never carries a message the agent read
 // through any client a moment ago, before the stream's report of it arrived. It costs
 // one request per agent, made only when there is something to hand or announce.
-func (s *session) recheck(ctx context.Context) {
+func (s *session) recheck(ctx context.Context) bool {
+	fresh := true
 	for _, ref := range s.agentRefs() {
 		if a := s.agents[ref.Key()]; a.adopting || a.gone() {
 			continue
@@ -1884,10 +1950,12 @@ func (s *session) recheck(ctx context.Context) {
 		cancel()
 		if err != nil && problemOf(err) == "" {
 			s.d.log.Warn("recheck inbox", "agent", ref.Name, "board", ref.Board, "error", err)
+			fresh = false
 			continue
 		}
 		s.onInbox(ctx, inboxResult{agent: ref, msgs: msgs, cursor: cursor, mode: mode, err: err})
 	}
+	return fresh
 }
 
 func newAgentState(ref AgentRef, adopting bool) *agentState {

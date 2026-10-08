@@ -140,6 +140,8 @@ type SessionRecord struct {
 	// Turned is true once the session has run a turn, which a harness needs before it
 	// can resume the session (Claude Code saves a conversation only from its first turn).
 	Turned    bool
+	InTurn    bool
+	SeenTurns bool
 	UpdatedAt time.Time
 }
 

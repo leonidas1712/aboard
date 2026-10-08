@@ -51,7 +51,7 @@ func (s *session) preflightBinding(agent AgentRef) Response {
 }
 
 func (s *session) compositionOptions(limit int) composeOptions {
-	return composeOptions{MultiSeat: len(s.agents) > 1, First: s.firstSeat, WholeLimit: limit}
+	return composeOptions{Now: s.now(), MultiSeat: len(s.agents) > 1, First: s.firstSeat, WholeLimit: limit}
 }
 
 func handoffClass(parts []offer) Class {
@@ -106,7 +106,11 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	if err := s.ensureBoot(ctx); err != nil {
 		return nil, nil, err
 	}
-	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: s.now()}
+	renderedAt := c.renderedAt
+	if renderedAt.IsZero() {
+		renderedAt = s.now()
+	}
+	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt}
 	hash := sha256.Sum256([]byte(text))
 	manifest.PayloadHash = hex.EncodeToString(hash[:])
 	for _, p := range c.parts {
@@ -297,11 +301,11 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 				}
 			}
 		}
-		text := renderComposition(parts, opts.MultiSeat, h.digests)
+		text := renderComposition(parts, opts.MultiSeat, h.digests, h.manifest.CreatedAt)
 		if len(text) > limit {
 			continue
 		}
-		return composed{parts: parts, text: text, digests: h.digests, nextFirst: s.firstSeat}
+		return composed{renderedAt: h.manifest.CreatedAt, parts: parts, text: text, digests: h.digests, nextFirst: s.firstSeat}
 	}
 	return compose(offers, limit, opts)
 }

@@ -175,6 +175,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 			continue
 		}
 		s.boot, s.open, s.proc, s.lost, s.started, s.turned = r.Boot, r.Open, r.Process, r.Lost, true, r.Turned
+		s.inTurn, s.seenTurns = r.InTurn, r.SeenTurns
 		d.open[r.Key] = r.Open
 		d.turned[r.Key] = r.Turned
 	}

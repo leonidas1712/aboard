@@ -108,7 +108,7 @@ lifecycle:
 
 delivery:
   method: queue
-  capabilities: [queue, tool-boundary, turn-start]
+  capabilities: [queue, tool-boundary, turn-start, turn-end-hook]
   queue: [codex, queue, --thread, "{session}", --message, "{bundle}"]
   # Each hook carries the first Codex release that runs it as written, from the event
   # list Codex reads hooks.json with (codex-rs/hooks/src/engine/config.rs, later
@@ -140,8 +140,16 @@ delivery:
       op: turn-end
       timeout: 10
       since: 0.114.0
+      until: 0.160.0
       why: confirms what the turn's tool calls received and marks the turn ended; the owner's messages no tool call took go into the queue
       without: a turn's end isn't seen
+    - event: Stop
+      run: stop-continue
+      op: wait
+      timeout: 10
+      since: 0.160.0
+      why: waits up to five seconds for one fresh-checked turn-end bundle and returns it as a JSON continuation reason; queue wakes only idle sessions
+      without: turn-end delivery uses the harness queue
     # additionalContextLimit is in tokens: well above the 9,000 bytes the daemon adds at
     # one tool boundary, so Codex never shortens it. PreToolUse is known since 0.117.0
     # and its additionalContext reaches the model since 0.129.0; additionalContextLimit
@@ -152,8 +160,17 @@ delivery:
       timeout: 30
       options: {additionalContextLimit: 8192}
       since: 0.129.0
+      until: 0.160.0
       why: before each tool call, adds the owner's messages and the waiting notice as additionalContext; never denies
       without: your messages wait for the end of a turn
+    - event: PostToolUse
+      run: post-tool
+      op: tool
+      timeout: 30
+      options: {additionalContextLimit: 8192}
+      since: 0.160.0
+      why: adds eligible messages and a waiting notice after a tool call, including failed commands, without interrupting it
+      without: older versions use the pre-tool hook
     - event: SessionEnd
       run: end
       op: end
@@ -165,14 +182,14 @@ delivery:
   waiting_notice: true
 
 notes:
-  - The queue holds a bundle until the thread's current turn ends, so busy sessions need no tracking for ordinary messages.
+  - With trusted 0.160 hooks, busy-turn messages stay in the daemon for fresh-checked combined Stop delivery; the queue wakes an idle thread. Older hooks retain queue delivery.
   - Before binding, the daemon reads the exact thread through codex app-server (thread/read) and refuses sub-agent threads.
   - Hooks run only once trusted. Codex asks ("Hooks need review") when the first prompt is sent, or the person trusts them in /hooks; Codex asks again whenever a hook's command changes. Until then no hook runs, session start included; delivery still works through the queue but the owner's messages wait for the end of the turn.
   - Settings passed with -c, or --dangerously-bypass-hook-trust, make Codex run its own embedded app server, which codex queue can't reach.
   - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server, so a sandboxed command never starts one.
   - "Verified with Codex 0.159.3 (codex exec -s workspace-write, network off as by default): without the allow rule, aboard status inside Codex reported the running server and daemon as not running; with rules/aboard.rules it reported both running. A command that gets no answer there now fails with sandbox_blocks_network."
   - "Verified live with Codex 0.159.3: idle wake through the queue, a message added at the next tool call, sub-agent refusal."
-  - PreToolUse's additionalContext (Codex 0.129.0 and later) is recorded as a developer message before the tool runs. PostToolUse runs only after a tool succeeds, so it would miss failed tool calls; the tool hook is on PreToolUse.
+  - PreToolUse's additionalContext (Codex 0.129.0 and later) is recorded as a developer message before the tool runs. Older profiles used PreToolUse; the current 0.160 PostToolUse contract includes failed commands.
   - Hook input carries session_id, turn_id and cwd, and agent_id and agent_type in a thread-spawned sub-agent; there session_id is the root's, so every hook ignores input with agent_id.
   - "Verified live with Codex 0.160.0: a sub-agent's commands carry its own thread id in CODEX_THREAD_ID and the root's in CODEX_SESSION_ID (equal in the root), and aboard status there resolved no agent. Sub-agents fire SubagentStart and SubagentStop, not SessionStart and Stop, and codex queue and the app server refuse direct input to a v2 sub-agent thread (upstream source)."
   - "Verified live with Codex 0.159.3: codex resume <id> keeps the thread id (CODEX_THREAD_ID and the hooks' session_id), and SessionStart runs with source resume, but only once the resumed thread's first turn starts, not when the terminal opens. The session-start hook then binds it again to its agent (D157), and the waiting message goes into its queue."
