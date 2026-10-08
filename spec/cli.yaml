@@ -197,6 +197,8 @@ $defs:
       second seat to an extension session that did not negotiate handoff-v1; no seat or
       binding changes. The hint says to run aboard init in a terminal and restart the
       harness; spec/control.md, "Combined handoffs") ·
+      queue_unknown (the current session queue or its boundary could not be verified;
+      no preview is returned and nothing is acknowledged; check the connection and seat) ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
       inside a harness's sandbox, where it won't start one) · sandbox_blocks_network (the
       command runs inside a harness's sandbox that blocks network access, Codex's by
@@ -1325,7 +1327,10 @@ $defs:
       - `recipients`: when each recipient will see the message, from its presence and
         delivery mode as the board's members list shows them. `outcome` is `now` (its
         session is idle and delivery wakes it), `turn_end` (its session is working; it
-        gets the message when its turn ends), `next_turn` (its mode is `focused` and the
+        gets the message when its turn ends), `next_step_if_supported` (current same-owner
+        urgent direct-message policy permits a verified tool boundary, subject to the
+        per-turn cap; this is eligibility, not a delivery confirmation),
+        `turn_end_owner_only` (its person permits only person input mid-turn), `next_turn` (its mode is `focused` and the
         message doesn't concern it, so it doesn't wake it: it sees the message at the
         start of its next turn; spec/delivery.md, "Delivery modes"), `not_woken` (its
         delivery mode is `off`, or `humans` and the sender is an agent; it sees the
@@ -1448,7 +1453,7 @@ $defs:
               enum: [focused, all, humans, off, auto, null]
               description: The agent's delivery mode as last reported; null for a person or when never reported (treated as focused). auto, reported by an older daemon, means all.
             outcome:
-              enum: [now, turn_end, next_turn, not_woken, no_session, cannot_read, over_limit, person]
+              enum: [now, turn_end, next_step_if_supported, turn_end_owner_only, next_turn, not_woken, no_session, cannot_read, over_limit, person]
       warning:
         description: |
           Set when the message is to everyone and wakes no agent (see above); null
@@ -1506,6 +1511,12 @@ $defs:
       --queued is a read-only preview of the current session queue (QueuedMessages),
       including messages already acknowledged on harness queue admission. It never
       confirms or acknowledges; acked_up_to is null. Scheduled delivery is unchanged.
+
+      With --wait, a connection reset or other transient transport failure retries
+      the waiting GET with exponential backoff and jitter, within the original wait
+      deadline; the existing response-timeout grace remains. Refused credentials and
+      API error responses are not retried. No write
+      or acknowledgement is replayed by this reconnect behavior.
 
       Without --peek, the CLI acks up to the last returned message's seq before
       printing. If the ack fails, the command fails and prints nothing, so no message
@@ -1950,7 +1961,9 @@ $defs:
       then each new matching message as it arrives, in read's text format, until
       interrupted (Ctrl-C exits 0). Status lines ("Watching writer-reviewer. Stop with
       Ctrl-C." and reconnect notices) go to stderr. If the stream drops it reconnects
-      and prints what it missed, never skipping or repeating a message.
+      with exponential backoff and jitter, and prints what it missed, never skipping
+      or repeating a message. Connection resets are retryable; credential refusals
+      stop the watch.
 
       With --json it prints JSON Lines instead of one object: one WatchOutput object per
       message, as each arrives. This is the one command whose --json output is a stream.
@@ -3890,6 +3903,7 @@ $defs:
           required: [board_id, member_id, message_id, seq, from, boundary]
           properties:
             board_id: { type: string }
+            board: { type: string, description: Current readable board name; immutable board_id remains the identity. }
             member_id: { type: string }
             message_id: { type: string }
             seq: { type: integer, minimum: 1 }

@@ -696,6 +696,7 @@ A hook that gets an error, or can't reach the daemon, prints one line starting
 | --- | --- |
 | `daemon_protocol_mismatch` | The first message's `v` isn't the daemon's version |
 | `invalid_request` | An unknown operation, a message over 128 KiB, an unknown harness, a missing session, agent or `reply_to`, an unknown delivery mode, or a `member_id` that isn't the identity of its seat's own token ("Seats") |
+| `queue_unknown` | `queued` or `shown` cannot verify current own-seat access, exact identities, local observations or the delivery boundary; no acknowledgement or zero-count assertion |
 | `session_unknown` | `wait`, `bind` or `agents` for a session the daemon has no record of, for a harness that needs its hooks to register sessions |
 | `codex_subagent_target` | `register` or `bind` for a sub-agent: messages go to the root conversation |
 | `codex_target_absent` | `register` or `bind` for a session the harness says doesn't exist |
@@ -905,12 +906,35 @@ row, even when the combined payload contains only one board's messages.
 The additive `queued` operation reads `harness`, `session` and `boot`; its response
 has optional `queued` with the shape `QueuedMessages` in cli.yaml. It observes only
 that session's current seats, rechecks each own-token inbox and acknowledges nothing.
+Entries may include the current readable `board` name for display. With several
+boards, text summaries qualify message numbers with that name (or immutable id).
 A stale boot or seat is refused rather than substituted with another session. An old
 daemon's `invalid_request` leaves queue state unknown; it is never treated as no queue.
 `inbox --queued` uses this observation to preview messages by exact id with the current
 seat token, without claims, confirmation or acknowledgement. It never consumes or
 cancels a scheduled delivery. Accepted queue admission remains observed until turn
 start consumes the queue, even if the server already acknowledges those messages.
+
+The additive `shown` operation records full messages successfully emitted by a read
+command, never a summary or queued preview. It requires harness, session, the exact
+current boot, the binding `generation` captured in the read-start hold response,
+an AgentRef matching that session's current immutable seat, and
+`shown_messages`: objects with board_id, member_id, message_id and seq. The daemon
+verifies each exact identity with the seat's own token before saving observations
+bound to the current binding generation. The response has `shown: true` only after
+the journal commit. A stale boot, another seat or failed access refuses the entire
+batch; a missing daemon simply leaves normal read behavior unchanged. The additive
+`boot` and `generation` fields in a held inbox response identify the held binding;
+a shown request must match both before any current-token verification or journal write.
+
+Observations contain no body and acknowledge nothing. They suppress only later
+automatic handoffs and notices for those exact messages in that same boot and seat
+generation. A restart retains them, while a new boot, rotated credential or different
+session cannot inherit them. They do not authorize cancellation of already accepted
+external harness queue entries. A command reports only after successful complete
+stdout emission, holds local delivery while reading when possible, and never starts
+or replaces a daemon to report. Failed emission records nothing; unseen gaps remain
+unread. An unsupported old daemon leaves the read successful without suppression.
 
 `midturn-peer` on an extension's hello/welcome is a live negotiated capability. The
 same text on a profile alone cannot enable it. New combined peer context is delivered

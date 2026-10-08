@@ -329,19 +329,24 @@ func backoff(attempts int) time.Duration {
 // HandoffManifest freezes the payload and admitted seat allocation before handoff.
 // It contains delivery metadata only, never bodies or credentials.
 type HandoffManifest struct {
-	ID          string
-	Session     SessionKey
-	Boot        string
-	Class       Class
-	PayloadHash string
-	Parts       []HandoffPart
-	CreatedAt   time.Time
-	PeerTurn    uint64
-	PeerSenders []AgentKey
+	RenderVersion int
+	PrefixHash    string
+	MultiSeat     bool
+	ID            string
+	Session       SessionKey
+	Boot          string
+	Class         Class
+	PayloadHash   string
+	Parts         []HandoffPart
+	CreatedAt     time.Time
+	PeerTurn      uint64
+	PeerSenders   []AgentKey
 }
 
 // HandoffPart identifies one seat's exact contribution to an immutable payload.
 type HandoffPart struct {
+	RenderMode Mode
+	Digest     bool
 	Messages   []QueuedMessage
 	Agent      AgentRef
 	Generation uint64

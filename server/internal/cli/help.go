@@ -420,7 +420,7 @@ func helpText(templates string) []commandHelp {
 				{"--attach", "FILE", "Put a local file on the board and attach that version; repeat for several files."},
 				{"--to", "T[,T…]", "Who to address: all, @name or role:R. Comma-separated or repeated. Default: all."},
 				{"--reply", "MSG", "The message this replies to: its id (msg_…), its number (6 or #6), or board-name#6."},
-				{"--urgent", "", "Put the message first in each recipient's next delivery."},
+				{"--urgent", "", "Put the message first in the next delivery. A direct same-owner agent message may arrive at a supported tool boundary, subject to the recipient's policy and per-turn sender cap."},
 				{"--expect-reply", "", "Ask the recipients to reply."},
 				{"--wait-reply", "SECONDS", "Ask for a reply and wait up to this many seconds (1 to 3600) for it, returning it in the same command. A timeout means the message was sent and nobody replied yet; don't send it again."},
 				{"--task", "ID", "The task this message is about."},
@@ -439,7 +439,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "inbox", Group: groupTalk,
 			Summary: "Show an agent's unread messages and mark them read",
-			Usage:   []string{"aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard inbox [--wait SECONDS] [--peek | --queued] [--limit N] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Shows the agent's unread messages, each wrapped in an <aboard-message> tag naming its sender, " +
 				"and moves the agent's read position past them, so they are never delivered again.\n\n" +
 				"Agents run it at natural checkpoints in a long task. With --wait it waits for a message when there is none, " +
@@ -447,6 +447,7 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--wait", "SECONDS", "Wait up to this many seconds for a message when there is none."},
 				{"--peek", "", "Show the messages without marking them read."},
+				{"--queued", "", "Preview this session's verified turn-end queue without acknowledging or canceling it. Cannot combine with --wait or --peek."},
 				{"--limit", "N", "Show at most this many messages."},
 				flagAs, flagBoard, flagJSON,
 			},
@@ -600,16 +601,17 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "delivery", Group: groupBoard,
 			Summary: "Show or change when an agent's session is woken for messages",
-			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]", "aboard delivery midturn [owner-only|my-agents] [--as AGENT] [--board NAME] [--inherit] [--server SERVER] [--json]"},
 			Description: "Without a mode, shows the agent's delivery mode, which its server holds. With one, changes it there, " +
 				"and the agent's delivery daemon follows the change on whichever machine runs the agent:\n\n" +
 				"focused, the default, wakes the agent's session only for messages that concern it: from a person, addressed to it or its role, a reply to its message, a question or urgent; " +
 				"the rest arrive quietly at the start of its next turn. all wakes it for every message (auto is its earlier name). " +
 				"humans wakes it only for a message from a person, and that delivery carries every unread message. " +
 				"off delivers nothing; the agent reads its inbox itself.\n\n" +
+				"midturn owner-only permits only your own messages between steps. my-agents also permits one direct urgent message per same-owner sender per session turn, with supported hooks or an extension. With --as, set that agent's override; --inherit clears it. Without --as, set your default. Agents may read but never change it.\n\n" +
 				"Only the agent's person changes the mode, with their own login, so it is refused inside an agent's session. " +
 				"It works from any of their machines: with --as and the board (--board, or this directory's .aboard file) it names an agent that runs elsewhere.",
-			Flags: []helpFlag{flagAs, flagBoard, flagJSON},
+			Flags: []helpFlag{flagAs, flagBoard, {"--inherit", "", "Clear the selected agent's mid-turn override."}, {"--server", "SERVER", "The issuer server for mid-turn policy."}, flagJSON},
 			Examples: []helpExample{
 				{"aboard delivery --as reviewer", "Show the mode"},
 				{"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"},

@@ -15,6 +15,7 @@ import (
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
 type sessionMsg struct {
+	queueReport *queueReportResult
 	// A control request, answered on reply.
 	req       Request
 	reply     chan<- Response
@@ -113,12 +114,15 @@ type ackResult struct {
 // session is one open conversation in one harness. Everything below mail is changed
 // only by the session's own goroutine, in run.
 type session struct {
-	handoffs  map[string]*sessionHandoff
-	firstSeat int
-	d         *Daemon
-	key       SessionKey
-	adapter   Adapter
-	mail      *mailbox[sessionMsg]
+	shown       []ShownRecord
+	shownLoaded bool
+	shownBoot   string
+	handoffs    map[string]*sessionHandoff
+	firstSeat   int
+	d           *Daemon
+	key         SessionKey
+	adapter     Adapter
+	mail        *mailbox[sessionMsg]
 
 	boot string
 	open bool
@@ -136,9 +140,11 @@ type session struct {
 	inTurn bool
 	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
-	working        bool
-	peerTurnActive bool
-	peerTurn       uint64
+	working           bool
+	peerHookBoot      string
+	peerHookSupported bool
+	peerTurnActive    bool
+	peerTurn          uint64
 	// reported is the presence and delivery mode last reported for each agent.
 	reported map[AgentKey]reportedPresence
 	// waiter is the connection waiting while the session is idle: its stop hook's, or
@@ -180,9 +186,14 @@ type session struct {
 
 // agentState is what a session knows about one of its agents.
 type agentState struct {
-	midturnPolicy string
-	generation    uint64
-	ref           AgentRef
+	queueGeneration                          uint64
+	queueBoot                                string
+	queueSending, queueStopped, queueLastSet bool
+	queueNext, queueFreshAt                  time.Time
+	queueLast                                []QueuedMessage
+	midturnPolicy                            string
+	generation                               uint64
+	ref                                      AgentRef
 	// adopting is true until the previous session has given the agent up.
 	adopting bool
 	// fetched is true once the inbox has been read at least once.
@@ -233,16 +244,20 @@ func (s *session) run(ctx context.Context) error {
 			}
 			s.tryDeliver(ctx)
 			s.reportPresence(renew)
+			s.publishQueues(ctx)
 		case <-timer:
 			s.checkStalls(ctx)
 			s.tryDeliver(ctx)
 			s.reportPresence(false)
+			s.publishQueues(ctx)
 		}
 	}
 }
 
 func (s *session) handle(ctx context.Context, m sessionMsg) {
 	switch {
+	case m.queueReport != nil:
+		s.onQueueReport(*m.queueReport)
 	case m.preflight != nil:
 		m.reply <- s.preflightBinding(*m.preflight)
 	case m.waiter != nil:
@@ -324,7 +339,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
-	if req.Op != OpQueued {
+	if req.Op != OpQueued && req.Op != OpShown {
 		s.noteProcess(ctx, req)
 	}
 	switch req.Op {
@@ -400,7 +415,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		} else {
 			s.confirmBefore(ctx, req.Started)
 		}
-		ok.Bundle, ok.Notice, ok.HandoffID = s.boundary(ctx, slices.Contains(req.Capabilities, "tool-boundary") && slices.Contains(req.Capabilities, "midturn-peer"))
+		s.peerHookBoot = s.boot
+		s.peerHookSupported = slices.Contains(req.Capabilities, "tool-boundary") && slices.Contains(req.Capabilities, "midturn-peer")
+		ok.Bundle, ok.Notice, ok.HandoffID = s.boundary(ctx, s.peerHookSupported)
 		if ok.HandoffID != "" {
 			ok.Boot, ok.TurnID = s.boot, s.peerTurn
 		}
@@ -453,9 +470,12 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if !s.open {
 			s.setOpen(ctx, true)
 		}
+	case OpShown:
+		return s.observeShown(ctx, req)
 	case OpQueued:
 		return s.queued(ctx, req)
 	case OpAgents:
+		ok.Boot = s.boot
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 		ok.Capabilities = negotiatedCapabilities(s.ext)
 	}
@@ -896,6 +916,7 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	}
 	s.setProblem(a, "")
 	a.fetched = true
+	a.queueFreshAt = s.now()
 	a.midturnPolicy = ""
 	if r.mode != nil {
 		a.midturnPolicy = r.mode.MidturnPolicy
@@ -1108,7 +1129,7 @@ func (s *session) onReading(ctx context.Context, req Request, rd *reading) Respo
 	if req.Session != "" && req.Key() == s.key && s.open && !req.Started.IsZero() && (req.Boot == "" || req.Boot == s.boot) {
 		s.confirmBefore(ctx, req.Started)
 	}
-	return Response{V: ProtocolVersion, Held: true, Received: s.received(a)}
+	return Response{V: ProtocolVersion, Held: true, Boot: s.boot, Generation: a.generation, Received: s.received(a)}
 }
 
 // received returns the agent's messages past its read position that a session
@@ -1165,7 +1186,7 @@ func (s *session) newMessages(a *agentState, f filter) []Message {
 	t := taken(a)
 	var out []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) {
+		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) || s.alreadyShown(a, m) {
 			continue
 		}
 		out = append(out, m)
@@ -1247,6 +1268,9 @@ func (s *session) offers(f filter) []offer {
 		blocked := false
 		for _, id := range slices.Sorted(maps.Keys(a.deliveries)) {
 			dl := a.deliveries[id]
+			if s.deliveryFullyShown(a, dl) {
+				continue
+			}
 			switch dl.State {
 			case StateAttention:
 				blocked = true
@@ -1335,7 +1359,7 @@ func anyConcerns(offers []offer, name string) bool {
 func (s *session) messagesFor(a *agentState, seqs []int) []Message {
 	var out []Message
 	for _, m := range a.unread {
-		if slices.Contains(seqs, m.Seq) {
+		if slices.Contains(seqs, m.Seq) && !s.alreadyShown(a, m) {
 			out = append(out, m)
 		}
 	}
@@ -1407,7 +1431,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 	}
 	began := s.now()
 	hookHand := s.waiter != nil
-	idle := !hookHand && (s.adapter.WaitsForIdle() || !s.inTurn)
+	idle := !stopHand && (s.adapter.WaitsForIdle() || !s.inTurn)
 	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, HandoffID: func() string {
 		if len(s.agents) > 1 {
 			return handoff.manifest.ID
@@ -1572,18 +1596,19 @@ func (s *session) canTake() bool {
 // nextTimer is when the session next has something to do on its own: hand a bundle once
 // its messages are gathered, or check for stalls; zero for nothing.
 func (s *session) nextTimer() time.Time {
-	gather := s.gatherUntil
+	next := s.gatherUntil
 	if !s.canTake() {
-		// Nothing can be handed until a waiter comes, which runs the session anyway.
-		gather = time.Time{}
+		next = time.Time{}
 	}
-	switch {
-	case gather.IsZero():
-		return s.stallAt
-	case s.stallAt.IsZero() || gather.Before(s.stallAt):
-		return gather
+	if !s.stallAt.IsZero() && (next.IsZero() || s.stallAt.Before(next)) {
+		next = s.stallAt
 	}
-	return s.stallAt
+	for _, a := range s.agents {
+		if !a.adopting && a.problem == "" && a.fetched && !a.queueSending && !a.queueStopped && !a.queueNext.IsZero() && (next.IsZero() || a.queueNext.Before(next)) {
+			next = a.queueNext
+		}
+	}
+	return next
 }
 
 // saveDelivery writes a delivery to the journal as it is, without moving its state.
@@ -1988,7 +2013,7 @@ func (s *session) toAnnounce(a *agentState) []Message {
 	t := taken(a)
 	var fresh []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) {
+		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) || s.alreadyShown(a, m) {
 			continue
 		}
 		fresh = append(fresh, m)
@@ -2016,6 +2041,9 @@ const recheckTimeout = 5 * time.Second
 // through any client a moment ago, before the stream's report of it arrived. It costs
 // one request per agent, made only when there is something to hand or announce.
 func (s *session) recheck(ctx context.Context) bool {
+	if !s.ensureShown(ctx) {
+		return false
+	}
 	fresh := true
 	for _, ref := range s.agentRefs() {
 		if a := s.agents[ref.Key()]; a.adopting || a.gone() {

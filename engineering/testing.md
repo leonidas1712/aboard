@@ -353,3 +353,18 @@ known, so the next failure is compared against it rather than retried.
   was handed the bundle again and nothing confirmed it. That race is fixed and
   covered by `TestHookThatTookTheBundleAndLeftHasIt`; if this test fails again, the
   hypothesis is wrong.
+
+## Queued-delivery native proof (#240)
+
+The 2026-10-09 full live-affected run at `808a4b0` covered 86 tests with four
+existing capability skips. Its only failure was `TestRestartsLoseNothing/codex`:
+the fixture treated any wait hook as an idle waiter. Codex 0.160's bounded Stop
+continuation had already completed before the daemon stopped, so no hook remained
+to restart it. The fixture now checks the idle-wait adapter capability and runs
+the person's explicit daemon restart command for queue adapters. The unchanged
+restart assertions passed in a focused Codex retry (51 seconds).
+
+This is evidence from a full run plus one corrected focused retry, not one clean
+full run. Same-owner urgent peer proofs passed on Claude Code, Codex and omp;
+Codex Stop continuation also passed. Protected configuration and authentication
+files were unchanged, and captured output contained no real-login values.

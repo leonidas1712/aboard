@@ -82,7 +82,7 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 	var b Board
 	var me Member
 	changed := false
-	err := s.writeAs(ctx, p, func(tx Tx) error {
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
 		var err error
 		if b, me, err = seatOf(tx, *p.Agent); err != nil {
 			return err
@@ -123,7 +123,7 @@ type PresenceChange struct {
 // own read position on each board, by board id, and each agent's member id, by board
 // id and agent name. It reads nothing once p's credential has
 // stopped working, and nothing of a board the person is no longer on.
-func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal) (
+func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal, fields headFields) (
 	presence map[string]map[string]Presence, reads map[string]map[string]int64, positions map[string]Position, seats map[string]map[string]string, err error,
 ) {
 	humanID := p.personID()
@@ -137,7 +137,7 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 			return err
 		}
 		for _, id := range boardIDs {
-			b, err := tx.BoardByID(id)
+			b, err := tx.StreamBoard(id)
 			if errors.Is(err, ErrNotFound) || (err == nil && lifecycleOf(b) == LifecycleDeleted) {
 				continue
 			}
@@ -152,10 +152,16 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 			} else if err != nil {
 				return err
 			}
-			if positions[id], err = positionOf(tx, me, false); err != nil {
-				return err
+			positions[id] = Position{}
+			if fields&positionField != 0 {
+				if positions[id], err = positionOf(tx, me, false); err != nil {
+					return err
+				}
 			}
-			members, err := tx.Members(id)
+			if fields&(presenceField|receiptField) == 0 {
+				continue
+			}
+			members, err := tx.StreamMembers(id)
 			if err != nil {
 				return err
 			}
@@ -164,9 +170,11 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 				if m.Kind != "agent" {
 					continue
 				}
-				agents[m.Name] = m.CurrentPresence(now)
+				if fields&presenceField != 0 {
+					agents[m.Name] = m.CurrentPresence(now)
+				}
 				ids[m.Name] = m.ID
-				if m.HumanID == humanID {
+				if m.HumanID == humanID && fields&receiptField != 0 {
 					mine[m.Name] = m.Cursor
 				}
 			}

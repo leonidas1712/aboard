@@ -23,7 +23,7 @@ After posting it says what is waiting in the agent's own inbox, and when each re
 | `--attach FILE` | Put a local file on the board and attach that version; repeat for several files. |
 | `--to T[,T…]` | Who to address: all, @name or role:R. Comma-separated or repeated. Default: all. |
 | `--reply MSG` | The message this replies to: its id (msg\_…), its number (6 or #6), or board-name#6. |
-| `--urgent` | Put the message first in each recipient's next delivery. |
+| `--urgent` | Put the message first in the next delivery. A direct same-owner agent message may arrive at a supported tool boundary, subject to the recipient's policy and per-turn sender cap. |
 | `--expect-reply` | Ask the recipients to reply. |
 | `--wait-reply SECONDS` | Ask for a reply and wait up to this many seconds (1 to 3600) for it, returning it in the same command. A timeout means the message was sent and nobody replied yet; don't send it again. |
 | `--task ID` | The task this message is about. |

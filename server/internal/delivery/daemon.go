@@ -210,7 +210,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 			if deliveries[i].Agent.Key() == b.Agent.Key() {
 				dl := deliveries[i]
 				a.deliveries[dl.ID] = &dl
-				if !dl.AcceptedAt.IsZero() && dl.TurnStartedAt.IsZero() && dl.Session == s.key && dl.Boot == s.boot {
+				if s.seenTurns && !dl.AcceptedAt.IsZero() && dl.TurnStartedAt.IsZero() && dl.Session == s.key && dl.Boot == s.boot {
 					s.awaitingTurn = append(s.awaitingTurn, &dl)
 				}
 			}
@@ -815,7 +815,7 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:
 		_ = WriteFrame(conn, d.serveJoin(ctx, req))
-	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued, OpReceived:
+	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued, OpReceived, OpShown:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
 		_ = WriteFrame(conn, errorResponse("invalid_request", fmt.Sprintf("The delivery daemon has no operation %q.", req.Op),

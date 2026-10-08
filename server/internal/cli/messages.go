@@ -313,7 +313,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 			// Wait on the server for something unread first, so the daemon holds the
 			// agent's deliveries only while the command reads and acknowledges.
 			secs := int((left + time.Second - 1) / time.Second)
-			r, err := c.api.GetInboxWithResponse(ctx, &api.GetInboxParams{Wait: &secs, Limit: ptrTo(1)})
+			r, err := c.waitInbox(ctx, deadline, api.GetInboxParams{Wait: &secs, Limit: ptrTo(1)})
 			if err != nil {
 				return c.unreachable(err)
 			}
@@ -518,6 +518,8 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if *threads {
 		return readThreads(ctx, a, c, b, *limit, readHintArgs(readFilter{}, *as, *boardFlag))
 	}
+	shown := a.beginShownRead(ctx, cred, b)
+	defer shown.done()
 	page, err := readPage(ctx, c, t.board, f, *after, *before, *around)
 	if err != nil {
 		return err
@@ -528,6 +530,9 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	}
 	if *markdown {
 		_, err := io.WriteString(a.env.Stdout, transcriptText(page.Board, msgs))
+		if err == nil {
+			shown.report(ctx, msgs)
+		}
 		return err
 	}
 
@@ -546,14 +551,17 @@ func runRead(ctx context.Context, a *app, args []string) error {
 	if page.NextAfter != nil {
 		text += fmt.Sprintf("Later: aboard read --after %d%s\n", *page.NextAfter, rest)
 	}
-	a.emit(struct {
+	err = a.emitChecked(struct {
 		Board      string       `json:"board"`
 		Visibility string       `json:"visibility"`
 		Messages   []cliMessage `json:"messages"`
 		NextAfter  *int         `json:"next_after"`
 		PrevBefore *int         `json:"prev_before"`
 	}{page.Board, string(b.Policy.Visibility), cliMessages(msgs), page.NextAfter, page.PrevBefore}, text)
-	return nil
+	if err == nil {
+		shown.report(ctx, msgs)
+	}
+	return err
 }
 
 // readThread prints the thread the message ref points at: its first message, when the
@@ -571,6 +579,8 @@ func readThread(ctx context.Context, a *app, c *client, t target, cred agentCred
 	if err != nil {
 		return err
 	}
+	shown := a.beginShownRead(ctx, cred, b)
+	defer shown.done()
 	th, err := c.thread(ctx, id)
 	if e := (*Error)(nil); errors.As(err, &e) && e.Code == "message_not_found" {
 		return newError("message_ref_invalid", fmt.Sprintf("There is no message %s on board %s that %s can see.", ref, t.board, cred.Name),
@@ -590,17 +600,23 @@ func readThread(ctx context.Context, a *app, c *client, t target, cred agentCred
 	}
 	if markdown {
 		_, err := io.WriteString(a.env.Stdout, transcriptText(t.board, msgs))
+		if err == nil {
+			shown.report(ctx, msgs)
+		}
 		return err
 	}
 	text := fmt.Sprintf("%s · thread #%d · %s\n", t.board, rootSeq, repliesText(len(th.Replies), "no replies")) + timelineText(msgs)
-	a.emit(struct {
+	err = a.emitChecked(struct {
 		Board         string       `json:"board"`
 		Visibility    string       `json:"visibility"`
 		ThreadRootSeq int          `json:"thread_root_seq"`
 		Root          *cliMessage  `json:"root"`
 		Replies       []cliMessage `json:"replies"`
 	}{t.board, string(b.Policy.Visibility), rootSeq, root, cliMessages(th.Replies)}, text)
-	return nil
+	if err == nil {
+		shown.report(ctx, msgs)
+	}
+	return err
 }
 
 // repliesText says how many replies there are: "1 reply", "3 replies", or none.

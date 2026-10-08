@@ -43,6 +43,7 @@ func removedPeopleFreeTheirHandles(t *testing.T, st board.Store) {
 	})
 	newMaya := board.Human{ID: "hum_maya2", Name: "maya", Role: board.ServerMember, CreatedAt: at}
 	write(t, st, func(tx board.Tx) error { return tx.InsertHuman(newMaya) })
+	newMaya.MidturnPolicy = board.MidturnMyAgents
 	write(t, st, func(tx board.Tx) error {
 		if err := tx.InsertHuman(board.Human{ID: "hum_maya3", Name: "maya", Role: board.ServerMember, CreatedAt: at}); err == nil {
 			return errors.New("a second person took the handle of someone still on the server")

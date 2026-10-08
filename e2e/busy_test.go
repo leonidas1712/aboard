@@ -102,6 +102,7 @@ func TestOwnerReachesBusyClaudeSessionAtNextToolBoundary(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer, reviewer := pairedClaudeSessions(t, e)
+	e.run("delivery", "midturn", "owner-only")
 	reviewer.hook("prompt", `"prompt":"long task"`)
 
 	writer.run("say", "--to", "@reviewer", "ordinary peer note")                 // #6
@@ -213,12 +214,11 @@ func TestParallelToolHooksClaimEachMessageOnce(t *testing.T) {
 	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000021")
 	codex.run("join", line, "--name", "reviewer")
+	e.run("delivery", "midturn", "owner-only")
 	codex.hook("prompt", `"prompt":"long task"`)
 
 	writer.run("say", "--to", "@reviewer", "peer note")
 	e.postAsOwnerTo("writer-reviewer", "@reviewer", "owner: one claim only")
-	// Wait until the daemon has the owner's message, without taking it.
-	eventually(t, 5*time.Second, "the peer message in Codex's queue", func() bool { return len(e.fakeCodexCalls()) > 0 })
 
 	const parallel = 6
 	var (
@@ -244,7 +244,7 @@ func TestParallelToolHooksClaimEachMessageOnce(t *testing.T) {
 	owner, notices := 0, 0
 	for _, o := range outputs {
 		if strings.Contains(o.text, "owner: one claim only") {
-			owner++
+			owner += strings.Count(o.text, "owner: one claim only")
 			if o.event != "PreToolUse" {
 				t.Fatalf("Codex's tool hook answered %q", o.event)
 			}
@@ -254,11 +254,31 @@ func TestParallelToolHooksClaimEachMessageOnce(t *testing.T) {
 	if owner != 1 || notices > 1 {
 		t.Fatalf("owner's message given %d times, notices %d, want 1 and at most 1: %+v", owner, notices, outputs)
 	}
+	if calls := e.fakeCodexCalls(); len(calls) != 0 {
+		t.Fatalf("parallel boundaries queued messages during the busy turn: %v", calls)
+	}
+	stop := e.exec(codex.vars, hookInput(codex.id, "Stop", ""), "hook", "codex", "stop-continue")
+	out := stop.json(t)
+	reason, _ := out["reason"].(string)
+	if stop.code != 0 || out["decision"] != "block" || strings.Count(reason, "peer note") != 1 || strings.Contains(reason, "owner: one claim only") {
+		t.Fatalf("Stop should deliver the waiting peer once, without the claimed owner\n%s", stop)
+	}
+	if again := codex.tool(t, ""); again.text != "" {
+		t.Fatalf("a later boundary repeated parallel or Stop context: %+v", again)
+	}
+	eventually(t, 5*time.Second, "both parallel and Stop deliveries acknowledged", func() bool { return codex.unread() == 0 })
+	complete := e.exec(codex.vars, hookInput(codex.id, "Stop", `"stop_hook_active":true`), "hook", "codex", "stop-continue")
+	if complete.code != 0 || strings.TrimSpace(complete.stdout) != "" {
+		t.Fatalf("Stop repeated an acknowledged parallel delivery\n%s", complete)
+	}
+	if calls := e.fakeCodexCalls(); len(calls) != 0 {
+		t.Fatalf("Stop also queued a parallel delivery: %v", calls)
+	}
 }
 
 // During a Codex turn the owner's message goes to the next tool call instead of Codex's
-// queue, where it would wait for the turn to end; peer messages, urgent ones too, still
-// go to the queue. The turn's stop hook confirms what the tool calls received.
+// queue, where it would wait for the turn to end. Under owner-only policy, peer
+// messages wait for a fresh Stop continuation, which confirms the tool delivery.
 func TestOwnerReachesBusyCodexSessionBeforeNextToolCall(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -266,6 +286,7 @@ func TestOwnerReachesBusyCodexSessionBeforeNextToolCall(t *testing.T) {
 	line := field(t, writer.run("pair", "writer-reviewer", "--name", "writer", "--json").json(t), "join.line").(string)
 	codex := e.codexSession("019a0000-0000-7000-8000-000000000003")
 	codex.run("join", line, "--name", "reviewer")
+	e.run("delivery", "midturn", "owner-only")
 	codex.hook("prompt", `"prompt":"long task"`)
 
 	writer.run("say", "--to", "@reviewer", "--urgent", "peer says stop")
@@ -278,14 +299,33 @@ func TestOwnerReachesBusyCodexSessionBeforeNextToolCall(t *testing.T) {
 	if got.event != "PreToolUse" || strings.Contains(got.text, "peer says stop") {
 		t.Fatalf("tool context: %+v", got)
 	}
-	eventually(t, 5*time.Second, "the peer message in the queue", func() bool { return len(e.fakeCodexCalls()) > 0 })
-	for _, c := range e.fakeCodexCalls() {
-		if strings.Contains(c["message"], "owner says stop") {
-			t.Fatalf("the owner's message also went into the queue:\n%s", c["message"])
-		}
+	if calls := e.fakeCodexCalls(); len(calls) != 0 {
+		t.Fatalf("a busy turn received external queue entries: %v", calls)
 	}
-	if r := codex.hook("stop", ""); r.code != 0 {
-		t.Fatalf("codex stop hook failed\n%s", r)
+	if again := codex.tool(t, `"tool_name":"Bash"`); again.text != "" {
+		t.Fatalf("a later tool boundary repeated context: %+v", again)
+	}
+	stop := e.exec(codex.vars, hookInput(codex.id, "Stop", ""), "hook", "codex", "stop-continue")
+	var continuation struct {
+		Decision string `json:"decision"`
+		Reason   string `json:"reason"`
+	}
+	if err := json.Unmarshal([]byte(stop.stdout), &continuation); err != nil || stop.code != 0 || continuation.Decision != "block" {
+		t.Fatalf("Codex Stop did not continue with the waiting message: %v\n%s", err, stop)
+	}
+	if strings.Count(continuation.Reason, "peer says stop") != 1 || strings.Contains(continuation.Reason, "owner says stop") {
+		t.Fatalf("Stop should deliver the peer exactly once, without repeating the owner:\n%s", stop)
+	}
+	// Codex resumes from the Stop reason and runs another tool, confirming receipt.
+	if again := codex.tool(t, `"tool_name":"Bash"`); again.text != "" {
+		t.Fatalf("the continuation repeated delivered context: %+v", again)
+	}
+	complete := e.exec(codex.vars, hookInput(codex.id, "Stop", `"stop_hook_active":true`), "hook", "codex", "stop-continue")
+	if complete.code != 0 || strings.TrimSpace(complete.stdout) != "" {
+		t.Fatalf("the next Stop should end without another continuation\n%s", complete)
+	}
+	if calls := e.fakeCodexCalls(); len(calls) != 0 {
+		t.Fatalf("Stop continuation also used the external queue: %v", calls)
 	}
 	eventually(t, 5*time.Second, "both messages acknowledged", func() bool { return codex.unread() == 0 })
 }

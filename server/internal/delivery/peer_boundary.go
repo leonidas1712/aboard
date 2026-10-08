@@ -23,6 +23,9 @@ func (s *session) peerBoundaryOffers(peers bool) []offer {
 		}
 		blocked := false
 		for _, dl := range a.deliveries {
+			if s.deliveryFullyShown(a, dl) {
+				continue
+			}
 			if dl.State == StatePending || dl.State == StateHeld || dl.State == StateRetry || dl.State == StateAttention {
 				blocked = true
 			}

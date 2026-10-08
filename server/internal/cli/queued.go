@@ -52,9 +52,21 @@ func queuedText(q *delivery.QueuedMessages) string {
 	if q == nil || q.Count == 0 {
 		return ""
 	}
+	boards := map[string]bool{}
+	for _, m := range q.Messages {
+		boards[m.BoardID] = true
+	}
 	names := make([]string, 0, len(q.Messages))
 	for _, m := range q.Messages {
-		names = append(names, fmt.Sprintf("#%d from %s", m.Seq, m.From))
+		label := fmt.Sprintf("#%d from %s", m.Seq, m.From)
+		if len(boards) > 1 {
+			board := m.Board
+			if board == "" {
+				board = m.BoardID
+			}
+			label = board + " " + label
+		}
+		names = append(names, label)
 	}
 	return fmt.Sprintf("%d queued, arriving at the end of this turn: %s\n", q.Count, strings.Join(names, ", "))
 }

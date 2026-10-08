@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 
@@ -84,5 +85,16 @@ func TestQueuedPreviewReadsAcceptedMessageWithOnlyTheCurrentSeatToken(t *testing
 	do(t, "DELETE", issuer+"/v1/boards/"+cred.Board+"/members/"+cred.Name, owner, nil)
 	if _, err := a.queuedPreview(context.Background(), observation, credentials{Agents: []agentCredential{cred}}, "", "", 0); err == nil {
 		t.Fatal("removed seat previewed cached queued body")
+	}
+}
+
+func TestQueuedTextQualifiesEqualSequencesAcrossBoards(t *testing.T) {
+	q := &delivery.QueuedMessages{Count: 2, Messages: []delivery.QueuedMessage{
+		{BoardID: "brd_a", Seq: 9, From: "@sam"},
+		{BoardID: "brd_b", Seq: 9, From: "@sam"},
+	}}
+	got := queuedText(q)
+	if !strings.Contains(got, "brd_a #9") || !strings.Contains(got, "brd_b #9") {
+		t.Fatalf("ambiguous queued summary: %s", got)
 	}
 }

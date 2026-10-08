@@ -7,12 +7,15 @@ import (
 )
 
 func queuedIdentity(ref AgentRef, m Message) QueuedMessage {
-	return QueuedMessage{BoardID: m.BoardID, MemberID: ref.MemberID, MessageID: m.ID, Seq: m.Seq, From: "@" + m.FromName, Boundary: "turn_end"}
+	return QueuedMessage{Board: ref.Board, BoardID: m.BoardID, MemberID: ref.MemberID, MessageID: m.ID, Seq: m.Seq, From: "@" + m.FromName, Boundary: "turn_end"}
 }
 
 func (s *session) queued(ctx context.Context, req Request) Response {
 	if !s.open || (req.Boot != "" && req.Boot != s.boot) {
 		return errorResponse("session_unknown", "The current session's queue cannot be observed.", "Use the current session; reconnect if it has ended.")
+	}
+	if !s.ensureShown(ctx) {
+		return queueUnknown()
 	}
 	out := QueuedMessages{Messages: []QueuedMessage{}}
 	seen := map[string]bool{}
@@ -65,6 +68,7 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 						return queueUnknown()
 					}
 					identity.From = "@" + m.FromName
+					identity.Board = ref.Board
 					key := ref.Server + "/" + identity.MessageID
 					if !seen[key] {
 						out.Messages = append(out.Messages, identity)
@@ -84,9 +88,14 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 		if s.d.mode(ref) == ModeOff {
 			continue
 		}
+		supported, known := s.peerBoundaryState()
+		nextStep := s.peerNextCandidates(ref)
+		if !known && len(nextStep) > 0 {
+			return queueUnknown()
+		}
 		taken := taken(a)
 		for _, m := range msgs {
-			if fromOwner(m) || s.held(ref, m) {
+			if fromOwner(m) || s.held(ref, m) || s.alreadyShown(a, m) || (supported && nextStep[m.ID]) {
 				continue
 			}
 			if _, claimed := taken[m.Seq]; claimed {

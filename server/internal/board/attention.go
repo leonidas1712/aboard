@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -54,8 +55,10 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		out   Acked
 		moved bool
 		id    string
+		owner string
+		kind  string
 	)
-	err := s.writeAs(ctx, p, func(tx Tx) error {
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
 		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -63,20 +66,30 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		if upTo > b.HeadSeq {
 			return ackOutOfRange(upTo, b.HeadSeq)
 		}
-		if err := tx.SetCursor(me.ID, upTo); err != nil {
-			return err
+		if upTo > me.Cursor {
+			if err := tx.SetCursor(me.ID, upTo); err != nil {
+				return err
+			}
 		}
 		moved, id = upTo > me.Cursor, b.ID
+		owner = me.HumanID
+		kind = me.Kind
 		me.Cursor = max(me.Cursor, upTo)
 		pos, err := positionOf(tx, me, readsAll(b, me))
 		out = Acked{Board: b.Name, Position: pos}
 		return err
 	})
 	if err == nil && moved {
-		s.notify.Changed(readKey(id))
+		key := readKey(id, owner)
+		if kind == "human" {
+			key = positionKey(id, owner)
+		}
+		s.notify.Changed(key)
 	}
 	return out, err
 }
+
+func positionKey(boardID, humanID string) string { return "position/" + boardID + "/" + humanID }
 
 func ackOutOfRange(upTo, head int64) error {
 	return apierr.New(http.StatusUnprocessableEntity, "ack_out_of_range",
@@ -136,6 +149,7 @@ const (
 
 // Receipt is whether a message has reached one recipient.
 type Receipt struct {
+	MidturnHint *string
 	QueuedUntil string
 	Member      Member
 	State       string
@@ -191,6 +205,27 @@ func (s *Service) Receipts(ctx context.Context, p Principal, boardName string, s
 				continue
 			}
 			rc := Receipt{Member: r, State: ReceiptPending}
+			if me.ID == m.SenderID && m.Urgent && r.Kind == "agent" && slices.Contains(m.To, "@"+r.Name) {
+				sender, exists := on[m.SenderID]
+				if exists && sender.Kind == "agent" && sender.HumanID == r.HumanID && sender.ID != r.ID {
+					owner, ownerErr := tx.HumanMember(b.ID, r.HumanID)
+					if ownerErr != nil && !errors.Is(ownerErr, ErrNotFound) {
+						return ownerErr
+					}
+					if ownerErr == nil && owner.Status == StatusActive {
+						person, personErr := tx.HumanByID(r.HumanID)
+						if personErr != nil {
+							return personErr
+						}
+						policy, _ := effectiveMidturn(person, r)
+						hint := "peer_if_supported"
+						if policy == MidturnOwnerOnly {
+							hint = "owner_only"
+						}
+						rc.MidturnHint = &hint
+					}
+				}
+			}
 			if r.Kind == "agent" {
 				pr := r.CurrentPresence(now)
 				rc.Presence = &pr
