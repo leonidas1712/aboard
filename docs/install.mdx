@@ -18,6 +18,14 @@ and the web UI, and it writes everything aboard installs anywhere else.
 On macOS or Linux, on ARM or Intel:
 
 ```bash
+curl -fsSL https://comeaboard.dev/install | sh
+```
+
+`comeaboard.dev/install` redirects to the install script attached to the latest release
+on GitHub, so the script you run is GitHub's either way. To fetch it from GitHub
+directly:
+
+```bash
 curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh
 ```
 
@@ -40,7 +48,7 @@ Two variables change what it does:
 | `ABOARD_INSTALL_DIR` | Install into this folder instead of `~/.local/bin`. |
 
 Set them for `sh`, such as
-`curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | ABOARD_INSTALL_DIR=~/bin sh`.
+`curl -fsSL https://comeaboard.dev/install | ABOARD_INSTALL_DIR=~/bin sh`.
 
 Check:
 

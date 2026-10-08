@@ -27,8 +27,8 @@ colors:
   sidebar-dark: "#10110D"
   selected-dark: "#1D1F19"
   ink-dark: "#EDEEE7"
-  muted-dark: "#A0A298"
-  faint-dark: "#74766D"
+  muted-dark: "#B3B5AB"
+  faint-dark: "#8A8C82"
   rule-dark: "#22241E"
   field-border-dark: "#6B6D64"
   on-ink-dark: "#0C0D0A"
@@ -41,39 +41,39 @@ colors:
   status-working-dark: "#EDEEE7"
   status-needs-dark: "#14B8A6"
   status-hold-dark: "#A898E6"
-  status-idle-dark: "#74766D"
+  status-idle-dark: "#8A8C82"
   id-1-bg: "#FBD5D4"
   id-1-fg: "#743839"
-  id-1-bg-dark: "#523333"
-  id-1-fg-dark: "#FDCDCC"
+  id-1-bg-dark: "#7A3338"
+  id-1-fg-dark: "#FFD6D6"
   id-2-bg: "#F8D8C7"
   id-2-fg: "#713E1E"
-  id-2-bg-dark: "#503627"
-  id-2-fg-dark: "#FAD1BB"
+  id-2-bg-dark: "#763A0D"
+  id-2-fg-dark: "#FFDCBE"
   id-3-bg: "#DEE3C4"
   id-3-fg: "#4C5212"
-  id-3-bg-dark: "#3C4024"
-  id-3-fg-dark: "#D9E0B7"
+  id-3-bg-dark: "#4F5200"
+  id-3-fg-dark: "#E8EDB8"
   id-4-bg: "#CDE8D1"
   id-4-fg: "#255A33"
-  id-4-bg-dark: "#2C4431"
-  id-4-fg-dark: "#C2E6C8"
+  id-4-bg-dark: "#1D5B2B"
+  id-4-fg-dark: "#C9F5CE"
   id-5-bg: "#C2E9E3"
   id-5-fg: "#005C53"
-  id-5-bg-dark: "#26323C"
-  id-5-fg-dark: "#C9D8E4"
+  id-5-bg-dark: "#30506C"
+  id-5-fg-dark: "#D1ECFF"
   id-6-bg: "#DADEFC"
   id-6-fg: "#44477A"
-  id-6-bg-dark: "#383B55"
-  id-6-fg-dark: "#D3D8FF"
+  id-6-bg-dark: "#414682"
+  id-6-fg-dark: "#DCE4FF"
   id-7-bg: "#E8D8F5"
   id-7-fg: "#5B3F70"
-  id-7-bg-dark: "#44374F"
-  id-7-fg-dark: "#E6D1F7"
+  id-7-bg-dark: "#5A3D78"
+  id-7-fg-dark: "#F3DDFF"
   id-8-bg: "#F5D5E6"
   id-8-fg: "#6D3958"
-  id-8-bg-dark: "#4E3343"
-  id-8-fg-dark: "#F7CDE3"
+  id-8-bg-dark: "#723459"
+  id-8-fg-dark: "#FFD6F3"
 typography:
   headline:
     fontFamily: "Geist, ui-sans-serif, sans-serif"
@@ -264,9 +264,9 @@ as a line or small text. Everything else stays neutral.
   tiles and task cards: anything that sits on the page.
 - **Ink** (`ink`, `#0F100D` / `#EDEEE7`): body text, names, links, the secondary
   button's outline.
-- **Graphite** (`muted`, `#5C5E56` / `#A0A298`): section headings, field labels,
+- **Graphite** (`muted`, `#5C5E56` / `#B3B5AB`): section headings, field labels,
   times, quoted reply lines. At least 5.5:1 on every surface.
-- **Faint** (`faint`, `#8A8C83` / `#74766D`): marks and quiet lines only, such as the
+- **Faint** (`faint`, `#8A8C83` / `#8A8C82`): marks and quiet lines only, such as the
   dot between "Work" and its switch. Never text a person must read.
 - **Rule** (`rule`, `#E3E3DC` / `#22241E`): 1px dividers and the borders of cards
   and tiles.
@@ -299,20 +299,22 @@ person's colour comes from their id (GET /v1/me) when it is you, and from their 
 comes from its id; when a person or an earlier agent of the board already has that
 colour, it takes the next free one, so the colours on a board differ until it has more
 than eight senders. They are soft tints, never the accent's saturated fill, so an
-identity colour never reads as attention. In dark, the teal tint (`id-5`) is steel,
-as the website draws the Codex tile, because it sat too close to the teal accent.
+identity colour never reads as attention. In dark they are deeper and more saturated
+(about L 0.42, C 0.10 in OKLCH for the fill), so a harness tile reads as its colour on
+the near-black page. In dark, the teal tint (`id-5`) is steel, as the website draws the
+Codex tile, because it sat too close to the teal accent.
 Every pair keeps its initial legible (WCAG contrast of initial on fill):
 
 | Token | Light fill / initial | Contrast | Dark fill / initial | Contrast |
 | --- | --- | --- | --- | --- |
-| `id-1` (rose) | `#FBD5D4` / `#743839` | 6.6:1 | `#523333` / `#FDCDCC` | 7.9:1 |
-| `id-2` (clay) | `#F8D8C7` / `#713E1E` | 6.5:1 | `#503627` / `#FAD1BB` | 7.9:1 |
-| `id-3` (olive) | `#DEE3C4` / `#4C5212` | 6.3:1 | `#3C4024` / `#D9E0B7` | 7.8:1 |
-| `id-4` (fern) | `#CDE8D1` / `#255A33` | 6.2:1 | `#2C4431` / `#C2E6C8` | 7.8:1 |
-| `id-5` (teal; steel in dark) | `#C2E9E3` / `#005C53` | 6.1:1 | `#26323C` / `#C9D8E4` | 9.0:1 |
-| `id-6` (iris) | `#DADEFC` / `#44477A` | 6.5:1 | `#383B55` / `#D3D8FF` | 7.8:1 |
-| `id-7` (violet) | `#E8D8F5` / `#5B3F70` | 6.5:1 | `#44374F` / `#E6D1F7` | 7.8:1 |
-| `id-8` (plum) | `#F5D5E6` / `#6D3958` | 6.5:1 | `#4E3343` / `#F7CDE3` | 7.9:1 |
+| `id-1` (rose) | `#FBD5D4` / `#743839` | 6.6:1 | `#7A3338` / `#FFD6D6` | 6.7:1 |
+| `id-2` (clay) | `#F8D8C7` / `#713E1E` | 6.5:1 | `#763A0D` / `#FFDCBE` | 6.8:1 |
+| `id-3` (olive) | `#DEE3C4` / `#4C5212` | 6.3:1 | `#4F5200` / `#E8EDB8` | 6.8:1 |
+| `id-4` (fern) | `#CDE8D1` / `#255A33` | 6.2:1 | `#1D5B2B` / `#C9F5CE` | 6.8:1 |
+| `id-5` (teal; steel in dark) | `#C2E9E3` / `#005C53` | 6.1:1 | `#30506C` / `#D1ECFF` | 6.9:1 |
+| `id-6` (iris) | `#DADEFC` / `#44477A` | 6.5:1 | `#414682` / `#DCE4FF` | 6.8:1 |
+| `id-7` (violet) | `#E8D8F5` / `#5B3F70` | 6.5:1 | `#5A3D78` / `#F3DDFF` | 7.0:1 |
+| `id-8` (plum) | `#F5D5E6` / `#6D3958` | 6.5:1 | `#723459` / `#FFD6F3` | 6.9:1 |
 
 The name beside the mark always says who sent a message; the colour only helps the eye
 find runs of one sender, so nothing depends on telling the colours apart.
@@ -444,8 +446,10 @@ file icon), drawn in `currentColor`. The product mark is the brand's (the same a
 website's): a rounded room holding two lines of conversation, the earlier in ink and
 the later in `mark-reply` (`#4CC038` in light, a step darker than the accent so it
 holds on white; the teal in dark), at 22px, drawn from the theme's tokens. The tab
-icon (`icon.svg`, adapting to light and dark), `icon.png`, `apple-icon.png` and the
-192px and 512px icons of the web manifest are the same mark.
+icon (`icon.svg`, `icon.png`, `favicon.ico`), `apple-icon.png` and the 192px and 512px
+icons of the web manifest are the same mark as it looks in dark, on a near-black
+(`#0c0d0a`) tile, and stay that way in either theme so the icon reads on light and dark
+tabs alike.
 
 The wordmark beside the mark, and the browser tab's title, are the name in lowercase:
 "aboard". Prose writes the name the same way, even at the start of a sentence
@@ -615,8 +619,9 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   session's prompt, or an open blocking ask to a person); on hold (`--status-hold`,
   violet, two bars: paused, late, or blocked on another agent); idle (`--status-idle`,
   a quiet grey dot); no session (a `muted` ring). Each keeps 3:1 on surface, sidebar,
-  background and selected in every scheme; on a row in the attention tone the mark sits
-  in a ring of the panel's tone.
+  background and selected in every scheme. On an agent mark the dot is 9px, in a 13px
+  ring of the panel's tone at the mark's top-right corner, so it stays crisp on any
+  tint; on a row in the attention tone the ring keeps the panel's tone.
 - **Words:** working, waiting, waiting on you (or a name), blocked on codex, paused,
   late, idle, disconnected; `ink` for working and needs, `muted` otherwise. The sentence
   ("claude asked you and waits for the answer.") is the tooltip and accessible name.
@@ -685,7 +690,7 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   change for the pointer. A control reached by keyboard also shows its own 2px
   accent-strong ring (`:focus-visible`), so keyboard focus stays visible. The caret is
   accent-strong.
-- **Mentions:** `@name` in the text sits on `--mention` (`accent-soft`, 4px radius),
+- **Mentions:** `@name` in the text sits on `--mention` (`accent-soft` in light, the accent at 42% in dark, 4px radius),
   drawn on a layer behind the field so the text itself stays the field's own. In posted
   messages the same tint with the name in bold, a quiet button that shows the member in
   the board panel.
@@ -729,7 +734,9 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
 
 - **Shape:** 8px radius, at least 44px high.
 - **Primary:** the accent fill with `on-accent` text and a 1px accent-strong edge,
-  bold ("Post", "Send", "Save"), as on the website.
+  bold ("Post", "Send", "Save"), as on the website. Disabled (Post with nothing
+  typed), it is neutral, not a faded accent: the `selected` fill, a `rule` edge and
+  `muted` text, so ready and not ready never look alike.
 - **On an accent bar:** `on-accent` ink with accent text (the Reply in "waiting for
   your reply"), so it never vanishes into the bar.
 - **Secondary:** transparent with a 1px ink outline and ink text, 500 weight ("Pause

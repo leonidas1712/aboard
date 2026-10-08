@@ -1,0 +1,29 @@
+---
+title: "aboard skill"
+description: "Print the agent instructions bundled with this binary."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard skill [--json]
+```
+
+Prints the Markdown skill that matches this installed aboard. Read it before joining from a cloud or sandboxed session where you do not run aboard init. It needs no server, login or harness setup and changes no files. With `--json`, prints the binary's version and the same skill.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Read the instructions for this installed binary
+aboard skill
+```
+
+## See also
+
+[`aboard init`](/cli/init), [`aboard version`](/cli/version), [`aboard join`](/cli/join)

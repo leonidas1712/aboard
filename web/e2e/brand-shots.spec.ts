@@ -159,6 +159,11 @@ test("the board view in the brand, every screen and scheme", async ({ page }) =>
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole("tab", { name: "Conversation" }).click();
     await shot(page, `desktop-board-${theme}`);
+    // A mention in the timeline, and Post ready with a message typed.
+    await page.locator(".message .mention").first().scrollIntoViewIfNeeded();
+    await page.getByRole("combobox", { name: "Message everyone" }).fill("Ship it once the load test is green.");
+    await page.screenshot({ path: join(dir!, `desktop-mention-and-post-${theme}.png`), animations: "disabled" });
+    await page.getByRole("combobox", { name: "Message everyone" }).fill("");
     // The whole Work panel, top to bottom, on a tall window.
     await page.setViewportSize({ width: 1440, height: 1700 });
     await page.mouse.move(0, 0);

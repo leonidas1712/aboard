@@ -171,6 +171,7 @@ the board.
 | The docs site (Mintlify): quickstart, how it works, concepts, one page per harness, guides, a CLI reference generated from `aboard help --json` and an API reference from the OpenAPI spec; `make docs-check` in `make check` and `make docs-links` in CI | done (#87, #89) | |
 | Docs for team mode, enough to deploy a team server and bring colleagues in from the docs alone: installing a release (the script, the signature, `aboard upgrade`, the update notice), the server in Kubernetes and Docker step by step, backups and upgrades, people, keys and browser sign-in, and agents on a team (`aboard join --board`, seats, delivery modes, archiving and deleting boards) | in review | |
 | The public website at comeaboard.dev: one static page in `site/` (Astro, on Vercel) with the scripted board, the three promises, the install line through a `/install` redirect to the release's script, and links to the docs at docs.comeaboard.dev | review | |
+| The docs at docs.comeaboard.dev take the brand (colours, backgrounds, Geist and Geist Mono, the wordmark), the README and docs give `curl -fsSL https://comeaboard.dev/install \| sh` as the install line, and the website, board view and docs share one fixed tab icon, the mark as it looks in dark on a near-black tile | review | D220 |
 | Comparison pages in the docs for products that look similar (full agent workspaces such as Buzz, agent supervisors such as Orca and herdr, harnesses' own multi-agent features), built from [positioning.md](positioning.md) | later | |
 | A launch demo: a multi-turn game (Twenty Questions to start) played by Claude Code, Codex and omp, run by a small game-master program on the public API, in `examples/` with an e2e test using fake players, plus a short recording. Later, a sealed-round sequel showing anchoring | later | D75 |
 | Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | later | D130 |
@@ -185,6 +186,7 @@ the board.
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
+| First-run guidance: `aboard skill` prints the instructions bundled with the installed binary without harness setup; guest invites distinguish the person from the agent name | done (#209; first-run follow-up #193) | |
 | The skill maps everyday phrases to commands ("send alice…", "check my messages", "who's here") | next | |
 | `llms.txt`, and the public API and stream presented as a platform for outside tools (viewers, boards, bridges) | next | D54 |
 | Docs: "Extending Aboard" (`docs/extending.mdx`), one page on every extension point (launchers, harnesses, monitors, bots and bridges, the API), each with its contract, its check and a minimal example | done (#67) | D54, D75, D79, D105, D155 |
@@ -394,8 +396,10 @@ that is already approved.
 | Version-gate every hook event a profile installs, with only the safe set for an unknown or old version, and doctor naming what is missing (#42) | D171 |
 
 ### Testing
+
 | Feature | Decisions |
 | --- | --- |
+| Parallel server fixtures retain their listener or bind `:0`; cleanup avoids probing a reused port when the home has no server PID (done, #217; fixes #204) | |
 | The skill says only Aboard writes delivered message blocks, so agents don't invent messages; live tests run cheap models by default, with `make live-smoke` checking each model answers first (#40) | |
 | Every process a test starts stops when the test process dies, including on SIGKILL (`ABOARD_EXIT_WITH_PID`, a watchdog per live lab) (#41) | D170 |
 | Each live lab gets a home folder of its own; omp's live start-up keeps its title from tmux (#45) | |

@@ -39,8 +39,9 @@ The `/install` redirect lives in `vercel.json`, so it only works on Vercel, not 
   signature accent as one token (`--accent`), the fonts and the logo. The board view is
   meant to adopt the same tokens later.
 - `src/styles/global.css`: the page's layout, on top of `brand.css`.
-- `public/`: the favicon (`favicon.svg`, which follows light and dark, plus PNG sizes),
-  the apple-touch icon and the web manifest.
+- `public/`: the tab icons (`favicon.svg`, `favicon.ico` and PNG sizes: the mark as it looks
+  in dark on a near-black tile, the same in either theme), the apple-touch icon and the
+  web manifest.
 - `vercel.json`: the `/install` redirect and cache headers.
 
 ## Deploy on Vercel

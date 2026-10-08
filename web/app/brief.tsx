@@ -91,9 +91,26 @@ function summary(text: string, format: Format): string {
       if (lines.length) break;
       continue;
     }
-    lines.push(l.replace(/^([-*+]|\d+[.)])\s+/, ""));
+    lines.push(l.replace(/^>\s?/, "").replace(/^([-*+]|\d+[.)])\s+/, ""));
   }
-  return lines.join(" ").replace(/\*\*|`/g, "");
+  return plainInline(lines.join(" "));
+}
+
+/**
+ * plainInline is a line of Markdown as it reads: emphasis, strike-through and code
+ * marks dropped, a link or image as its words, escapes undone. An underscore or star
+ * inside a word (snake_case, 2*3) stays, as Markdown keeps it.
+ */
+function plainInline(md: string): string {
+  return md
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/<((?:https?|mailto):[^>\s]+)>/g, "$1")
+    .replace(/`+([^`]+?)`+/g, "$1")
+    .replace(/~~(\S(?:.*?\S)?)~~/g, "$1")
+    .replace(/(^|[^\w*\\])(\*\*|__)(\S(?:.*?[^\s\\])?)\2(?=[^\w*]|$)/g, "$1$3")
+    .replace(/(^|[^\w*\\])([*_])(\S(?:.*?[^\s\\])?)\2(?=[^\w*]|$)/g, "$1$3")
+    .replace(/\\([\\`*_{}[\]()#+\-.!~>])/g, "$1");
 }
 
 /** Read is a version's text, keyed by file and version so a newer one never shows under an older byline. */

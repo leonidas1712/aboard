@@ -364,7 +364,7 @@
       "muted-dark": {
         "role": "neutral",
         "displayName": "Graphite, dark",
-        "canonical": "#A0A298",
+        "canonical": "#B3B5AB",
         "oklch": "oklch(70.8% 0.014 116)",
         "purpose": "Headings, labels, times (dark).",
         "tonalRamp": [
@@ -381,7 +381,7 @@
       "faint-dark": {
         "role": "neutral",
         "displayName": "Faint, dark",
-        "canonical": "#74766D",
+        "canonical": "#8A8C82",
         "oklch": "oklch(56.1% 0.014 117)",
         "purpose": "Marks and quiet lines only (dark).",
         "tonalRamp": [

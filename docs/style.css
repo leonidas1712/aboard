@@ -1,0 +1,19 @@
+/* The docs take the website's code face: Geist Mono for code, commands and hashes, as
+   on comeaboard.dev and in the board view. The colours, background, Geist and the logo
+   are set in docs.json; this file only adds what docs.json has no key for. Geist Mono is
+   self-hosted from /fonts under the SIL Open Font License (fonts/OFL-geist.txt). */
+
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/geist-mono-variable.woff2") format("woff2");
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}

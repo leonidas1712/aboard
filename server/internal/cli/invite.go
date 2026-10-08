@@ -98,7 +98,7 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	line := deref(jc.JoinLine)
 	prompt := line + "\n" + invitePrompt
 	if guest != "" {
-		text := fmt.Sprintf("Created a guest code for board %s on %s: %s joins it as a guest from outside the server, once, within %s. "+
+		text := fmt.Sprintf("Created a guest code for board %s on %s: guest %s's agent joins it from outside the server, once, within %s. The guest handle is the person, not the agent name; join without --name to choose an agent name. "+
 			"Anyone with the code can use it, so give it only to %s.\n\nGive this to %s, to paste into their agent's session:\n\n%s\n",
 			board.Name, t.server.URL, guest, durationText(time.Until(jc.ExpiresAt)), guest, guest, prompt)
 		a.emit(struct {
