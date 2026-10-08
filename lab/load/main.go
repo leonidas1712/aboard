@@ -32,6 +32,7 @@ type (
 		Setup          float64             `json:"setup_seconds"`
 		Measurement    float64             `json:"measurement_seconds"`
 		Throughput     float64             `json:"successful_posts_per_second"`
+		Write          distribution        `json:"request_to_write_response"`
 		Stream         distribution        `json:"request_to_stream"`
 		LongPoll       distribution        `json:"request_to_long_poll"`
 		Handover       distribution        `json:"request_to_handover"`

@@ -31,10 +31,15 @@ var migrations embed.FS
 
 // Store is an open Aboard database.
 type Store struct {
-	db   *sql.DB
-	clk  clock.Clock // stamps saved responses and backups
-	path string
+	db     *sql.DB
+	writer *sql.DB
+	clk    clock.Clock // stamps saved responses and backups
+	path   string
 }
+
+// Readers reuse a small pool rather than opening a SQLite connection per waking
+// stream. The writer has its own slot so waiting readers cannot occupy it.
+const readerConnections = 4
 
 // OpenReadOnly opens an existing operator-selected database without creating or migrating it.
 func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
@@ -44,6 +49,8 @@ func OpenReadOnly(ctx context.Context, path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(readerConnections)
+	db.SetMaxIdleConns(readerConnections)
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -70,6 +77,8 @@ func Open(ctx context.Context, path string, clk clock.Clock) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
+	db.SetMaxOpenConns(readerConnections)
+	db.SetMaxIdleConns(readerConnections)
 	s := &Store{db: db, clk: clk, path: path}
 	// A new connection switches the database to WAL, which SQLite refuses at once,
 	// without waiting, while another server starting on the same file holds a lock. A
@@ -82,6 +91,19 @@ func Open(ctx context.Context, path string, clk clock.Clock) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	// Migration established WAL. The writer only configures its connection; it does
+	// not try to change journal mode while another process may be writing.
+	q.Del("_pragma")
+	q.Add("_pragma", "busy_timeout(10000)")
+	q.Add("_pragma", "foreign_keys(1)")
+	writer, err := sql.Open("sqlite", "file:"+path+"?"+q.Encode())
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("open writer: %w", err)
+	}
+	writer.SetMaxOpenConns(1)
+	writer.SetMaxIdleConns(1)
+	s.writer = writer
 	return s, nil
 }
 
@@ -102,7 +124,13 @@ func migrationNumber(name string) int {
 }
 
 // Close closes the database.
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	var writerErr error
+	if s.writer != nil {
+		writerErr = s.writer.Close()
+	}
+	return errors.Join(writerErr, s.db.Close())
+}
 
 func (s *Store) migrate(ctx context.Context, files fs.FS) error {
 	var version int
@@ -304,7 +332,11 @@ func (s *Store) Write(ctx context.Context, fn func(board.Tx) error) error {
 }
 
 func (s *Store) write(ctx context.Context, fn func(*tx) error) error {
-	sqlTx, err := s.db.BeginTx(ctx, nil)
+	db := s.writer
+	if db == nil {
+		db = s.db
+	}
+	sqlTx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}

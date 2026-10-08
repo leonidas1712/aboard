@@ -65,6 +65,11 @@ func TestLoadFailureRetainsCompletedWorkAndPartialTimings(t *testing.T) {
 	defer cancel()
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/me" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"id": strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")})
+			return
+		}
 		if r.Method == http.MethodGet {
 			<-ctx.Done()
 			return
@@ -80,14 +85,22 @@ func TestLoadFailureRetainsCompletedWorkAndPartialTimings(t *testing.T) {
 	}))
 	defer server.Close()
 	b1, b2 := &board{ID: "first", Name: "first", Head: 2}, &board{ID: "second", Name: "second", Head: 2}
-	p := &machine{seats: []*seat{{board: b1}, {board: b2}}}
+	p := &machine{seats: []*seat{{board: b1, MemberID: "first", Token: "first"}, {board: b2, MemberID: "second", Token: "second"}}}
 	f := &fixture{ctx: ctx, url: server.URL, client: server.Client(), admin: &machine{}, people: []*machine{p}, boards: []*board{b1, b2}}
 	defer func() { cancel(); f.workers.Wait() }()
+	if err := f.primeObservers(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for _, s := range p.seats {
+			s.observer.CloseIdleConnections()
+		}
+	}()
 	f.throttles.Store(2)
 	r := report{Daemons: 1}
 	progress := runProgress{Stage: "round", SetupStart: time.Now().Add(-time.Second), MeasurementStart: time.Now(), Stream: []time.Duration{time.Millisecond}, Poll: []time.Duration{2 * time.Millisecond}, Handover: []time.Duration{3 * time.Millisecond}}
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
-	err := f.round(ctx, 0, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &r)
+	err := f.round(ctx, 0, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &progress.Write, &r)
 	if err == nil {
 		t.Fatal("forced round failure succeeded")
 	}
@@ -97,6 +110,19 @@ func TestLoadFailureRetainsCompletedWorkAndPartialTimings(t *testing.T) {
 	}
 	if r.Stream.Samples != 1 || r.LongPoll.Samples != 1 || r.Handover.Samples != 1 {
 		t.Fatalf("failure lost collected samples: %+v", r)
+	}
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var measured struct {
+		Write distribution `json:"request_to_write_response"`
+	}
+	if err := json.Unmarshal(raw, &measured); err != nil {
+		t.Fatal(err)
+	}
+	if measured.Write.Samples != 1 || measured.Write.P50 <= 0 {
+		t.Fatalf("failure lost the successful write response timing: %+v", measured.Write)
 	}
 }
 
