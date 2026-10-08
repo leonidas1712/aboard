@@ -529,9 +529,9 @@ func TestRestartsLoseNothing(t *testing.T) {
 		if err := syscall.Kill(oldDaemon, syscall.SIGTERM); err != nil {
 			t.Fatal(err)
 		}
-		if _, waits := d.p.Hook("wait"); !waits {
-			// Nothing of the harness's waits on the daemon, so it starts when a command
-			// needs it; aboard daemon start is that command, run where the person would.
+		if !d.waitsForIdle() {
+			// A bounded Stop continuation is not an idle waiter. Without an idle-hook
+			// adapter, restart with the person's explicit daemon command.
 			l.waitFor(15*time.Second, "the old daemon to stop", func() bool { return syscall.Kill(oldDaemon, 0) != nil })
 			l.run("daemon", "start")
 		}
