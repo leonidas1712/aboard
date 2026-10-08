@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 import { firstPaint } from "./themes";
 
-// The tab icons are the brand's mark (icon.svg, icon.png, apple-icon.png in this folder);
-// the larger ones are for a home screen.
+// The tab icons (icon.svg, icon.png, apple-icon.png in this folder, and favicon.ico in
+// public/ for browsers that ask for it) are the brand's mark as it looks in dark, on a
+// near-black tile, whatever the theme; the larger ones in public/ are for a home screen.
 export const metadata: Metadata = { title: "aboard", manifest: "/manifest.webmanifest" };
 
 export const viewport: Viewport = {
