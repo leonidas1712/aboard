@@ -41,3 +41,8 @@ an in-process benchmark, not concurrent SSE, request-to-stream latency or a perc
 It isolates multi-board refresh work; it does not establish the 250-seat target.
 The query-plan, changed-board and owner-receipt regressions fail before their fixes.
 Change-kind projections and batching remain subsequent work.
+
+The stream member read will use a narrow internal store projection: permanent member
+and board IDs, name, kind, owner ID, status, cursor and presence. It must include human
+members so the existing active-owner filter still hides agents whose person left.
+Token, role, display and current-task fields are not needed for this snapshot.

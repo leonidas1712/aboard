@@ -20,9 +20,10 @@ import (
 
 type headReads struct {
 	board.Store
-	mu     sync.Mutex
-	all    int
-	boards []string
+	mu          sync.Mutex
+	all         int
+	boards      []string
+	fullMembers int
 }
 
 type watchedHeads struct {
@@ -168,6 +169,13 @@ func (tx headReadTx) BoardByID(id string) (board.Board, error) {
 	return tx.ReadTx.BoardByID(id)
 }
 
+func (tx headReadTx) Members(id string) ([]board.Member, error) {
+	tx.reads.mu.Lock()
+	tx.reads.fullMembers++
+	tx.reads.mu.Unlock()
+	return tx.ReadTx.Members(id)
+}
+
 func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 	w := newKeyWorld(t)
 	st := &headReads{Store: w.gate.Store}
@@ -195,7 +203,7 @@ func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	st.mu.Lock()
-	st.all, st.boards = 0, nil
+	st.all, st.boards, st.fullMembers = 0, nil, 0
 	st.mu.Unlock()
 	if _, err := w.svc.PostMessage(ctx, p, w.board, board.NewMessage{Body: "one board changed"}); err != nil {
 		t.Fatal(err)
@@ -208,6 +216,9 @@ func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 	defer st.mu.Unlock()
 	if st.all != 0 {
 		t.Errorf("board notification refreshed the complete membership list %d times", st.all)
+	}
+	if st.fullMembers != 0 {
+		t.Errorf("stream fetched %d full member projections", st.fullMembers)
 	}
 	for _, id := range st.boards {
 		if id == sibling.Board.ID {
