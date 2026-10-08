@@ -795,7 +795,13 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			if err := send(s.ext.conn, map[string]any{"v": 1, "op": "turn_end"}); err != nil {
 				return err
 			}
-			if err := f.awaitAck(s, sample.key.Seq); err != nil {
+		}
+	}
+	// Confirm every fake harness promptly; server ack polling must not consume the
+	// other harnesses' confirmation windows while they wait for this driver.
+	for _, p := range f.people {
+		for _, s := range p.seats {
+			if err := f.awaitAck(s, byBoard[s.board.ID].key.Seq); err != nil {
 				return err
 			}
 		}

@@ -27,7 +27,8 @@ Connection establishment is limited to 16 simultaneous dials. Before measurement
 each observer gets a dedicated connection and authenticates its seat through `/v1/me`.
 Every measured observer request must reuse that connection; a new dial fails the proof.
 Open requests are not limited: all 500 observers must still be transmitted before a
-measured post. Failed observations are not retried.
+measured post. This measures established-connection delivery, not cold-connection
+capacity. Failed observations are not retried.
 Independent inbox long polls observe each recipient before any extension confirms
 the round, so daemon acknowledgments cannot swallow those observations. At the
 default topology this adds 500 observer inbox requests per round, alongside the
@@ -53,7 +54,9 @@ milliseconds (sample count, p50, p95 and p99):
 
 Posts are sequential from the admin, with a full fan-out drain between rounds.
 The throughput describes that workload, including gathering and confirmation; it
-is not saturated write capacity or a 50-writer throughput claim.
+is not saturated write capacity or a 50-writer throughput claim. Fake extensions are
+confirmed before serial server ack checks, so a slow ack cannot delay confirmations
+for other extensions beyond their harness response windows.
 
 The proof fails on missing, duplicate or out-of-order messages per permanent seat,
 an incorrect acknowledgement cursor, residual unread messages, or an invalid board
