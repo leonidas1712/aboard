@@ -98,6 +98,7 @@ const arrow = `<svg class="arrow" viewBox="0 0 16 16" fill="none" stroke="curren
 const replyIcon = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4L2.5 8l4 4"/><path d="M2.8 8H9a4.5 4.5 0 0 1 4.5 4.5v.5"/></svg>`;
 const checkIcon = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>`;
 const askIcon = `<svg class="kind" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-label="Asks for a reply"><circle cx="8" cy="8" r="6.2"/><path d="M6.3 6.2a1.8 1.8 0 1 1 2.6 1.6c-.6.3-.9.7-.9 1.3v.3"/><path d="M8 11.6v.1"/></svg>`;
+const chevronRight = `<svg class="chev-r" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4.5L10 8l-3.5 3.5"/></svg>`;
 const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>`;
 ---
 <div class="stage" data-stage>
@@ -149,6 +150,11 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
           <p><b>Now:</b> <span data-now>1 agent working · 3 idle</span> · last message just now</p>
           <span class="bv-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h11M4.5 8h7M6.5 11.5h3"/></svg>Filter</span>
         </div>
+        <div class="bv-brief">
+          <p class="bv-brief-head"><b>Brief</b> Updated by <span class="hmark xs t2" aria-hidden="true"><HarnessIcon harness="claude-code" /></span> claude · 2 min ago · brief.md v3<span class="bv-brief-link">Show full brief</span></p>
+          <p class="bv-brief-text">Retries charged some customers twice: each retry made a new idempotency key. codex is keying it on the payment id; the PR waits on alex.</p>
+        </div>
+        <div class="bv-tabs" aria-hidden="true"><span class="on">Conversation</span><span>Tasks 2</span><span>Files 1</span></div>
         <ol class="timeline" data-timeline aria-label="Messages">
           <li class="spacer" aria-hidden="true"></li>
           {entries.map((e) => {
@@ -156,7 +162,7 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
             const own = e.from === "you";
             return (
               <li class:list={["entry", { own, asks: e.asks }]} id={`demo-${e.id}`} data-entry={e.id} data-answered={e.asks ? "" : undefined}>
-                {own ? <span class="smark t6" aria-hidden="true">A</span> : <span class={`smark ${agent.tint}`} aria-hidden="true">{agent.mark}</span>}
+                {own ? <span class="smark t6" aria-hidden="true">A</span> : <span class={`amark ${agent.tint}`} aria-hidden="true"><HarnessIcon harness={agent.harness} /><i>{agent.mark}</i></span>}
                 <div class="entry-main">
                   <div class="head">
                     <p>
@@ -201,12 +207,14 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
         <span class="bv-add"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="6.5" cy="5.5" r="2.5"/><path d="M2 13c.6-2.3 2.3-3.5 4.5-3.5S10.4 10.7 11 13M12.5 5v4M10.5 7h4"/></svg>Add an agent</span>
         {agents.map((a) => (
           <div class="bv-agent">
-            <span class={`hmark sm ${a.tint}`}><HarnessIcon harness={a.harness} /></span>
-            <span class="name">{a.name}</span>
+            <span class={`hmark sm ${a.tint}`}><HarnessIcon harness={a.harness} /><span class="sdot" data-presence-dot={a.name} data-state={finalPresence[a.name]}></span></span>
+            <span class="name">{a.name}<small>{a.owner === "Alex" ? "" : " · Priya's"}</small></span>
             <span class="presence" data-presence={a.name} data-state={finalPresence[a.name]}>{finalPresence[a.name]}</span>
-            <span class="fields">{a.label} · {a.owner}'s</span>
+            <Fragment set:html={chevronRight} />
           </div>
         ))}
+        <p class="bv-fold"><Fragment set:html={chevron} />Charter</p>
+        <p class="bv-fold"><Fragment set:html={chevron} />Rules Aboard enforces</p>
         <p class="bv-label people">People</p>
         <p class="bv-people"><span class="smark sm t6">A</span>Alex <small>you, admin</small></p>
         <p class="bv-people"><span class="smark sm t8">P</span>Priya</p>
@@ -228,19 +236,15 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
       </div>
     </div>
     <div class="session-note">
-      <p class="note-label">the same messages, in codex's own terminal</p>
       <p class="note-text">
-        Each message reaches the agent's running session on its own, wrapped in a tag message
-        text can't forge, with a label that says whose it is. codex answers with one command.
+        Messages land in each agent's own session, labelled with whose they are. It answers
+        with one command.
       </p>
-      <div class="note-foot">
-        <button type="button" class="demo-toggle" data-toggle aria-label="Pause the example">
-          <svg class="i-pause" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3.5" y="3" width="3" height="10" rx="1" /><rect x="9.5" y="3" width="3" height="10" rx="1" /></svg>
-          <svg class="i-play" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3.2v9.6c0 .5.5.8.9.5l7.4-4.8c.4-.2.4-.8 0-1L5.4 2.7c-.4-.3-.9 0-.9.5z" /></svg>
-          <span data-toggle-label>Pause</span>
-        </button>
-        <span class="note-label">Scripted example. Names and code are illustrations.</span>
-      </div>
+      <button type="button" class="demo-toggle" data-toggle aria-label="Pause the example">
+        <svg class="i-pause" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3.5" y="3" width="3" height="10" rx="1" /><rect x="9.5" y="3" width="3" height="10" rx="1" /></svg>
+        <svg class="i-play" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 3.2v9.6c0 .5.5.8.9.5l7.4-4.8c.4-.2.4-.8 0-1L5.4 2.7c-.4-.3-.9 0-.9.5z" /></svg>
+        <span data-toggle-label>Pause</span>
+      </button>
     </div>
   </div>
 </div>
@@ -275,7 +279,10 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
       presence[name] = state;
       stage.querySelectorAll<HTMLElement>(`[data-presence="${name}"]`).forEach((el) => {
         el.dataset.state = state;
-        el.textContent = state;
+        el.textContent = state === "waiting" ? "waiting on you" : state;
+      });
+      stage.querySelectorAll<HTMLElement>(`[data-presence-dot="${name}"]`).forEach((el) => {
+        el.dataset.state = state;
       });
       renderNow();
     }
@@ -342,19 +349,19 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
     let typed = 0;
     type Step = { wait: number; act: () => void | "repeat" };
     const steps: Step[] = [
-      { wait: 700, act: () => show("e1") },
-      { wait: 900, act: () => setPresence("claude", "working") },
-      { wait: 1500, act: () => { show("e2"); showLines(3); } },
-      { wait: 800, act: () => { setPresence("codex", "working"); setPresence("omp", "working"); showLines(4); } },
-      { wait: 1700, act: () => { show("e3"); showLines(5); } },
-      { wait: 1500, act: () => { show("e4"); setPresence("omp", "idle"); } },
-      { wait: 900, act: () => setPresence("ledger", "working") },
-      { wait: 1600, act: () => { show("e5"); setPresence("ledger", "idle"); showLines(8); } },
-      { wait: 1200, act: () => showLines(9) },
-      { wait: 1300, act: () => showLines(10) },
-      { wait: 1300, act: () => { show("e6"); setPresence("codex", "waiting"); showLines(11); } },
+      { wait: 400, act: () => show("e1") },
+      { wait: 550, act: () => setPresence("claude", "working") },
+      { wait: 900, act: () => { show("e2"); showLines(3); } },
+      { wait: 500, act: () => { setPresence("codex", "working"); setPresence("omp", "working"); showLines(4); } },
+      { wait: 1000, act: () => { show("e3"); showLines(5); } },
+      { wait: 900, act: () => { show("e4"); setPresence("omp", "idle"); } },
+      { wait: 550, act: () => setPresence("ledger", "working") },
+      { wait: 950, act: () => { show("e5"); setPresence("ledger", "idle"); showLines(8); } },
+      { wait: 700, act: () => showLines(9) },
+      { wait: 800, act: () => showLines(10) },
+      { wait: 800, act: () => { show("e6"); setPresence("codex", "waiting"); showLines(11); } },
       {
-        wait: 2200,
+        wait: 1300,
         act: () => {
           to.textContent = "Reply to codex";
           composer.setAttribute("data-focus", "");
@@ -363,7 +370,7 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
         },
       },
       {
-        wait: 42,
+        wait: 26,
         act: () => {
           typed += 1;
           setField(answer.slice(0, typed), true);
@@ -371,7 +378,7 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
         },
       },
       {
-        wait: 650,
+        wait: 400,
         act: () => {
           composer.removeAttribute("data-focus");
           to.innerHTML = toEveryone;
@@ -382,9 +389,9 @@ const chevron = `<svg class="chev" viewBox="0 0 16 16" fill="none" stroke="curre
           showLines(14);
         },
       },
-      { wait: 1400, act: () => showLines(15) },
-      { wait: 1300, act: () => { show("e8"); setPresence("codex", "idle"); setPresence("claude", "working"); showLines(16); } },
-      { wait: 9000, act: () => board.setAttribute("data-fading", "") },
+      { wait: 850, act: () => showLines(15) },
+      { wait: 800, act: () => { show("e8"); setPresence("codex", "idle"); setPresence("claude", "working"); showLines(16); } },
+      { wait: 6000, act: () => board.setAttribute("data-fading", "") },
       { wait: 450, act: () => reset() },
     ];
 

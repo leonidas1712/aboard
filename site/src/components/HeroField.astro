@@ -1,0 +1,342 @@
+---
+// The texture behind the hero: the page's grid, drawn faintly, with a few signs of a
+// board at work along its lines. The canvas spans the whole window; inside the frame it
+// draws the grid itself, fading towards the text, and outside it the page's own grid
+// (on body) shows through, on the same lines. Pixel blocks flicker like a record filling in, hashes
+// settle out of noise, small messages travel along the rules and land with a ring, and
+// two accent sparkles mark the crosshairs. It stays out of the centre column, where the
+// text is. One canvas and one small script; it sleeps off screen and in a hidden tab, and
+// under reduced motion it draws one still frame.
+---
+<div class="hero-field" aria-hidden="true">
+  <canvas data-field></canvas>
+</div>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-field]");
+  if (canvas) start(canvas);
+
+  function start(canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const CELL = 48;
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    let W = 0;
+    let H = 0;
+    // The frame's left and right edges, in canvas pixels.
+    let fx0 = 0;
+    let fx1 = 0;
+    let dpr = 1;
+    let colors = { line: "", faint: "", ink: "", accent: "", bg: "" };
+
+    type Block = { cx: number; cy: number; bits: number[]; next: number; accent: number };
+    type Hash = { cx: number; cy: number; text: string; shown: string; settle: number; next: number };
+    type Dot = { x0: number; y0: number; x1: number; y1: number; t0: number; dur: number };
+    type Ring = { x: number; y: number; t0: number };
+    type Spark = { x: number; y: number; phase: number };
+
+    let blocks: Block[] = [];
+    let hashes: Hash[] = [];
+    let dots: Dot[] = [];
+    let rings: Ring[] = [];
+    let sparks: Spark[] = [];
+    let nextDot = 0;
+
+    const HEX = "0123456789abcdef";
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+    const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
+    const hex = (n: number) => Array.from({ length: n }, () => HEX[Math.floor(Math.random() * 16)]).join("");
+
+    function readColors() {
+      const cs = getComputedStyle(document.documentElement);
+      const v = (n: string) => cs.getPropertyValue(n).trim();
+      colors = { line: v("--grid") || "#ebebe5", faint: v("--faint"), ink: v("--ink"), accent: v("--accent"), bg: v("--background") };
+    }
+
+    // Cells outside the centre column, where texture may live.
+    function sideCells(): { cx: number; cy: number }[] {
+      const cols = Math.floor(W / CELL);
+      const rows = Math.floor(H / CELL);
+      const clear = W < 720 ? 0 : Math.min(W * 0.8, 1040);
+      const left = (W - clear) / 2;
+      const out: { cx: number; cy: number }[] = [];
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          const x = c * CELL;
+          const inCentre = x + CELL > left && x < left + clear;
+          if (W < 720 ? r < 2 : !inCentre) out.push({ cx: c, cy: r });
+        }
+      }
+      return out;
+    }
+
+    function layout() {
+      const rect = canvas.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = rect.width;
+      H = rect.height;
+      const frame = canvas.closest(".frame")?.getBoundingClientRect();
+      fx0 = frame ? frame.left - rect.left : 0;
+      fx1 = frame ? frame.right - rect.left : W;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const cells = sideCells();
+      const small = W < 720;
+      const now = performance.now();
+      blocks = Array.from({ length: small ? 3 : 7 }, () => {
+        const c = pick(cells);
+        return { ...c, bits: Array.from({ length: 9 }, () => (Math.random() < 0.5 ? 1 : 0)), next: now + rnd(200, 1600), accent: Math.random() < 0.3 ? Math.floor(rnd(0, 9)) : -1 };
+      });
+      // A hash needs about two and a half cells of room that end before the text column
+      // or the edge, and no two share a row.
+      const clear = small ? 0 : Math.min(W * 0.8, 1040);
+      const leftEdge = (W - clear) / 2;
+      // Hashes only on the right, clear of the text column.
+      const room = (c: { cx: number; cy: number }) => {
+        const x = c.cx * CELL;
+        const end = x + 6 + 112;
+        return x > leftEdge + clear && end < Math.min(W, fx1 + 4 * CELL) - 8;
+      };
+      const hashCells = cells.filter(room);
+      const usedRows = new Set<number>();
+      hashes = Array.from({ length: small ? 0 : 2 }, () => {
+        const free = hashCells.filter((h) => !usedRows.has(h.cy));
+        const c = free.length ? pick(free) : pick(hashCells.length ? hashCells : cells);
+        usedRows.add(c.cy);
+        const text = `sha256:${hex(8)}`;
+        return { ...c, text, shown: text, settle: 0, next: now + rnd(800, 4000) };
+      });
+      blocks = blocks.filter((b) => !hashes.some((h) => h.cy === b.cy && b.cx >= h.cx && b.cx <= h.cx + 2));
+      const cols = Math.floor(W / CELL);
+      sparks = small
+        ? []
+        : [
+            { x: Math.max(1, Math.floor(leftEdge / CELL) - 2) * CELL, y: 2 * CELL, phase: 0 },
+            { x: Math.min(cols - 1, Math.ceil((leftEdge + clear) / CELL) + 2) * CELL, y: 4 * CELL, phase: Math.PI },
+          ];
+      dots = [];
+      rings = [];
+    }
+
+    function spawnDot(now: number) {
+      const cells = sideCells();
+      if (!cells.length) return;
+      const c = pick(cells);
+      const horizontal = Math.random() < 0.6;
+      const len = Math.floor(rnd(2, 5)) * CELL;
+      const x0 = c.cx * CELL;
+      const y0 = c.cy * CELL;
+      dots.push({ x0, y0, x1: horizontal ? x0 + len : x0, y1: horizontal ? y0 : y0 + len, t0: now, dur: rnd(1400, 2400) });
+    }
+
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    function alphaAt(x: number, y: number) {
+      // The grid fades towards the centre and the bottom, so the text sits on a clear page.
+      const dx = Math.abs(x - W / 2) / (W / 2);
+      if (W < 720) return Math.min(1, Math.max(0, 1 - y / (H * 0.3))) * 0.8;
+      const fadeX = Math.min(1, Math.max(0, (dx - 0.25) / 0.4));
+      const fadeY = Math.min(1, Math.max(0, 1 - (y / H - 0.55) / 0.45));
+      return fadeX * fadeY;
+    }
+
+    function draw(now: number) {
+      ctx!.clearRect(0, 0, W, H);
+      // Grid lines, drawn as short segments so they can fade.
+      ctx!.lineWidth = 1;
+      ctx!.strokeStyle = colors.line;
+      const inFrame = (x: number) => x >= fx0 - 1 && x <= fx1 + 1;
+      for (let x = 0; x <= W; x += CELL) {
+        if (!inFrame(x)) continue;
+        for (let y = 0; y < H; y += CELL) {
+          const a = alphaAt(x, y + CELL / 2);
+          if (a <= 0.02) continue;
+          ctx!.globalAlpha = a;
+          ctx!.beginPath();
+          ctx!.moveTo(x + 0.5, y);
+          ctx!.lineTo(x + 0.5, y + CELL);
+          ctx!.stroke();
+        }
+      }
+      for (let y = 0; y <= H; y += CELL) {
+        for (let x = 0; x < W; x += CELL) {
+          if (!inFrame(x) || !inFrame(x + CELL)) continue;
+          const a = alphaAt(x + CELL / 2, y);
+          if (a <= 0.02) continue;
+          ctx!.globalAlpha = a;
+          ctx!.beginPath();
+          ctx!.moveTo(x, y + 0.5);
+          ctx!.lineTo(x + CELL, y + 0.5);
+          ctx!.stroke();
+        }
+      }
+      // Intersection points.
+      ctx!.fillStyle = colors.faint;
+      for (let x = 0; x <= W; x += CELL) {
+        if (!inFrame(x)) continue;
+        for (let y = 0; y <= H; y += CELL) {
+          const a = alphaAt(x, y);
+          if (a <= 0.05) continue;
+          ctx!.globalAlpha = a * 0.5;
+          ctx!.fillRect(x - 1, y - 1, 2, 2);
+        }
+      }
+      // Pixel blocks: a 3 by 3 of small squares, centred in a cell.
+      for (const b of blocks) {
+        const a = alphaAt(b.cx * CELL + CELL / 2, b.cy * CELL + CELL / 2);
+        if (a <= 0.05) continue;
+        const s = 6;
+        const gap = 3;
+        const size = s * 3 + gap * 2;
+        const ox = b.cx * CELL + (CELL - size) / 2;
+        const oy = b.cy * CELL + (CELL - size) / 2;
+        b.bits.forEach((on, i) => {
+          const accent = i === b.accent && on;
+          ctx!.globalAlpha = a * (accent ? 0.9 : on ? 0.32 : 0.08);
+          ctx!.fillStyle = accent ? colors.accent : colors.faint;
+          ctx!.fillRect(ox + (i % 3) * (s + gap), oy + Math.floor(i / 3) * (s + gap), s, s);
+        });
+      }
+      // Hashes, settling out of noise.
+      ctx!.font = '500 10.5px "Geist Mono", ui-monospace, monospace';
+      ctx!.textBaseline = "middle";
+      for (const h of hashes) {
+        const a = alphaAt(h.cx * CELL + CELL, h.cy * CELL + CELL / 2);
+        if (a <= 0.05) continue;
+        ctx!.globalAlpha = a * 0.75;
+        ctx!.fillStyle = colors.faint;
+        ctx!.fillText(h.shown, h.cx * CELL + 6, h.cy * CELL + CELL / 2);
+      }
+      // Messages travelling along the rules, and the rings where they land.
+      for (const d of dots) {
+        const t = Math.min(1, (now - d.t0) / d.dur);
+        const e = ease(t);
+        const x = d.x0 + (d.x1 - d.x0) * e;
+        const y = d.y0 + (d.y1 - d.y0) * e;
+        const tail = 0.18;
+        const e0 = ease(Math.max(0, t - tail));
+        const tx = d.x0 + (d.x1 - d.x0) * e0;
+        const ty = d.y0 + (d.y1 - d.y0) * e0;
+        const a = alphaAt(x, y);
+        ctx!.globalAlpha = a * 0.55;
+        ctx!.strokeStyle = colors.accent;
+        ctx!.lineWidth = 2;
+        ctx!.beginPath();
+        ctx!.moveTo(tx, ty);
+        ctx!.lineTo(x, y);
+        ctx!.stroke();
+        ctx!.globalAlpha = a;
+        ctx!.fillStyle = colors.accent;
+        ctx!.beginPath();
+        ctx!.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx!.fill();
+      }
+      for (const r of rings) {
+        const t = Math.min(1, (now - r.t0) / 700);
+        ctx!.globalAlpha = alphaAt(r.x, r.y) * (1 - t) * 0.8;
+        ctx!.strokeStyle = colors.accent;
+        ctx!.lineWidth = 1.5;
+        ctx!.beginPath();
+        ctx!.arc(r.x, r.y, 3 + t * 9, 0, Math.PI * 2);
+        ctx!.stroke();
+      }
+      // Sparkles on two crosshairs.
+      for (const s of sparks) {
+        const pulse = reduced.matches ? 1 : 0.75 + 0.25 * Math.sin(now / 900 + s.phase);
+        const r = 7 * pulse;
+        ctx!.globalAlpha = alphaAt(s.x, s.y) * (0.6 + 0.4 * pulse);
+        ctx!.fillStyle = colors.accent;
+        ctx!.beginPath();
+        ctx!.moveTo(s.x, s.y - r);
+        ctx!.quadraticCurveTo(s.x, s.y, s.x + r, s.y);
+        ctx!.quadraticCurveTo(s.x, s.y, s.x, s.y + r);
+        ctx!.quadraticCurveTo(s.x, s.y, s.x - r, s.y);
+        ctx!.quadraticCurveTo(s.x, s.y, s.x, s.y - r);
+        ctx!.fill();
+        ctx!.globalAlpha *= 0.5;
+        ctx!.strokeStyle = colors.accent;
+        ctx!.lineWidth = 1;
+        ctx!.beginPath();
+        ctx!.arc(s.x, s.y, 13, 0, Math.PI * 2);
+        ctx!.stroke();
+      }
+      ctx!.globalAlpha = 1;
+    }
+
+    function step(now: number) {
+      for (const b of blocks) {
+        if (now < b.next) continue;
+        const i = Math.floor(Math.random() * 9);
+        b.bits[i] = b.bits[i] ? 0 : 1;
+        b.next = now + rnd(180, 900);
+      }
+      for (const h of hashes) {
+        if (h.settle > 0) {
+          h.settle -= 1;
+          const keep = Math.max(0, h.text.length - h.settle);
+          h.shown = h.text.slice(0, keep) + Array.from({ length: h.text.length - keep }, () => HEX[Math.floor(Math.random() * 16)]).join("");
+          if (h.settle === 0) h.next = now + rnd(2500, 6000);
+        } else if (now >= h.next) {
+          h.text = `sha256:${hex(8)}`;
+          h.settle = 8;
+        }
+      }
+      if (now >= nextDot) {
+        spawnDot(now);
+        nextDot = now + rnd(700, 1600);
+      }
+      dots = dots.filter((d) => {
+        if (now - d.t0 < d.dur) return true;
+        rings.push({ x: d.x1, y: d.y1, t0: now });
+        return false;
+      });
+      rings = rings.filter((r) => now - r.t0 < 700);
+    }
+
+    let running = false;
+    let visible = true;
+    let last = 0;
+    function frame(now: number) {
+      if (!running) return;
+      if (now - last > 33) {
+        step(now);
+        draw(now);
+        last = now;
+      }
+      requestAnimationFrame(frame);
+    }
+    function update() {
+      const should = visible && !document.hidden && !reduced.matches;
+      if (should && !running) {
+        running = true;
+        requestAnimationFrame(frame);
+      } else if (!should) {
+        running = false;
+        draw(performance.now());
+      }
+    }
+
+    readColors();
+    layout();
+    draw(performance.now());
+    new ResizeObserver(() => {
+      layout();
+      draw(performance.now());
+    }).observe(canvas);
+    new IntersectionObserver((e) => {
+      visible = e.some((x) => x.isIntersecting);
+      update();
+    }).observe(canvas);
+    document.addEventListener("visibilitychange", update);
+    reduced.addEventListener("change", update);
+    const repaint = () => {
+      readColors();
+      draw(performance.now());
+    };
+    new MutationObserver(repaint).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", repaint);
+    document.fonts?.ready.then(repaint);
+    update();
+  }
+</script>

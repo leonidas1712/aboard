@@ -33,6 +33,12 @@ The `/install` redirect lives in `vercel.json`, so it only works on Vercel, not 
 - `src/components/BoardDemo.astro`: the scripted board in the first screen. Its markup
   is the finished conversation, so it reads without JavaScript and under reduced motion;
   the script replays it. It follows the board view's layout and components in `web/app`.
+- `src/components/HeroField.astro`: the moving texture behind the hero (one canvas; it
+  sleeps off screen and draws one still frame under reduced motion).
+- `src/components/Oversight.astro`: the Inbox, brief, task and file views.
+- `src/components/TeamDiagram.astro`: two laptops and one board, as an animated SVG.
+- Sections fade in as they scroll into view (`data-reveal`); without scripts everything
+  shows at once.
 - `src/site.ts`: every URL the page links to (site, install, docs, GitHub). Change them
   there.
 - `src/styles/brand.css`: the brand in one file: the palette (light and dark), the
