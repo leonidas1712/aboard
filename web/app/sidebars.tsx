@@ -24,6 +24,8 @@ import { attentionCount } from "./asks";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
+import { Kbd } from "./keys-sheet";
+import { keyLabel } from "./keys";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
 import { LineText, StatusDot } from "./status";
@@ -45,7 +47,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   return (
     <div className="flex flex-col gap-6">
       <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("-mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
-        Inbox
+        <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd>{keyLabel("inbox")}</Kbd>}</span>
         {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}
       </a>
       {needs.length > 0 && (

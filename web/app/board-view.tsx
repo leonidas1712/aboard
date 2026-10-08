@@ -5,7 +5,7 @@
 // people, charter, rules and details) on the right.
 
 import { lab } from "aboard-lab";
-import { CheckCheck, Menu, PanelRight } from "lucide-react";
+import { ArrowLeft, CheckCheck, Menu, PanelRight } from "lucide-react";
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,8 @@ import { HarnessProvider } from "./agent-mark";
 import { attentionCount } from "./asks";
 import { Sheet, useWide } from "./sheet";
 import { usePref } from "./prefs";
+import { Kbd, KeysSheet } from "./keys-sheet";
+import { keyLabel, pressed, typing } from "./keys";
 import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
 import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
 import { threadsOf, useThreadPrefs } from "./threads";
@@ -87,6 +89,9 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     if (wide) setRight({ ...rightPref, collapsed: false });
     else setSheet("right");
   }, [rightPref, setRight, wide]);
+  // A board opened from the Inbox says so in its link, and offers the way back.
+  const [fromInbox] = useState(() => new URLSearchParams(window.location.search).get("from") === "inbox");
+  const [keysOpen, setKeysOpen] = useState(false);
   // What a panel shows in the conversation closes its sheet, so the person sees it.
   const toConversation = useCallback(() => setSheet(null), []);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -417,6 +422,22 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     Date.now(),
   );
 
+  // I goes to the Inbox from anywhere on the board; Escape does too when the board was
+  // opened from it and nothing else (a sheet, a panel, a menu, a reply) wants the key.
+  const covered = sheet !== null || taskPanel !== null || filePanel !== null || replyTo !== null;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (typing(e) || e.defaultPrevented) return;
+      if (pressed("help", e)) setKeysOpen(true);
+      else if (pressed("inbox", e)) window.location.href = "/?inbox";
+      else if (fromInbox && !covered && pressed("back", e) && !document.querySelector('[role="menu"], [role="alertdialog"], [data-radix-popper-content-wrapper]')) window.location.href = "/?inbox";
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [fromInbox, covered]);
+
   if (s.gone) {
     return (
       <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
@@ -578,6 +599,15 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
 
           <main className="board-main flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none">
             <div className={column}>
+              {fromInbox && (
+                <p className="flex min-h-11 items-center gap-x-4 text-meta text-muted">
+                  <a href="/?inbox" className="back-to-inbox -ml-2.5 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link no-underline transition-colors duration-[140ms] ease-out hover:bg-hover">
+                    <ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />
+                    Back to Inbox<Kbd>{keyLabel("back")}</Kbd>
+                  </a>
+                  <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-link hover:underline pointer-coarse:hidden" onClick={() => setKeysOpen(true)}><Kbd>{keyLabel("help")}</Kbd>All keys</button>
+                </p>
+              )}
               <div className={cn(headerRow, "items-start justify-between gap-x-4 py-2.5")}>
                 <NowLine parts={loading ? null : now} onShow={onShow} />
                 {!loading && s.board && (s.board.unread ?? 0) > 0 && <MarkAllRead onClick={() => markRead(s.board!)} />}
@@ -702,6 +732,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             </Sheet>
           )}
         </div>
+        <KeysSheet open={keysOpen} onClose={() => setKeysOpen(false)} place="board" />
       </div>
     </TooltipProvider>
     </FilesContext>

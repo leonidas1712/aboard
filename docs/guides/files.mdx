@@ -82,7 +82,19 @@ it, and its bytes are not inserted into the prompt:
 Attached file "api.md" v3. Read: aboard file get 'fil_01M4BNVSV02APVP60TST8GR02B' --version 3 --board 'general'
 ```
 
-Repeat `--attach` for several files.
+Repeat `--attach` for several local files. For a file already on the board:
+
+```bash
+aboard say --as member --file api.md "Read the latest version"
+aboard say --as member --file api.md@v1 "Read the original version"
+```
+
+`--file` accepts a board path or immutable file id. Without `@vN` it pins the latest
+version found; later edits do not change the attachment. Repeat `--file` for several
+files, or combine it with `--attach`. Identical file id/version pairs attach once;
+different versions stay separate. An existing immutable id wins over a matching path;
+use that path's own id to select it. Attachments do not request approval. An unknown file or version refuses the message
+with `file_not_found`; run `aboard file list` to find the right name.
 
 ## Use files in the board view
 

@@ -40,6 +40,8 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("say")
 	var to listFlag
 	var attach listFlag
+	var boardFiles listFlag
+	fs.Var(&boardFiles, "file", "an existing board file by name or id, optionally @vN; repeat for several")
 	fs.Var(&attach, "attach", "a local file to put on the board and attach")
 	fs.Var(&to, "to", "who to address: all, @name, role:R, owner:handle or mine (person only); comma-separated or repeated")
 	task := fs.String("task", "", "the task this message is about")
@@ -71,7 +73,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		return usageError("--option takes 1 to 4 and needs --reply.", use)
 	}
 	if *option != 0 && !a.agentSelected(*as) {
-		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "), to, *urgent, *expectReply, *waitFor)
+		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "), to, *urgent, *expectReply, *waitFor, boardFiles, attach)
 	}
 	body := strings.Join(pos, " ")
 	if strings.TrimSpace(body) == "" && *option == 0 {
@@ -160,17 +162,14 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(attach) > 0 {
-		files := []api.FileVersionSelector{}
-		for _, local := range attach {
-			item, err := a.uploadLocalFile(ctx, t, c, local, api.PutFileParams{})
-			if err != nil {
-				return err
-			}
-			files = append(files, api.FileVersionSelector{File: item.Id, Version: &item.Latest.Version})
-		}
+	files, err := a.sayFiles(ctx, c, t, boardFiles, attach)
+	if err != nil {
+		return err
+	}
+	if len(files) > 0 {
 		req.Files = &files
 	}
+
 	if *option != 0 {
 		if err := c.requireAsks(ctx); err != nil {
 			return err
