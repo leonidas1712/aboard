@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"reflect"
@@ -70,6 +71,14 @@ type HeadFeed struct {
 	// positions is, by board id, the human's own read position and unread count last
 	// returned.
 	positions map[string]Position
+	watches   map[string]headWatch
+	resync    map[string]bool
+	started   bool
+}
+
+type headWatch struct {
+	boardID string
+	changed <-chan struct{}
 }
 
 // FollowHeads starts following the heads of the human's boards. Only humans may.
@@ -126,35 +135,87 @@ type ReadChange struct {
 // found and a presence that ran out is noticed, and returns what changed (possibly
 // nothing) with ticked true.
 func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, ticked bool, err error) {
+	if f.watches == nil {
+		f.watches = map[string]headWatch{}
+		f.resync = map[string]bool{}
+		key := boardsOfKey(f.p.Human.ID)
+		f.watches[key] = headWatch{changed: f.s.notify.Watch(key)}
+	}
 	for {
 		// The feed ends with the credential it was opened with.
 		var cred credentialEnd
 		if cred, err = f.s.watchCredential(ctx, f.p); err != nil {
 			return Update{}, false, err
 		}
-		// Watch before reading, so a change between the read and the wait isn't missed.
+		// Retain subscriptions acquired before the last snapshot across Next calls.
+		// A commit after that snapshot therefore leaves a closed channel to refresh.
+		full := !f.started
+		dirty := f.resync
+		f.resync = map[string]bool{}
+		for key, watch := range f.watches {
+			select {
+			case <-watch.changed:
+				if watch.boardID == "" {
+					full = true
+				} else {
+					dirty[watch.boardID] = true
+				}
+				watch.changed = f.s.notify.Watch(key)
+				f.watches[key] = watch
+			default:
+			}
+		}
+		if full || len(dirty) != 0 {
+			if full {
+				u, err = f.read(ctx)
+			} else {
+				u, err = f.readBoards(ctx, slices.Sorted(maps.Keys(dirty)))
+			}
+			f.started = true
+			f.followBoards()
+			if err != nil || !u.empty() {
+				return u, false, err
+			}
+			if len(f.resync) != 0 {
+				continue
+			}
+		}
 		cases := []reflect.SelectCase{
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(tick)},
-			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(boardsOfKey(f.p.Human.ID)))},
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(cred.changed)},
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(cred.expires)},
 		}
-		for id := range f.sent {
-			cases = append(cases,
-				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(id))},
-				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(presenceKey(id)))},
-				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(f.s.notify.Watch(readKey(id)))})
-		}
-		if u, err = f.read(ctx); err != nil || !u.empty() {
-			return u, false, err
+		for _, watch := range f.watches {
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(watch.changed)})
 		}
 		switch chosen, _, _ := reflect.Select(cases); chosen {
 		case 0:
 			return Update{}, false, fmt.Errorf("follow heads: %w", ctx.Err())
 		case 1:
 			u, err = f.read(ctx)
+			f.followBoards()
 			return u, true, err
+		}
+	}
+}
+
+func (f *HeadFeed) followBoards() {
+	for key, watch := range f.watches {
+		if watch.boardID != "" {
+			if _, present := f.sent[watch.boardID]; !present {
+				delete(f.watches, key)
+			}
+		}
+	}
+	for id := range f.sent {
+		for _, key := range []string{id, presenceKey(id), readKey(id, f.p.Human.ID)} {
+			if _, known := f.watches[key]; !known {
+				f.watches[key] = headWatch{boardID: id, changed: f.s.notify.Watch(key)}
+				// A new board's first snapshot preceded its subscription. Re-read it
+				// after subscribing before waiting, to cover that startup window.
+				f.resync[id] = true
+			}
 		}
 	}
 }
@@ -166,7 +227,44 @@ func (f *HeadFeed) Start(ctx context.Context) (Update, error) { return f.read(ct
 // read returns the heads and presence that differ from those last returned and
 // remembers them. Boards the human is no longer on are forgotten.
 func (f *HeadFeed) read(ctx context.Context) (Update, error) {
-	heads, err := f.s.Heads(ctx, f.p)
+	return f.readBoards(ctx, nil)
+}
+
+func (f *HeadFeed) readBoards(ctx context.Context, selected []string) (Update, error) {
+	var heads []Head
+	var err error
+	if selected == nil {
+		heads, err = f.s.Heads(ctx, f.p)
+	} else {
+		err = f.s.st.Read(ctx, func(tx ReadTx) error {
+			if err := stillValid(tx, f.p, stamp(f.s.clk.Now())); err != nil {
+				return err
+			}
+			for _, id := range selected {
+				b, err := tx.BoardByID(id)
+				if errors.Is(err, ErrNotFound) {
+					continue
+				}
+				if err != nil {
+					return err
+				}
+				if b.Lifecycle == LifecycleDeleted {
+					continue
+				}
+				me, err := tx.HumanMember(id, f.p.Human.ID)
+				if errors.Is(err, ErrNotFound) {
+					continue
+				}
+				if err != nil {
+					return err
+				}
+				if me.Status == StatusActive {
+					heads = append(heads, Head{BoardID: id, Board: b.Name, Seq: b.HeadSeq})
+				}
+			}
+			return nil
+		})
+	}
 	if err != nil {
 		return Update{}, err
 	}
@@ -194,12 +292,30 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 			u.Heads = append(u.Heads, h)
 		}
 	}
-	for id := range f.sent {
-		if _, ok := current[id]; !ok {
-			u.Unavailable = append(u.Unavailable, Unavailable{BoardID: id})
+	previous := f.sent
+	if selected != nil {
+		previous = map[string]int64{}
+		for _, id := range selected {
+			if seq, known := f.sent[id]; known {
+				previous[id] = seq
+			}
 		}
 	}
-	f.sent = current
+	for id := range previous {
+		if _, ok := current[id]; ok {
+			continue
+		}
+		u.Unavailable = append(u.Unavailable, Unavailable{BoardID: id})
+		delete(f.sent, id)
+		delete(f.presence, id)
+		delete(f.reads, id)
+		delete(f.positions, id)
+	}
+	if selected == nil {
+		f.sent = current
+	} else {
+		maps.Copy(f.sent, current)
+	}
 
 	for _, id := range ids {
 		if pos, ok := positions[id]; ok {
@@ -208,7 +324,11 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 			}
 		}
 	}
-	f.positions = positions
+	if selected == nil {
+		f.positions = positions
+	} else {
+		maps.Copy(f.positions, positions)
+	}
 	for _, id := range ids {
 		before, known := f.presence[id]
 		for _, agent := range slices.Sorted(maps.Keys(presence[id])) {
@@ -222,7 +342,11 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 			}
 		}
 	}
-	f.presence = presence
+	if selected == nil {
+		f.presence = presence
+	} else {
+		maps.Copy(f.presence, presence)
+	}
 	for _, id := range ids {
 		before, known := f.reads[id]
 		for _, agent := range slices.Sorted(maps.Keys(reads[id])) {
@@ -231,6 +355,10 @@ func (f *HeadFeed) read(ctx context.Context) (Update, error) {
 			}
 		}
 	}
-	f.reads = reads
+	if selected == nil {
+		f.reads = reads
+	} else {
+		maps.Copy(f.reads, reads)
+	}
 	return u, nil
 }

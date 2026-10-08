@@ -374,6 +374,7 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 	var (
 		cursor int64
 		moved  bool
+		owner  string
 	)
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, _, err := seatOf(tx, *p.Agent)
@@ -392,18 +393,19 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 		}
 		me, err := tx.MemberByName(b.ID, p.Agent.Name)
 		cursor, moved = me.Cursor, me.Cursor != before.Cursor
+		owner = me.HumanID
 		return err
 	})
 	if err == nil && moved {
 		// Whoever acknowledged, the owner's delivery daemon follows the read position.
-		s.notify.Changed(readKey(p.Agent.BoardID))
+		s.notify.Changed(readKey(p.Agent.BoardID, owner))
 	}
 	return cursor, err
 }
 
 // readKey is the Notifier key that changes when an agent's read position on the board
 // moves. Like presence, a read position is bookkeeping, never an event.
-func readKey(boardID string) string { return "read/" + boardID }
+func readKey(boardID, humanID string) string { return "read/" + boardID + "/" + humanID }
 
 // Log is a page of a board's event log.
 type Log struct {

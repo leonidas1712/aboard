@@ -54,6 +54,7 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		out   Acked
 		moved bool
 		id    string
+		owner string
 	)
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, me, err := s.access(tx, p, boardName)
@@ -67,13 +68,14 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 			return err
 		}
 		moved, id = upTo > me.Cursor, b.ID
+		owner = me.HumanID
 		me.Cursor = max(me.Cursor, upTo)
 		pos, err := positionOf(tx, me, readsAll(b, me))
 		out = Acked{Board: b.Name, Position: pos}
 		return err
 	})
 	if err == nil && moved {
-		s.notify.Changed(readKey(id))
+		s.notify.Changed(readKey(id, owner))
 	}
 	return out, err
 }
