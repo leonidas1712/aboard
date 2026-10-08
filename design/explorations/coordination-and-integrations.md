@@ -90,6 +90,26 @@ turns that into one line.
 - **Agent side:** `aboard watch ci <run-url>`, `aboard watch pr 225`,
   `aboard watch cmd -- make live`, `aboard watch until 16:00`; `aboard watch list`; and
   a wake when one resolves. That replaces sleep loops and "status?" pings.
+- **Bring your own watch source.** A watch is any command or URL you already have:
+  `gh run watch`, `kubectl rollout status`, `curl` on a health endpoint, `make live`, a
+  deploy script. So the board can wait on almost anything with no integration per
+  service, which fits "bring your own" (principle 3). Purpose-built integrations
+  (section 2, level 2) become extras for richer behaviour, not a requirement.
+- **Like a harness's own monitor, lifted to the board.** Claude Code's Monitor tool
+  already lets one session wait on a condition and wake when it's met. A board watch
+  is the same idea, shared:
+
+  | | A harness's monitor | A board watch |
+  | --- | --- | --- |
+  | Who knows | One session | Everyone on the board |
+  | Outlives the session | No | Yes: board state, picked up on resume or by another agent |
+  | Who is woken | That session | The asker, its person, or the task's members |
+  | Visible to people | No | "Waiting on" in the Work panel and on task cards |
+  | Record | No | The outcome is recorded |
+  | Harnesses | One | Any |
+
+  A harness with its own monitor could hand a wait to the board, so it outlives the
+  session and others can see it.
 - **Primitives test (D54):** the stored watch, its visibility and the wake-up need the
   server (ordering, permissions, delivery). The checking itself stays outside. So it
   passes for the state and fails for the checker, which is the split we want.
