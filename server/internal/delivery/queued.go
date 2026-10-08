@@ -26,11 +26,14 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 		}
 		rctx, cancel := context.WithTimeout(ctx, recheckTimeout)
 		srv := s.d.server(ref.Server).srv
-		msgs, _, mode, err := srv.Inbox(rctx, ref)
+		msgs, cursor, mode, err := srv.Inbox(rctx, ref)
 		cancel()
 		if err != nil {
 			return queueUnknown()
 		}
+		// Take this read as the agent's inbox, so which messages go at the next step is
+		// judged from the same messages and policy as the preview, not an older read.
+		s.onInbox(ctx, inboxResult{generation: a.generation, agent: ref, msgs: msgs, cursor: cursor, mode: mode})
 		accepted := map[int64]bool{}
 		for _, dl := range s.awaitingTurn {
 			if dl.Agent.Key() != ref.Key() {
