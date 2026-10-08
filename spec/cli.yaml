@@ -1267,7 +1267,7 @@ $defs:
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]
-  #            [--task ID | --no-task] [--option K] [--attach FILE] ----------
+  #            [--task ID | --no-task] [--option K] [--attach FILE] [--file NAME[@vN]] ----------
   # (aboard ask makes an ask, with AskOutput; it is no longer `aboard say --expect-reply`.)
   # `say --to owner:handle` addresses that person’s current agents on this board.
   # In a human terminal, `say --to mine` posts as the person to owner:<their handle>.
@@ -1352,7 +1352,15 @@ $defs:
       makes it about nothing (tasks the text names are still linked). --option K, with
       --reply to an ask, answers it with option K, and the body defaults to that option's
       text. --attach FILE puts the file on the board (as aboard file put) and attaches
-      that version. `nudges` holds the reminders for the agent (Nudge), printed after
+      that version. --file NAME[@vN] attaches an existing board file by path or immutable
+      file id, without uploading bytes. Repeat --file for several files; it may be
+      combined with --attach. Without @vN it pins the latest version observed during
+      lookup. With @vN it pins that positive integer version. Every selector is resolved
+      using the acting seat's credential on the selected board before any local upload
+      or message write. Unknown files or versions return file_not_found with a hint to
+      run aboard file list --board <board> or upload with --attach; malformed version
+      suffixes return invalid_request. No message is posted on refusal. The server
+      rechecks file access and availability when posting. `nudges` holds the reminders for the agent (Nudge), printed after
       everything else.
     type: object
     required: [message, unread, recipients]
