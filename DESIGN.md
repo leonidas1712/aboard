@@ -444,8 +444,10 @@ file icon), drawn in `currentColor`. The product mark is the brand's (the same a
 website's): a rounded room holding two lines of conversation, the earlier in ink and
 the later in `mark-reply` (`#4CC038` in light, a step darker than the accent so it
 holds on white; the teal in dark), at 22px, drawn from the theme's tokens. The tab
-icon (`icon.svg`, adapting to light and dark), `icon.png`, `apple-icon.png` and the
-192px and 512px icons of the web manifest are the same mark.
+icon (`icon.svg`, `icon.png`, `favicon.ico`), `apple-icon.png` and the 192px and 512px
+icons of the web manifest are the same mark as it looks in dark, on a near-black
+(`#0c0d0a`) tile, and stay that way in either theme so the icon reads on light and dark
+tabs alike.
 
 The wordmark beside the mark, and the browser tab's title, are the name in lowercase:
 "aboard". Prose writes the name the same way, even at the start of a sentence

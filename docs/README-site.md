@@ -1,7 +1,8 @@
 # The docs site
 
 For maintainers. The pages in this folder are published with
-[Mintlify](https://www.mintlify.com/docs). This file isn't a page: `.mintignore` leaves
+[Mintlify](https://www.mintlify.com/docs) at
+[docs.comeaboard.dev](https://docs.comeaboard.dev). This file isn't a page: `.mintignore` leaves
 it out. Facts about Mintlify below were checked against its docs on 2026-10-05; it
 changes often, so check the linked page when something doesn't match.
 
@@ -14,6 +15,14 @@ changes often, so check the linked page when something doesn't match.
   ([settings](https://www.mintlify.com/docs/organize/settings),
   [navigation](https://www.mintlify.com/docs/organize/navigation),
   [hidden pages](https://www.mintlify.com/docs/organize/hidden-pages))
+- **The look is the brand's** (`site/src/styles/brand.css`): `docs.json` sets the
+  colours (links and accents in the darker green `#2b7f1c` in light, so they keep 5:1 on
+  the page, and the teal `#14b8a6` in dark), the backgrounds (`#fafaf7` and `#0c0d0a`),
+  Geist from `fonts/`, the wordmark in `logo/` (light and dark, outlined so it needs no
+  font) and the favicon, which is the same fixed tab icon as the website's. `style.css`
+  adds Geist Mono for code, which `docs.json` has no key for. Mintlify loads every
+  `.css` file in this folder on every page
+  ([custom scripts and styles](https://www.mintlify.com/docs/customize/custom-scripts)).
 - **Generated, never edited by hand:**
   - `cli/*.mdx` and the "CLI reference" group's page list in `docs.json`,
     written by `make docs-cli` from `aboard help --json` (the help in
@@ -29,6 +38,9 @@ changes often, so check the linked page when something doesn't match.
   shown in the pages are covered by an e2e test or `e2e/RELEASE_CHECKLIST.md`
   (workflow rule 5).
 - Images live in `images/` and are linked from the docs root (`/images/board-view.png`).
+  The two board view screenshots (also in the README) are retaken from a seeded board
+  with `cd web && DOCS_SHOTS=../docs/images npx playwright test e2e/docs-shots.spec.ts`
+  after `make web`.
 - MDX is stricter than Markdown: `{`, `}` and `<` in prose start expressions and tags, so
   escape them or put them in backticks; comments are `{/* … */}`, never `<!-- -->`.
   ([format text](https://www.mintlify.com/docs/create/text))

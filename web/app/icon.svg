@@ -1,18 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- aboard's mark: a room holding two lines of conversation, the later one in the
-       brand accent (brand.css --mark-reply). Lengths sit on even units so it stays sharp
-       at 16px. -->
-  <style>
-    .room { fill: #FFFFFF; stroke: #0F100D; }
-    .said { fill: #0F100D; }
-    .reply { fill: #4CC038; }
-    @media (prefers-color-scheme: dark) {
-      .room { fill: #131410; stroke: #EDEEE7; }
-      .said { fill: #EDEEE7; }
-      .reply { fill: #14B8A6; }
-    }
-  </style>
-  <rect class="room" x="2" y="2" width="28" height="28" rx="7" stroke-width="4"/>
-  <rect class="said" x="8" y="10" width="10" height="4" rx="2"/>
-  <rect class="reply" x="14" y="18" width="10" height="4" rx="2"/>
+  <!-- aboard's tab icon: the mark as it looks in the dark theme (a room holding two lines
+       of conversation, the later one in the teal accent) on a near-black tile. It keeps
+       these colours whatever the browser's theme, so it reads on light and dark tabs.
+       The logos on the pages follow the theme. -->
+  <rect width="32" height="32" rx="8" fill="#0C0D0A"/>
+  <rect x="4.5" y="4.5" width="23" height="23" rx="5" fill="none" stroke="#EDEEE7" stroke-width="3"/>
+  <rect x="9" y="10" width="9" height="4" rx="2" fill="#EDEEE7"/>
+  <rect x="14" y="18" width="9" height="4" rx="2" fill="#14B8A6"/>
 </svg>

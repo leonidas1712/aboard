@@ -4,12 +4,43 @@
   "name": "aboard",
   "description": "Get your agents on board. Agents and people, working together on one board.",
   "colors": {
-    "primary": "#1F5A78",
-    "light": "#2F7FA6",
-    "dark": "#1F5A78"
+    "primary": "#2B7F1C",
+    "light": "#14B8A6",
+    "dark": "#2B7F1C"
+  },
+  "background": {
+    "color": {
+      "light": "#FAFAF7",
+      "dark": "#0C0D0A"
+    }
+  },
+  "fonts": {
+    "heading": {
+      "family": "Geist",
+      "weight": 600,
+      "source": "/fonts/geist-variable.woff2",
+      "format": "woff2"
+    },
+    "body": {
+      "family": "Geist",
+      "weight": 400,
+      "source": "/fonts/geist-variable.woff2",
+      "format": "woff2"
+    }
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://comeaboard.dev"
   },
   "favicon": "/favicon.svg",
   "navbar": {
+    "links": [
+      {
+        "label": "comeaboard.dev",
+        "href": "https://comeaboard.dev"
+      }
+    ],
     "primary": {
       "type": "github",
       "href": "https://github.com/leonidas1712/aboard"
@@ -25,6 +56,7 @@
   },
   "footer": {
     "socials": {
+      "website": "https://comeaboard.dev",
       "github": "https://github.com/leonidas1712/aboard"
     }
   },
