@@ -154,6 +154,7 @@ func commands() []command {
 		{"uninstall", runUninstall},
 		{"upgrade", runUpgrade},
 		{"version", runVersion},
+		{"skill", runSkill},
 		{"help", runHelp},
 		{"serve", runServe},
 		{"daemon", runDaemon},
@@ -218,7 +219,7 @@ func Run(ctx context.Context, args []string, env Env) int {
 
 // noLaunchClaim are the commands that never hand in the session's launch ticket: the
 // ones a harness or a person runs rather than the agent.
-var noLaunchClaim = []string{"hook", "daemon", "serve", "help", "version", "up", "down", "swarm"}
+var noLaunchClaim = []string{"hook", "daemon", "serve", "help", "version", "skill", "up", "down", "swarm"}
 
 // wantsJSON looks for --json before flags are parsed, so even a usage error can be
 // printed as JSON.

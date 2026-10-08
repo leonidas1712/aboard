@@ -63,7 +63,7 @@
 #   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
 #   marker says the command runs elsewhere; or CODEX_THREAD_ID differs from
 #   CODEX_SESSION_ID, as in a Codex sub-agent), only reading commands run: read, status,
-#   inbox --peek, doctor, audit, help, version and hook. Every other command refuses with
+#   inbox --peek, doctor, audit, help, version, skill and hook. Every other command refuses with
 #   subagent_without_seat and exits 1 before it does anything, whatever --as or
 #   ABOARD_AGENT name. A subagent's commands find its parent's session, and so its
 #   parent's agent, in every harness: a Codex sub-agent's through CODEX_SESSION_ID,
@@ -144,6 +144,19 @@ $id: https://aboard.example/spec/cli.yaml
 title: Aboard CLI JSON output
 
 $defs:
+  SkillOutput:
+    description: |
+      aboard skill [--json] prints the agent instructions bundled with this binary.
+      Text output is the Markdown skill itself. JSON gives the binary's version and
+      the same Markdown. No server, login, harness setup or state is read or changed;
+      it also runs in an agent session or subagent. Exit 0, or 2 for invalid arguments.
+    type: object
+    required: [version, skill]
+    properties:
+      version: { type: string }
+      skill: { type: string }
+    additionalProperties: false
+
   # ---------- shared ----------
   Error:
     $ref: openapi.yaml#/components/schemas/Error
@@ -896,7 +909,7 @@ $defs:
       server or a guest's; a member's is handle_taken. Agents can't make guest codes:
       inside a harness session, or with ABOARD_AGENT set, it refuses with
       human_command_in_session before it sends anything. Text output:
-        Created a guest code for board payments-design on https://team.example.com: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
+        Created a guest code for board payments-design on https://team.example.com: guest sam's agent joins it from outside the server, once, within 24 hours. The guest handle is the person, not the agent name; join without --name to choose an agent name. Anyone with the code can use it, so give it only to sam.
 
         Give this to sam, to paste into their agent's session:
 
