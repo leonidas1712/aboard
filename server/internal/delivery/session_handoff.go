@@ -330,7 +330,7 @@ func (s *session) ensureBoot(ctx context.Context) error {
 		return err
 	}
 	boot := "boot_" + hex.EncodeToString(random[:])
-	record := SessionRecord{Key: s.key, Boot: boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, UpdatedAt: s.now()}
+	record := SessionRecord{Key: s.key, Boot: boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, record); err != nil {
 		return err
 	}

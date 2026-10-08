@@ -96,6 +96,47 @@ func (s *failingRefresh) Inbox(ctx context.Context, ref delivery.AgentRef) (msgs
 	return s.Server.Inbox(ctx, ref)
 }
 
+func TestHooksDoNotHandCachedMessagesWhenFreshReadFails(t *testing.T) {
+	for _, op := range []string{delivery.OpBoundary, delivery.OpTurnStart} {
+		t.Run(op, func(t *testing.T) {
+			var remote *failingRefresh
+			r := newRigWithServer(t, func(s delivery.Server) delivery.Server {
+				remote = &failingRefresh{Server: s, attempted: make(chan struct{}, 20)}
+				return remote
+			})
+			req := func(operation string) delivery.Request {
+				return delivery.Request{Op: operation, Harness: "codex", Session: "hook-refresh", Boot: "b1"}
+			}
+			r.ok(req(delivery.OpRegister))
+			r.bind("codex", "hook-refresh", reviewer)
+			r.ok(req(delivery.OpPrompt))
+			seq := r.post(reviewer, "unread peer", false)
+			r.eventually("peer cached during busy turn", 0, func() bool {
+				return strings.Contains(r.ok(req(delivery.OpBoundary)).Notice, fmt.Sprintf("#%d ", seq))
+			})
+			if op == delivery.OpBoundary {
+				r.postFromOwner(reviewer, "unread owner")
+			}
+			remote.fail.Store(true)
+			r.eventually("hook attempts fresh read", 0, func() bool {
+				got := r.ok(req(op))
+				if strings.Contains(got.Bundle, "unread peer") || strings.Contains(got.Bundle, "unread owner") {
+					t.Fatalf("failed fresh read handed cached text: %q", got.Bundle)
+				}
+				select {
+				case <-remote.attempted:
+					return true
+				default:
+					return false
+				}
+			})
+			if r.server.Cursor(reviewer) != 0 {
+				t.Fatal("failed read moved the cursor")
+			}
+		})
+	}
+}
+
 func TestTurnEndDoesNotHandCachedMessagesWhenFreshReadFails(t *testing.T) {
 	var remote *failingRefresh
 	r := newRigWithServer(t, func(s delivery.Server) delivery.Server {

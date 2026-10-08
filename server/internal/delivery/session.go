@@ -1698,8 +1698,8 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if !s.open {
 		return "", ""
 	}
-	if len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce() {
-		s.recheck(ctx)
+	if (len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce()) && !s.recheck(ctx) {
+		return "", ""
 	}
 	c := s.composePending(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame), s.compositionOptions(MidTurnLimit), midTurnFrame)
 	text := c.text
@@ -1785,7 +1785,9 @@ func (s *session) atTurnStart(ctx context.Context) string {
 		return notes
 	}
 	// The server is the authority on what the agent has read.
-	s.recheck(ctx)
+	if !s.recheck(ctx) {
+		return notes
+	}
 	limit := MidTurnLimit
 	if notes != "" {
 		limit -= len(notes) + 1
