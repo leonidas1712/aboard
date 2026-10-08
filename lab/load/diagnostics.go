@@ -26,9 +26,9 @@ type processDiagnostic struct {
 }
 
 type runProgress struct {
-	Stage                        string
-	SetupStart, MeasurementStart time.Time
-	Stream, Poll, Handover       []time.Duration
+	Stage                         string
+	SetupStart, MeasurementStart  time.Time
+	Stream, Poll, Handover, Write []time.Duration
 }
 
 func diagnoseLogs(reader io.Reader) (logSummary, error) {
@@ -161,6 +161,7 @@ func (f *fixture) finishReport(r *report, progress runProgress, runErr error) {
 	r.Stream = partialDistribution(progress.Stream)
 	r.LongPoll = partialDistribution(progress.Poll)
 	r.Handover = partialDistribution(progress.Handover)
+	r.Write = partialDistribution(progress.Write)
 	if runErr != nil {
 		r.Processes = f.processSummaries()
 	}
