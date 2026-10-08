@@ -1538,6 +1538,12 @@ event alone must not confirm a peer handoff whose output failed. An unconfirmed
 allocation keeps its sender cap charged and remains eligible for recovery at turn
 end; a reconnect never creates another allowance for that sender in the same turn.
 
+The logical turn stays open while a Stop hook waits and while its blocked turn
+continues. Presence becoming idle is not turn completion. A hook that permits the
+turn to finish reports `turn_end` with its start time; a report older than the
+latest turn activity cannot close that turn. If completion cannot be reported,
+the daemon conservatively retains the allowance until a later valid completion.
+
 Before each handoff, recheck current access, seat generation, ownership, policy,
 mode and live capability. A policy downgrade takes effect before the next handoff.
 The harness must declare `midturn-peer` as well as `tool-boundary`. An extension must
