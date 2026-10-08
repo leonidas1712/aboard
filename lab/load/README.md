@@ -61,7 +61,8 @@ sample has no CPU value, and OS accounting precision limits short intervals. CPU
 can exceed 100% on multiple cores. Sampling errors are counted, never replaced with
 invented zeros. Only the owned server PID is sampled, without its command arguments.
 The sampler requires a POSIX `ps` (macOS or Linux); resource data is preserved on
-failure. Configured SSE counts are labelled as configuration, not an active gauge.
+failure. `resources.available` requires at least two successful samples.
+Configured SSE counts are labelled as configuration, not an active gauge.
 
 `concurrent_writers` reports its own successful posts, write-response distribution,
 post-only elapsed time, throughput, throttles and verified read-backs. This timing
