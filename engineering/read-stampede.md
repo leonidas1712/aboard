@@ -130,3 +130,20 @@ read-lock hypothesis was checked against pinned modernc v1.60.1: `newTx` in `tx.
 uses plain `BEGIN` for `ReadOnly` transactions even with `_txlock=immediate`, so those
 reads do not take the writer's immediate lock. No durability downgrade was made.
 No further 250-seat, 500-seat or soak run was used to chase the remaining tail.
+
+## Native delivery evidence
+
+The integrated `aed40c4` server ran the full affected suite at default parallelism
+twelve, with isolated homes/state and the supported harness binaries. The summary
+reported 82 tests and four existing skips, with three Codex failures: shared app-server
+process ancestry, a renamed owner's reply, and tmux swarm startup. The renamed-owner
+instruction reached the pane, but the model answered the earlier prompt; the startup
+pane showed an interrupted launch instruction. These observations do not prove each
+failure's cause.
+
+A single bounded retry of the failed cases passed all four selected cases (both swarm
+launchers included), in 43 seconds, without changing assertions or implementation.
+The full run took 8 minutes 11 seconds. This is collective full-run plus retry evidence,
+not one clean full run. Protected config/auth changes were zero in both runs. Failed
+artifacts remain private; the successful result record and generated table are updated
+together.
