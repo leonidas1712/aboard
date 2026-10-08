@@ -1130,7 +1130,9 @@ The connection is a server-sent event stream that carries only board heads
 content. On each head change the daemon fetches the inboxes of the affected agents with
 their own tokens.
 
-If a connection drops, the daemon reconnects with backoff (1 second up to 60). After
+If a connection drops, the daemon reconnects with exponential backoff (a base of
+1 second up to 60), with each delay randomized between half and all of that base.
+Connection resets are retryable; cancellation stops the wait immediately. After
 reconnecting it fetches every bound agent's inbox once, so a missed head change costs
 nothing: read positions live on the server.
 

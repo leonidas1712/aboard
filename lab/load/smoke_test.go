@@ -25,7 +25,7 @@ func TestLoadUsesRealServerAndDaemons(t *testing.T) {
 	if report.Posts != 4 || report.Deliveries != 8 || report.Daemons != 2 {
 		t.Fatalf("incomplete proof: %+v", report)
 	}
-	if report.Stream.Samples != 8 || report.LongPoll.Samples != 8 || report.Handover.Samples != 8 {
+	if report.Stream.Samples != 8 || report.LongPoll.Samples != 8 || report.Handover.Samples != 8 || report.Write.Samples != report.Posts {
 		t.Fatalf("missing latency samples: %+v", report)
 	}
 }

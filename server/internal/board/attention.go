@@ -55,8 +55,10 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		out   Acked
 		moved bool
 		id    string
+		owner string
+		kind  string
 	)
-	err := s.writeAs(ctx, p, func(tx Tx) error {
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
 		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -64,20 +66,30 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		if upTo > b.HeadSeq {
 			return ackOutOfRange(upTo, b.HeadSeq)
 		}
-		if err := tx.SetCursor(me.ID, upTo); err != nil {
-			return err
+		if upTo > me.Cursor {
+			if err := tx.SetCursor(me.ID, upTo); err != nil {
+				return err
+			}
 		}
 		moved, id = upTo > me.Cursor, b.ID
+		owner = me.HumanID
+		kind = me.Kind
 		me.Cursor = max(me.Cursor, upTo)
 		pos, err := positionOf(tx, me, readsAll(b, me))
 		out = Acked{Board: b.Name, Position: pos}
 		return err
 	})
 	if err == nil && moved {
-		s.notify.Changed(readKey(id))
+		key := readKey(id, owner)
+		if kind == "human" {
+			key = positionKey(id, owner)
+		}
+		s.notify.Changed(key)
 	}
 	return out, err
 }
+
+func positionKey(boardID, humanID string) string { return "position/" + boardID + "/" + humanID }
 
 func ackOutOfRange(upTo, head int64) error {
 	return apierr.New(http.StatusUnprocessableEntity, "ack_out_of_range",

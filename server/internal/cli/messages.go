@@ -313,7 +313,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 			// Wait on the server for something unread first, so the daemon holds the
 			// agent's deliveries only while the command reads and acknowledges.
 			secs := int((left + time.Second - 1) / time.Second)
-			r, err := c.api.GetInboxWithResponse(ctx, &api.GetInboxParams{Wait: &secs, Limit: ptrTo(1)})
+			r, err := c.waitInbox(ctx, deadline, api.GetInboxParams{Wait: &secs, Limit: ptrTo(1)})
 			if err != nil {
 				return c.unreachable(err)
 			}

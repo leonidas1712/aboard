@@ -77,6 +77,23 @@ locks don't hold there, and the database can be corrupted.
 database at once. Every recipe runs one replica and stops the old one before an upgrade
 starts the new one.
 
+## Large teams and restarts
+
+A restart can make many clients reconnect together. Reconnect backoff includes
+jitter to spread those attempts. The operating system also limits the queue of
+connections waiting for the server to accept them. A proxy can have a separate
+queue and connection limit.
+
+For a large team, check the host's listen-backlog limit during capacity testing:
+`net.core.somaxconn` on Linux, or `kern.ipc.somaxconn` on macOS. The Linux kernel
+documents [somaxconn and TCP queue limits](https://kernel.org/doc/html/latest/networking/ip-sysctl.html).
+Check queue overflow counters, reconnect errors and server resource usage before
+changing a limit. Raising a backlog does not increase processing capacity.
+Container settings do not necessarily change the host's limit.
+
+Test restart bursts and idle streams as well as steady traffic. The local load
+tool's warm connections do not establish cold reconnect capacity.
+
 ## Get the image
 
 Each release publishes the server image `ghcr.io/leonidas1712/aboard:<version>`, for
