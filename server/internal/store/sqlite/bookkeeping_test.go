@@ -156,6 +156,49 @@ func TestClosingStoreCancelsQueuedBookkeeping(t *testing.T) {
 	}
 }
 
+func TestCancelledBookkeepingCompletesWhileAnUnrelatedWriterIsHeld(t *testing.T) {
+	s := bookkeepingStore(t)
+	release := holdBookkeepingWriter(t, s)
+	ctx, cancel := context.WithCancel(t.Context())
+	r := s.queueBookkeeping(ctx, func(board.Tx) error {
+		t.Error("cancelled queued callback ran")
+		return nil
+	})
+	cancel()
+	<-r.done
+	if !errors.Is(r.err, context.Canceled) {
+		t.Fatalf("queued cancellation: %v", r.err)
+	}
+	// Completion must not depend on releasing the other writer first.
+	release()
+}
+
+func TestRunningBookkeepingCancellationWaitsForItsCallback(t *testing.T) {
+	s := bookkeepingStore(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var result int
+	r := s.queueBookkeeping(ctx, func(board.Tx) error {
+		close(entered)
+		<-release
+		result = 1
+		return nil
+	})
+	<-entered
+	cancel()
+	select {
+	case <-r.done:
+		t.Error("running callback could mutate its caller's result after return")
+	default:
+	}
+	close(release)
+	<-r.done
+	if result != 1 || !errors.Is(r.err, context.Canceled) {
+		t.Fatalf("completed callback: result %d, error %v", result, r.err)
+	}
+}
+
 func TestFailedBookkeepingCommitReportsNoSuccessfulRequest(t *testing.T) {
 	s := bookkeepingStore(t)
 	if _, err := s.db.ExecContext(t.Context(), `CREATE TABLE bookkeeping_invalid (
