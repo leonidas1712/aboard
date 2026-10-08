@@ -92,7 +92,7 @@ optional; each operation says which it reads.
 | `seqs` | array of integers | Messages a claim records as received |
 | `id` | integer | The delivery an extension confirms on the legacy one-seat path; never substitutes for `handoff_id` |
 | `handoff_id` | string | On `received`: the exact combined handoff being confirmed, when the connection negotiated `handoff-v1` |
-| `capabilities` | array of strings | On `hello`: optional extension capabilities, including `handoff-v1` ("Combined handoffs") |
+| `capabilities` | array of strings | On `hello`: optional extension capabilities, including `handoff-v1` ("Combined handoffs"); a supported tool hook may declare `tool-boundary` and `midturn-peer` on `boundary`, while an extension also needs its current live negotiation |
 | `cwd` | string | The extension session's working directory |
 | `harness_version` | string | The harness's version, as it reports it |
 | `extension_version` | string | The extension's own version |
