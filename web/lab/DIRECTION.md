@@ -158,7 +158,7 @@ table shows each scheme's figures and the lowest of each group. All five pass:
 | Scheme | ink/surface | muted/surface | on-accent/accent | ink/attention-soft | accent-strong (lowest) | field edge | identity (lowest) | status (lowest) | AA |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | light | 19.1 | 6.6 | 11.4 | 16.3 | 4.3 | 3.2 | 6.0 | 3.4 | all pass |
-| dark | 15.8 | 7.1 | 7.7 | 11.4 | 6.7 | 3.5 | 7.8 | 3.6 | all pass |
+| dark | 15.8 | 8.9 | 7.7 | 11.4 | 6.7 | 3.5 | 6.7 | 4.9 | all pass |
 | ember | 14.5 | 7.8 | 9.7 | 9.5 | 7.7 | 3.4 | 7.6 | 4.4 | all pass |
 | tide | 14.2 | 8.2 | 11.4 | 8.8 | 8.1 | 3.7 | 7.7 | 4.9 | all pass |
 | contrast | 18.6 | 13.6 | 14.4 | 8.5 | 10.8 | 9.6 | 7.1 | 7.6 | all pass |
