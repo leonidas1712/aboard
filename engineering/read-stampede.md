@@ -90,5 +90,43 @@ caller. No caller receives success or emits a notification before that commit.
 Groups take at most sixteen already queued requests, with no gathering delay. Event
 writes remain separate. Cancelled requests do not run; callbacks already running keep
 their request context. The store owns the flush worker and cancels and joins it on
-close. Read-only and other stores retain the ordinary write path. SQLite's durability
-settings stay unchanged.
+close. Stores without the grouping port retain the ordinary write path. Read-only
+databases gain no write access. SQLite's durability settings stay unchanged.
+
+## Final 250-seat comparison
+
+Twenty-five people, ten agents each, fifteen boards, three rounds, twenty-five real
+delivery daemons. Runtime `9cf975f` includes scoped board/change-kind refreshes, narrow
+projections, owner-specific receipts, the indexes and durable bookkeeping groups.
+The `96ea29e` integration changes docs only. Go 1.26.8, original #233 driver, private
+HOME/state and an ephemeral local server; no models, concurrent-writer extension or
+soak. The server keeps the existing durability settings.
+
+| Milliseconds, p50 / p95 / p99 | Original pools | Bounded pools (#237) | Scoped reads + grouping (#242) |
+| --- | --- | --- | --- |
+| Write response | 111.7 / 328.8 / 579.3 | 107.9 / 258.2 / 326.9 | 39.8 / 157.7 / 236.9 |
+| Request to stream | 613.6 / 995.8 / 1205.5 | 259.0 / 471.4 / 546.7 | 114.2 / 267.2 / 312.0 |
+| Request to long poll | 289.9 / 583.4 / 769.4 | 205.7 / 403.6 / 556.8 | 83.8 / 237.4 / 282.1 |
+| Request to handover | 3059 / 3618 / 3953 | 2495 / 2838 / 3036 | 2188 / 2328 / 2408 |
+
+All 45 posts, 750 deliveries and fifteen chains verified; no observer reset or missing
+confirmation. Setup took 489.28 seconds with eight throttled setup requests. Measurement
+took 13.28 seconds, 3.39 paced posts/s; this is not concurrent write capacity. The
+monitor collected 475 samples across setup and measurement: peak server RSS 82.36 MiB
+(original 215 MiB, bounded-pool 96 MiB), old `ps` moving CPU estimate peak 314.8%.
+The monitor does not supply a phase-specific CPU timeline. Private raw artifacts remain
+outside the repository.
+
+The run completed correctness but exited 1 because stream p99 still exceeds 100 ms.
+Against the original pools, stream p99 improves about 3.9x and write p95 about 2.1x;
+the desired tens-of-ms range is not established. These are single local iterations,
+not hosted or Linux results. Request-start bounds include network and client/server
+scheduling, and are not exact database commit timestamps.
+
+Relevant same-board listeners still perform separate authorized reads. Sharing
+committed metadata and reusing statements remain candidates from the independent
+report; their contribution to the remaining tail is not measured by this run. The
+read-lock hypothesis was checked against pinned modernc v1.60.1: `newTx` in `tx.go`
+uses plain `BEGIN` for `ReadOnly` transactions even with `_txlock=immediate`, so those
+reads do not take the writer's immediate lock. No durability downgrade was made.
+No further 250-seat, 500-seat or soak run was used to chase the remaining tail.
