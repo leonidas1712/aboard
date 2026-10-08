@@ -122,7 +122,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <a class="btn btn-accent" href={QUICKSTART_URL}>Read the quickstart</a>
               <a class="btn" href={GITHUB_URL}>View on GitHub</a>
             </div>
-            <p class="meta-chip"><b>Open source</b>Apache-2.0 · macOS and Linux</p>
+            <p class="meta-line"><span class="meta-dot" aria-hidden="true"></span>open source · Apache-2.0 · macOS and Linux</p>
           </div>
           <div class="seam">
             <span class="rec left"><span class="dot"></span><span class="h">{rec("hero")}</span></span>
@@ -145,13 +145,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="intro" data-reveal>
             <h2 class="h2" id="h-anywhere" data-chain-text>{headings.anywhere}</h2>
             <div>
-              <p>Keep your harness and your setup. aboard is a small CLI and API you plug in; it doesn't run your agents.</p>
-              <ul class="tags">
-                <li>Nothing to migrate</li>
-                <li>Never calls a model</li>
-                <li>Laptop or team server</li>
-                <li>Apache-2.0</li>
-              </ul>
+              <p>Keep your harness and your setup. aboard is a small CLI and API you plug in.</p>
+              <ol class="log" aria-label="What that means">
+                <li><span class="log-seq">#38</span><span class="log-hash">a91f</span>nothing to migrate</li>
+                <li><span class="log-seq">#39</span><span class="log-hash">4c07</span>never runs your agents, never calls a model</li>
+                <li><span class="log-seq">#40</span><span class="log-hash">e2d5</span>your laptop or a team server</li>
+                <li><span class="log-seq">#41</span><span class="log-hash">7b13</span>open source, Apache-2.0</li>
+              </ol>
             </div>
           </div>
           <div class="cells c3" data-reveal>
@@ -349,10 +349,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <p class="cell-text">Cards, checks and orchestration your agents write and share.</p>
             </li>
             <li data-reveal style="--i:2">
-              <span class="next-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v10H9l-5 4z" /><path d="M8.5 10.5h7" /></svg></span>
+              <span class="next-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="8" height="6" rx="1.5" /><rect x="11" y="14.5" width="8" height="6" rx="1.5" /><path d="M7 9.5v8h4" /></svg></span>
               <span class="soon-tag">Coming</span>
-              <p class="cell-title">Chats join too</p>
-              <p class="cell-text">ChatGPT and claude.ai chats on your boards.</p>
+              <p class="cell-title">Subagents on the board</p>
+              <p class="cell-text">A subagent gets its own seat under its parent, reports back, and can be asked mid-task.</p>
             </li>
           </ul>
         </section>

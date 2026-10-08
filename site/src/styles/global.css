@@ -254,14 +254,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 }
 .cta { margin-top: 34px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .cta .btn { min-height: 52px; }
-.meta-chip {
-  margin-top: 22px;
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 4px 12px 4px 4px;
-  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
-  font-family: var(--mono); font-size: 12.5px; color: var(--muted);
-}
-.meta-chip b { background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 2px 9px; font-family: var(--sans); font-weight: 600; font-size: 12.5px; }
 
 /* ---------- Install ---------- */
 
@@ -761,7 +753,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .ix-meta { margin-top: 2px; font-size: 12.5px; color: var(--muted); }
 .ix-opts { margin-top: 10px; display: grid; gap: 6px; }
 .ix-opts li { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
-.ix-opts li.pick { animation: pick 4.8s var(--ease) infinite; }
 @keyframes pick {
   0%, 55% { background: var(--surface); border-color: var(--line); }
   62%, 86% { background: var(--accent); border-color: var(--accent-line); color: var(--accent-ink); }
@@ -772,8 +763,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .ix-look span { color: var(--muted); }
 .ix-keys { margin-top: auto; padding-top: 18px; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--muted); }
 .ix-keys > span { display: inline-flex; align-items: center; gap: 4px; }
-.ix-keys .k-1 { animation: keypress 4.8s var(--ease) infinite; }
-.ix-keys .k-j { animation: keypress 4.8s var(--ease) 1.2s infinite; }
 @keyframes keypress {
   0%, 52% { transform: none; background: var(--surface); }
   56% { transform: translateY(1px); background: var(--accent); color: var(--accent-ink); border-color: var(--accent-line); }
@@ -820,9 +809,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .fl-versions .new { animation: newver 4.8s var(--ease) infinite; }
 @keyframes newver { 0%, 8% { background: var(--accent-soft); } 40%, 100% { background: transparent; } }
 
-.ov-strip { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px 28px; padding: 16px 24px; border: 1px solid var(--line); border-radius: 14px; font-size: 14.5px; font-weight: 500; }
-.ov-strip li { display: inline-flex; align-items: center; gap: 9px; }
-.ov-strip li::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
 
 /* ---------- The team diagram ---------- */
 
@@ -975,11 +961,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
   .cmp td:last-child::before { content: "aboard: "; font-weight: 700; }
 }
 
-/* ---------- Short labels under an intro ---------- */
-
-.tags { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
-.tags li { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 13.5px; font-weight: 500; color: var(--ink); }
-.tags li::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--accent); }
 
 /* ---------- What's next: lighter than the shipped sections ---------- */
 
@@ -997,3 +978,52 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .next-icon { display: inline-flex; width: 32px; height: 32px; border-radius: 9px; align-items: center; justify-content: center; border: 1px solid var(--line-strong); color: var(--muted); }
 .next-icon svg { width: 18px; height: 18px; }
 .next-cards .soon-tag { position: absolute; top: 20px; right: 20px; }
+
+/* ---------- Pillar 1: the points as a few lines of a record ---------- */
+
+.log { margin-top: 16px; display: grid; border-top: 1px solid var(--line); }
+.log li { display: grid; grid-template-columns: 34px 46px minmax(0, 1fr); align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; color: var(--ink); }
+.log-seq, .log-hash { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+.log-hash { color: var(--accent-line); }
+.js .log li { opacity: 0; transform: translateX(-6px); transition: opacity 400ms var(--ease), transform 500ms var(--ease-expo); }
+.in .log li, .log.in li { opacity: 1; transform: none; }
+.in .log li:nth-child(2) { transition-delay: 90ms; }
+.in .log li:nth-child(3) { transition-delay: 180ms; }
+.in .log li:nth-child(4) { transition-delay: 270ms; }
+@media (prefers-reduced-motion: reduce) { .js .log li { transform: none; } }
+
+/* ---------- The hero's small print ---------- */
+
+.meta-line { margin-top: 20px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.meta-dot { width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
+
+/* ---------- Pillar 3: the facts under the views, as grid cells ---------- */
+
+.ov-cells { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+@media (min-width: 640px) { .ov-cells { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .ov-cells { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ov-cells li { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: var(--surface); font-size: 14.5px; color: var(--muted); }
+.ov-cells b { color: var(--ink); font-weight: 600; }
+.ov-glyph { flex: none; display: inline-flex; width: 28px; height: 28px; border-radius: 8px; align-items: center; justify-content: center; background: var(--bg); border: 1px solid var(--line); color: var(--ink); }
+.ov-glyph svg { width: 15px; height: 15px; }
+.ov-cells li:nth-child(2) .ov-glyph { color: var(--accent-line); }
+
+/* ---------- The Inbox triage ---------- */
+
+.inbox-ui { position: relative; }
+.ix-row { overflow: hidden; max-height: 260px; transition: background-color 300ms var(--ease), border-color 300ms var(--ease), box-shadow 300ms var(--ease), max-height 420ms var(--ease), opacity 320ms var(--ease), transform 420ms var(--ease), padding 420ms var(--ease), margin 420ms var(--ease); }
+.ix-row:not(.sel) .ix-opts { display: none; }
+.ix-row.out { opacity: 0; transform: translateX(28px); }
+.ix-row.gone { max-height: 0; padding-block: 0; margin: 0; border-width: 0; }
+.ix-opts li { transition: background-color 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease); }
+.ix-opts li.picked { background: var(--accent); border-color: var(--accent-line); color: var(--accent-ink); }
+.ix-opts li.picked .kbd { color: var(--accent-ink); border-color: currentColor; background: transparent; }
+.kbd { transition: transform 120ms var(--ease), background-color 120ms var(--ease), color 120ms var(--ease), border-color 120ms var(--ease); }
+.kbd.press { transform: translateY(1px); background: var(--accent); color: var(--accent-ink); border-color: var(--accent-line); }
+.ix-empty { display: none; padding: 18px 10px 6px; }
+.ix-empty.show { display: block; animation: fade 400ms var(--ease) both; }
+.ix-empty-title { font-weight: 600; font-size: 15px; }
+.ix-empty-sub { margin-top: 2px; font-size: 13px; color: var(--muted); }
+.ix-toast { position: absolute; right: 12px; top: 12px; transform: translateY(-6px); padding: 6px 12px; border-radius: 8px; background: var(--ink); color: var(--on-ink); font-size: 12.5px; font-weight: 500; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 200ms var(--ease), transform 300ms var(--ease-expo); }
+.ix-toast.show { opacity: 1; transform: none; }
+.inbox-ui.fading .ix-main, .inbox-ui.fading .ix-empty { opacity: 0.2; transition: opacity 300ms var(--ease); }
