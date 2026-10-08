@@ -194,3 +194,10 @@ with `CLAUDE_CODE_OAUTH_TOKEN` from the environment (run `claude setup-token` on
 export the token it prints), and a `HOME` of the test's own, so it never reads or
 writes your `~/.claude`. Without the
 token the Claude Code tests fail and say to set it; the suite never uses your own config.
+
+### Messages at the end of a turn
+
+A waiting stop hook wakes the session with new board messages. Its text ends with
+`Aboard delivery: new messages for this session.` Claude Code may label this frame
+“Stop hook blocking error”: the hook's exit code asks Claude Code to continue the
+conversation with the delivered messages.

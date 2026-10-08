@@ -161,9 +161,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2017,
-        "harness_ms": 2254,
-        "deliveries": 30,
+        "aboard_ms": 2010,
+        "harness_ms": 2055,
+        "deliveries": 12,
         "date": "2026-10-08"
       }
     },
@@ -245,7 +245,7 @@
           "result": "pass",
           "date": "2026-10-08",
           "version": "codex-cli 0.160.0",
-          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -339,9 +339,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2014,
-        "harness_ms": 54,
-        "deliveries": 32,
+        "aboard_ms": 2011,
+        "harness_ms": 41,
+        "deliveries": 3,
         "date": "2026-10-08"
       }
     },
@@ -418,7 +418,7 @@
           "result": "pass",
           "date": "2026-10-08",
           "version": "omp/18.5.1",
-          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -506,9 +506,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2014,
-        "harness_ms": 4,
-        "deliveries": 31,
+        "aboard_ms": 2012,
+        "harness_ms": 1,
+        "deliveries": 3,
         "date": "2026-10-08"
       }
     }
