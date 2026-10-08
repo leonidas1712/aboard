@@ -1647,8 +1647,11 @@ retained durably and rechecked against the current binding generation; unseen se
 gaps must never be inferred as read. Queued preview remains explicitly read-only and
 does not report that observation or cancel the scheduled handoff.
 
-A bundle shows each message's authoritative sent timestamp and relative age, such as
-`sent 2 h ago`, as Aboard framing outside the sender's body. Age uses the current
+A bundle shows an old message's authoritative sent timestamp and relative age, such as
+`sent 2 h ago`, as Aboard framing outside the sender's body. Fresh messages less than
+one minute old omit these fields, keeping the ordinary quickstart output quiet.
+An explicit queued preview may show age even for a recently queued message.
+Age uses the current
 handoff clock, clamps future timestamps to zero age, and is display only. Message bytes
 and sender labels are unchanged. Missing timestamps produce no invented age. An unchanged
 retry keeps the original handoff clock across daemon restarts. Its journal retains
