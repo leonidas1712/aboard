@@ -164,7 +164,7 @@
               {
                 "group": "Contracts",
                 "expanded": false,
-                "root": "reference/contracts",
+                "root": "contracts",
                 "pages": ["formats/delivery-format"]
               }
             ]
