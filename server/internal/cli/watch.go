@@ -17,6 +17,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/apiserver"
+	"github.com/leonidas1712/aboard/server/internal/retry"
 )
 
 // watchUsage is the usage line of aboard watch.
@@ -180,7 +181,7 @@ func (w *watchRun) follow(ctx context.Context, srv *apiserver.Server, poke func(
 				"Run aboard doctor to check the local server and its login.")
 		}
 		failures++
-		wait := watchBackoff(failures)
+		wait := retry.Delay(watchBackoff(failures))
 		_, _ = fmt.Fprintf(w.a.env.Stderr, "Lost the connection to %s; reconnecting in %s.\n", w.c.server.URL, wait)
 		select {
 		case <-ctx.Done():

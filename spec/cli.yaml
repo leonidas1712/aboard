@@ -1467,7 +1467,8 @@ $defs:
     description: |
       With --wait, a connection reset or other transient transport failure retries
       the waiting GET with exponential backoff and jitter, within the original wait
-      deadline. Refused credentials and API error responses are not retried. No write
+      deadline; the existing response-timeout grace remains. Refused credentials and
+      API error responses are not retried. No write
       or acknowledgement is replayed by this reconnect behavior.
 
       Without --peek, the CLI acks up to the last returned message's seq before

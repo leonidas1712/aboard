@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/retry"
 )
 
 // serverRequestTimeout bounds one inbox read or acknowledgement.
@@ -222,10 +224,11 @@ func (c *serverConn) follow(ctx context.Context) error {
 			break
 		}
 		failures++
-		c.d.log.Warn("server stream closed", "server", c.url, "retry_in", backoff(failures))
+		wait := retry.Delay(backoff(failures))
+		c.d.log.Warn("server stream closed", "server", c.url, "retry_in", wait)
 		select {
 		case <-ctx.Done():
-		case <-c.d.cfg.Clock.After(backoff(failures)):
+		case <-c.d.cfg.Clock.After(wait):
 		}
 	}
 	return nil
