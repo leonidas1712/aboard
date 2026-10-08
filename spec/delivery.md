@@ -1518,6 +1518,13 @@ mentions, role targets and owner targets do not qualify. Identity and ownership 
 resolved from authenticated server data, never handles, message text or trust labels.
 Normal same-owner messages and all other people's agents wait for turn end.
 
+A fresh inbox may include `midturn_peer_sender_id` on an eligible message. The
+server checks active sender membership, shared immutable ownership and an explicit
+agent target in that read transaction. The daemon uses this id for its sender cap,
+never a handle or the display-only sender label. Absence keeps peer delivery queued.
+The inbox's optional `board_id` binds queued observations to the immutable board.
+
+
 At most one peer urgent message from a sender is handed to a recipient during one
 recipient turn, across all of that session's seats. The cap uses immutable sender and
 recipient identities and the current turn id; retrying or reconnecting the same turn
