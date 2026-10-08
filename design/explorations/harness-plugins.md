@@ -1,8 +1,10 @@
 # Harness plugins
 
-Status: proposal for GEN-27, researched 2026-10-08. No plugin has been installed,
-published or tested with a live agent. This changes packaging and setup; the server
-and delivery protocol stay the same.
+Status: tabled by the maintainer; GEN-27 research complete, 2026-10-08. The binary
+is still required, so a plugin adds a second install step and makes setup harder to
+understand. Keep this as a draft exploration; do not build it. No plugin has been
+installed, published or tested with a live agent. The proposal below concerns
+packaging and setup; the server and delivery protocol would stay the same.
 
 ## Recommendation
 
@@ -182,4 +184,5 @@ Required acceptance before managed setup ships:
 2. Approve repository distribution for Claude Code, Codex and omp. Keep Pi skill-only
    and public-directory submissions separate. Recommend this bounded scope.
 
-Implementation starts after these choices, with contracts first.
+These choices are deferred while the proposal is tabled. Any future implementation
+needs renewed approval, with contracts first.
