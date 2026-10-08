@@ -113,7 +113,8 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	if renderedAt.IsZero() {
 		renderedAt = s.now()
 	}
-	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt}
+	prefixHash := sha256.Sum256([]byte(prefix))
+	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt, RenderVersion: 1, PrefixHash: hex.EncodeToString(prefixHash[:]), MultiSeat: len(s.agents) > 1}
 	if c.peerBoundary {
 		manifest.Class, manifest.PeerTurn = ClassMidturnPeer, s.peerTurn
 		seen := map[AgentKey]bool{}
@@ -136,7 +137,7 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 		if a == nil || a.problem != "" || a.adopting {
 			return nil, nil, fmt.Errorf("seat no longer available")
 		}
-		part := HandoffPart{Agent: p.agent, Generation: a.generation, Seqs: orderedSeqs(p.msgs), DeliveryID: p.redeliver}
+		part := HandoffPart{Agent: p.agent, Generation: a.generation, Seqs: orderedSeqs(p.msgs), DeliveryID: p.redeliver, RenderMode: p.mode, Digest: c.digests[p.agent.Key()]}
 		for _, msg := range p.msgs {
 			if msg.ID != "" && msg.BoardID != "" {
 				part.Messages = append(part.Messages, queuedIdentity(p.agent, msg))
@@ -293,6 +294,9 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 		return strings.Compare(a.manifest.ID, b.manifest.ID)
 	})
 	for _, h := range frozen {
+		if h.parts == nil {
+			s.restoreRenderParts(h, offers, opts, prefix)
+		}
 		if h.parts == nil || h.prefix != prefix || h.multi != opts.MultiSeat || h.manifest.Boot != s.boot {
 			continue
 		}
@@ -332,6 +336,43 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 		return composed{renderedAt: h.manifest.CreatedAt, parts: parts, text: text, digests: h.digests, nextFirst: s.firstSeat}
 	}
 	return compose(offers, limit, opts)
+}
+
+// restoreRenderParts uses current authorized offers, never journaled message text.
+func (s *session) restoreRenderParts(h *sessionHandoff, offers []offer, opts composeOptions, prefix string) {
+	m := h.manifest
+	hash := sha256.Sum256([]byte(prefix))
+	if m.RenderVersion != 1 || m.Boot != s.boot || m.MultiSeat != opts.MultiSeat || m.PrefixHash != hex.EncodeToString(hash[:]) {
+		return
+	}
+	parts := make([]offer, 0, len(m.Parts))
+	digests := map[AgentKey]bool{}
+	for _, p := range m.Parts {
+		var part offer
+		found := false
+		for _, o := range offers {
+			if o.agent != p.Agent || o.mode != p.RenderMode {
+				continue
+			}
+			part = offer{agent: o.agent, mode: o.mode, redeliver: p.DeliveryID}
+			for _, identity := range p.Messages {
+				for _, msg := range o.msgs {
+					if msg.ID == identity.MessageID && msg.BoardID == identity.BoardID && msg.Seq == identity.Seq {
+						part.msgs = append(part.msgs, msg)
+						break
+					}
+				}
+			}
+			found = slices.Equal(orderedSeqs(part.msgs), p.Seqs)
+			break
+		}
+		if !found {
+			return
+		}
+		parts = append(parts, part)
+		digests[p.Agent.Key()] = p.Digest
+	}
+	h.parts, h.digests, h.prefix, h.multi = parts, digests, prefix, opts.MultiSeat
 }
 
 func (s *session) textContext(agent AgentRef) deliverytext.Context {
