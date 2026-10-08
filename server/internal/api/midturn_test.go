@@ -160,3 +160,54 @@ func TestMidturnTargetsHidePrivateAgentsAndRequireCurrentOwnerMembership(t *test
 		}
 	}
 }
+
+func TestPeerReceiptGuidanceIsCurrentAndOnlyForItsSender(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	maya, sam := s.addHuman("maya"), s.addHuman("sam")
+	b, _, from := s.boardWithMayasAgent(maya, sam)
+	target, to := s.joinAs(maya, b, "member", "codex")
+	ctx := context.Background()
+	urgent := true
+	posted, err := s.client(from).PostMessageWithResponse(ctx, b, nil, api.PostMessageRequest{Body: "step", To: ptr([]api.Target{api.Target("@" + target)}), Urgent: &urgent})
+	mustStatus(t, posted, err, 201)
+	get := func(key string) *api.Receipt {
+		t.Helper()
+		r, e := s.client(key).GetReceiptsWithResponse(ctx, b, posted.JSON201.Seq)
+		mustStatus(t, r, e, 200)
+		if len(r.JSON200.Recipients) != 1 {
+			t.Fatalf("receipts: %s", r.Body)
+		}
+		return &r.JSON200.Recipients[0]
+	}
+	if hint := get(from).MidturnHint; hint == nil || *hint != "peer_if_supported" {
+		t.Fatalf("missing eligible guidance: %v", hint)
+	}
+	for _, key := range []string{to, maya, sam} {
+		if get(key).MidturnHint != nil {
+			t.Fatal("non-sender learned peer preference")
+		}
+	}
+	policy := api.MidturnPolicy("owner-only")
+	set, e := s.client(maya).SetMidturnPolicyWithResponse(ctx, nil, api.SetMidturnPolicyJSONRequestBody{Policy: &policy})
+	mustStatus(t, set, e, 200)
+	if hint := get(from).MidturnHint; hint == nil || *hint != "owner_only" {
+		t.Fatalf("stale policy guidance: %v", hint)
+	}
+	foreign, _ := s.joinAs(sam, b, "member", "codex")
+	for _, input := range []api.PostMessageRequest{
+		{Body: "ordinary", To: ptr([]api.Target{api.Target("@" + target)})},
+		{Body: "role urgent", To: ptr([]api.Target{"role:member"}), Urgent: &urgent},
+		{Body: "foreign urgent", To: ptr([]api.Target{api.Target("@" + foreign)}), Urgent: &urgent},
+	} {
+		post, e := s.client(from).PostMessageWithResponse(ctx, b, nil, input)
+		mustStatus(t, post, e, 201)
+		receipts, e := s.client(from).GetReceiptsWithResponse(ctx, b, post.JSON201.Seq)
+		mustStatus(t, receipts, e, 200)
+		for _, rc := range receipts.JSON200.Recipients {
+			if rc.MidturnHint != nil {
+				t.Fatalf("ineligible message got preference: %s", receipts.Body)
+			}
+		}
+	}
+}
