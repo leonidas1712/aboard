@@ -464,8 +464,9 @@ at once. No leases or timers are involved.
 
 **Delivery.** When there is something to deliver and the session's stop hook is waiting,
 the daemon marks the session busy, sends the bundle over the hook's connection, and the
-hook writes `Aboard delivery: new messages for this session.` followed by a blank
-line and the unchanged bundle to standard error, and exits with code 2. Claude Code wakes the same
+hook writes the unchanged bundle to standard error, followed by a blank line and
+`Aboard delivery: new messages for this session.`, and exits with code 2. Changed-mode
+notices remain first in the bundle. Claude Code wakes the same
 session with that text. The bundle is the full delivery text, so the agent reads the
 messages directly; it doesn't run a command to fetch them.
 
