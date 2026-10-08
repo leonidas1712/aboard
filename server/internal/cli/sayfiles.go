@@ -66,5 +66,20 @@ func (a *app) sayFiles(ctx context.Context, c *client, t target, selectors, loca
 		}
 		files = append(files, api.FileVersionSelector{File: item.Id, Version: &item.Latest.Version})
 	}
-	return files, nil
+	seen := make(map[struct {
+		id      string
+		version int
+	}]bool)
+	unique := files[:0]
+	for _, file := range files {
+		key := struct {
+			id      string
+			version int
+		}{file.File, *file.Version}
+		if !seen[key] {
+			unique = append(unique, file)
+			seen[key] = true
+		}
+	}
+	return unique, nil
 }

@@ -82,8 +82,17 @@ func TestSayAttachesExistingBoardFileVersions(t *testing.T) {
 	if field(t, answered, "message.files.0.id") != id || field(t, answered, "message.files.0.version") != float64(1) {
 		t.Fatal("human answer ignored attachment")
 	}
+	duplicate := s.run("say", "Read once", "--file", "notes/api.md@v1", "--file", id+"@v1", "--json").json(t)
+	if len(field(t, duplicate, "message.files").([]any)) != 1 {
+		t.Fatal("duplicate version attached twice")
+	}
+	collision := s.run("file", "put", extra, "--name", id, "--json").json(t)
+	collided := s.run("say", "ID wins", "--file", id, "--file", field(t, collision, "file.id").(string), "--json").json(t)
+	if field(t, collided, "message.files.0.id") != id || field(t, collided, "message.files.1.id") != field(t, collision, "file.id") {
+		t.Fatal("immutable ID precedence changed")
+	}
 	detail := s.run("file", "show", id, "--json").json(t)
-	if len(field(t, detail, "file.posted_in").([]any)) != 4 {
+	if len(field(t, detail, "file.posted_in").([]any)) != 6 {
 		t.Fatalf("refusal posted a message: %v", detail)
 	}
 }
