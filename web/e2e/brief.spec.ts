@@ -172,7 +172,7 @@ test("the brief shows under the Now line with its version, author and what happe
   await post(board, "Staging flipped.");
   await post(board, "Error rate flat.");
 
-  await expect(brief.locator(".brief-byline")).toContainText("brief.md v2 by writer · just now · since then 2 messages");
+  await expect(brief.locator(".brief-byline")).toContainText("Updated by writer · just now · brief.md v2 · since then 2 messages");
   // Closed, it shows where things stand in a sentence or two.
   await expect(brief.locator(".brief-summary")).toHaveText("Staging is on v2; production flips on Friday.");
   await brief.getByRole("button", { name: "Show full brief" }).click();
@@ -186,6 +186,12 @@ test("the brief shows under the Now line with its version, author and what happe
   await brief.getByRole("button", { name: "All 2 versions" }).click();
   const panel = page.getByRole("region", { name: "File brief.md" });
   await expect(panel.getByRole("region", { name: "Versions" }).getByRole("listitem")).toHaveCount(2);
+
+  // Closed, the summary reads as text: inline Markdown marks don't show.
+  await brief.getByRole("button", { name: "Show less" }).click();
+  await putBrief(board, "brief.md", "# Checkout v2\n\n_Last updated 2026-10-08 by @claude-2._ **Staging** is on `v2`; see [the runbook](https://example.com/runbook), as in snake_case_notes.\n", { id: first.id, version: 2 });
+  await expect(brief.locator(".brief-byline")).toContainText("brief.md v3");
+  await expect(brief.locator(".brief-summary")).toHaveText("Last updated 2026-10-08 by @claude-2. Staging is on v2; see the runbook, as in snake_case_notes.");
 });
 
 test("a person writes the brief and edits it, each save a new version with the exact text", async ({ page }) => {
@@ -203,7 +209,7 @@ test("a person writes the brief and edits it, each save a new version with the e
   await brief.getByText("Write", { exact: true }).click();
   await brief.getByRole("button", { name: "Save version 1" }).click();
 
-  await expect(brief.locator(".brief-byline")).toContainText("brief.md v1 by you");
+  await expect(brief.locator(".brief-byline")).toContainText(/Updated by you · .+ · brief\.md v1/);
   const made = await boardBrief(board);
   expect(made).toMatchObject({ name: "brief.md", version: 1, by: { name: "alex", kind: "human" } });
   expect(await bytes(board, made!.file_id, 1)).toBe(mine);
@@ -215,7 +221,7 @@ test("a person writes the brief and edits it, each save a new version with the e
   await text.fill(edited);
   // Cmd or Ctrl and Enter saves.
   await text.press("ControlOrMeta+Enter");
-  await expect(brief.locator(".brief-byline")).toContainText("brief.md v2 by you");
+  await expect(brief.locator(".brief-byline")).toContainText(/Updated by you · .+ · brief\.md v2/);
   expect(await bytes(board, made!.file_id, 2)).toBe(edited);
   expect(await bytes(board, made!.file_id, 1)).toBe(mine);
 
@@ -227,7 +233,7 @@ test("a person writes the brief and edits it, each save a new version with the e
   await expect(text).toHaveValue("scratch");
   await brief.getByRole("button", { name: "Cancel" }).click();
   await brief.getByRole("button", { name: "Discard" }).click();
-  await expect(brief.locator(".brief-byline")).toContainText("brief.md v2 by you");
+  await expect(brief.locator(".brief-byline")).toContainText(/Updated by you · .+ · brief\.md v2/);
 });
 
 test("a save against a version someone replaced is refused, and the person's text is kept", async ({ page }) => {
@@ -264,7 +270,7 @@ test("a save against a version someone replaced is refused, and the person's tex
   await expect(brief.getByRole("textbox", { name: "Your earlier text" })).toHaveValue(mine);
   await text.fill(`${v2}3. Keep the flag on in EU\n`);
   await brief.getByRole("button", { name: "Save version 3" }).click();
-  await expect(brief.locator(".brief-byline")).toContainText("brief.md v3 by you");
+  await expect(brief.locator(".brief-byline")).toContainText(/Updated by you · .+ · brief\.md v3/);
   expect(await bytes(board, first.id, 3)).toBe(`${v2}3. Keep the flag on in EU\n`);
 });
 
@@ -347,7 +353,7 @@ test("an HTML brief shows only in the sandbox, and neither its summary nor its p
 
   // Closed, the summary is read from the markup in the board view itself.
   const brief = page.getByRole("region", { name: "Brief" });
-  await expect(brief.locator(".brief-byline")).toContainText("brief.html v1 by writer");
+  await expect(brief.locator(".brief-byline")).toContainText(/Updated by writer · .+ · brief\.html v1/);
   await expect(brief.locator(".brief-summary")).toHaveText("Staging is on v2.");
   await none();
 
@@ -388,7 +394,7 @@ test("the format switches only on request, and the old brief's history stays", a
   await page.getByLabel("The brief, in HTML").fill(html);
   await brief.getByRole("button", { name: "Save as brief.html" }).click();
 
-  await expect(brief.locator(".brief-byline")).toContainText("brief.html v1 by you");
+  await expect(brief.locator(".brief-byline")).toContainText(/Updated by you · .+ · brief\.html v1/);
   const now = await boardBrief(board);
   expect(now).toMatchObject({ name: "brief.html", version: 1 });
   expect(now!.file_id).not.toBe(first.id);
@@ -401,7 +407,7 @@ test("the format switches only on request, and the old brief's history stays", a
   await brief.getByText("Markdown", { exact: true }).click();
   await page.getByLabel("The brief, in Markdown").fill("# Checkout v2\n\nBack to Markdown.\n");
   await brief.getByRole("button", { name: "Save as brief.md" }).click();
-  await expect(brief.locator(".brief-byline")).toContainText("brief.md v1 by you");
+  await expect(brief.locator(".brief-byline")).toContainText(/Updated by you · .+ · brief\.md v1/);
   // After a save the brief stays open on what was written.
   await expect(brief.getByLabel("The brief, brief.md v1")).toHaveText("Checkout v2Back to Markdown.");
 });

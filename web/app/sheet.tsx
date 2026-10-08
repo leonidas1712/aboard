@@ -122,7 +122,7 @@ export function Sheet({ open, onClose, side, title, back, children }: Props) {
           {title}
         </h2>
       </div>
-      <div className={cn("flex flex-col px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]", "pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]")}>
+      <div className={cn("flex flex-col px-4 pt-3 pb-[max(5rem,calc(env(safe-area-inset-bottom)+3rem))]", "pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]")}>
         {children}
       </div>
     </div>,

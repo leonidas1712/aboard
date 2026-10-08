@@ -302,7 +302,7 @@ func TestATeamServerBehindAnHTTPSProxy(t *testing.T) {
 		t.Fatal(err)
 	}
 	people := alex.run("people", "--server", s.url)
-	if !strings.Contains(people.stdout, "alex  admin") {
+	if !strings.Contains(people.stdout, "@alex   admin") {
 		t.Fatalf("aboard people:\n%s", people)
 	}
 

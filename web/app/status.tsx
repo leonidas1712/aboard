@@ -4,8 +4,10 @@
 // agent is waiting on. The colour never stands alone: the word sits beside it, and the
 // sentence is in its title and its accessible name.
 
+import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Member, MemberRef, Task } from "./api";
+import type { AgentLine, Member, MemberRef, Task } from "./api";
+import { clockTime } from "./words";
 
 /** Tone is a status's colour: working, needs a person, on hold, idle, or off (no session). */
 export type Tone = "working" | "needs" | "hold" | "idle" | "off";
@@ -99,7 +101,7 @@ export function StatusDot({ tone, className }: { tone: Tone; className?: string 
       className={cn(
         "status-dot inline-block size-2 shrink-0 rounded-full transition-colors duration-200 ease-out",
         tone === "working" && "bg-status-working",
-        tone === "needs" && "bg-status-needs shadow-[0_0_0_2px_color-mix(in_oklab,var(--status-needs)_28%,transparent)]",
+        tone === "needs" && "bg-accent shadow-[inset_0_0_0_1.5px_var(--status-needs),0_0_0_2px_var(--accent-soft)]",
         tone === "idle" && "bg-status-idle",
         tone === "off" && "border-[1.5px] border-muted",
         className,
@@ -120,5 +122,22 @@ export function StatusWord({ status, dot = false, className }: { status: Status;
       <span className="presence truncate">{status.word}</span>
       <span className="sr-only">. {status.sentence}</span>
     </span>
+  );
+}
+
+/**
+ * LineText is what an agent said it is on (D209): "Working on: …", or "Paused on: … ·
+ * until 14:20", with a clock once it is late. Nothing when the agent has no line.
+ */
+export function LineText({ line, late = false, className }: { line?: AgentLine | null; late?: boolean; className?: string }) {
+  if (!line?.text) return null;
+  const until = line.kind === "paused" && line.until ? clockTime(line.until) : null;
+  return (
+    <p className={cn("agent-line line-clamp-2 text-meta text-muted", className)} data-line={line.kind}>
+      {late && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Late" />}
+      {line.kind === "paused" ? "Paused on: " : "Working on: "}
+      {line.text}
+      {until && (late ? ` · was due back at ${until}` : ` · until ${until}`)}
+    </p>
   );
 }

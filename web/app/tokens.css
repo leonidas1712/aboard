@@ -1,0 +1,216 @@
+/* The design tokens from DESIGN.md, which are the brand's (site/src/styles/brand.css,
+   D220), for light and dark. The other colour schemes are in schemes.css on the same
+   names. Light by default; dark follows the system unless this browser chose a theme
+   (data-theme on <html>).
+
+   Neutrals carry a faint olive cast and are never pure white or black. Each theme has
+   one accent, used as a fill under on-accent text. It marks what needs a person
+   (attention), the primary button, the focus ring and text selection. accent-strong is
+   the accent for lines, check marks, focus rings and small text on the page. */
+
+/* Geist and Geist Mono, served from this binary (SIL Open Font License, see
+   /fonts/OFL-geist.txt). One variable file each covers every weight. */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/geist-variable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/geist-mono-variable.woff2") format("woff2");
+}
+
+:root {
+  color-scheme: light;
+  --background: #fafaf7;
+  --surface: #ffffff;
+  --sidebar: #f4f4ef;
+  --selected: #ecece5;
+  --ink: #0f100d;
+  --muted: #5c5e56;
+  /* Faint is for marks and quiet lines, never for text a person must read. */
+  --faint: #8a8c83;
+  --rule: #e3e3dc;
+  /* A field's edge keeps 3:1 on the surface, so it is a step darker than the brand's
+     #cfd0c8, which stays for the website's frames. */
+  --field-border: #8f9188;
+  --on-ink: #fafaf7;
+  --accent: #7cdf64;
+  --accent-strong: #2b7f1c;
+  /* How much accent the soft attention tone holds: less on a dark page, where it glows. */
+  --attention-mix: 30%;
+  --on-accent: #0f100d;
+  /* The logo's second line: a step darker than the fill, so it holds on white. */
+  --mark-reply: #4cc038;
+  /* Links are ink, underlined. */
+  --link: #0f100d;
+  /* Agent status (D218, retuned by D220): working is the ink; needing a person is the
+     accent, drawn as an accent dot in a ring of this tone; on hold is violet, in two
+     bars; idle is a quiet grey. No session is a ring in muted, so it needs no token.
+     Each is 3:1 on every surface. */
+  --status-working: #0f100d;
+  --status-needs: #2b7f1c;
+  --status-hold: #6a5aa8;
+  --status-idle: #7d7f76;
+  /* Depth (D217): shadows and scrims are drawn in a shade of the ink. */
+  --shade: #0f100d;
+  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 7%, transparent),
+    0 12px 32px -12px color-mix(in oklab, var(--shade) 24%, transparent);
+  --scrim: color-mix(in oklab, var(--shade) 24%, transparent);
+  /* Identity colours: a fill and an initial for each sender mark. They only tell
+     senders apart and carry no other meaning (DESIGN.md, "Identity colours"). */
+  --id-1-bg: #fbd5d4;
+  --id-1-fg: #743839;
+  --id-2-bg: #f8d8c7;
+  --id-2-fg: #713e1e;
+  --id-3-bg: #dee3c4;
+  --id-3-fg: #4c5212;
+  --id-4-bg: #cde8d1;
+  --id-4-fg: #255a33;
+  --id-5-bg: #c2e9e3;
+  --id-5-fg: #005c53;
+  --id-6-bg: #dadefc;
+  --id-6-fg: #44477a;
+  --id-7-bg: #e8d8f5;
+  --id-7-fg: #5b3f70;
+  --id-8-bg: #f5d5e6;
+  --id-8-fg: #6d3958;
+}
+
+/* Dark, chosen in this browser. The block under it holds the same values for a system
+   in dark with no theme chosen. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0c0d0a;
+  --surface: #131410;
+  --sidebar: #10110d;
+  --selected: #1d1f19;
+  --ink: #edeee7;
+  --muted: #b3b5ab;
+  --faint: #8a8c82;
+  --rule: #22241e;
+  --field-border: #6b6d64;
+  --on-ink: #0c0d0a;
+  --accent: #14b8a6;
+  --accent-strong: #14b8a6;
+  --attention-mix: 20%;
+  --on-accent: #0f100d;
+  --mark-reply: #14b8a6;
+  --mention: color-mix(in srgb, var(--accent) 42%, transparent);
+  --link: #edeee7;
+  --status-working: #edeee7;
+  --status-needs: #14b8a6;
+  --status-hold: #a898e6;
+  --status-idle: #8a8c82;
+  --id-1-bg: #7a3338;
+  --id-1-fg: #ffd6d6;
+  --id-2-bg: #763a0d;
+  --id-2-fg: #ffdcbe;
+  --id-3-bg: #4f5200;
+  --id-3-fg: #e8edb8;
+  --id-4-bg: #1d5b2b;
+  --id-4-fg: #c9f5ce;
+  /* In dark the identity tints are deeper and more saturated, so a harness tile reads as
+     its colour on the near-black page. The teal tint sat too close to the teal accent,
+     so in dark it is steel, as on the website. */
+  --id-5-bg: #30506c;
+  --id-5-fg: #d1ecff;
+  --id-6-bg: #414682;
+  --id-6-fg: #dce4ff;
+  --id-7-bg: #5a3d78;
+  --id-7-fg: #f3ddff;
+  --id-8-bg: #723459;
+  --id-8-fg: #ffd6f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --background: #0c0d0a;
+    --surface: #131410;
+    --sidebar: #10110d;
+    --selected: #1d1f19;
+    --ink: #edeee7;
+    --muted: #b3b5ab;
+    --faint: #8a8c82;
+    --rule: #22241e;
+    --field-border: #6b6d64;
+    --on-ink: #0c0d0a;
+    --accent: #14b8a6;
+    --accent-strong: #14b8a6;
+    --attention-mix: 20%;
+  --attention-mix: 20%;
+    --on-accent: #0f100d;
+    --mark-reply: #14b8a6;
+    --mention: color-mix(in srgb, var(--accent) 42%, transparent);
+  --mention: color-mix(in srgb, var(--accent) 42%, transparent);
+    --link: #edeee7;
+    --status-working: #edeee7;
+    --status-needs: #14b8a6;
+    --status-hold: #a898e6;
+    --status-idle: #8a8c82;
+    --shade: #000000;
+    --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 50%, transparent),
+      0 12px 32px -12px color-mix(in oklab, var(--shade) 80%, transparent);
+    --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
+    --id-1-bg: #7a3338;
+    --id-1-fg: #ffd6d6;
+    --id-2-bg: #763a0d;
+    --id-2-fg: #ffdcbe;
+    --id-3-bg: #4f5200;
+    --id-3-fg: #e8edb8;
+    --id-4-bg: #1d5b2b;
+    --id-4-fg: #c9f5ce;
+    --id-5-bg: #30506c;
+    --id-5-fg: #d1ecff;
+    --id-6-bg: #414682;
+    --id-6-fg: #dce4ff;
+    --id-7-bg: #5a3d78;
+    --id-7-fg: #f3ddff;
+    --id-8-bg: #723459;
+    --id-8-fg: #ffd6f3;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+/* Dark and every scheme (all dark) take the dark depth (D217). */
+:root[data-theme="dark"],
+:root[data-theme="ember"],
+:root[data-theme="tide"],
+:root[data-theme="contrast"] {
+  --shade: #000000;
+  --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 50%, transparent),
+    0 12px 32px -12px color-mix(in oklab, var(--shade) 80%, transparent);
+  --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
+}
+
+/* Derived from the tokens above, so every theme and scheme follows. */
+:root {
+  /* What waits on the person: the accent itself for a count, a label or a bar, under
+     on-accent text; and a soft solid tone of it for a whole row or card, under ink. */
+  --attention: var(--accent);
+  --attention-soft: color-mix(in srgb, var(--accent) var(--attention-mix), var(--surface));
+  /* The accent at 30%, see-through: a mention, the focus glow. */
+  --accent-soft: color-mix(in srgb, var(--accent) 30%, transparent);
+  /* The person's own messages sit on the sidebar's tone, as on the website. */
+  --own: var(--sidebar);
+  /* Outlines for messages that ask for a reply (faint) or are urgent (strong). */
+  --outline-faint: color-mix(in oklab, var(--accent-strong) 50%, var(--background));
+  --outline-strong: var(--accent-strong);
+  /* The message box while it has focus: the strong accent edge and a soft glow. */
+  --field-focus: var(--accent-strong);
+  --focus-glow: var(--accent-soft);
+  /* A mention of a name or role, in the message box and in posted messages. */
+  --mention: var(--accent-soft);
+  /* The scrollbar's thumb, tinted from the page, shown only while scrolling or hovered. */
+  --scroll-thumb: color-mix(in oklab, var(--muted) 45%, var(--background));
+  /* Hover is a weaker selected, so the row the keys act on always stands out. */
+  --hover: color-mix(in oklab, var(--selected) 55%, transparent);
+  /* A place to drop a file, while one is dragged over it: a trace of the accent. */
+  --drop: color-mix(in srgb, var(--accent) 10%, transparent);
+}

@@ -148,21 +148,31 @@ func runServers(_ context.Context, a *app, args []string) error {
 	case len(known) == 0:
 		text = "This machine knows no server yet. Start the local one with aboard up, or join a team's with aboard connect <invite link>.\n"
 	default:
+		st := a.out()
 		text = "Servers this machine knows:\n"
-		width := 0
+		rows := make([][]string, 0, len(known))
 		for _, k := range known {
-			width = max(width, len(k.URL))
-		}
-		for _, k := range known {
-			mark, who := "  ", k.Handle
-			if k.Local {
-				who = "local"
+			mark, who, url := "", "logged in", "  "+k.URL
+			switch {
+			case k.Local:
+				who = "local server"
+			case k.Handle != "":
+				who = "logged in as @" + k.Handle
 			}
 			if k.Default {
-				mark, who = "* ", who+"  (default)"
+				mark, url = "default", "* "+k.URL
 			}
-			text += strings.TrimRight(mark+k.URL+strings.Repeat(" ", width-len(k.URL)+2)+who, " ") + "\n"
+			rows = append(rows, []string{url, who, mark})
 		}
+		text += st.table([]string{"SERVER", "LOGIN", "DEFAULT"}, rows, func(col int, c string, _ []string) string {
+			switch col {
+			case 0:
+				return c[:2] + st.name(c[2:])
+			case 2:
+				return st.ok(c)
+			}
+			return c
+		})
 		if def == nil && len(known) > 1 {
 			text += "No default server: outside a linked folder, person commands need --server. Choose one with: aboard servers use <url|local>\n"
 		} else {

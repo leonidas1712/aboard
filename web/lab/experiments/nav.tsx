@@ -37,7 +37,7 @@ export function Nav({ current, boards }: { current: string | null; boards: Board
         <a href={labHref({ inbox: "1", board: null, view: null, task: null, artifact: null })} aria-current={inInbox ? "page" : undefined} className={cn(row, "font-bold", inInbox && "bg-selected")}>
           <span className="flex-1">Inbox</span>
           {asks.length > 0 && (
-            <span className="inbox-count min-w-6 rounded-[6px] bg-attention px-1.5 text-center text-meta font-bold text-ink tabular-nums" title={`${asks.length} waiting on you`}>
+            <span className="inbox-count min-w-6 rounded-[6px] bg-attention px-1.5 text-center text-meta font-bold text-on-accent tabular-nums" title={`${asks.length} waiting on you`}>
               {asks.length}
             </span>
           )}
@@ -63,7 +63,7 @@ export function Nav({ current, boards }: { current: string | null; boards: Board
                 >
                   <span className={cn("min-w-0 flex-1 truncate", (unread > 0 || here) && "font-bold")}>{boardLabel(b)}</span>
                   {waiting > 0 && (
-                    <span className="shrink-0 rounded-[6px] bg-attention px-1.5 text-meta font-bold text-ink tabular-nums" title={`${waiting} waiting on you`}>
+                    <span className="shrink-0 rounded-[6px] bg-attention px-1.5 text-meta font-bold text-on-accent tabular-nums" title={`${waiting} waiting on you`}>
                       {waiting}
                     </span>
                   )}

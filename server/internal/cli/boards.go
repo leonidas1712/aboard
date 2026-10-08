@@ -90,7 +90,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	a.emit(g, boardsText(srv, agent, *all, *archived, g.Boards, g.Hidden)+archivedHint(*archived, *all, g.ArchivedCount))
+	a.emit(g, boardsText(a.out(), srv, agent, *all, *archived, g.Boards, g.Hidden)+archivedHint(*archived, *all, g.ArchivedCount))
 	return nil
 }
 
@@ -188,21 +188,24 @@ func archivedHint(archived, all bool, count *int) string {
 }
 
 // boardsText is aboard boards' text output.
-func boardsText(srv serverRef, agent *string, all, archived bool, rows []boardsRow, hidden []api.HiddenBoard) string {
+func boardsText(st styles, srv serverRef, agent *string, all, archived bool, rows []boardsRow, hidden []api.HiddenBoard) string {
 	var b strings.Builder
+	heading := func(format string, args ...any) {
+		b.WriteString(st.heading(strings.TrimSuffix(fmt.Sprintf(format, args...), "\n")) + "\n")
+	}
 	switch {
 	case agent != nil && archived:
-		fmt.Fprintf(&b, "Archived boards of agent %s on %s: an agent sees only its own board.\n", *agent, srv.URL)
+		heading("Archived boards of agent %s on %s: an agent sees only its own board.\n", *agent, srv.URL)
 	case agent != nil:
-		fmt.Fprintf(&b, "Boards of agent %s on %s: an agent sees only its own board.\n", *agent, srv.URL)
+		heading("Boards of agent %s on %s: an agent sees only its own board.\n", *agent, srv.URL)
 	case all && archived:
-		fmt.Fprintf(&b, "Archived boards you can see on %s:\n", srv.URL)
+		heading("Archived boards you can see on %s:\n", srv.URL)
 	case all:
-		fmt.Fprintf(&b, "Boards you can see on %s:\n", srv.URL)
+		heading("Boards you can see on %s:\n", srv.URL)
 	case archived:
-		fmt.Fprintf(&b, "Your archived boards on %s:\n", srv.URL)
+		heading("Your archived boards on %s:\n", srv.URL)
 	default:
-		fmt.Fprintf(&b, "Your boards on %s:\n", srv.URL)
+		heading("Your boards on %s:\n", srv.URL)
 	}
 	switch {
 	case len(rows) == 0 && archived:
@@ -211,32 +214,32 @@ func boardsText(srv serverRef, agent *string, all, archived bool, rows []boardsR
 		b.WriteString("  none yet; run aboard pair to make one\n")
 	}
 	for _, r := range rows {
-		parts := []string{r.Name}
+		parts := []string{st.name(r.Name)}
 		if r.Title != nil {
 			parts[0] += fmt.Sprintf(" %q", *r.Title)
 		}
 		// Open says something only once other people can be on the board, as in the board view.
 		if r.Visibility == api.BoardVisibilityPrivate || r.People > 1 {
-			parts = append(parts, map[api.BoardVisibility]string{api.BoardVisibilityOpen: "open", api.BoardVisibilityPrivate: "private"}[r.Visibility])
+			parts = append(parts, map[api.BoardVisibility]string{api.BoardVisibilityOpen: "open", api.BoardVisibilityPrivate: st.warn("private")}[r.Visibility])
 		}
 		switch {
 		case !r.OnBoard:
-			parts = append(parts, "not joined")
+			parts = append(parts, st.warn("not joined"))
 		case r.Role != nil:
 			parts = append(parts, string(*r.Role))
 		}
-		parts = append(parts, peopleCount(r.People))
+		parts = append(parts, st.dim(peopleCount(r.People)))
 		if r.Agents != nil {
-			parts = append(parts, counted(*r.Agents, "agent"))
+			parts = append(parts, st.dim(counted(*r.Agents, "agent")))
 		}
 		if r.Unread != nil && *r.Unread > 0 {
-			parts = append(parts, fmt.Sprintf("%d unread", *r.Unread))
+			parts = append(parts, st.warn(fmt.Sprintf("%d unread", *r.Unread)))
 		}
 		if r.Added != nil {
 			parts = append(parts, "new, added by "+r.Added.by())
 		}
 		if r.Default {
-			parts = append(parts, "default")
+			parts = append(parts, st.ok("default"))
 		}
 		line := "  " + strings.Join(parts, " · ")
 		if !r.OnBoard && !archived {
@@ -304,10 +307,11 @@ func (a *app) humanBoards(ctx context.Context, project projectFile, linked bool,
 			}
 			e := asError(err)
 			g = boardsOutput{Server: srv, All: all, Lifecycle: listLifecycle(archived), Boards: []boardsRow{}, Hidden: []api.HiddenBoard{}, Error: &boardsFailure{Code: e.Code, Message: e.Message, Hint: e.Hint}}
-			fmt.Fprintf(&text, "Boards on %s: unavailable (%s).\nHint: %s\n", srv.URL, e.Code, e.Hint)
+			bst := a.out()
+			fmt.Fprintf(&text, "%s %s %s\n%s %s\n", bst.heading("Boards on "+srv.URL+":"), bst.bad("unavailable"), "("+e.Code+").", bst.warn("Hint:"), e.Hint)
 		} else {
 			successes++
-			groupText := boardsText(srv, nil, all, archived, g.Boards, g.Hidden)
+			groupText := boardsText(a.out(), srv, nil, all, archived, g.Boards, g.Hidden)
 			if len(known) > 1 || flag != "" {
 				groupText = strings.ReplaceAll(groupText, "join with aboard board add @me --board ", "join with aboard board add @me --server "+commandWord(srv.URL)+" --board ")
 			}

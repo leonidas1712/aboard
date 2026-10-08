@@ -77,13 +77,24 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 	text += fmt.Sprintf("People on %s:\n", srv.URL)
 	rows := make([][]string, 0, len(r.JSON200.People))
 	for _, p := range r.JSON200.People {
-		row := []string{p.Handle, string(p.ServerRole)}
+		name := ""
 		if p.DisplayName != nil {
-			row = append(row, *p.DisplayName)
+			name = *p.DisplayName
 		}
-		rows = append(rows, row)
+		rows = append(rows, []string{"@" + p.Handle, string(p.ServerRole), name})
 	}
-	text += swarmTable(st, rows, func(r []string) []string { return r })
+	text += st.table([]string{"HANDLE", "SERVER ROLE", "NAME"}, rows, func(col int, c string, _ []string) string {
+		switch col {
+		case 0:
+			return st.name(c)
+		case 1:
+			if c == "admin" {
+				return st.ok(c)
+			}
+			return c
+		}
+		return st.dim(c)
+	})
 	a.emit(map[string]any{"server": srv, "people": r.JSON200.People}, text)
 	return nil
 }
@@ -113,9 +124,10 @@ func runPeopleRole(ctx context.Context, a *app, args []string) error {
 		return keyRejected(srv, r.StatusCode(), r.Body)
 	}
 	noun := map[string]string{"admin": "an admin", "member": "a member"}[role]
-	text := fmt.Sprintf("%s is now %s of %s.\n", handle, noun, srv.URL)
+	st := a.out()
+	text := fmt.Sprintf("@%s is now %s of %s.\n", st.name(handle), st.ok(noun), srv.URL)
 	if !r.JSON200.Changed {
-		text = fmt.Sprintf("%s is already %s of %s.\n", handle, noun, srv.URL)
+		text = fmt.Sprintf("@%s is already %s of %s.\n", st.name(handle), noun, srv.URL)
 	}
 	a.emit(map[string]any{"server": srv, "person": r.JSON200.Person, "changed": r.JSON200.Changed}, text)
 	return nil
@@ -172,8 +184,9 @@ func runPeopleRemove(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-	text := fmt.Sprintf("Removed %s from %s: %s stopped, and %s left %s.\n", handle, srv.URL,
-		removalCounts(done), handle, counted(done.BoardsLeft, "board"))
+	st := a.out()
+	text := fmt.Sprintf("%s %s from %s: %s stopped, and %s left %s.\n", st.bad("Removed"), st.name("@"+handle), srv.URL,
+		removalCounts(done), "@"+handle, counted(done.BoardsLeft, "board"))
 	for _, note := range removalNotes(done) {
 		text += note + "\n"
 	}

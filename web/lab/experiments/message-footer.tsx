@@ -52,7 +52,7 @@ export function MessageFooter({ board, message }: { board: string; message: Mess
       )}
       {m.options &&
         (ask ? (
-          <div className="ask-answers flex flex-wrap items-center gap-2 rounded-box bg-attention px-3 py-2.5 text-ink" role="group" aria-label="Answers">
+          <div className="ask-answers flex flex-wrap items-center gap-2 rounded-box bg-attention px-3 py-2.5 text-on-accent" role="group" aria-label="Answers">
             <span className="mr-1">{m.ahead ? `${m.from} is going with ${m.goingWith ?? "it"} unless you say.` : `${m.from} is waiting for your answer.`}</span>
             {m.options.map((o, i) => (
               <button

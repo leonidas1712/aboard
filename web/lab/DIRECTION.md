@@ -101,13 +101,13 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   appears: in messages, the brief, notes and files. A task lists every message that
   mentions it. A file shows its version, what the person approved, and where the file
   is used.
-- **Attention has one colour.** It is marigold, DESIGN.md's attention colour, and it
-  marks only what waits on the person. It is used for the Inbox count, a board's count
-  of asks, "needs you" on a task, and the answer box on an ask. A waiting ask shows once
-  in each place: in the conversation, the lab's answer box replaces the real "waiting
-  for your reply" box. Late or idle shows as muted text with a clock icon, never as a
-  second colour. Something new shows as a bold board name and an unread count.
-  Everything else is neutral.
+- **Attention has one colour.** It is the brand's accent (green in light, teal in
+  dark; D220 replaced the marigold), and it marks only what waits on the person. It
+  is used for the Inbox count, a board's count of asks, "needs you" on a task, and the
+  answer box on an ask. A waiting ask shows once in each place: in the conversation,
+  the lab's answer box replaces the real "waiting for your reply" box. Late or idle
+  shows as muted text with a clock icon, never as a second colour. Something new shows
+  as a bold board name and an unread count. Everything else is neutral.
 - **Tasks and the conversation link both ways.**
   - In the conversation, a message shows a quiet chip for each task it is about. A
     thread's row shows a chip for every task any of its messages is about, so a thread
@@ -140,23 +140,28 @@ Beyond Light and Dark there are three schemes:
 - **High contrast**, a dark scheme for low vision and bright rooms.
 
 Each is a full set of the DESIGN.md tokens on the same CSS variables, including the
-eight identity colours, so every component follows (`lab/themes.css`). A scheme is
-chosen in the account menu, and the lab panel has the same switch. Each viewer's choice
-is remembered. "Same as this computer" stays the default and follows the system's
-light or dark.
+eight identity colours, so every component follows. Since D220 the schemes are part of
+the real board view: they live in `app/schemes.css` (light and dark in
+`app/tokens.css`), retuned to the brand (Ember takes a marigold accent, Tide the brand's
+green, High contrast olive neutrals and a bright green), and the account menu offers
+them with a swatch each. The lab panel offers the same list (`app/themes.ts`). Each
+viewer's choice is remembered. "Same as this computer" stays the default and follows
+the system's light or dark.
 
-`node lab/contrast.mjs` checks each scheme against WCAG AA: text at 4.5:1, accent and
-field edges at 3:1, ink on marigold, each identity colour's initial on its fill, and
-each agent status colour (D218) at 3:1 on every surface. It
-exits non-zero on a failure. All five pass:
+`node lab/contrast.mjs` checks each scheme against WCAG AA and exits non-zero on a
+failure. Text (ink and muted) is checked at 4.5:1 on every surface; `on-accent` on the
+accent and ink and muted on the soft attention tone at 4.5:1; `accent-strong` (focus
+rings, outlines, check marks) and the field edge at 3:1; each identity colour's initial
+on its fill at 4.5:1; and each agent status colour (D218) at 3:1 on every surface. The
+table shows each scheme's figures and the lowest of each group. All five pass:
 
-| Scheme | ink/surface | muted/surface | link/surface | ink/attention | accent/surface | identity (lowest) | status (lowest) | AA |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| light | 15.9 | 6.9 | 7.3 | 12.4 | 4.3 | 6.0 | 3.6 | all pass |
-| dark | 13.5 | 7.6 | 9.2 | 10.7 | 7.0 | 7.8 | 4.4 | all pass |
-| ember | 14.1 | 7.7 | 10.9 | 9.2 | 8.5 | 7.6 | 4.5 | all pass |
-| tide | 13.7 | 8.1 | 10.9 | 9.8 | 9.2 | 7.3 | 4.8 | all pass |
-| contrast | 18.0 | 13.7 | 13.0 | 8.7 | 10.7 | 7.1 | 7.2 | all pass |
+| Scheme | ink/surface | muted/surface | on-accent/accent | ink/attention-soft | accent-strong (lowest) | field edge | identity (lowest) | status (lowest) | AA |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| light | 19.1 | 6.6 | 11.4 | 16.3 | 4.3 | 3.2 | 6.0 | 3.4 | all pass |
+| dark | 15.8 | 8.9 | 7.7 | 11.4 | 6.7 | 3.5 | 6.7 | 4.9 | all pass |
+| ember | 14.5 | 7.8 | 9.7 | 9.5 | 7.7 | 3.4 | 7.6 | 4.4 | all pass |
+| tide | 14.2 | 8.2 | 11.4 | 8.8 | 8.1 | 3.7 | 7.7 | 4.9 | all pass |
+| contrast | 18.6 | 13.6 | 14.4 | 8.5 | 10.8 | 9.6 | 7.1 | 7.6 | all pass |
 
 ### An agent's avatar is its harness
 

@@ -68,7 +68,7 @@ export function TaskBoard({ agents }: { agents: Member[] }) {
                   <span aria-hidden className={cn("size-2 rounded-full", c.key === "doing" ? "border-2 border-accent" : c.key === "blocked" ? "bg-ink" : "border border-dashed border-muted")} />
                 )}
                 {c.key === "needs" && c.list.length > 0 ? (
-                  <span className="rounded-[4px] bg-attention px-1.5 text-ink">
+                  <span className="rounded-[4px] bg-attention px-1.5 text-on-accent">
                     {c.title} <span className="tabular-nums">{c.list.length}</span>
                   </span>
                 ) : (
