@@ -73,6 +73,7 @@ const (
 	OpJoin        = "join"
 	OpCreateBoard = "create_board"
 	OpQueued      = "queued"
+	OpShown       = "shown"
 )
 
 // Events sent back on a waiting connection.
@@ -89,10 +90,12 @@ const (
 
 // Request is one message from a hook or the CLI to the daemon.
 type Request struct {
-	V       int    `json:"v"`
-	Op      string `json:"op"`
-	Harness string `json:"harness,omitempty"`
-	Session string `json:"session,omitempty"`
+	Generation    uint64         `json:"generation,omitempty"`
+	ShownMessages []ShownMessage `json:"shown_messages,omitempty"`
+	V             int            `json:"v"`
+	Op            string         `json:"op"`
+	Harness       string         `json:"harness,omitempty"`
+	Session       string         `json:"session,omitempty"`
 	// Boot is the session's boot id. Empty means the boot the daemon has on record.
 	Boot string `json:"boot,omitempty"`
 	// Source is what started the session: startup, resume, clear or compact.
@@ -153,12 +156,14 @@ func (r Request) Key() SessionKey { return SessionKey{Harness: r.Harness, ID: r.
 
 // Response is one message from the daemon.
 type Response struct {
-	Queued *QueuedMessages `json:"queued,omitempty"`
-	Nudge  string          `json:"nudge,omitempty"`
-	V      int             `json:"v"`
-	Event  string          `json:"event,omitempty"`
-	TurnID uint64          `json:"turn_id,omitempty"`
-	Bundle string          `json:"bundle,omitempty"`
+	Generation uint64          `json:"generation,omitempty"`
+	Shown      bool            `json:"shown,omitempty"`
+	Queued     *QueuedMessages `json:"queued,omitempty"`
+	Nudge      string          `json:"nudge,omitempty"`
+	V          int             `json:"v"`
+	Event      string          `json:"event,omitempty"`
+	TurnID     uint64          `json:"turn_id,omitempty"`
+	Bundle     string          `json:"bundle,omitempty"`
 	// ID is the delivery an EventDeliver on an extension connection carries, which the
 	// extension names when it confirms it.
 	ID            int64    `json:"id,omitempty"`
@@ -354,4 +359,12 @@ type QueuedMessage struct {
 	Seq       int    `json:"seq"`
 	From      string `json:"from"`
 	Boundary  string `json:"boundary"`
+}
+
+// ShownMessage is an exact identity emitted by a successful own-session read.
+type ShownMessage struct {
+	BoardID   string `json:"board_id"`
+	MemberID  string `json:"member_id"`
+	MessageID string `json:"message_id"`
+	Seq       int    `json:"seq"`
 }

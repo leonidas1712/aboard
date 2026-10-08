@@ -439,5 +439,14 @@ func (s *Server) QueuedMessage(ctx context.Context, agent delivery.AgentRef, id 
 	if m.Id != id || m.Seq != seq || m.Board != agent.Board {
 		return delivery.Message{}, fmt.Errorf("queued message identity changed")
 	}
-	return TextMessage(m), nil
+	b, err := c.GetBoardWithResponse(ctx, agent.Board)
+	if err != nil {
+		return delivery.Message{}, err
+	}
+	if b.JSON200 == nil {
+		return delivery.Message{}, fmt.Errorf("queued board is no longer readable on this seat")
+	}
+	text := TextMessage(m)
+	text.BoardID = b.JSON200.Id
+	return text, nil
 }

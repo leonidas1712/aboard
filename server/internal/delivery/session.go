@@ -113,12 +113,15 @@ type ackResult struct {
 // session is one open conversation in one harness. Everything below mail is changed
 // only by the session's own goroutine, in run.
 type session struct {
-	handoffs  map[string]*sessionHandoff
-	firstSeat int
-	d         *Daemon
-	key       SessionKey
-	adapter   Adapter
-	mail      *mailbox[sessionMsg]
+	shown       []ShownRecord
+	shownLoaded bool
+	shownBoot   string
+	handoffs    map[string]*sessionHandoff
+	firstSeat   int
+	d           *Daemon
+	key         SessionKey
+	adapter     Adapter
+	mail        *mailbox[sessionMsg]
 
 	boot string
 	open bool
@@ -324,7 +327,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
-	if req.Op != OpQueued {
+	if req.Op != OpQueued && req.Op != OpShown {
 		s.noteProcess(ctx, req)
 	}
 	switch req.Op {
@@ -453,9 +456,12 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if !s.open {
 			s.setOpen(ctx, true)
 		}
+	case OpShown:
+		return s.observeShown(ctx, req)
 	case OpQueued:
 		return s.queued(ctx, req)
 	case OpAgents:
+		ok.Boot = s.boot
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 		ok.Capabilities = negotiatedCapabilities(s.ext)
 	}
@@ -1108,7 +1114,7 @@ func (s *session) onReading(ctx context.Context, req Request, rd *reading) Respo
 	if req.Session != "" && req.Key() == s.key && s.open && !req.Started.IsZero() && (req.Boot == "" || req.Boot == s.boot) {
 		s.confirmBefore(ctx, req.Started)
 	}
-	return Response{V: ProtocolVersion, Held: true, Received: s.received(a)}
+	return Response{V: ProtocolVersion, Held: true, Boot: s.boot, Generation: a.generation, Received: s.received(a)}
 }
 
 // received returns the agent's messages past its read position that a session
@@ -1165,7 +1171,7 @@ func (s *session) newMessages(a *agentState, f filter) []Message {
 	t := taken(a)
 	var out []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) {
+		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) || s.alreadyShown(a, m) {
 			continue
 		}
 		out = append(out, m)
@@ -1247,6 +1253,9 @@ func (s *session) offers(f filter) []offer {
 		blocked := false
 		for _, id := range slices.Sorted(maps.Keys(a.deliveries)) {
 			dl := a.deliveries[id]
+			if s.deliveryFullyShown(a, dl) {
+				continue
+			}
 			switch dl.State {
 			case StateAttention:
 				blocked = true
@@ -1335,7 +1344,7 @@ func anyConcerns(offers []offer, name string) bool {
 func (s *session) messagesFor(a *agentState, seqs []int) []Message {
 	var out []Message
 	for _, m := range a.unread {
-		if slices.Contains(seqs, m.Seq) {
+		if slices.Contains(seqs, m.Seq) && !s.alreadyShown(a, m) {
 			out = append(out, m)
 		}
 	}
@@ -1988,7 +1997,7 @@ func (s *session) toAnnounce(a *agentState) []Message {
 	t := taken(a)
 	var fresh []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) {
+		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) || s.alreadyShown(a, m) {
 			continue
 		}
 		fresh = append(fresh, m)
@@ -2016,6 +2025,9 @@ const recheckTimeout = 5 * time.Second
 // through any client a moment ago, before the stream's report of it arrived. It costs
 // one request per agent, made only when there is something to hand or announce.
 func (s *session) recheck(ctx context.Context) bool {
+	if !s.ensureShown(ctx) {
+		return false
+	}
 	fresh := true
 	for _, ref := range s.agentRefs() {
 		if a := s.agents[ref.Key()]; a.adopting || a.gone() {

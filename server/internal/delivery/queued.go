@@ -14,6 +14,9 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 	if !s.open || (req.Boot != "" && req.Boot != s.boot) {
 		return errorResponse("session_unknown", "The current session's queue cannot be observed.", "Use the current session; reconnect if it has ended.")
 	}
+	if !s.ensureShown(ctx) {
+		return queueUnknown()
+	}
 	out := QueuedMessages{Messages: []QueuedMessage{}}
 	seen := map[string]bool{}
 	for _, ref := range s.agentRefs() {
@@ -86,7 +89,7 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 		}
 		taken := taken(a)
 		for _, m := range msgs {
-			if fromOwner(m) || s.held(ref, m) {
+			if fromOwner(m) || s.held(ref, m) || s.alreadyShown(a, m) {
 				continue
 			}
 			if _, claimed := taken[m.Seq]; claimed {

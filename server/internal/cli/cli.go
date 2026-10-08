@@ -287,6 +287,10 @@ func (a *app) report(err error) int {
 
 // emit prints a command's result: v as JSON with --json, otherwise text.
 func (a *app) emit(v any, text string) {
+	_ = a.emitChecked(v, text)
+}
+
+func (a *app) emitChecked(v any, text string) error {
 	if selection := a.serverSelection; selection != nil {
 		boardNamed := false
 		if raw, err := json.Marshal(v); err == nil {
@@ -303,17 +307,21 @@ func (a *app) emit(v any, text string) {
 		}
 	}
 	if a.json {
-		a.writeJSON(v)
-		return
+		return a.writeJSONChecked(v)
 	}
-	_, _ = io.WriteString(a.env.Stdout, text)
+	_, err := io.WriteString(a.env.Stdout, text)
+	return err
 }
 
 func (a *app) writeJSON(v any) {
+	_ = a.writeJSONChecked(v)
+}
+
+func (a *app) writeJSONChecked(v any) error {
 	enc := json.NewEncoder(a.env.Stdout)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(v)
+	return enc.Encode(v)
 }
 
 func runVersion(_ context.Context, a *app, args []string) error {

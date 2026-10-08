@@ -18,8 +18,10 @@ import (
 // How far the command then acknowledges reaches the daemon from the server. With no
 // daemon, or none holding the agent, it does nothing.
 type inboxRead struct {
-	conn net.Conn
-	r    *bufio.Reader
+	boot       string
+	generation uint64
+	conn       net.Conn
+	r          *bufio.Reader
 	// received are messages a session here received that the server still counts
 	// unread, because the daemon's acknowledgement hasn't landed yet.
 	received []int
@@ -56,6 +58,7 @@ func (a *app) startInboxRead(ctx context.Context, agent delivery.AgentRef, confi
 		return &inboxRead{}
 	}
 	rd.received = resp.Received
+	rd.boot, rd.generation = resp.Boot, resp.Generation
 	return rd
 }
 
