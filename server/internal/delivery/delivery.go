@@ -146,6 +146,7 @@ type SessionRecord struct {
 	// continuations keep it; only explicit turn completion closes it.
 	PeerTurnActive bool
 	PeerTurn       uint64
+	BusyAt         time.Time
 	UpdatedAt      time.Time
 }
 

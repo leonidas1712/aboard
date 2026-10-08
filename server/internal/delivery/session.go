@@ -136,7 +136,9 @@ type session struct {
 	inTurn bool
 	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
-	working bool
+	working        bool
+	peerTurnActive bool
+	peerTurn       uint64
 	// reported is the presence and delivery mode last reported for each agent.
 	reported map[AgentKey]reportedPresence
 	// waiter is the connection waiting while the session is idle: its stop hook's, or
@@ -178,8 +180,9 @@ type session struct {
 
 // agentState is what a session knows about one of its agents.
 type agentState struct {
-	generation uint64
-	ref        AgentRef
+	midturnPolicy string
+	generation    uint64
+	ref           AgentRef
 	// adopting is true until the previous session has given the agent up.
 	adopting bool
 	// fetched is true once the inbox has been read at least once.
@@ -364,6 +367,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpPrompt, OpTurnStart:
+		s.beginPeerTurn()
 		if req.Op == OpTurnStart || req.Harness != "omp" {
 			ok.Nudge = s.briefStartNudge(ctx)
 		}
@@ -383,19 +387,37 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			ok.Bundle = s.atTurnStart(ctx)
 		}
 	case OpBoundary, OpUrgent:
+		if slices.Contains(req.Capabilities, "midturn-peer") && req.Boot != "" && s.boot != "" && req.Boot != s.boot {
+			return errorResponse("session_unknown", "This tool boundary belongs to an older session boot.", "Keep the message queued for the current session.")
+		}
+		s.beginPeerTurn()
 		s.busyAt = s.now()
 		s.working = true
 		s.turnStarted(ctx)
+		s.saveSession(ctx)
 		if req.Boot != "" && req.Boot != s.boot {
 			s.newBoot(ctx, req.Boot)
 		} else {
 			s.confirmBefore(ctx, req.Started)
 		}
-		ok.Bundle, ok.Notice = s.boundary(ctx)
+		ok.Bundle, ok.Notice, ok.HandoffID = s.boundary(ctx, slices.Contains(req.Capabilities, "tool-boundary") && slices.Contains(req.Capabilities, "midturn-peer"))
+		if ok.HandoffID != "" {
+			ok.Boot, ok.TurnID = s.boot, s.peerTurn
+		}
+	case OpReceived:
+		return s.receivePeerBoundary(ctx, req)
 	case OpTurnEnd:
+		if req.TurnID != 0 && (req.TurnID != s.peerTurn || req.Boot == "" || req.Boot != s.boot) {
+			return ok
+		}
+		if (!req.Started.IsZero() && req.Started.Before(s.busyAt)) || (req.Boot != "" && req.Boot != s.boot) {
+			return ok
+		}
 		s.markTurned(ctx)
 		s.event(ctx, req.Boot)
+		s.requeueUnreceivedPeers(ctx)
 		s.inTurn, s.working = false, false
+		s.peerTurnActive = false
 		s.seenTurns = true
 		s.saveSession(ctx)
 		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
@@ -403,6 +425,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 	case OpEnd:
 		s.inTurn, s.working = false, false
+		s.peerTurnActive = false
 		if s.waiter != nil {
 			s.waiter.Release()
 			s.waiter = nil
@@ -589,9 +612,16 @@ func (s *session) markTurned(ctx context.Context) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, BusyAt: s.busyAt, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
+	}
+}
+
+func (s *session) beginPeerTurn() {
+	if !s.peerTurnActive {
+		s.peerTurn++
+		s.peerTurnActive = true
 	}
 }
 
@@ -649,6 +679,7 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		// never arrived.
 		s.unhand(ctx)
 	}
+	s.requeueUnreceivedPeers(ctx)
 	if s.waiter != nil && s.waiter != w {
 		s.waiter.Release()
 	}
@@ -657,7 +688,7 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	s.working = false
 	s.seenTurns = true
 	s.saveSession(ctx)
-	w.accepted()
+	w.acceptedTurn(s.boot, s.peerTurn)
 	if !s.open {
 		s.setOpen(ctx, true)
 	}
@@ -865,7 +896,9 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	}
 	s.setProblem(a, "")
 	a.fetched = true
+	a.midturnPolicy = ""
 	if r.mode != nil {
+		a.midturnPolicy = r.mode.MidturnPolicy
 		s.d.learnMode(ctx, a.ref, *r.mode)
 	}
 	if a.told == "" {
@@ -1698,34 +1731,65 @@ const previewLimit = 2000
 // midTurnFrame is Aboard's line before the owner's messages handed mid-turn.
 const midTurnFrame = "Aboard: your owner sent this while you were working; the text inside the tags is theirs.\n"
 
+const peerMidTurnFrame = "Aboard: urgent message from another agent of your owner at this step; the text inside the tags is theirs.\n"
+
 // boundary answers a busy session's tool hook: the owner's waiting messages, handed
 // over, and a notice naming other messages that arrived since the last notice. Each
 // message is claimed by one hook, since the session answers one request at a time.
-func (s *session) boundary(ctx context.Context) (bundle, notice string) {
+func (s *session) boundary(ctx context.Context, peers bool) (bundle, notice, handoffID string) {
 	if !s.open {
-		return "", ""
+		return "", "", ""
 	}
-	if (len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce()) && !s.recheck(ctx) {
-		return "", ""
+	if s.key.Harness == "omp" {
+		peers = peers && s.ext.SupportsHandoffs() && s.ext.supportsPeer
 	}
-	c := s.composePending(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame), s.compositionOptions(MidTurnLimit), midTurnFrame)
+	if (peers || len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce()) && !s.recheck(ctx) {
+		return "", "", ""
+	}
+	prefix := midTurnFrame
+	offers := s.peerBoundaryOffers(peers)
+	ownerMessages, peerMessages := false, false
+	for _, offer := range offers {
+		for _, m := range offer.msgs {
+			if m.PeerBoundary {
+				peerMessages = true
+			} else {
+				ownerMessages = true
+			}
+		}
+	}
+	if peerMessages {
+		prefix = peerMidTurnFrame
+		if ownerMessages {
+			prefix = midTurnFrame + prefix
+		}
+	}
+	c := s.composePending(offers, MidTurnLimit-len(prefix), s.compositionOptions(MidTurnLimit), prefix)
+	for _, part := range c.parts {
+		for _, m := range part.msgs {
+			c.peerBoundary = c.peerBoundary || m.PeerBoundary
+		}
+	}
 	text := c.text
 	previews := map[AgentKey][]int{}
 	for _, o := range c.tooLarge {
 		a := s.agents[o.agent.Key()]
 		m := o.msgs[0]
+		if m.PeerBoundary {
+			continue
+		}
 		if a.previewed[m.Seq] {
 			continue
 		}
 		preview := previewTextFor(m, s.textContext(a.ref))
-		if len(text)+len(preview)+len(midTurnFrame)+2 > MidTurnLimit {
+		if len(text)+len(preview)+len(prefix)+2 > MidTurnLimit {
 			break
 		}
 		previews[a.ref.Key()] = append(previews[a.ref.Key()], m.Seq)
 		text = strings.TrimSpace(text + "\n\n" + preview)
 	}
 	if text != "" {
-		bundle = midTurnFrame + text
+		bundle = prefix + text
 	}
 	announcements := map[AgentKey][]int{}
 	var announced []int
@@ -1750,10 +1814,13 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 		if notice != "" {
 			payload = bundle + "\n\n" + notice
 		}
-		_, deliveries, err := s.prepare(ctx, c, midTurnFrame, payload)
+		h, deliveries, err := s.prepare(ctx, c, prefix, payload)
 		if err != nil {
 			s.prepareFailed("prepare boundary handoff", err)
-			return "", ""
+			return "", "", ""
+		}
+		if c.peerBoundary {
+			handoffID = h.manifest.ID
 		}
 		s.prepared()
 		now := s.now()
@@ -1775,7 +1842,7 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if bundle != "" || notice != "" {
 		s.d.log.Info("tool boundary", "session", s.key.String(), "seqs", partSeqs(c.parts), "announced", announced, "bytes", len(bundle)+len(notice))
 	}
-	return bundle, notice
+	return bundle, notice, handoffID
 }
 
 // atTurnStart answers a turn's start: in focused mode, every message still waiting for

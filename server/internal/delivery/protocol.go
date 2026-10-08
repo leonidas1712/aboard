@@ -102,7 +102,8 @@ type Request struct {
 	Resumed bool `json:"resumed,omitempty"`
 	// Wake marks a prompt that is the bundle a stop hook just woke the session with, not
 	// a later event; it doesn't confirm that bundle.
-	Wake bool `json:"wake,omitempty"`
+	Wake   bool   `json:"wake,omitempty"`
+	TurnID uint64 `json:"turn_id,omitempty"`
 	// Started is when the hook process started. A wait from a stop hook that started
 	// before the session's latest prompt belongs to an earlier turn, and is released.
 	Started time.Time `json:"started,omitzero"`
@@ -156,6 +157,7 @@ type Response struct {
 	Nudge  string          `json:"nudge,omitempty"`
 	V      int             `json:"v"`
 	Event  string          `json:"event,omitempty"`
+	TurnID uint64          `json:"turn_id,omitempty"`
 	Bundle string          `json:"bundle,omitempty"`
 	// ID is the delivery an EventDeliver on an extension connection carries, which the
 	// extension names when it confirms it.

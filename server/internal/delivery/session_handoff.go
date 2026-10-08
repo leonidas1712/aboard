@@ -88,6 +88,9 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	for _, p := range c.parts {
 		a := s.agents[p.agent.Key()]
 		if a == nil || a.ref.MemberID == "" || a.generation == 0 {
+			if c.peerBoundary {
+				return nil, nil, fmt.Errorf("peer handoff needs verified seat identities")
+			}
 			if len(s.agents) > 1 {
 				return nil, nil, fmt.Errorf("a combined handoff needs verified seat identities")
 			}
@@ -111,6 +114,21 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 		renderedAt = s.now()
 	}
 	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt}
+	if c.peerBoundary {
+		manifest.Class, manifest.PeerTurn = ClassMidturnPeer, s.peerTurn
+		seen := map[AgentKey]bool{}
+		for _, part := range c.parts {
+			for _, msg := range part.msgs {
+				if msg.PeerBoundary {
+					key := AgentKey{Server: part.agent.Server, MemberID: msg.MidturnPeerSenderID}
+					if !seen[key] {
+						seen[key] = true
+						manifest.PeerSenders = append(manifest.PeerSenders, key)
+					}
+				}
+			}
+		}
+	}
 	hash := sha256.Sum256([]byte(text))
 	manifest.PayloadHash = hex.EncodeToString(hash[:])
 	for _, p := range c.parts {
@@ -239,7 +257,7 @@ func (s *session) confirmManifests(ctx context.Context, before time.Time) map[in
 				}
 			}
 		}
-		if !ready {
+		if !ready || h.manifest.Class == ClassMidturnPeer {
 			continue
 		}
 		confirmed, err := s.confirmHandoff(ctx, h)
@@ -336,7 +354,7 @@ func (s *session) ensureBoot(ctx context.Context) error {
 		return err
 	}
 	boot := "boot_" + hex.EncodeToString(random[:])
-	record := SessionRecord{Key: s.key, Boot: boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, UpdatedAt: s.now()}
+	record := SessionRecord{Key: s.key, Boot: boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, BusyAt: s.busyAt, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, record); err != nil {
 		return err
 	}

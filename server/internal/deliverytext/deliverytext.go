@@ -16,6 +16,7 @@ import (
 type Message struct {
 	ID, BoardID         string
 	MidturnPeerSenderID string
+	PeerBoundary        bool
 	At                  time.Time
 	Files               []File
 	// About lists permanent task references recorded on this message.
@@ -152,6 +153,9 @@ func Format(m Message, contexts ...Context) string {
 	}
 	if m.Urgent {
 		attrs = append(attrs, [2]string{"urgent", "true"})
+	}
+	if m.PeerBoundary {
+		attrs = append(attrs, [2]string{"delivery", "tool-boundary"})
 	}
 	if m.ExpectsReply {
 		attrs = append(attrs, [2]string{"expects-reply", "true"})

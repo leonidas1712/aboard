@@ -108,7 +108,7 @@ lifecycle:
 
 delivery:
   method: queue
-  capabilities: [queue, tool-boundary, turn-start, turn-end-hook]
+  capabilities: [queue, tool-boundary, turn-start, turn-end-hook, midturn-peer]
   queue: [codex, queue, --thread, "{session}", --message, "{bundle}"]
   # Each hook carries the first Codex release that runs it as written, from the event
   # list Codex reads hooks.json with (codex-rs/hooks/src/engine/config.rs, later

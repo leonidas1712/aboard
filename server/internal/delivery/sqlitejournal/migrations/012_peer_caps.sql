@@ -1,5 +1,6 @@
 ALTER TABLE sessions ADD COLUMN peer_turn_active INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE sessions ADD COLUMN peer_turn INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN busy_at TEXT NOT NULL DEFAULT '';
 CREATE TABLE peer_caps (
   harness TEXT NOT NULL,
   session_id TEXT NOT NULL,

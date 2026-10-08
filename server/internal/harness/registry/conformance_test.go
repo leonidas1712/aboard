@@ -377,11 +377,15 @@ func checkCapabilities(t *testing.T, h harness.Harness) {
 				t.Errorf("capability queue: delivery.queue names no command")
 			}
 		case "tool-boundary":
-			if !hasOp(p, harness.OpTool) {
+			if !hasOp(p, harness.OpTool) && !slices.Contains(caps, "extension") {
 				t.Errorf("capability tool-boundary: no hook of op tool")
 			}
 			if p.Delivery.MidTurn != "tool-hook" {
 				t.Errorf("capability tool-boundary: delivery.mid_turn is %q, want tool-hook", p.Delivery.MidTurn)
+			}
+		case "midturn-peer":
+			if !slices.Contains(caps, "tool-boundary") {
+				t.Errorf("capability midturn-peer needs tool-boundary")
 			}
 		case "turn-start":
 			if !hasOp(p, harness.OpPrompt) && !slices.Contains(caps, "extension") {
