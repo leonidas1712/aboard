@@ -19,6 +19,20 @@ limits stay unchanged; a 429 waits for Retry-After. Setup is timed separately an
 excluded from latency samples. With one loopback source, 500 joins can take about
 17 minutes under the 30-per-minute join limit. The default timeout is 30 minutes.
 
+`--writers N --writes-per-writer N` adds a separate concurrent-writer phase after
+delivery verification. The defaults are sixteen writers and ten messages each;
+`--writers 0` disables it. Each writer is a distinct provisioned agent, capped by
+the available seats. They start together and post sequentially within each writer.
+Responses and read-back prove distinct message identities, ordering within a
+writer and the recorded body and sender. Every board's chain is verified afterward.
+The fake extension receivers have finished before this phase; real daemons and
+person streams remain open. This isolates API write throughput from delivery drain.
+
+`--soak 10m` repeats delivery rounds for at least that measurement duration, while
+still completing at least `--rounds` rounds. The whole-run `--timeout` still includes
+setup, so set it high enough. Validation metadata accumulates for the whole soak;
+the tool does not claim constant driver memory.
+
 Each round posts one message per board, addressed to every agent on that board.
 Every message has a unique marker. A person's stream must first report its boards
 before measurement starts. Streams may coalesce head updates: observing a head at
@@ -39,6 +53,20 @@ API supplies no proof that each server handler has entered its waiting state.
 The JSON report contains topology, setup and measurement seconds, successful posts
 per second for this post-and-drain cadence, throttled requests, correctness counts, and latency distributions in
 milliseconds (sample count, p50, p95 and p99):
+
+`resources.samples` records elapsed seconds, phase, server RSS bytes and interval
+CPU percent, sampled once per second through setup and measurement. CPU comes from
+the change in the process's cumulative CPU time divided by elapsed time; the first
+sample has no CPU value, and OS accounting precision limits short intervals. CPU
+can exceed 100% on multiple cores. Sampling errors are counted, never replaced with
+invented zeros. Only the owned server PID is sampled, without its command arguments.
+The sampler requires a POSIX `ps` (macOS or Linux); resource data is preserved on
+failure. Configured SSE counts are labelled as configuration, not an active gauge.
+
+`concurrent_writers` reports its own successful posts, write-response distribution,
+post-only elapsed time, throughput, throttles and verified read-backs. This timing
+excludes read-back verification and delivery gathering. It is a bounded concurrent
+workload, not an unlimited saturated-capacity claim.
 
 - `request_to_write_response`: posting request start through decoding a successful
   response. Failed posts do not contribute a sample.
