@@ -1554,3 +1554,36 @@ https://learn.chatgpt.com/docs/hooks#posttooluse. Installing a hook or seeing it
 is not a proof of model receipt: a real isolated harness proof must show the message
 in the active turn, without ending it or running inbox. Older unsupported or untrusted
 hooks keep ordinary queued delivery and report that limitation.
+
+
+### Avoiding stale queue backlogs
+
+While a turn is known to be running, keep ordinary messages in the daemon, not in
+separate harness queue entries. At turn end, re-read each current seat's own-token
+inbox and read position before allocating one combined bundle for the waiting
+messages. Recheck access, lifecycle and binding generation as for every handoff.
+An already read message is omitted even when its stream update has not arrived.
+Messages newly arrived during handoff wait for the next gather; the byte limit and
+immutable retry manifest still apply. Never discard a message just because it is old
+or because its body appears superseded by another message.
+
+An agent's successful `aboard read`, including thread and Markdown output, reports
+only the exact message identities actually shown in that same session, seat and boot.
+This local observation suppresses a later automatic handoff of those messages without
+advancing the server's read cursor or changing read's normal receipt semantics. A
+failed command or an output not actually emitted reports nothing. A person or a
+separate session's read cannot suppress this session's queue. Observations must be
+retained durably and rechecked against the current binding generation; unseen sequence
+gaps must never be inferred as read. Queued preview remains explicitly read-only and
+does not report that observation or cancel the scheduled handoff.
+
+A bundle shows each message's authoritative sent timestamp and relative age, such as
+`sent 2 h ago`, as Aboard framing outside the sender's body. Age uses the current
+handoff clock, clamps future timestamps to zero age, and is display only. Message bytes
+and sender labels are unchanged. Missing timestamps produce no invented age.
+
+An old backlog already accepted by an external harness cannot be claimed to be
+retracted unless that harness offers a verified removal mechanism. The new behavior
+prevents new busy-turn entries rather than silently assuming accepted queue items
+are cancellable. With missing/untrusted turn hooks, this prevention cannot be promised;
+queued visibility must state that limitation and retain ordinary delivery.
