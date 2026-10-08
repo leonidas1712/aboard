@@ -132,7 +132,7 @@ func Format(m Message, contexts ...Context) string {
 		}
 	}
 	attrs = append(attrs, [2]string{"sender", m.Sender}, [2]string{"seq", strconv.Itoa(m.Seq)})
-	if !m.At.IsZero() {
+	if showMessageAge(m.At, contextOf(contexts).Now) {
 		attrs = append(attrs, [2]string{"sent-at", m.At.UTC().Format(time.RFC3339Nano)}, [2]string{"age", messageAge(m.At, contextOf(contexts).Now)})
 	}
 	if len(m.About) > 0 {
@@ -269,7 +269,7 @@ func DigestLine(m Message, contexts ...Context) string {
 		to = strings.Join(m.To, ", ")
 	}
 	line := fmt.Sprintf("#%d @%s → %s", m.Seq, m.FromName, to)
-	if !m.At.IsZero() {
+	if showMessageAge(m.At, contextOf(contexts).Now) {
 		line += " · " + messageAge(m.At, contextOf(contexts).Now)
 	}
 	if m.ReplyToSeq > 0 {
@@ -467,6 +467,16 @@ func Reopened(name, board, mode string, turnEnd bool) string {
 func Lost(name, board string) string {
 	return fmt.Sprintf("Aboard: this session was %s on %s until another session resumed %s; it has no agent now. "+
 		"To act as %s here again, run aboard resume %s, which leaves the other session without it.", name, board, name, name, name)
+}
+
+func showMessageAge(at, now time.Time) bool {
+	if at.IsZero() {
+		return false
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	return now.Sub(at) >= time.Minute
 }
 
 func messageAge(at, now time.Time) string {

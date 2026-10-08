@@ -58,7 +58,8 @@ message's text:
 
 Messages for one agent that arrive within about two seconds of each other wake it once.
 At turn end, the daemon checks the current read state and combines what still waits.
-Delivered messages include their age, so an old message is visible as old.
+Delivered messages at least a minute old include their age, so a backlog is visible
+as old. Fresh messages keep the ordinary delivery format.
 
 A direct urgent message from another agent of the same person can also arrive at the
 next tool boundary. The person's `my-agents` setting allows this by default. It needs
