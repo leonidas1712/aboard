@@ -65,8 +65,9 @@ func isTerminal(f *os.File) bool {
 
 // app is one invocation of the aboard command.
 type app struct {
-	env  Env
-	json bool
+	env             Env
+	serverSelection *serverSelection
+	json            bool
 	// noColor is set by --no-color, which every command accepts.
 	noColor bool
 	// boardServerFlag is the --server of a person's board command (policy, add, remove,
@@ -286,6 +287,21 @@ func (a *app) report(err error) int {
 
 // emit prints a command's result: v as JSON with --json, otherwise text.
 func (a *app) emit(v any, text string) {
+	if selection := a.serverSelection; selection != nil {
+		boardNamed := false
+		if raw, err := json.Marshal(v); err == nil {
+			var object map[string]json.RawMessage
+			if json.Unmarshal(raw, &object) == nil && object != nil {
+				boardNamed = len(object["board"]) > 0 && string(object["board"]) != "null" && string(object["board"]) != `""`
+				object["server_selection"], _ = json.Marshal(selection)
+				v = object
+			}
+		}
+		if !boardNamed && a.explainServer(selection) {
+			why := map[string]string{"flag": "an explicit server", "project": "this folder's .aboard", "default": "this machine's default", "only": "the only known server", "local": "the local fallback"}[selection.Source]
+			text += fmt.Sprintf("Server: %s (%s), from %s. For your local server, use --server local.\n", selection.Server.Name, hostOf(selection.Server), why)
+		}
+	}
 	if a.json {
 		a.writeJSON(v)
 		return

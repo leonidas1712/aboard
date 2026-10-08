@@ -28,21 +28,21 @@ func runLogin(ctx context.Context, a *app, args []string) error {
 	if err := a.refuseInSession("Signing this machine in", "aboard login"); err != nil {
 		return err
 	}
-	target := a.localServer().URL
+	var srv serverRef
 	if len(pos) == 1 {
-		target = pos[0]
-	} else if p, ok, err := a.readProject(); err != nil {
-		return err
-	} else if ok && p.Server.URL != "" {
-		target = p.Server.URL
+		srv, err = a.namedServer(pos[0])
+		if err == nil {
+			srv = a.selectedServer(srv, "flag")
+		}
+	} else {
+		srv, err = a.resolveServer("")
 	}
-	// Wherever the server came from, it is checked before a key is read or sent: https,
-	// or this machine over http.
-	srv, err := parseServerURL(target)
 	if err != nil {
 		return err
 	}
-	srv = a.serverRefFor(srv.URL)
+	if _, err := parseServerURL(srv.URL); err != nil {
+		return err
+	}
 	local := srv.URL == a.localServer().URL
 	key, err := a.readKey(srv)
 	if err != nil {
@@ -80,6 +80,9 @@ func runLogin(ctx context.Context, a *app, args []string) error {
 		if each.Id == list.CurrentKeyId {
 			k = each
 		}
+	}
+	if err := a.prepareServerName(&srv, ""); err != nil {
+		return err
 	}
 	replaced, err := a.saveLogin(srv, local, serverLogin{
 		URL: srv.URL, ServerID: info.ServerId, PersonID: list.Person.Id, Handle: list.Person.Handle,
@@ -164,6 +167,9 @@ func (a *app) saveLogin(srv serverRef, local bool, login serverLogin) (bool, err
 				saved.Servers[i], replaced = login, true
 				return nil
 			}
+		}
+		if err := a.saveServerName(&saved, srv); err != nil {
+			return err
 		}
 		saved.Servers = append(saved.Servers, login)
 		return nil

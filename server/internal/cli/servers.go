@@ -46,7 +46,16 @@ func (a *app) knownServers() ([]knownServer, *serverRef, error) {
 		if l.URL == local.URL {
 			continue
 		}
-		known = append(known, knownServer{Name: l.URL, URL: l.URL, Handle: l.Handle})
+		name := logins.Names[l.URL]
+		if name == "" {
+			name = uniqueServerName(serverHostName(l.URL), l.URL, known)
+		}
+		known = append(known, knownServer{Name: name, URL: l.URL, Handle: l.Handle})
+	}
+	for i := range known {
+		if name := logins.Names[known[i].URL]; name != "" {
+			known[i].Name = name
+		}
 	}
 	// A machine that uses its local server and has no saved default, such as one that
 	// connected to a team's server before defaults existed, keeps acting on the local
@@ -72,12 +81,16 @@ func (a *app) knownServers() ([]knownServer, *serverRef, error) {
 // server_not_selected, naming --server and aboard servers use. It starts nothing.
 func (a *app) resolveServer(flag string) (serverRef, error) {
 	if flag = strings.TrimSpace(flag); flag != "" {
-		return a.serverRefFor(strings.TrimSuffix(flag, "/")), nil
+		srv, err := a.namedServer(flag)
+		if err != nil {
+			return serverRef{}, err
+		}
+		return a.selectedServer(srv, "flag"), nil
 	}
 	if p, ok, err := a.readProject(); err != nil {
 		return serverRef{}, err
 	} else if ok && p.Server.URL != "" {
-		return p.Server, nil
+		return a.selectedServer(p.Server, "project"), nil
 	}
 	known, def, err := a.knownServers()
 	if err != nil {
@@ -85,11 +98,11 @@ func (a *app) resolveServer(flag string) (serverRef, error) {
 	}
 	switch {
 	case def != nil:
-		return *def, nil
+		return a.selectedServer(*def, "default"), nil
 	case len(known) == 0:
-		return a.localServer(), nil
+		return a.selectedServer(a.localServer(), "local"), nil
 	case len(known) == 1:
-		return known[0].ref(), nil
+		return a.selectedServer(known[0].ref(), "only"), nil
 	}
 	return serverRef{}, serverNotSelected(known)
 }
@@ -103,7 +116,7 @@ func serverNotSelected(known []knownServer) *Error {
 	}
 	e := newError("server_not_selected",
 		"This machine knows several servers ("+strings.Join(choices, ", ")+"), none of them its default, and nothing here chooses one.",
-		"Pass --server, such as --server "+choices[len(choices)-1]+", or make one the default with aboard servers use <url|local>.")
+		"Pass --server, such as --server "+choices[len(choices)-1]+", or make one the default with aboard servers use <url|name>.")
 	e.Details = map[string]any{"choices": choices}
 	return e
 }
@@ -120,21 +133,21 @@ func (a *app) personServer(ctx context.Context, flag string) (serverRef, bool, e
 }
 
 // runServers runs "aboard servers", which lists the servers this machine knows, and
-// "aboard servers use <url|local>", which makes one the default.
+// "aboard servers use <url|name>", which makes one the default.
 func runServers(_ context.Context, a *app, args []string) error {
 	flags := a.flags("servers")
-	pos, err := a.parse(flags, args, serversUsage, 0, 2)
+	pos, err := a.parse(flags, args, serversUsage, 0, 3)
 	if err != nil {
 		return err
 	}
 	if len(pos) > 0 {
-		if pos[0] != "use" || len(pos) != 2 {
-			return usageError("aboard servers takes nothing, or use and one server: aboard servers use https://team.example.com.", serversUsage)
+		if pos[0] == "use" && len(pos) == 2 {
+			return runServersUse(a, pos[1])
 		}
-		return runServersUse(a, pos[1])
-	}
-	if err := a.refuseInSession("Listing this machine's servers", "aboard servers"); err != nil {
-		return err
+		if (pos[0] == "name" || pos[0] == "rename") && len(pos) == 3 {
+			return a.runServerName(pos[1], pos[2])
+		}
+		return usageError("Use servers, servers use <server>, or servers name <server> <name>.", serversUsage)
 	}
 	known, def, err := a.knownServers()
 	if err != nil {
@@ -162,21 +175,21 @@ func runServers(_ context.Context, a *app, args []string) error {
 			if k.Default {
 				mark, url = "default", "* "+k.URL
 			}
-			rows = append(rows, []string{url, who, mark})
+			rows = append(rows, []string{k.Name, url, who, mark})
 		}
-		text += st.table([]string{"SERVER", "LOGIN", "DEFAULT"}, rows, func(col int, c string, _ []string) string {
+		text += st.table([]string{"NAME", "SERVER", "LOGIN", "DEFAULT"}, rows, func(col int, c string, _ []string) string {
 			switch col {
-			case 0:
+			case 1:
 				return c[:2] + st.name(c[2:])
-			case 2:
+			case 3:
 				return st.ok(c)
 			}
 			return c
 		})
 		if def == nil && len(known) > 1 {
-			text += "No default server: outside a linked folder, person commands need --server. Choose one with: aboard servers use <url|local>\n"
+			text += "No default server: outside a linked folder, person commands need --server. Choose one with: aboard servers use <url|name>\n"
 		} else {
-			text += "Change the default with: aboard servers use <url|local>\n"
+			text += "Change the default with: aboard servers use <url|name>\n"
 		}
 	}
 	a.emit(map[string]any{"servers": known, "default": def}, text)
@@ -192,10 +205,11 @@ func runServersUse(a *app, name string) error {
 	if err != nil {
 		return err
 	}
-	want := strings.TrimSuffix(strings.TrimSpace(name), "/")
-	if want == localServerName {
-		want = a.localServer().URL
+	srv, err := a.namedServer(name)
+	if err != nil {
+		return err
 	}
+	want := srv.URL
 	var chosen *knownServer
 	for i := range known {
 		if known[i].URL == want {

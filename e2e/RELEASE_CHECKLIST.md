@@ -149,7 +149,11 @@ Run with a binary from `make install` (or a release).
 - [ ] In a Claude Code session, asking "open the board in my browser" makes the agent run `aboard open`; the browser opens logged in, and the session's output shows no login link or code.
 - [ ] After `aboard down` and `aboard up`, reloading the UI still shows the board, logged in. After `aboard logout --browsers`, reloading it says the browser isn't logged in and to run `aboard open`.
 
-## Team server ([docs/team-server.mdx](../docs/team-server.mdx))
+## Team server ([docs/team-server.mdx](../docs/team-server.mdx), [docs/deploy/](../docs/deploy))
+
+The steps for each platform are on its own page: [Fly.io](../docs/deploy/fly.mdx),
+[Kubernetes](../docs/deploy/kubernetes.mdx) and [Docker](../docs/deploy/docker.mdx). "The
+page" in a step below is that platform's page; "Get the image" is on team-server.mdx.
 
 The server's side is covered by e2e: `aboard serve --team` behind an HTTPS proxy, the
 admin key file piped into `aboard login`, `aboard people --server`, `aboard invite
@@ -171,6 +175,7 @@ checked by hand, on a disposable cluster with an ingress that ends HTTPS:
 - [ ] With the image copied to a private registry: the pod fails to pull it until `kubectl create secret docker-registry aboard-pull -n aboard --docker-server=<registry> --docker-username=<user> --docker-password=<token>` and `imagePullSecrets` uncommented in the recipe; then it starts.
 - [ ] The page's Docker steps: `docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 127.0.0.1:7400:7400 -e ABOARD_PUBLIC_URL=https://<host> ghcr.io/leonidas1712/aboard:<version>` starts; `curl -H 'Host: <host>' http://localhost:7400/v1/info` includes `"mode":"team"`, and port 7400 is not reachable from another machine; `docker exec aboard cat /data/aboard/admin-key | aboard login https://<host> && docker exec aboard rm /data/aboard/admin-key` signs in through a proxy that ends HTTPS and then removes the file. After `docker stop aboard && docker rm aboard`, the same `docker run` with a newer tag keeps every board. The page's Docker backup (a new `mkdir -m 700` folder, `docker stop aboard`, the `tar` copy under `umask 077` and `set -C`, `docker start aboard`) writes `aboard-data.tgz` with mode 600, owned by you, refuses when the file already exists, and the server comes back with its boards; the page's Docker restore (`docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh …`, the copy, then the older tag) brings the older image back with the copy's data.
 - [ ] The page's backup: `kubectl scale -n aboard deploy/aboard --replicas=0`, `kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s` returning only once the pod is gone, a snapshot of the `aboard-data` volume, and `kubectl scale -n aboard deploy/aboard --replicas=1` bring the server back with its boards; a volume restored from the snapshot holds the same boards.
+- [ ] The Fly.io page's steps, on a Fly.io account: `curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v<version>/deploy/fly/fly.toml` fetches the recipe; with `app`, both hostnames, `ABOARD_ADMIN` and `primary_region` filled in, `fly apps create <app>`, `fly volumes create aboard_data --app <app> --region <region> --size 10` and `fly deploy --ha=false` start one machine, its health check passes with the public Host, and `curl https://<app>.fly.dev/v1/info` includes `"mode":"team"`. `fly ssh console --app <app> --command "cat /data/aboard/admin-key" | aboard login https://<app>.fly.dev && fly ssh console --app <app> --command "rm /data/aboard/admin-key"` signs in (nothing but the key reaches `aboard login`'s input) and then removes the file. `fly certs add <domain> --app <app>`, with the hostnames changed and `fly deploy` again, serves the board view at the domain. The page's backup (`fly machine list`, `fly machine stop`, `fly volumes list`, `fly volumes snapshots create`, `fly machine start`) brings the server back with its boards; after an upgrade with a newer `[build] image` and `fly deploy --ha=false`, the page's go-back steps (`fly volumes snapshots list`, `fly volumes create aboard_data … --snapshot-id`, `fly machine destroy … --force`, `fly volumes destroy`, then `fly deploy --ha=false` with the older image) bring the older image back with the snapshot's data.
 
 ## Team mode on two machines ([docs/team-mode.mdx](../docs/team-mode.mdx), [docs/team-agents.mdx](../docs/team-agents.mdx))
 
@@ -214,6 +219,6 @@ reactions (`e2e/thread_test.go`, `e2e/reactions_test.go`), titles (`e2e/title_te
 delivery modes (`e2e/modes_test.go`) and the record (`TestQuickstartTwoTerminals`).
 
 - [ ] `make docs-links` passes: no broken links, and `mint validate` builds the site with the OpenAPI file.
-- [ ] `make docs-preview`: the quickstart, How it works and one CLI reference page read correctly at desktop and phone widths, in light and dark.
+- [ ] `make docs-preview`: the introduction, the quickstart, How it works, the board view and one CLI reference page read correctly, with each screenshot in the theme's own version, at desktop and phone widths, in light and dark.
 - [ ] The files How it works lists for `aboard init` match what `aboard init --yes --allow-commands` writes on a machine with Claude Code, Codex and omp (`aboard uninstall --dry-run` lists them).
 - [ ] After a deploy, the site's `/llms.txt` lists every page in the navigation.

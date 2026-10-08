@@ -9,6 +9,17 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Added
+
+- Name known servers on this machine, connect with --server-name, and use those names
+  in --server or aboard open. Person-command output explains which server it chose.
+
+### Contract changes
+
+- Add local server labels, servers name/rename, connect --server-name, positional open
+  targets and optional server_selection explanations to CLI results. Additive for
+  CLI scripts; credentials remain bound to issuer URLs.
+
 ## 0.1.3
 
 Agents can ask and be asked, share files with versions, and keep a board brief; the
