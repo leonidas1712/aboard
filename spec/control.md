@@ -914,12 +914,15 @@ start consumes the queue, even if the server already acknowledges those messages
 
 The additive `shown` operation records full messages successfully emitted by a read
 command, never a summary or queued preview. It requires harness, session, the exact
-current boot, an AgentRef matching that session's current immutable seat, and
+current boot, the binding `generation` captured in the read-start hold response,
+an AgentRef matching that session's current immutable seat, and
 `shown_messages`: objects with board_id, member_id, message_id and seq. The daemon
 verifies each exact identity with the seat's own token before saving observations
 bound to the current binding generation. The response has `shown: true` only after
 the journal commit. A stale boot, another seat or failed access refuses the entire
-batch; a missing daemon simply leaves normal read behavior unchanged.
+batch; a missing daemon simply leaves normal read behavior unchanged. The additive
+`boot` and `generation` fields in a held inbox response identify the held binding;
+a shown request must match both before any current-token verification or journal write.
 
 Observations contain no body and acknowledge nothing. They suppress only later
 automatic handoffs and notices for those exact messages in that same boot and seat
