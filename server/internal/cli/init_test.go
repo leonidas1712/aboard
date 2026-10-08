@@ -93,7 +93,7 @@ func TestMergeHooksUpdatesAMovedBinaryInPlace(t *testing.T) {
 	if err != nil || !changed {
 		t.Fatalf("changed %v, %v", changed, err)
 	}
-	if strings.Contains(string(moved), "/old/place") || strings.Count(string(moved), "hook codex tool") != 1 {
+	if strings.Contains(string(moved), "/old/place") || strings.Count(string(moved), "hook codex post-tool") != 1 {
 		t.Fatalf("the old hook wasn't replaced in place:\n%s", moved)
 	}
 	if !strings.Contains(string(moved), `"additionalContextLimit": 8192`) {
@@ -199,10 +199,11 @@ func TestMergeHooksRemovesAboardsStaleEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	post := parsed.Hooks["PostToolUse"]
-	if len(post) != 1 || len(post[0].Hooks) != 1 || post[0].Hooks[0].Command != "fmt-on-save" {
+	if len(post) != 2 || len(post[0].Hooks) != 1 || post[0].Hooks[0].Command != "fmt-on-save" ||
+		len(post[1].Hooks) != 1 || !isAboardHook(post[1].Hooks[0].Command, "codex", "post-tool") {
 		t.Fatalf("PostToolUse after the merge: %+v", post)
 	}
-	if pre := parsed.Hooks["PreToolUse"]; len(pre) != 1 || !isAboardHook(pre[0].Hooks[0].Command, "codex", "tool") {
+	if pre := parsed.Hooks["PreToolUse"]; len(pre) != 0 {
 		t.Fatalf("PreToolUse after the merge: %+v", pre)
 	}
 	old = `{"hooks": {"PostToolUse": [{"hooks": [{"type": "command", "command": "/usr/local/bin/aboard hook claude-code tool"}]}]}}`

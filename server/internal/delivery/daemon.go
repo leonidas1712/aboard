@@ -210,7 +210,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 			if deliveries[i].Agent.Key() == b.Agent.Key() {
 				dl := deliveries[i]
 				a.deliveries[dl.ID] = &dl
-				if !dl.AcceptedAt.IsZero() && dl.TurnStartedAt.IsZero() && dl.Session == s.key && dl.Boot == s.boot {
+				if s.seenTurns && !dl.AcceptedAt.IsZero() && dl.TurnStartedAt.IsZero() && dl.Session == s.key && dl.Boot == s.boot {
 					s.awaitingTurn = append(s.awaitingTurn, &dl)
 				}
 			}

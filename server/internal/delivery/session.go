@@ -1431,7 +1431,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 	}
 	began := s.now()
 	hookHand := s.waiter != nil
-	idle := !hookHand && (s.adapter.WaitsForIdle() || !s.inTurn)
+	idle := !stopHand && (s.adapter.WaitsForIdle() || !s.inTurn)
 	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, HandoffID: func() string {
 		if len(s.agents) > 1 {
 			return handoff.manifest.ID
