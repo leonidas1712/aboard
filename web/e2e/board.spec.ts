@@ -1097,9 +1097,12 @@ test("the desktop room scrolls its timeline and panels without moving the page",
     await page.screenshot({ path: join(tmpdir(), `aboard-scroll-desktop-${theme}.png`) });
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-    await page.getByRole("complementary", { name: "Scroll room" }).scrollIntoViewIfNeeded();
-    await expect(page.getByRole("complementary", { name: "Scroll room" })).toBeVisible();
+    // On a phone the board panel is a sheet over the conversation (D219).
+    await page.getByRole("button", { name: /^Board panel/ }).click();
+    await expect(page.getByRole("dialog", { name: "Scroll room" })).toBeVisible();
     await page.screenshot({ path: join(tmpdir(), `aboard-scroll-mobile-${theme}.png`) });
+    await page.getByRole("button", { name: "Conversation", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Scroll room" })).toBeHidden();
     await page.setViewportSize({ width: 1440, height: 720 });
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
@@ -2172,7 +2175,7 @@ test("task cards and the task panel show who is on each task, and Tell the team 
   await expect(detail.getByRole("heading", { name: "About" })).toBeVisible();
   await expect(detail).toContainText("The v1 endpoints close next month.");
   await expect(detail.locator(".where-it-stands")).toContainText("Intents move over; refunds are next.");
-  await expect(detail.locator(".where-it-stands")).toContainText(/by claude · (just now|\d+ min ago) · 1 message since/);
+  await expect(detail.locator(".where-it-stands")).toContainText(/Updated by claude · (just now|\d+ min ago) · 1 message since/);
   await expect(detail.getByRole("heading", { name: "Conversation · 1" })).toBeVisible();
   const onIt = detail.locator(".on-it");
   await expect(onIt.locator('[data-on-task="claude"] [data-harness="claude-code"]')).toBeVisible();

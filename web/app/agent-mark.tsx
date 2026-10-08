@@ -11,6 +11,7 @@
 
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { StatusDot, type Tone } from "./status";
 import { SenderMark } from "./timeline";
 import { harnessName, markOf } from "./words";
 
@@ -53,7 +54,22 @@ export type Marked = { name: string; kind: "agent" | "human"; harness?: string |
  * AgentMark is a member's mark: for an agent its harness icon on its identity tint, with
  * an initials badge at the md size; for a person their initials. sm is 20px, md 24px.
  */
-export function AgentMark({ member, identity, size = "md" }: { member: Marked; identity: number; size?: "sm" | "md" }) {
+export function AgentMark({ member, identity, size = "md", status }: { member: Marked; identity: number; size?: "sm" | "md"; status?: Tone }) {
+  if (member.kind === "agent" && status) {
+    // The status sits on the mark's top-right corner, cut out of the surface behind it
+    // (--mark-ring, which a panel or a marigold card sets), clear of the initials badge.
+    return (
+      <span className="agent-mark-status relative inline-flex shrink-0" data-status={status}>
+        <AgentMark member={member} identity={identity} size={size} />
+        <span
+          aria-hidden
+          className="absolute -top-[3px] -right-[3px] flex size-3 items-center justify-center rounded-full bg-[var(--mark-ring,var(--surface))]"
+        >
+          <StatusDot tone={status} />
+        </span>
+      </span>
+    );
+  }
   if (member.kind === "human") {
     return (
       <SenderMark

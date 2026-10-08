@@ -140,7 +140,17 @@ export type Member = MemberRef & {
   removed_by?: RemovedBy;
   /** can_remove says this person may remove the agent now; absent means no. */
   can_remove?: boolean;
+  /** state is the one word for what the agent is doing, worked out by the server; absent from servers without lines. */
+  state?: AgentState | null;
+  /** line is what the agent says it is on; absent from servers without lines. */
+  line?: AgentLine | null;
 };
+
+/** AgentState is the server's word for an agent now (AgentState in the spec). */
+export type AgentState = "working" | "paused" | "late" | "waiting" | "idle" | "disconnected";
+
+/** AgentLine is what an agent says it is working on, or is paused on until a time. */
+export type AgentLine = { kind: "working" | "paused"; text: string; until: string | null };
 
 /** RemovedBy is who ended an agent's seat: its person, a board owner, a server admin, or itself. */
 export type RemovedBy = "person" | "board_owner" | "admin" | "self";
@@ -547,6 +557,9 @@ export type PresenceEvent = {
   presence_since: string | null;
   /** delivery is the mode the agent's delivery daemon reports applying. */
   delivery?: DeliveryMode | null;
+  /** line and state are the agent's now, as on the member; absent from servers without lines. */
+  line?: AgentLine | null;
+  state?: AgentState;
 };
 
 export type StreamHandlers = {

@@ -110,7 +110,7 @@ export default function Login({ onSignedIn, signedOut, note }: Props) {
             required
             disabled={!secure}
             placeholder="abh_…"
-            className="h-11 w-full rounded-control border border-field-border bg-surface px-3.5 text-body text-ink outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-11 w-full rounded-control border border-field-border bg-surface px-3.5 text-body text-ink pointer-coarse:text-[16px] outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
           />
           <Button type="submit" disabled={busy || !secure} className="self-start">
             {busy ? "Signing in…" : "Sign in"}

@@ -61,7 +61,7 @@ and the whole conversation view. The lab mocks all of it; none of it is in the A
   - **About** says what the task is and why, in a line or two. It is written when
     the task is opened, so its byline is "opened by X · 2 h ago". It rarely changes.
   - **Where it stands** is two or three lines that the owner keeps current, the
-    task's own little brief. Its byline reads "by claude · 17 min ago · 4 messages
+    task's own little brief. Its byline reads "Updated by claude · 17 min ago · 4 messages
     since". It turns muted, with a clock, once it is old. "Ask claude to update" sends
     a message to the owner.
 - **Conversation · 4** lists everything about the task, threads and lone messages
@@ -146,16 +146,17 @@ is remembered. "Same as this computer" stays the default and follows the system'
 light or dark.
 
 `node lab/contrast.mjs` checks each scheme against WCAG AA: text at 4.5:1, accent and
-field edges at 3:1, ink on marigold, and each identity colour's initial on its fill. It
+field edges at 3:1, ink on marigold, each identity colour's initial on its fill, and
+each agent status colour (D218) at 3:1 on every surface. It
 exits non-zero on a failure. All five pass:
 
-| Scheme | ink/surface | muted/surface | link/surface | ink/attention | accent/surface | identity (lowest) | AA |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| light | 15.9 | 6.9 | 7.3 | 12.4 | 4.3 | 6.0 | all pass |
-| dark | 13.5 | 7.6 | 9.2 | 10.7 | 7.0 | 7.8 | all pass |
-| ember | 14.1 | 7.7 | 10.9 | 9.2 | 8.5 | 7.6 | all pass |
-| tide | 13.7 | 8.1 | 10.9 | 9.8 | 9.2 | 7.3 | all pass |
-| contrast | 18.0 | 13.7 | 13.0 | 8.7 | 10.7 | 7.1 | all pass |
+| Scheme | ink/surface | muted/surface | link/surface | ink/attention | accent/surface | identity (lowest) | status (lowest) | AA |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| light | 15.9 | 6.9 | 7.3 | 12.4 | 4.3 | 6.0 | 3.6 | all pass |
+| dark | 13.5 | 7.6 | 9.2 | 10.7 | 7.0 | 7.8 | 4.4 | all pass |
+| ember | 14.1 | 7.7 | 10.9 | 9.2 | 8.5 | 7.6 | 4.5 | all pass |
+| tide | 13.7 | 8.1 | 10.9 | 9.8 | 9.2 | 7.3 | 4.8 | all pass |
+| contrast | 18.0 | 13.7 | 13.0 | 8.7 | 10.7 | 7.1 | 7.2 | all pass |
 
 ### An agent's avatar is its harness
 
