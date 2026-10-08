@@ -133,6 +133,9 @@ func TestAChangedModeComesWithTheNextBundle(t *testing.T) {
 	if want := "Aboard: your delivery mode on writer-reviewer changed from focused to all. " + allRule + "\n"; !strings.HasPrefix(woke.stderr, want) {
 		t.Fatalf("the bundle doesn't start with the changed mode:\n%s", woke.stderr)
 	}
+	if !strings.HasSuffix(woke.stderr, "</aboard-messages>\n\nAboard delivery: new messages for this session.\n") {
+		t.Fatalf("the delivery notice doesn't follow the unchanged bundle:\n%s", woke.stderr)
+	}
 
 	stop = reviewer.startHook("stop")
 	writer.run("say", "FYI: and the docs build too.")

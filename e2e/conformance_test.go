@@ -386,7 +386,7 @@ func (s *kitSession) nextBundle(w *proc, within time.Duration) string {
 	}
 	if s.p.WaitsForIdle() {
 		r := w.wait(within)
-		if r.code != 2 || !strings.Contains(r.stderr, "<aboard-messages") {
+		if r.code != 2 || !strings.HasSuffix(r.stderr, "\n\nAboard delivery: new messages for this session.\n") || !strings.Contains(r.stderr, "<aboard-messages") {
 			s.e.t.Fatalf("the waiting hook should exit 2 with a bundle\n%s", r)
 		}
 		return r.stderr
