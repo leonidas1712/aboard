@@ -18,13 +18,13 @@ func TestSayAttachesExistingBoardFileVersions(t *testing.T) {
 	s := tm.admin.claudeSession("s-existing-files")
 	s.run("join", "--board", board, "--server", tm.url(), "--json")
 	local := filepath.Join(t.TempDir(), "notes.md")
-	if err := os.WriteFile(local, []byte("first\n"), 0600); err != nil {
+	if err := os.WriteFile(local, []byte("first\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	first := s.run("file", "put", local, "--name", "notes/api.md", "--json").json(t)
 	id := field(t, first, "file.id").(string)
 	s.run("file", "get", "notes/api.md", local, "--json")
-	if err := os.WriteFile(local, []byte("second\n"), 0600); err != nil {
+	if err := os.WriteFile(local, []byte("second\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	s.run("file", "put", local, "--json")
@@ -64,7 +64,7 @@ func TestSayAttachesExistingBoardFileVersions(t *testing.T) {
 	}
 	// A missing existing file must refuse before uploading a local attachment.
 	extra := filepath.Join(t.TempDir(), "extra.md")
-	if err := os.WriteFile(extra, []byte("extra\n"), 0600); err != nil {
+	if err := os.WriteFile(extra, []byte("extra\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	s.runExit("say", "Must not upload", "--attach", extra, "--file", "missing.md", "--json")
