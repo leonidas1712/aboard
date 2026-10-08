@@ -6,10 +6,10 @@ description: "Open the board view in your browser."
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard open [--board NAME] [--server URL] [--json]
+aboard open [<server>] [--board NAME] [--server URL] [--json]
 ```
 
-Opens the board view, signed in as you, through a one-time login link. The server is `--server`, else the one this directory is linked to, else the one server this machine is connected to, else the local server, which it starts if it isn't running. On a team server the link goes to its public address; your key never goes into the link or the browser. It opens the board this directory is linked to, else the list of boards.
+Opens the board view, signed in as you, through a one-time login link. The server is `--server`, else the one this directory is linked to, else the one server this machine is connected to, else the local server, which it starts if it isn't running. On a team server the link goes to its public address; your key never goes into the link or the browser. It opens the board this directory is linked to, else the list of boards. Give a server name as a positional argument or with `--server`. Output names the server and why it was chosen.
 
 Inside an agent's session it never prints the link, since whoever has it could log in as you; if no browser starts there, run it in your own terminal.
 

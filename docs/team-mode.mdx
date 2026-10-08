@@ -300,11 +300,25 @@ teams'. `aboard servers` lists them, and a `*` marks the default:
 ```
 $ aboard servers
 Servers this machine knows:
-  SERVER                    LOGIN                DEFAULT
-* https://team.example.com  logged in as @maya   default
-  http://127.0.0.1:7400     local server
-Change the default with: aboard servers use <url|local>
+  NAME   SERVER                    LOGIN                DEFAULT
+  local  http://127.0.0.1:7400      local server
+  team * https://team.example.com  logged in as @maya   default
+Change the default with: aboard servers use <url|name>
 ```
+
+
+Give a known server a name on this machine with
+`aboard servers name https://team.example.com work`. Change it with
+`aboard servers rename work fly`. Use the name wherever a command accepts a server:
+`aboard open fly`, `aboard board new planning --server fly`, or `aboard servers use fly`.
+URLs still work, and `local` always means this machine's local server. Names never
+change a login's issuer or travel to the server.
+
+Set the label while connecting with `aboard connect <invite link> --server-name work`.
+Without a label, aboard uses the server's host label and adds a number if needed.
+Agents may list and rename known servers, but connecting, logging in and choosing the
+machine default stay person-only. Person-command output explains the selected server
+and whether it came from a flag, the folder, or the machine default.
 
 Commands you run yourself, such as `aboard keys`, `aboard people`, `aboard board new`
 and `aboard invite`, act on `--server` when you give it, else on the server the folder's

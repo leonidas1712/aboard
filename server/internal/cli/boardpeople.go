@@ -65,11 +65,11 @@ func (a *app) personBoard(boardFlag string) (target, error) {
 	if boardFlag == "" {
 		return target{}, usageError("--server needs --board, naming a board on that server.", boardUsage)
 	}
-	srv, err := parseServerURL(a.boardServerFlag)
+	srv, err := a.namedServer(a.boardServerFlag)
 	if err != nil {
 		return target{}, err
 	}
-	return target{server: a.serverRefFor(srv.URL), board: boardFlag, source: boardFromFlag}, nil
+	return target{server: a.selectedServer(srv, "flag"), board: boardFlag, source: boardFromFlag}, nil
 }
 
 // agentSelected reports whether a command that can act as a person or as an agent acts
@@ -210,7 +210,7 @@ func runBoardAddAs(ctx context.Context, a *app, boardFlag, handle, as string) er
 		var cred agentCredential
 		t, cred, err = a.agentTarget(ctx, boardFlag, as)
 		if err == nil && a.boardServerFlag != "" {
-			selected, parseErr := parseServerURL(a.boardServerFlag)
+			selected, parseErr := a.namedServer(a.boardServerFlag)
 			if parseErr != nil {
 				return parseErr
 			}

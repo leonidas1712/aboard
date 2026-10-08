@@ -164,11 +164,11 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "open", Group: groupStart,
 			Summary: "Open the board view in your browser",
-			Usage:   []string{"aboard open [--board NAME] [--server URL] [--json]"},
+			Usage:   []string{"aboard open [<server>] [--board NAME] [--server URL] [--json]"},
 			Description: "Opens the board view, signed in as you, through a one-time login link. " +
 				"The server is --server, else the one this directory is linked to, else the one server this machine is connected to, else the local server, which it starts if it isn't running. " +
 				"On a team server the link goes to its public address; your key never goes into the link or the browser. " +
-				"It opens the board this directory is linked to, else the list of boards.\n\n" +
+				"It opens the board this directory is linked to, else the list of boards. Give a server name as a positional argument or with --server. Output names the server and why it was chosen.\n\n" +
 				"Inside an agent's session it never prints the link, since whoever has it could log in as you; " +
 				"if no browser starts there, run it in your own terminal.",
 			Flags: []helpFlag{
@@ -187,8 +187,8 @@ func helpText(templates string) []commandHelp {
 			Name: "connect", Group: groupStart,
 			Summary: "Join a server with an invite link, or connect another machine of yours",
 			Usage: []string{
-				"aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--json]",
-				"aboard connect <server URL> [--handle NAME] [--name MACHINE] [--json]",
+				"aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--server-name NAME] [--json]",
+				"aboard connect <server URL> [--handle NAME] [--name MACHINE] [--server-name NAME] [--json]",
 			},
 			Description: "With an invite link from an admin of a server (aboard invite --server): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
 				"An invite works once.\n\n" +
@@ -203,6 +203,7 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--handle", "NAME", "Your name on the server, lowercase letters, digits and dashes. With an invite, the name you take (default: asked, starting from your system user name; without a terminal, your system user name). With the server's address, who you are there: asked at a terminal, and needed without one."},
 				{"--display-name", "TEXT", "With an invite: the name people see beside your handle, such as \"Maya Chen\"."},
+				{"--server-name", "NAME", "A local label for the server; otherwise its host label. Never sent to the server."},
 				{"--name", "MACHINE", "This machine's name, which names its key. Default: its host name."},
 				flagJSON,
 			},
@@ -297,13 +298,15 @@ func helpText(templates string) []commandHelp {
 			Summary: "List the servers this machine knows, and choose its default",
 			Usage: []string{
 				"aboard servers [--json]",
-				"aboard servers use <url|local> [--json]",
+				"aboard servers use <url|name> [--json]",
+				"aboard servers name <url|name> <name> [--json]",
+				"aboard servers rename <old> <new> [--json]",
 			},
 			Description: "Lists the servers this machine knows: its local server, once it has run, and every server it connected or logged in to, with the person it signs in as there. " +
 				"A * marks the default server.\n\n" +
 				"Person commands (keys, people, board new, invite and the board commands a person runs) act on --server when it is given, else on the server this directory's .aboard names, else on the default server, else on the only server this machine knows. " +
 				"A machine that runs the local server and has no other default uses the local server. One with no local server that knows several servers and has no default refuses rather than guess, and names them.\n\n" +
-				"servers use makes one the default; local names the local server. " +
+				"Servers have local names; use a name wherever a server URL is accepted. servers name and rename change only this machine's label. Agents may list and rename known servers; use stays person-only. local always selects this machine's local server. " +
 				"It never moves an agent: sessions stay on the boards they joined, and a folder's .aboard still chooses for that folder.",
 			Flags: []helpFlag{flagJSON},
 			Examples: []helpExample{
