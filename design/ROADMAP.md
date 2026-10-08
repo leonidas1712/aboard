@@ -419,5 +419,9 @@ person default and own-agent overrides; capability-gated urgent direct peer deli
 at the next tool boundary. Exact shown reads suppress future local offers, and retry
 age framing survives restart. Independent security passes and focused acceptance
 pass. Bounded urgent-peer proofs pass on all three harnesses; Codex Stop continuation
-and owner tool-boundary proofs pass. Board-view coordination, final combined live
-validation and CI remain pending; this feature is not yet shipped.
+and owner tool-boundary proofs pass. The full live run covered 86 cases with four
+existing skips; its one Codex restart fixture failure passed after correcting the
+bounded-Stop versus idle-wait distinction. This is collective evidence from the full
+run and focused retry, not one clean full run. Protected configuration and auth were
+unchanged. Final CI remains pending; the board-view setting is separate PR #243.
+This feature is not yet shipped.

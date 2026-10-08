@@ -73,7 +73,7 @@
           "result": "pass",
           "date": "2026-10-09",
           "version": "2.1.294 (Claude Code)",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -116,6 +116,12 @@
           "date": "2026-10-09",
           "version": "2.1.294 (Claude Code)",
           "test": "TestResumeReconnects/claude-code"
+        },
+        "SameOwnerUrgentPeer": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
+          "test": "TestSameOwnerUrgentPeerReachesOneToolBoundary/claude-code"
         },
         "ServerHeldModeStopsAndRestartsNativeDelivery": {
           "result": "pass",
@@ -161,9 +167,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2034,
-        "harness_ms": 2782,
-        "deliveries": 31,
+        "aboard_ms": 2018,
+        "harness_ms": 2547,
+        "deliveries": 32,
         "date": "2026-10-09"
       }
     },
@@ -289,6 +295,12 @@
           "version": "codex-cli 0.160.0",
           "test": "TestResumeReconnects/codex"
         },
+        "SameOwnerUrgentPeer": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "codex-cli 0.160.0",
+          "test": "TestSameOwnerUrgentPeerReachesOneToolBoundary/codex"
+        },
         "SandboxNeedsTheAllowRule": {
           "result": "pass",
           "date": "2026-10-09",
@@ -339,9 +351,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2009,
-        "harness_ms": 38,
-        "deliveries": 3,
+        "aboard_ms": 2347,
+        "harness_ms": 64,
+        "deliveries": 2,
         "date": "2026-10-09"
       }
     },
@@ -462,6 +474,12 @@
           "version": "omp/18.5.1",
           "test": "TestResumeReconnects/omp"
         },
+        "SameOwnerUrgentPeer": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "omp/18.5.1",
+          "test": "TestSameOwnerUrgentPeerReachesOneToolBoundary/omp"
+        },
         "ServerHeldModeStopsAndRestartsNativeDelivery": {
           "result": "pass",
           "date": "2026-10-09",
@@ -506,8 +524,8 @@
         }
       },
       "handover": {
-        "aboard_ms": 2028,
-        "harness_ms": 10,
+        "aboard_ms": 2023,
+        "harness_ms": 8,
         "deliveries": 31,
         "date": "2026-10-09"
       }
