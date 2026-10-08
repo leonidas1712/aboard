@@ -696,6 +696,7 @@ A hook that gets an error, or can't reach the daemon, prints one line starting
 | --- | --- |
 | `daemon_protocol_mismatch` | The first message's `v` isn't the daemon's version |
 | `invalid_request` | An unknown operation, a message over 128 KiB, an unknown harness, a missing session, agent or `reply_to`, an unknown delivery mode, or a `member_id` that isn't the identity of its seat's own token ("Seats") |
+| `queue_unknown` | `queued` or `shown` cannot verify current own-seat access, exact identities, local observations or the delivery boundary; no acknowledgement or zero-count assertion |
 | `session_unknown` | `wait`, `bind` or `agents` for a session the daemon has no record of, for a harness that needs its hooks to register sessions |
 | `codex_subagent_target` | `register` or `bind` for a sub-agent: messages go to the root conversation |
 | `codex_target_absent` | `register` or `bind` for a session the harness says doesn't exist |

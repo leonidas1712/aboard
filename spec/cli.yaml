@@ -197,6 +197,8 @@ $defs:
       second seat to an extension session that did not negotiate handoff-v1; no seat or
       binding changes. The hint says to run aboard init in a terminal and restart the
       harness; spec/control.md, "Combined handoffs") ·
+      queue_unknown (the current session queue or its boundary could not be verified;
+      no preview is returned and nothing is acknowledged; check the connection and seat) ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
       inside a harness's sandbox, where it won't start one) · sandbox_blocks_network (the
       command runs inside a harness's sandbox that blocks network access, Codex's by
