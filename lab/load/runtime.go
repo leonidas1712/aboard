@@ -50,6 +50,7 @@ type (
 		board    *board
 		session  string
 		ext      *extension
+		observer *http.Client
 	}
 	fixture struct {
 		root, binary, url string
@@ -243,6 +244,9 @@ func (f *fixture) process(m *machine, args ...string) error {
 func (f *fixture) close() {
 	for _, p := range f.people {
 		for _, s := range p.seats {
+			if s.observer != nil {
+				s.observer.CloseIdleConnections()
+			}
 			if s.ext != nil {
 				_ = s.ext.conn.Close()
 			}
@@ -262,6 +266,10 @@ func (f *fixture) close() {
 }
 
 func (f *fixture) api(ctx context.Context, method, path, token string, body any) (map[string]any, error) {
+	return f.apiWithClient(ctx, f.client, method, path, token, body)
+}
+
+func (f *fixture) apiWithClient(ctx context.Context, client *http.Client, method, path, token string, body any) (map[string]any, error) {
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -278,12 +286,13 @@ func (f *fixture) api(ctx context.Context, method, path, token string, body any)
 		if method != "GET" {
 			req.Header.Set("Idempotency-Key", fmt.Sprintf("load-%x", sha256.Sum256(append([]byte(path+token), raw...))))
 		}
-		resp, err := f.client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
 		data := map[string]any{}
 		err = json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(&data)
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 16<<20))
 		_ = resp.Body.Close()
 		if resp.StatusCode == 429 {
 			f.throttles.Add(1)
@@ -453,7 +462,7 @@ func (f *fixture) setup(o options) error {
 			return e
 		}
 	}
-	return nil
+	return f.primeObservers()
 }
 
 func socketPath(state string) string {
@@ -659,11 +668,15 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 		for _, s := range p.seats {
 			f.background(func() {
 				var ready sync.Once
-				trace := &httptrace.ClientTrace{WroteRequest: func(info httptrace.WroteRequestInfo) {
+				trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
+					if !info.Reused {
+						ready.Do(func() { started <- errors.New("observer connection was not established during setup") })
+					}
+				}, WroteRequest: func(info httptrace.WroteRequestInfo) {
 					ready.Do(func() { started <- info.Err })
 				}}
 				ctx := httptrace.WithClientTrace(ctx, trace)
-				data, err := f.api(ctx, "GET", fmt.Sprintf("/v1/me/inbox?wait=60&after=%d", s.board.Head), s.Token, nil)
+				data, err := f.apiWithClient(ctx, s.observer, "GET", fmt.Sprintf("/v1/me/inbox?wait=60&after=%d", s.board.Head), s.Token, nil)
 				ready.Do(func() {
 					if err == nil {
 						err = errors.New("long poll returned without request transmission evidence")

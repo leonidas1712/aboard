@@ -65,6 +65,11 @@ func TestLoadFailureRetainsCompletedWorkAndPartialTimings(t *testing.T) {
 	defer cancel()
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/me" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"id": strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")})
+			return
+		}
 		if r.Method == http.MethodGet {
 			<-ctx.Done()
 			return
@@ -80,9 +85,17 @@ func TestLoadFailureRetainsCompletedWorkAndPartialTimings(t *testing.T) {
 	}))
 	defer server.Close()
 	b1, b2 := &board{ID: "first", Name: "first", Head: 2}, &board{ID: "second", Name: "second", Head: 2}
-	p := &machine{seats: []*seat{{board: b1}, {board: b2}}}
+	p := &machine{seats: []*seat{{board: b1, MemberID: "first", Token: "first"}, {board: b2, MemberID: "second", Token: "second"}}}
 	f := &fixture{ctx: ctx, url: server.URL, client: server.Client(), admin: &machine{}, people: []*machine{p}, boards: []*board{b1, b2}}
 	defer func() { cancel(); f.workers.Wait() }()
+	if err := f.primeObservers(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for _, s := range p.seats {
+			s.observer.CloseIdleConnections()
+		}
+	}()
 	f.throttles.Store(2)
 	r := report{Daemons: 1}
 	progress := runProgress{Stage: "round", SetupStart: time.Now().Add(-time.Second), MeasurementStart: time.Now(), Stream: []time.Duration{time.Millisecond}, Poll: []time.Duration{2 * time.Millisecond}, Handover: []time.Duration{3 * time.Millisecond}}

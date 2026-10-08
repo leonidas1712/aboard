@@ -2,15 +2,93 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httptrace"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestLoadPrimesObserverSocketsBeforeConcurrentRequests(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	const observers = 64
+	entered := make(chan struct{}, observers)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/me" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"id": strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")})
+			return
+		}
+		entered <- struct{}{}
+		select {
+		case <-release:
+			w.WriteHeader(http.StatusNoContent)
+		case <-r.Context().Done():
+		}
+	}))
+	defer server.Close()
+	p := &machine{}
+	f := &fixture{ctx: ctx, client: server.Client(), url: server.URL, people: []*machine{p}}
+	for i := range observers {
+		id := fmt.Sprintf("seat-%d", i)
+		p.seats = append(p.seats, &seat{MemberID: id, Token: id})
+	}
+	defer func() {
+		for _, s := range p.seats {
+			if s.observer != nil {
+				s.observer.CloseIdleConnections()
+			}
+		}
+	}()
+	if err := f.primeObservers(); err != nil {
+		t.Fatal(err)
+	}
+	var workers sync.WaitGroup
+	defer workers.Wait()
+	defer cancel()
+	for _, s := range p.seats {
+		if s.observer == nil {
+			t.Fatal("observer has no primed connection")
+		}
+		workers.Go(func() {
+			trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
+				if !info.Reused {
+					t.Error("observer dialed during the concurrent request burst")
+				}
+			}}
+			request, err := http.NewRequestWithContext(httptrace.WithClientTrace(ctx, trace), http.MethodGet, server.URL+"/wait", http.NoBody)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			response, err := s.observer.Do(request)
+			if err != nil {
+				if ctx.Err() == nil {
+					t.Error(err)
+				}
+				return
+			}
+			_ = response.Body.Close()
+		})
+	}
+	for range observers {
+		select {
+		case <-entered:
+		case <-ctx.Done():
+			t.Fatal("observers did not all enter concurrently")
+		}
+	}
+	close(release)
+}
 
 func TestLoadQueuesDialsWithoutLimitingOpenRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

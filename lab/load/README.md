@@ -23,9 +23,11 @@ Each round posts one message per board, addressed to every agent on that board.
 Every message has a unique marker. A person's stream must first report its boards
 before measurement starts. Streams may coalesce head updates: observing a head at
 or above a message's sequence proves that the stream has reached that message.
-Connection establishment is limited to 16 simultaneous dials, avoiding a burst that
-can overflow a host's listen backlog. Open requests are not limited: all 500 observers
-must still be transmitted before a measured post. Failed observations are not retried.
+Connection establishment is limited to 16 simultaneous dials. Before measurement,
+each observer gets a dedicated connection and authenticates its seat through `/v1/me`.
+Every measured observer request must reuse that connection; a new dial fails the proof.
+Open requests are not limited: all 500 observers must still be transmitted before a
+measured post. Failed observations are not retried.
 Independent inbox long polls observe each recipient before any extension confirms
 the round, so daemon acknowledgments cannot swallow those observations. At the
 default topology this adds 500 observer inbox requests per round, alongside the
