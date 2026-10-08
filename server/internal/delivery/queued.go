@@ -87,9 +87,14 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 		if s.d.mode(ref) == ModeOff {
 			continue
 		}
+		supported, known := s.peerBoundaryState()
+		nextStep := s.peerNextCandidates(ref)
+		if !known && len(nextStep) > 0 {
+			return queueUnknown()
+		}
 		taken := taken(a)
 		for _, m := range msgs {
-			if fromOwner(m) || s.held(ref, m) || s.alreadyShown(a, m) {
+			if fromOwner(m) || s.held(ref, m) || s.alreadyShown(a, m) || (supported && nextStep[m.ID]) {
 				continue
 			}
 			if _, claimed := taken[m.Seq]; claimed {

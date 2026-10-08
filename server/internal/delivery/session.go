@@ -15,6 +15,7 @@ import (
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
 type sessionMsg struct {
+	queueReport *queueReportResult
 	// A control request, answered on reply.
 	req       Request
 	reply     chan<- Response
@@ -139,9 +140,11 @@ type session struct {
 	inTurn bool
 	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
-	working        bool
-	peerTurnActive bool
-	peerTurn       uint64
+	working           bool
+	peerHookBoot      string
+	peerHookSupported bool
+	peerTurnActive    bool
+	peerTurn          uint64
 	// reported is the presence and delivery mode last reported for each agent.
 	reported map[AgentKey]reportedPresence
 	// waiter is the connection waiting while the session is idle: its stop hook's, or
@@ -183,9 +186,14 @@ type session struct {
 
 // agentState is what a session knows about one of its agents.
 type agentState struct {
-	midturnPolicy string
-	generation    uint64
-	ref           AgentRef
+	queueGeneration                          uint64
+	queueBoot                                string
+	queueSending, queueStopped, queueLastSet bool
+	queueNext, queueFreshAt                  time.Time
+	queueLast                                []QueuedMessage
+	midturnPolicy                            string
+	generation                               uint64
+	ref                                      AgentRef
 	// adopting is true until the previous session has given the agent up.
 	adopting bool
 	// fetched is true once the inbox has been read at least once.
@@ -236,16 +244,20 @@ func (s *session) run(ctx context.Context) error {
 			}
 			s.tryDeliver(ctx)
 			s.reportPresence(renew)
+			s.publishQueues(ctx)
 		case <-timer:
 			s.checkStalls(ctx)
 			s.tryDeliver(ctx)
 			s.reportPresence(false)
+			s.publishQueues(ctx)
 		}
 	}
 }
 
 func (s *session) handle(ctx context.Context, m sessionMsg) {
 	switch {
+	case m.queueReport != nil:
+		s.onQueueReport(*m.queueReport)
 	case m.preflight != nil:
 		m.reply <- s.preflightBinding(*m.preflight)
 	case m.waiter != nil:
@@ -403,7 +415,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		} else {
 			s.confirmBefore(ctx, req.Started)
 		}
-		ok.Bundle, ok.Notice, ok.HandoffID = s.boundary(ctx, slices.Contains(req.Capabilities, "tool-boundary") && slices.Contains(req.Capabilities, "midturn-peer"))
+		s.peerHookBoot = s.boot
+		s.peerHookSupported = slices.Contains(req.Capabilities, "tool-boundary") && slices.Contains(req.Capabilities, "midturn-peer")
+		ok.Bundle, ok.Notice, ok.HandoffID = s.boundary(ctx, s.peerHookSupported)
 		if ok.HandoffID != "" {
 			ok.Boot, ok.TurnID = s.boot, s.peerTurn
 		}
@@ -902,6 +916,7 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	}
 	s.setProblem(a, "")
 	a.fetched = true
+	a.queueFreshAt = s.now()
 	a.midturnPolicy = ""
 	if r.mode != nil {
 		a.midturnPolicy = r.mode.MidturnPolicy
@@ -1581,18 +1596,19 @@ func (s *session) canTake() bool {
 // nextTimer is when the session next has something to do on its own: hand a bundle once
 // its messages are gathered, or check for stalls; zero for nothing.
 func (s *session) nextTimer() time.Time {
-	gather := s.gatherUntil
+	next := s.gatherUntil
 	if !s.canTake() {
-		// Nothing can be handed until a waiter comes, which runs the session anyway.
-		gather = time.Time{}
+		next = time.Time{}
 	}
-	switch {
-	case gather.IsZero():
-		return s.stallAt
-	case s.stallAt.IsZero() || gather.Before(s.stallAt):
-		return gather
+	if !s.stallAt.IsZero() && (next.IsZero() || s.stallAt.Before(next)) {
+		next = s.stallAt
 	}
-	return s.stallAt
+	for _, a := range s.agents {
+		if !a.adopting && a.problem == "" && a.fetched && !a.queueSending && !a.queueStopped && !a.queueNext.IsZero() && (next.IsZero() || a.queueNext.Before(next)) {
+			next = a.queueNext
+		}
+	}
+	return next
 }
 
 // saveDelivery writes a delivery to the journal as it is, without moving its state.
