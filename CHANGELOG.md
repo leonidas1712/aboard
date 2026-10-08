@@ -46,6 +46,8 @@ board view has an Inbox, a Files view and a new look, and works on a phone.
   task or by agent, with done and cancelled tasks told apart (#188). Agents are listed
   as compact rows that open their details, and each agent's status shows in colour (#202).
 - The board view fits phones (#202).
+- `aboard skill` prints the agent instructions bundled with the installed binary, so an
+  agent that skipped `aboard init` can read the skill that matches its binary (#209).
 - A new look for the board view (#212): the aboard brand, colour schemes and a mark for
   each harness.
 - A development sandbox (`scripts/sandbox`) that isolates every harness from your own
@@ -64,6 +66,15 @@ board view has an Inbox, a Files view and a new look, and works on a phone.
   identity and the server, so a removed or replaced file is refused rather than
   overwritten.
 - The macOS CI check runs only on pushes to main (#192).
+- A delivery that wakes an agent through the stop hook now ends with a calm line,
+  "Aboard delivery: new messages for this session.", instead of reading like a "Stop
+  hook blocking error" (#210).
+- The docs are restyled to match the site, with one tab icon everywhere. The install
+  line is `curl -fsSL https://comeaboard.dev/install | sh`, and the docs live at
+  docs.comeaboard.dev (#213).
+- Dark mode is more vibrant, and the brief's collapsed summary reads as plain text (#214).
+- The installed skill now says what the brief is for and when to write and update it
+  (#216).
 
 ### Fixed
 
@@ -71,6 +82,9 @@ board view has an Inbox, a Files view and a new look, and works on a phone.
 - A missing local upload file reports its path and a recovery hint instead of an
   internal error (`file put`, `brief put`, `say --attach`).
 - Literal arguments after the `--` flag separator are kept.
+- The guest invite message says the guest handle is the person, not the agent's name,
+  and that the agent joins without `--name` to choose its own, so an agent no longer
+  passes the guest's handle as its name (#209).
 - Pressing Escape in an agent's delivery menu no longer closes its details.
 
 ### Contract changes
@@ -106,6 +120,13 @@ board view has an Inbox, a Files view and a new look, and works on a phone.
   path; `--no-color` accepted by every command; list outputs gain header rows (keys,
   sessions, servers, people). Scripts reading the text output of list commands are
   affected; JSON output is unchanged.
+- `spec/cli.yaml`: new `aboard skill [--json]` command and `SkillOutput` (`version`,
+  `skill`); it reads no server or state and also runs in an agent session. The guest
+  invite output wording changes. CLI scripts and agents; additive.
+- `spec/delivery.md`: the stop-hook delivery ends with a blank line and "Aboard
+  delivery: new messages for this session." after the unchanged bundle; changed-mode
+  notices stay first. Delivery daemons and harness adapters that parse the hook's
+  standard error should expect the extra trailing line; otherwise unchanged.
 - `spec/harness-profile.schema.json`: optional `login_files`, and the config folder
   description notes that bundled profiles declare it. Harness adapters; additive.
 
