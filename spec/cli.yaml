@@ -11,7 +11,8 @@
 #   Without --json the error goes to stderr as "Error (<code>): <message>", then
 #   "Hint: <hint>" on its own line when there is one.
 # - Exit codes: 0 ok · 1 error · 2 usage error · 3 a check ran and failed.
-# - Text output is colored only when it goes to a terminal, NO_COLOR is unset, TERM
+# - Text output is colored only when it goes to a terminal, NO_COLOR is unset, --no-color
+#   (accepted by every command) wasn't given, TERM
 #   isn't dumb, --json wasn't given and the command doesn't run inside a harness session
 #   (see below); otherwise it is plain text, and the words are the same either way. A
 #   command asks questions only when standard input and output are both terminals,
@@ -1057,12 +1058,14 @@ $defs:
       Keys management is up to a person: inside a harness session every keys command
       refuses with human_command_in_session, and the server refuses agent and browser
       tokens with human_token_required. Text output:
-        Keys of maya on https://team.example.com:
-          maya-laptop   working  last used 2 days ago  expires in 88 days  browser sessions: 1  agents: 2
-          maya-desktop  working  last used just now    expires in 90 days  (this machine)
+        Keys of @maya on https://team.example.com:
+          KEY           STATE                LAST USED  EXPIRES      USED BY
+          maya-laptop   working              2 days ago in 88 days   browser sessions: 1  agents: 2
+          maya-desktop  working              just now   in 90 days   (this machine)
           phone         revoked 3 hours ago
-      "expires when unused for 90 days" stands in for the expiry of a key that expires
-      only once unused, and "never expires" for the local server's own key.
+      "when unused for 90 days" stands in for the expiry of a key that expires only once
+      unused, and "never" for the local server's own key. A key that expires within a
+      week reads "in 3 days (soon)", in amber at a terminal.
     type: object
     required: [server, person, keys, current_key_id]
     properties:
@@ -1124,8 +1127,9 @@ $defs:
       such key). Sessions of revoked or expired keys have ended and aren't listed. Inside a
       harness session it refuses with human_command_in_session. Text output:
         Browser sessions of maya on https://team.example.com:
-          ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8  key phone        pasted key   signed in 2h ago  ends in 30 days
-          ses_01K6Q1B3D5F7H9K1M3P5R7T9V1  key maya-laptop  aboard open  signed in 3d ago  ends in 27 days
+          ID                              KEY          STARTED WITH  SIGNED IN  ENDS
+          ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8  phone        pasted key    2h ago     in 30 days
+          ses_01K6Q1B3D5F7H9K1M3P5R7T9V1  maya-laptop  aboard open   3d ago     in 27 days
         Sign one out with: aboard keys sessions end <id>
       or "No browser is signed in to https://team.example.com as maya."
     type: object
@@ -1212,8 +1216,9 @@ $defs:
       use outside a folder whose .aboard chooses one (see the rules above). A person
       command; it reads only this machine's files and sends nothing. Text output:
         Servers this machine knows:
-        * https://team.example.com  maya  (default)
-          http://127.0.0.1:7400     local
+          SERVER                    LOGIN                DEFAULT
+        * https://team.example.com  logged in as @maya   default
+          http://127.0.0.1:7400     local server
         Change the default with: aboard servers use <url|local>
       With several servers and no default, the last line is instead "No default server:
       outside a linked folder, person commands need --server. Choose one with: aboard
@@ -3007,9 +3012,10 @@ $defs:
       set, it refuses with human_command_in_session before it sends anything. Text
       output:
         People on https://team.example.com:
-          alex  admin
-          maya  member  Maya Chen
-          sam   guest
+          HANDLE  SERVER ROLE  NAME
+          @alex   admin
+          @maya   member       Maya Chen
+          @sam    guest
     type: object
     required: [server, people]
     properties:

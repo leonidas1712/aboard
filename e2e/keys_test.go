@@ -101,8 +101,8 @@ func TestKeysCreateListAndRevoke(t *testing.T) {
 		t.Fatalf("maya's keys: %v", list)
 	}
 	plain := maya.run("keys", "--server", tm.url()).stdout
-	if !strings.HasPrefix(plain, "Keys of maya on "+tm.url()+":\n") || !strings.Contains(plain, "(this machine)") ||
-		!strings.Contains(plain, "expires when unused for") {
+	if !strings.HasPrefix(plain, "Keys of @maya on "+tm.url()+":\n") || !strings.Contains(plain, "(this machine)") ||
+		!strings.Contains(plain, "when unused for") {
 		t.Fatalf("keys:\n%s", plain)
 	}
 
