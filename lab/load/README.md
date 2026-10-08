@@ -23,6 +23,12 @@ Each round posts one message per board, addressed to every agent on that board.
 Every message has a unique marker. A person's stream must first report its boards
 before measurement starts. Streams may coalesce head updates: observing a head at
 or above a message's sequence proves that the stream has reached that message.
+Connection establishment is limited to 16 simultaneous dials. Before measurement,
+each observer gets a dedicated connection and authenticates its seat through `/v1/me`.
+Every measured observer request must reuse that connection; a new dial fails the proof.
+Open requests are not limited: all 500 observers must still be transmitted before a
+measured post. This measures established-connection delivery, not cold-connection
+capacity. Failed observations are not retried.
 Independent inbox long polls observe each recipient before any extension confirms
 the round, so daemon acknowledgments cannot swallow those observations. At the
 default topology this adds 500 observer inbox requests per round, alongside the
@@ -34,6 +40,8 @@ The JSON report contains topology, setup and measurement seconds, successful pos
 per second for this post-and-drain cadence, throttled requests, correctness counts, and latency distributions in
 milliseconds (sample count, p50, p95 and p99):
 
+- `request_to_write_response`: posting request start through decoding a successful
+  response. Failed posts do not contribute a sample.
 - `request_to_stream`: posting request start to each person's first head covering
   the message. This is a conservative upper bound on commit-to-stream latency.
   The public API does not expose an exact commit timestamp. A p99 below 100 ms
@@ -46,7 +54,9 @@ milliseconds (sample count, p50, p95 and p99):
 
 Posts are sequential from the admin, with a full fan-out drain between rounds.
 The throughput describes that workload, including gathering and confirmation; it
-is not saturated write capacity or a 50-writer throughput claim.
+is not saturated write capacity or a 50-writer throughput claim. Fake extensions are
+confirmed before serial server ack checks, so a slow ack cannot delay confirmations
+for other extensions beyond their harness response windows.
 
 The proof fails on missing, duplicate or out-of-order messages per permanent seat,
 an incorrect acknowledgement cursor, residual unread messages, or an invalid board

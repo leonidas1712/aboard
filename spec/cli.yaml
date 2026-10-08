@@ -987,6 +987,12 @@ $defs:
       handle nobody has gives a request nobody can approve, which then expires.
       --display-name is a usage error here.
 
+      --server-name sets a per-machine label, never sent in the request. Without it,
+      use the advertised team name when it is a valid available label, otherwise the
+      first hostname label; disambiguate automatic collisions with a numeric suffix.
+      Existing connections without saved names derive host labels on read. Explicit
+      labels are validated before redemption; a taken label fails server_name_taken.
+
       Either way, a server other than this machine's must use https (insecure_server),
       and a machine already connected to the server, or this machine's own local server,
       fails with already_connected. Inside a harness session it refuses with
@@ -1208,13 +1214,45 @@ $defs:
           the local server leaves the default alone and false here.
 
   # ---------- aboard servers ----------
+  ServerSelection:
+    description: |
+      Optional server_selection on person-command results explains the chosen server.
+      Local labels are never sent to the server and never change credential ownership.
+      Sources are flag (including an open positional), project, default, only, or local.
+      Text prints the server/why line only when several servers are known or the
+      folder overrides the normal default, and not when the output already names its
+      board. JSON retains the selection even for an obvious or local target. Agent paths do not acquire a person login from labels.
+    type: object
+    required: [server, source]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      source: { enum: [flag, project, default, only, local] }
+  ServersNameOutput:
+    description: |
+      aboard servers name <url|name> <name>, or servers rename <old> <new>, changes
+      only this machine's label for a known server in servers.json. Agents may list,
+      name and rename known servers, without keys or network requests. Connect, login
+      and servers use remain person-only. Names use letters, digits, hyphens and
+      underscores, start with a letter, and are unique ignoring case. local is reserved
+      for this machine's local server. Conflicts return server_name_taken; malformed
+      names return invalid_server_name; unknown labels return server_unknown. URLs
+      remain accepted anywhere a server is accepted. aboard open accepts one positional
+      server name or URL, mutually exclusive with --server.
+    type: object
+    required: [server, previous_name]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      previous_name: { type: string }
   ServersOutput:
     description: |
+      Names are labels stored per machine, never sent to a server. Legacy connections
+      derive names from their host until named explicitly. local remains an alias for
+      this machine even if its display label changes.
+
       The servers this machine knows (D203): the local server, once it has an owner
       login, and every server in servers.json, from aboard connect, aboard login or a
       join line. One of them may be the machine's default server, which person commands
-      use outside a folder whose .aboard chooses one (see the rules above). A person
-      command; it reads only this machine's files and sends nothing. Text output:
+      use outside a folder whose .aboard chooses one (see the rules above). Agents and people may list them; it reads only this machine's files and sends nothing. Text output:
         Servers this machine knows:
           SERVER                    LOGIN                DEFAULT
         * https://team.example.com  logged in as @maya   default
