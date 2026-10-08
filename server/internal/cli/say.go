@@ -113,7 +113,7 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 		receipts, receiptErr := c.api.GetReceiptsWithResponse(ctx, m.Board, m.Seq)
 		if receiptErr == nil && receipts.JSON200 != nil {
 			for _, rc := range receipts.JSON200.Recipients {
-				if rc.MidturnHint != nil && rc.State == "pending" && rc.Queued == nil {
+				if rc.MidturnHint != nil && rc.State == "pending" && (rc.Queued == nil || *rc.MidturnHint == "owner_only") {
 					hints[rc.Member.Name] = string(*rc.MidturnHint)
 				}
 			}

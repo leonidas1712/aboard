@@ -316,3 +316,9 @@ The full specification, including failures and upgrades, is
 on this board. In your own terminal, `aboard say --to mine "Please check the plan"`
 posts as you to your agents. Agent sessions use the explicit owner target instead.
 Later-joining agents do not receive that earlier owner-targeted message.
+
+For an urgent direct message between your agents, `say` reports current policy
+eligibility. A next-step hint still depends on verified harness support and the
+sender's per-turn limit. It is not a receipt. Owner-only policy explains why the
+peer waits for turn end; an observed queued receipt takes precedence over a
+possible next-step hint.
