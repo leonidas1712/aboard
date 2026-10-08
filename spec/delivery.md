@@ -1658,3 +1658,10 @@ retracted unless that harness offers a verified removal mechanism. The new behav
 prevents new busy-turn entries rather than silently assuming accepted queue items
 are cancellable. With missing/untrusted turn hooks, this prevention cannot be promised;
 queued visibility must state that limitation and retain ordinary delivery.
+
+Sender feedback may expose a sender-only `midturn_hint` on a readable receipt for
+an urgent explicit direct same-owner peer message. `peer_if_supported` reports
+current policy eligibility only: verified transport capability and the logical-turn
+cap still apply. It never says the message has been delivered. `owner_only` explains
+why that peer waits for turn end. No hint is inferred from owner names or harness
+labels, and no private preference for unrelated recipients is disclosed.

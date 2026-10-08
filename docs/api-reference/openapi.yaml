@@ -5812,6 +5812,17 @@ components:
           nullable: true
           description: An agent's presence at the time of the request; null for a person.
         queued: { $ref: "#/components/schemas/QueuedReceipt" }
+        midturn_hint:
+          type: string
+          enum: [peer_if_supported, owner_only]
+          description: |
+            Sender-only guidance for an urgent explicit direct message from a current
+            active agent to another active agent of the same current board member.
+            peer_if_supported means the recipient's current preference permits this
+            peer at a verified tool boundary, subject to its durable per-turn cap.
+            It does not attest harness capability, queue admission or delivery.
+            owner_only means the preference permits only the person's mid-turn input.
+            Receipt state and a recipient-authenticated queued observation remain authoritative.
     QueuedReceipt:
       type: object
       required: [boundary, expires_at]

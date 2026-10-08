@@ -1327,7 +1327,10 @@ $defs:
       - `recipients`: when each recipient will see the message, from its presence and
         delivery mode as the board's members list shows them. `outcome` is `now` (its
         session is idle and delivery wakes it), `turn_end` (its session is working; it
-        gets the message when its turn ends), `next_turn` (its mode is `focused` and the
+        gets the message when its turn ends), `next_step_if_supported` (current same-owner
+        urgent direct-message policy permits a verified tool boundary, subject to the
+        per-turn cap; this is eligibility, not a delivery confirmation),
+        `turn_end_owner_only` (its person permits only person input mid-turn), `next_turn` (its mode is `focused` and the
         message doesn't concern it, so it doesn't wake it: it sees the message at the
         start of its next turn; spec/delivery.md, "Delivery modes"), `not_woken` (its
         delivery mode is `off`, or `humans` and the sender is an agent; it sees the
@@ -1450,7 +1453,7 @@ $defs:
               enum: [focused, all, humans, off, auto, null]
               description: The agent's delivery mode as last reported; null for a person or when never reported (treated as focused). auto, reported by an older daemon, means all.
             outcome:
-              enum: [now, turn_end, next_turn, not_woken, no_session, cannot_read, over_limit, person]
+              enum: [now, turn_end, next_step_if_supported, turn_end_owner_only, next_turn, not_woken, no_session, cannot_read, over_limit, person]
       warning:
         description: |
           Set when the message is to everyone and wakes no agent (see above); null
