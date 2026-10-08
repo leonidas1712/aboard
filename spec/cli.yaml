@@ -1219,8 +1219,9 @@ $defs:
       Optional server_selection on person-command results explains the chosen server.
       Local labels are never sent to the server and never change credential ownership.
       Sources are flag (including an open positional), project, default, only, or local.
-      Text prints a short server/why line for a named or remote target; JSON retains it
-      even for local targets. Agent paths do not acquire a person login from labels.
+      Text prints the server/why line only when several servers are known or the
+      folder overrides the normal default, and not when the output already names its
+      board. JSON retains the selection even for an obvious or local target. Agent paths do not acquire a person login from labels.
     type: object
     required: [server, source]
     properties:
