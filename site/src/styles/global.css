@@ -892,7 +892,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .gov-foot { margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .gov-foot .aside { max-width: 52em; }
 .soon { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; color: var(--muted); padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: 12px; }
-.soon-tag { flex: none; font-family: var(--mono); font-size: 11px; padding: 1px 7px; border-radius: 5px; border: 1px solid var(--line-strong); color: var(--ink); }
 .aside { font-size: 14.5px; color: var(--muted); padding: 14px 0 0; }
 .aside a { color: var(--ink); text-decoration-color: var(--accent-line); text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .aside svg { width: 13px; height: 13px; margin-left: 3px; vertical-align: -1px; }
@@ -977,7 +976,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .next-cards .cell-text { margin-top: 4px; }
 .next-icon { display: inline-flex; width: 32px; height: 32px; border-radius: 9px; align-items: center; justify-content: center; border: 1px solid var(--line-strong); color: var(--muted); }
 .next-icon svg { width: 18px; height: 18px; }
-.next-cards .soon-tag { position: absolute; top: 20px; right: 20px; }
 
 /* ---------- Pillar 1: the points as a few lines of a record ---------- */
 

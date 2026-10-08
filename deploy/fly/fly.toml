@@ -1,5 +1,5 @@
 # A team server on Fly.io: one machine that never sleeps, SQLite on a Fly volume (a
-# local block disk), and HTTPS ended by Fly's proxy. docs/team-server.mdx walks
+# local block disk), and HTTPS ended by Fly's proxy. docs/deploy/fly.mdx walks
 # through it. Change `app` to your app's name, both hostnames below to match, and
 # ABOARD_ADMIN to your own handle (the first admin; it can't be "admin" by accident).
 app = "aboard-example"

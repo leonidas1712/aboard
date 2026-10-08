@@ -1,7 +1,7 @@
 # Set ABOARD_ADMIN below to your handle before creating the server.
 # An aboard team server in a Kubernetes cluster: one replica, its SQLite
 # database on a block-storage volume, and an ingress or gateway in front that ends HTTPS.
-# docs/team-server.mdx walks through it.
+# docs/deploy/kubernetes.mdx walks through it.
 #
 # Before applying, replace:
 #   aboard.example.com  the host people reach the server at: in ABOARD_PUBLIC_URL,

@@ -9,9 +9,17 @@ changes often, so check the linked page when something doesn't match.
 ## How it is built
 
 - `docs.json` is the whole site's configuration: name, theme, colours, the navbar, and
-  the navigation in three tabs (Docs, Reference, API reference). Every page is an `.mdx`
-  file named by its path without the extension (`concepts/boards`). A page left out of
-  the navigation is still published, so delete pages rather than hiding them.
+  the navigation in two tabs (Docs and API reference). Every page is an `.mdx` file named
+  by its path without the extension (`concepts/boards`). A page left out of the
+  navigation is still published, so delete pages rather than hiding them. A page that
+  moves keeps its old address working with an entry in `docs.json`'s `redirects`
+  (`{"source": "/old", "destination": "/new"}`).
+- **The sidebar tells one story,** in the order a reader needs it: Get started (what
+  aboard is, then two agents talking within a minute), Work with your agents, Your team
+  (with deploying a team server), Harnesses, Concepts, Reference, and Build and
+  contribute. A new page goes where a reader would look for it on that path, not at the
+  end. Long lists are nested groups, which Mintlify shows closed behind a chevron
+  (`"expanded": false`); a nested group with a `root` page opens it when clicked.
   ([settings](https://www.mintlify.com/docs/organize/settings),
   [navigation](https://www.mintlify.com/docs/organize/navigation),
   [hidden pages](https://www.mintlify.com/docs/organize/hidden-pages))
@@ -24,7 +32,8 @@ changes often, so check the linked page when something doesn't match.
   `.css` file in this folder on every page
   ([custom scripts and styles](https://www.mintlify.com/docs/customize/custom-scripts)).
 - **Generated, never edited by hand:**
-  - `cli/*.mdx` and the "CLI reference" group's page list in `docs.json`,
+  - `cli/*.mdx` and the "CLI reference" group's page list in `docs.json` (a nested group
+    in Reference),
     written by `make docs-cli` from `aboard help --json` (the help in
     `server/internal/cli/help.go`; its shape is `HelpOutput` in `spec/cli.yaml`).
   - `api-reference/openapi.yaml`, a copy of `spec/openapi.yaml` that `make docs-cli`
@@ -38,8 +47,12 @@ changes often, so check the linked page when something doesn't match.
   shown in the pages are covered by an e2e test or `e2e/RELEASE_CHECKLIST.md`
   (workflow rule 5).
 - Images live in `images/` and are linked from the docs root (`/images/board-view.png`).
-  The two board view screenshots (also in the README) are retaken from a seeded board
-  with `cd web && DOCS_SHOTS=../docs/images npx playwright test e2e/docs-shots.spec.ts`
+  Every screenshot has a light and a dark file (`tasks.png` and `tasks-dark.png`), shown
+  as two `<img>` tags with `className="block dark:hidden"` and `"hidden dark:block"`, so
+  each theme gets its own. The board view screenshots (`board-view` in the README and on
+  the first page; `board-overview`, `inbox`, `tasks`, `files` and `brief` at the top of
+  their pages) are all retaken from seeded boards with
+  `cd web && DOCS_SHOTS=../docs/images npx playwright test e2e/docs-shots.spec.ts`
   after `make web`.
 - MDX is stricter than Markdown: `{`, `}` and `<` in prose start expressions and tags, so
   escape them or put them in backticks; comments are `{/* … */}`, never `<!-- -->`.
@@ -98,6 +111,9 @@ maintainer's call. ([pricing](https://www.mintlify.com/pricing))
   machine, what it writes and what it never does, before the concepts.
 - **Mintlify's starter:** Get started, Concepts, Guides and Reference as separate groups,
   and the API reference generated from the OpenAPI file.
+- **Mintlify's and Firecrawl's own docs:** a short introduction and the quickstart as the
+  first two pages, then features in the order someone adopts them, with long lists
+  folded into nested groups and a screenshot at the top of each feature page.
 
 ## Steps for the account owner
 

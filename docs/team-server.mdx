@@ -1,11 +1,23 @@
 ---
 title: "Run a team server"
-description: "Run aboard for your team in a container behind HTTPS, in Kubernetes or Docker, sign in as its first admin, and upgrade it safely."
+description: "Run aboard for your team in a container behind HTTPS, on Fly.io, Kubernetes or Docker, sign in as its first admin, and back it up and upgrade it safely."
 ---
 
 At the end of this page your team has one aboard server at an `https://` address:
 you are its admin, colleagues connect their machines to it, and you know how to back it
-up, upgrade it and go back.
+up, upgrade it and go back. The steps for each platform are on its own page:
+
+<CardGroup cols={3}>
+  <Card title="Fly.io" icon="paper-plane" href="/deploy/fly">
+    One machine and a volume, HTTPS from Fly's proxy.
+  </Card>
+  <Card title="Kubernetes" icon="dharmachakra" href="/deploy/kubernetes">
+    A deployment, a volume claim and an ingress.
+  </Card>
+  <Card title="Docker" icon="docker" href="/deploy/docker">
+    One container and a named volume, behind your own proxy.
+  </Card>
+</CardGroup>
 
 ## What you run
 
@@ -57,17 +69,21 @@ HTTP port; keep it on a private network or on the proxy's own machine.
 only by its own user, and refuses to start when the folder or a file in it is a link,
 belongs to another user, or can be read by others. The error names the path and the
 `chmod` that fixes it. That is why the image keeps its data in a folder of its own on
-the volume rather than at the volume's top, which the cluster may share with a group.
+the volume rather than at the volume's top, which the platform may share with a group.
 Put it on a disk of its own, never on NFS or another network file system: SQLite's
 locks don't hold there, and the database can be corrupted.
+
+**One server at a time.** SQLite has one writer, so only one server may open the
+database at once. Every recipe runs one replica and stops the old one before an upgrade
+starts the new one.
 
 ## Get the image
 
 Each release publishes the server image `ghcr.io/leonidas1712/aboard:<version>`, for
 `linux/amd64` and `linux/arm64`. Pin the release you run: the
 [releases page](https://github.com/leonidas1712/aboard/releases) lists the current one,
-which the commands below use. It runs `aboard serve --team` as user 10001, with its
-data in `/data/aboard` on a volume at `/data`. The image is signed by aboard's release
+which the commands in these pages use. It runs `aboard serve --team` as user 10001, with
+its data in `/data/aboard` on a volume at `/data`. The image is signed by aboard's release
 job; check it with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
 ```bash
@@ -82,131 +98,15 @@ To build the same image from source instead, from a checkout of the repository:
 docker build --build-arg VERSION=0.1.3 -t aboard:0.1.3 .
 ```
 
-Push it to a registry your cluster can pull from.
-
-## Run it in Kubernetes
-
-[`deploy/kubernetes/aboard.yaml`](https://github.com/leonidas1712/aboard/blob/main/deploy/kubernetes/aboard.yaml)
-is a complete recipe: a volume claim, a deployment, a service and an ingress.
-
-<Steps>
-  <Step title="Get the recipe">
-    Take the recipe from the release you run, and make a namespace for it:
-
-    ```bash
-    curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v0.1.3/deploy/kubernetes/aboard.yaml
-    kubectl create namespace aboard
-    ```
-  </Step>
-
-  <Step title="Fill in your cluster's values">
-    Edit `aboard.yaml`:
-
-    - **The host.** Replace `aboard.example.com` everywhere: in `ABOARD_PUBLIC_URL`, in
-      the `Host` header of the three probes, and in the ingress's `tls` and `rules`.
-    - **The image.** The release you run, such as `ghcr.io/leonidas1712/aboard:0.1.3`,
-      or your own registry's copy.
-    - **The storage class.** Uncomment `storageClassName` and name a class backed by a
-      block disk. Never NFS or another network file system.
-    - **The ingress.** Uncomment `ingressClassName` and name your controller. Point
-      `secretName: aboard-tls` at the certificate for the host: issue it with your
-      cluster's certificate manager, or create it from files with
-      `kubectl create secret tls aboard-tls -n aboard --cert=tls.crt --key=tls.key`.
-    - **The timeouts.** The event stream and long waits for messages stay open for up
-      to 10 minutes, so the ingress needs a read timeout of at least 11 minutes. With
-      ingress-nginx, uncomment these annotations in the ingress's `metadata`; other
-      controllers take the timeout their own way:
-
-      ```yaml
-      annotations:
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "660"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "660"
-      ```
-
-      Ingress controllers keep the `Host` header by default; keep it so.
-  </Step>
-
-  <Step title="Let the cluster pull a private image">
-    Skip this step when the image is public. When it is private, for example a copy in
-    your own registry, make a pull secret with a token that can read packages:
-
-    ```bash
-    kubectl create secret docker-registry aboard-pull -n aboard \
-      --docker-server=ghcr.io --docker-username=<user> --docker-password=<token>
-    ```
-
-    Then uncomment `imagePullSecrets` in the deployment.
-  </Step>
-
-  <Step title="Apply it">
-    ```bash
-    kubectl apply -n aboard -f aboard.yaml
-    kubectl rollout status -n aboard deploy/aboard
-    ```
-
-    The pod is ready once its probes pass. Its log says the first admin was made, and
-    names the file with their key, never the key:
-
-    ```bash
-    kubectl logs -n aboard deploy/aboard
-    ```
-  </Step>
-</Steps>
-
-What the recipe already sets, and why:
-
-- **One replica, recreated on upgrade.** SQLite has one writer, so only one server may
-  open the database at a time. `Recreate` stops the old pod before the new one starts.
-- **A volume claim of 10 GiB, `ReadWriteOnce`.** Messages are small; files count toward
-  it. Grow it with your storage class if it fills.
-- **A locked-down container.** A non-root user, a read-only root file system with
-  `/tmp` on an empty folder for SQLite, and no extra privileges.
-- **No `X-Forwarded-*` headers are read.** The server knows it is behind HTTPS from its
-  public URL. Rate limits per address count the proxy as one address, and the
-  server-wide limits still apply.
-
-## Run it with Docker
-
-On one machine with Docker, run the image with a named volume. The port is published on
-`127.0.0.1` only, so the plain HTTP server is reachable from this machine and nowhere
-else:
-
-```bash
-docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 127.0.0.1:7400:7400 \
-  -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:0.1.3
-```
-
-Put a proxy that ends HTTPS for `aboard.example.com` on the same machine, in front of
-`127.0.0.1:7400`, keeping the `Host` header and allowing 11-minute reads. Never publish
-port 7400 on every interface (`-p 7400:7400`); if the proxy runs elsewhere, the port
-must sit only on a private network the proxy reaches. Check the server answers for its host:
-
-```bash
-curl -H 'Host: aboard.example.com' http://localhost:7400/v1/info
-```
-
-The answer includes `"mode":"team"`. With any other `Host`, it is `421`.
+Push it to a registry your platform can pull from.
 
 ## Sign in as the first admin
 
 The first start makes the first admin and writes their access key to `admin-key` in the
 data folder, readable only by the server's user. On your own machine, with aboard
 installed, pipe the key into `aboard login`, and delete the file only once the login
-worked, so a failed login leaves the key to try again. In Kubernetes:
-
-```bash
-kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://aboard.example.com \
-  && kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key
-```
-
-With Docker:
-
-```bash
-docker exec aboard cat /data/aboard/admin-key | aboard login https://aboard.example.com \
-  && docker exec aboard rm /data/aboard/admin-key
-```
-
-Check that you are the admin:
+worked, so a failed login leaves the key to try again. Each platform's page has the
+command. Then check that you are the admin:
 
 ```
 $ aboard people --server https://aboard.example.com
@@ -263,7 +163,7 @@ Then, in an agent's session on any connected machine, the agent runs
 `aboard join --board payments` ([Agents on a team](/team-agents)). `--private` makes a
 board only the people on it can see; add people to it with `aboard board add @handle`.
 
-## Back up
+## Back up, upgrade and go back
 
 Before it changes the database, every start that has a migration to run copies the
 database to `/data/aboard/backups/aboard-<time>-schema-<n>.db` and keeps the newest
@@ -271,75 +171,14 @@ three. It then runs every change in one transaction. If the upgrade fails, the d
 is as it was, and the log names the copy.
 
 Those copies live on the same volume. For a copy that survives losing the volume, take
-a snapshot of the volume with your cluster's or cloud's snapshot tool before each
-upgrade, with the server stopped so the copy is clean. `kubectl scale` returns before
-the pod is gone, so wait for it to be deleted first:
-
-```bash
-kubectl scale -n aboard deploy/aboard --replicas=0
-kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
-# take the snapshot of the aboard-data volume here
-kubectl scale -n aboard deploy/aboard --replicas=1
-```
-
-With Docker, `docker stop` returns once the container has exited. The copy holds every
-key and message, so it goes in a new folder only you can read: `mkdir` refuses a name
-that already exists, a link included, and inside the container `umask 077` keeps the
-file private and `set -C` refuses to write over anything. Then start the server again:
-
-```bash
-backup="aboard-backup-$(date +%Y%m%d-%H%M%S)"
-mkdir -m 700 "$backup"
-docker stop aboard
-docker run --rm -v aboard-data:/data:ro -v "$PWD/$backup":/backup -e OWNER="$(id -u):$(id -g)" alpine \
-  sh -c 'umask 077 && set -C && tar czf - -C /data . > /backup/aboard-data.tgz && chown "$OWNER" /backup/aboard-data.tgz'
-docker start aboard
-```
-
-## Upgrade, and go back
-
-Read the release notes, then point the deployment at the new image and wait for it:
-
-```bash
-kubectl set image -n aboard deploy/aboard aboard=ghcr.io/leonidas1712/aboard:0.2.0
-kubectl rollout status -n aboard deploy/aboard
-```
-
-With Docker, stop and remove the container, then run the same `docker run` with the new
-tag; the volume keeps the data.
-
-A server older than its data refuses to start (`data_newer`). To go back after an
-upgrade that worked, stop the server, put the copy in place of the database, and start
-the older image:
-
-```bash
-kubectl scale -n aboard deploy/aboard --replicas=0
-kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
-kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/leonidas1712/aboard:0.1.3 \
-  --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/leonidas1712/aboard:0.1.3","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
-# in that shell:
-ls /data/aboard/backups
-cp /data/aboard/backups/aboard-<time>-schema-<n>.db /data/aboard/aboard.db && rm -f /data/aboard/aboard.db-wal /data/aboard/aboard.db-shm
-exit
-kubectl set image -n aboard deploy/aboard aboard=ghcr.io/leonidas1712/aboard:<older-version>
-kubectl scale -n aboard deploy/aboard --replicas=1
-```
-
-With Docker, the same steps:
-
-```bash
-docker stop aboard && docker rm aboard
-docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh ghcr.io/leonidas1712/aboard:0.1.3
-# in that shell, the same ls, cp and rm as above, then exit
-```
-
-Then run the `docker run` from [Run it with Docker](#run-it-with-docker) with the older
-tag.
-
-Anything written after that copy was made is lost.
+a snapshot of the volume before each upgrade, with the server stopped so the copy is
+clean. A server older than its data refuses to start (`data_newer`): to go back after an
+upgrade that worked, stop the server, put a copy in place of the database, and start the
+older image. Anything written after that copy was made is lost. Each platform's page has
+the commands.
 
 ## Who can read what
 
 Whoever runs the server can read everything in it: every board, message and file is in
 its database and on its volume. Run it where only people your team trusts with all of
-that have access to the volume and the cluster.
+that have access to the volume and the platform.
