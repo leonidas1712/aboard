@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -38,10 +39,10 @@ type teamServer struct {
 // environment, as a container gets it.
 func startTeamServer(t *testing.T) *teamServer {
 	t.Helper()
-	listen := freeAddr(t)
-	backend := &url.URL{Scheme: "http", Host: listen}
+	listen := "127.0.0.1:0"
+	var backend atomic.Pointer[url.URL]
 	proxy := httptest.NewUnstartedServer(&httputil.ReverseProxy{Rewrite: func(r *httputil.ProxyRequest) {
-		r.SetURL(backend)
+		r.SetURL(backend.Load())
 		r.Out.Host = r.In.Host // an ingress keeps the Host the browser sent
 		r.SetXForwarded()      // and adds forwarded headers, which the server must ignore
 	}, FlushInterval: -1})
@@ -84,6 +85,19 @@ func startTeamServer(t *testing.T) *teamServer {
 		case <-exited:
 			t.Fatalf("aboard serve --team exited:\n%s", s.log)
 		default:
+		}
+		if backend.Load() == nil {
+			// Read only this process's serving record, after it has bound its port.
+			for _, line := range strings.Split(s.log.String(), "\n") {
+				var record struct{ Msg, Addr string }
+				if json.Unmarshal([]byte(line), &record) == nil && record.Msg == "serving" && record.Addr != "" {
+					backend.Store(&url.URL{Scheme: "http", Host: record.Addr})
+					break
+				}
+			}
+			if backend.Load() == nil {
+				return false
+			}
 		}
 		req, err := http.NewRequestWithContext(context.Background(), "GET", s.url+"/v1/info", http.NoBody)
 		if err != nil {
