@@ -332,6 +332,9 @@ func (a *app) uploadLocalFile(ctx context.Context, t target, c *client, local st
 	}
 	file, err := os.Open(filepath.Clean(local))
 	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, newError("local_file_not_found", fmt.Sprintf("The local file %q does not exist.", local), "Check the path, or create the file before uploading it.")
+		}
 		return nil, err
 	}
 	defer func() { _ = file.Close() }()
