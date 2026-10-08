@@ -187,6 +187,8 @@ const (
 type HeldMode struct {
 	Mode     Mode
 	Revision int64
+	// MidturnPolicy is authoritative only for the fresh inbox read that carried it.
+	MidturnPolicy string
 }
 
 // ParseMode reads a mode's name. auto, the earlier name of all, is read as all.

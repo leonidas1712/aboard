@@ -162,6 +162,9 @@ func (s *Server) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []del
 		if in.DeliveryRevision != nil {
 			mode.Revision = int64(*in.DeliveryRevision)
 		}
+		if in.MidturnPolicy != nil {
+			mode.MidturnPolicy = string(*in.MidturnPolicy)
+		}
 	}
 	return msgs, in.Cursor, mode, nil
 }

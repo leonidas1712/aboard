@@ -207,10 +207,11 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 
 // Reading is a page of messages for one reader.
 type Reading struct {
-	Work     *AgentWork
-	Board    Board
-	Reader   Member
-	Messages []Message
+	MidturnPolicy string
+	Work          *AgentWork
+	Board         Board
+	Reader        Member
+	Messages      []Message
 	// NextAfter and PrevBefore are set when more matching messages come after or before
 	// the page; Inbox leaves PrevBefore unset.
 	NextAfter  *int64
@@ -348,7 +349,12 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			if err != nil {
 				return err
 			}
-			r = Reading{Board: b, Reader: me, Messages: msgs, Work: &work}
+			person, err := tx.HumanByID(me.HumanID)
+			if err != nil {
+				return err
+			}
+			policy, _ := effectiveMidturn(person, me)
+			r = Reading{Board: b, Reader: me, Messages: msgs, Work: &work, MidturnPolicy: policy}
 			return nil
 		})
 		if err != nil || len(r.Messages) > 0 || wait <= 0 {

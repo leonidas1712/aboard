@@ -39,11 +39,21 @@ func TestMidturnPolicyBelongsOnlyToThePersonAndOwnActiveAgents(t *testing.T) {
 	if got := get(token); got.Policy != ownerOnly || got.Source != "person_default" {
 		t.Fatalf("agent didn't inherit own person's policy: %+v", got)
 	}
+	inherited, err := s.client(token).GetInboxWithResponse(context.Background(), nil)
+	mustStatus(t, inherited, err, 200)
+	if inherited.JSON200.MidturnPolicy == nil || *inherited.JSON200.MidturnPolicy != ownerOnly {
+		t.Fatalf("fresh inbox omitted effective owner default: %s", inherited.Body)
+	}
 	if r := put(maya, &agent.Id, &peers); r.StatusCode() != 200 {
 		t.Fatalf("own override: %d %s", r.StatusCode(), r.Body)
 	}
 	if got := get(token); got.Policy != peers || got.Source != "agent_override" {
 		t.Fatalf("agent override: %+v", got)
+	}
+	overridden, err := s.client(token).GetInboxWithResponse(context.Background(), nil)
+	mustStatus(t, overridden, err, 200)
+	if overridden.JSON200.MidturnPolicy == nil || *overridden.JSON200.MidturnPolicy != peers {
+		t.Fatalf("fresh inbox omitted current override: %s", overridden.Body)
 	}
 	for _, key := range []string{sam, s.owner} {
 		if r := put(key, &agent.Id, &ownerOnly); errorCode(t, r, nil, 403) != "agent_owner_required" {
