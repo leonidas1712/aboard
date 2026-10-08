@@ -25,6 +25,7 @@ type headReads struct {
 	boards       []string
 	fullMembers  int
 	unreadCounts int
+	fullBoards   int
 }
 
 type watchedHeads struct {
@@ -166,7 +167,20 @@ func (tx headReadTx) BoardsOfHuman(id string) ([]board.Board, error) {
 func (tx headReadTx) BoardByID(id string) (board.Board, error) {
 	tx.reads.mu.Lock()
 	tx.reads.boards = append(tx.reads.boards, id)
+	tx.reads.fullBoards++
 	tx.reads.mu.Unlock()
+	return tx.ReadTx.BoardByID(id)
+}
+
+func (tx headReadTx) StreamBoard(id string) (board.Board, error) {
+	tx.reads.mu.Lock()
+	tx.reads.boards = append(tx.reads.boards, id)
+	tx.reads.mu.Unlock()
+	if narrow, ok := tx.ReadTx.(interface {
+		StreamBoard(string) (board.Board, error)
+	}); ok {
+		return narrow.StreamBoard(id)
+	}
 	return tx.ReadTx.BoardByID(id)
 }
 
@@ -211,7 +225,7 @@ func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	st.mu.Lock()
-	st.all, st.boards, st.fullMembers = 0, nil, 0
+	st.all, st.boards, st.fullMembers, st.fullBoards = 0, nil, 0, 0
 	st.mu.Unlock()
 	if _, err := w.svc.PostMessage(ctx, p, w.board, board.NewMessage{Body: "one board changed"}); err != nil {
 		t.Fatal(err)
@@ -226,6 +240,9 @@ func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 	}
 	if st.fullMembers != 0 {
 		t.Errorf("stream fetched %d full member projections", st.fullMembers)
+	}
+	if st.fullBoards != 0 {
+		t.Errorf("stream fetched %d full board projections", st.fullBoards)
 	}
 	for _, id := range st.boards {
 		if id == sibling.Board.ID {

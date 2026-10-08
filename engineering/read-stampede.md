@@ -51,3 +51,7 @@ Change-kind refreshes distinguish board events, presence, agent receipts and the
 person's own read position. Presence and agent receipts do not recount the person's
 unread messages. Human read acknowledgements have their own owner-scoped key. A board
 event or reconciliation tick still checks every field needed on the affected boards.
+
+The hot board lookup also needs only ID, name, head sequence and lifecycle. A narrow
+store projection avoids policy/role JSON and open-task counts on those reads; existing
+membership and credential reads remain the authority checks.

@@ -72,14 +72,25 @@ type HeadFeed struct {
 	// returned.
 	positions map[string]Position
 	watches   map[string]headWatch
-	resync    map[string]bool
+	resync    map[string]headFields
 	started   bool
 }
 
 type headWatch struct {
 	boardID string
 	changed <-chan struct{}
+	fields  headFields
 }
+
+type headFields uint8
+
+const (
+	headField headFields = 1 << iota
+	presenceField
+	receiptField
+	positionField
+	allHeadFields = headField | presenceField | receiptField | positionField
+)
 
 // FollowHeads starts following the heads of the human's boards. Only humans may.
 func (s *Service) FollowHeads(p Principal) (*HeadFeed, error) {
@@ -137,7 +148,7 @@ type ReadChange struct {
 func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, ticked bool, err error) {
 	if f.watches == nil {
 		f.watches = map[string]headWatch{}
-		f.resync = map[string]bool{}
+		f.resync = map[string]headFields{}
 		key := boardsOfKey(f.p.Human.ID)
 		f.watches[key] = headWatch{changed: f.s.notify.Watch(key)}
 	}
@@ -151,14 +162,14 @@ func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, t
 		// A commit after that snapshot therefore leaves a closed channel to refresh.
 		full := !f.started
 		dirty := f.resync
-		f.resync = map[string]bool{}
+		f.resync = map[string]headFields{}
 		for key, watch := range f.watches {
 			select {
 			case <-watch.changed:
 				if watch.boardID == "" {
 					full = true
 				} else {
-					dirty[watch.boardID] = true
+					dirty[watch.boardID] |= watch.fields
 				}
 				watch.changed = f.s.notify.Watch(key)
 				f.watches[key] = watch
@@ -169,7 +180,11 @@ func (f *HeadFeed) Next(ctx context.Context, tick <-chan time.Time) (u Update, t
 			if full {
 				u, err = f.read(ctx)
 			} else {
-				u, err = f.readBoards(ctx, slices.Sorted(maps.Keys(dirty)))
+				var fields headFields
+				for _, changed := range dirty {
+					fields |= changed
+				}
+				u, err = f.readBoards(ctx, slices.Sorted(maps.Keys(dirty)), fields)
 			}
 			f.started = true
 			f.followBoards()
@@ -209,12 +224,18 @@ func (f *HeadFeed) followBoards() {
 		}
 	}
 	for id := range f.sent {
-		for _, key := range []string{id, presenceKey(id), readKey(id, f.p.Human.ID)} {
+		keys := map[string]headFields{
+			id:                            allHeadFields,
+			presenceKey(id):               presenceField,
+			readKey(id, f.p.Human.ID):     receiptField,
+			positionKey(id, f.p.Human.ID): positionField,
+		}
+		for key, fields := range keys {
 			if _, known := f.watches[key]; !known {
-				f.watches[key] = headWatch{boardID: id, changed: f.s.notify.Watch(key)}
+				f.watches[key] = headWatch{boardID: id, changed: f.s.notify.Watch(key), fields: fields}
 				// A new board's first snapshot preceded its subscription. Re-read it
 				// after subscribing before waiting, to cover that startup window.
-				f.resync[id] = true
+				f.resync[id] = allHeadFields
 			}
 		}
 	}
@@ -227,10 +248,10 @@ func (f *HeadFeed) Start(ctx context.Context) (Update, error) { return f.read(ct
 // read returns the heads and presence that differ from those last returned and
 // remembers them. Boards the human is no longer on are forgotten.
 func (f *HeadFeed) read(ctx context.Context) (Update, error) {
-	return f.readBoards(ctx, nil)
+	return f.readBoards(ctx, nil, allHeadFields)
 }
 
-func (f *HeadFeed) readBoards(ctx context.Context, selected []string) (Update, error) {
+func (f *HeadFeed) readBoards(ctx context.Context, selected []string, fields headFields) (Update, error) {
 	var heads []Head
 	var err error
 	if selected == nil {
@@ -272,7 +293,7 @@ func (f *HeadFeed) readBoards(ctx context.Context, selected []string) (Update, e
 	for _, h := range heads {
 		ids = append(ids, h.BoardID)
 	}
-	presence, reads, positions, seats, err := f.s.presenceOn(ctx, ids, f.p)
+	presence, reads, positions, seats, err := f.s.presenceOn(ctx, ids, f.p, fields)
 	if err != nil {
 		return Update{}, err
 	}
@@ -286,9 +307,12 @@ func (f *HeadFeed) readBoards(ctx context.Context, selected []string) (Update, e
 			continue
 		}
 		current[h.BoardID] = h.Seq
+		if fields&headField == 0 {
+			current[h.BoardID] = f.sent[h.BoardID]
+		}
 		ids = append(ids, h.BoardID)
 		names[h.BoardID] = h.Board
-		if seq, ok := f.sent[h.BoardID]; !ok || seq != h.Seq {
+		if seq, ok := f.sent[h.BoardID]; fields&headField != 0 && (!ok || seq != h.Seq) {
 			u.Heads = append(u.Heads, h)
 		}
 	}
@@ -318,16 +342,18 @@ func (f *HeadFeed) readBoards(ctx context.Context, selected []string) (Update, e
 	}
 
 	for _, id := range ids {
-		if pos, ok := positions[id]; ok {
+		if pos, ok := positions[id]; ok && fields&positionField != 0 {
 			if before, known := f.positions[id]; !known || before != pos {
 				u.Unread = append(u.Unread, UnreadChange{BoardID: id, Board: names[id], Position: pos})
 			}
 		}
 	}
-	if selected == nil {
-		f.positions = positions
-	} else {
-		maps.Copy(f.positions, positions)
+	if fields&positionField != 0 {
+		if selected == nil {
+			f.positions = positions
+		} else {
+			maps.Copy(f.positions, positions)
+		}
 	}
 	for _, id := range ids {
 		before, known := f.presence[id]
@@ -342,10 +368,12 @@ func (f *HeadFeed) readBoards(ctx context.Context, selected []string) (Update, e
 			}
 		}
 	}
-	if selected == nil {
-		f.presence = presence
-	} else {
-		maps.Copy(f.presence, presence)
+	if fields&presenceField != 0 {
+		if selected == nil {
+			f.presence = presence
+		} else {
+			maps.Copy(f.presence, presence)
+		}
 	}
 	for _, id := range ids {
 		before, known := f.reads[id]
@@ -355,10 +383,12 @@ func (f *HeadFeed) readBoards(ctx context.Context, selected []string) (Update, e
 			}
 		}
 	}
-	if selected == nil {
-		f.reads = reads
-	} else {
-		maps.Copy(f.reads, reads)
+	if fields&receiptField != 0 {
+		if selected == nil {
+			f.reads = reads
+		} else {
+			maps.Copy(f.reads, reads)
+		}
 	}
 	return u, nil
 }
