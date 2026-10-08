@@ -51,7 +51,7 @@ export function DropdownMenuRadioItem({ className, children, ...props }: Compone
     >
       <span className="absolute left-3 flex size-4 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Check className="size-4 text-accent" strokeWidth={1.5} aria-hidden />
+          <Check className="size-4 text-accent-strong" strokeWidth={1.5} aria-hidden />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -64,7 +64,7 @@ export function DropdownMenuCheckboxItem({ className, children, ...props }: Comp
     <DropdownMenuPrimitive.CheckboxItem className={cn(itemClass, className)} {...props}>
       <span className="absolute left-3 flex size-4 items-center justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Check className="size-4 text-accent" strokeWidth={1.5} aria-hidden />
+          <Check className="size-4 text-accent-strong" strokeWidth={1.5} aria-hidden />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}

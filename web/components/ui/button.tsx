@@ -9,7 +9,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "h-11 bg-ink px-5 font-bold text-on-ink hover:bg-ink/85",
+        // The brand's primary button: the accent under on-accent text, edged in accent-strong.
+        primary: "h-11 border border-accent-strong bg-accent px-5 font-bold text-on-accent hover:bg-[color-mix(in_oklab,var(--accent)_88%,var(--ink))] disabled:border-rule disabled:bg-selected disabled:text-muted disabled:opacity-100",
+        // On an accent bar, where an accent button would vanish: the bar's ink, in the accent.
+        onAccent: "h-11 bg-on-accent px-5 font-bold text-accent hover:bg-on-accent/85",
         secondary: "h-11 border border-ink bg-transparent px-4 font-medium text-ink hover:bg-hover",
         quiet: "h-11 px-3 text-ink hover:bg-hover",
         link: "h-auto p-0 text-link underline underline-offset-[3px] hover:no-underline",

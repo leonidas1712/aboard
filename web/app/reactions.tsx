@@ -73,7 +73,7 @@ function ReactionToggle({ m, r, me, onReact }: { m: Message; r: Reaction; me: st
           onClick={() => onReact(m, r.name, !r.mine)}
           className={cn(
             "reaction inline-flex h-8 items-center gap-1.5 rounded-control border px-2 text-meta tabular-nums transition-colors duration-[140ms] ease-out",
-            r.mine ? "mine border-accent bg-selected text-ink hover:bg-surface" : "border-rule bg-surface text-ink hover:border-field-border hover:bg-hover",
+            r.mine ? "mine border-accent-strong bg-selected text-ink hover:bg-surface" : "border-rule bg-surface text-ink hover:border-field-border hover:bg-hover",
           )}
         >
           <span aria-hidden className="text-[15px] leading-none">

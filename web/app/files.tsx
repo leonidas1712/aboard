@@ -28,7 +28,7 @@ import { Problem } from "./chrome";
 import { Markdown } from "./markdown";
 import { StatusDot } from "./status";
 import { TaskChips, useAgentStatus } from "./task-ui";
-import { SenderMark } from "./timeline";
+import { SenderMark } from "./agent-mark";
 import { count, exactTime, relativeTime } from "./words";
 
 /** The most a board takes in one file (spec/openapi.yaml, putFile). */
@@ -138,8 +138,8 @@ function Who({ by, me, identity }: { by: MemberRef; me: string | null; identity:
       <span className="relative inline-flex shrink-0" data-status={status?.tone}>
         <SenderMark name={by.name} kind={by.kind} identity={identity(by)} className="size-5 rounded-[5px] text-[10px]" />
         {status && (
-          <span aria-hidden className="absolute -top-1.5 -right-1.5 flex size-2.5 items-center justify-center rounded-full bg-[var(--mark-ring,var(--background))]">
-            <StatusDot tone={status.tone} className="size-1.5" />
+          <span aria-hidden className="absolute -top-1 -right-1 flex size-3 items-center justify-center rounded-full bg-[var(--mark-ring,var(--background))]">
+            <StatusDot tone={status.tone} className="size-2" />
           </span>
         )}
       </span>
@@ -222,9 +222,9 @@ export function useDrop(enabled: boolean, onFile: (f: File, count: number) => vo
 function DropHint({ over, text }: { over: boolean; text: string }) {
   if (!over) return null;
   return (
-    <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent bg-[var(--drop)] p-4 animate-fade-in">
+    <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent-strong bg-[var(--drop)] p-4 animate-fade-in">
       <p className="inline-flex items-center gap-2 rounded-box border border-rule bg-surface px-4 py-3 font-bold text-ink">
-        <Paperclip className="size-4 text-accent" strokeWidth={1.75} aria-hidden />
+        <Paperclip className="size-4 text-accent-strong" strokeWidth={1.75} aria-hidden />
         {text}
       </p>
     </div>
@@ -390,18 +390,18 @@ function NoFiles({ upload }: { upload: ReactNode }) {
 function FileRow({ f, selected, open, identity, me, now }: { f: BoardFile; selected: boolean; open: (id: string) => void; identity: Identity; me: string | null; now: number }) {
   return (
     <article
-      className={cn("file-row group relative grid grid-cols-[18px_minmax(0,1fr)] gap-x-3 px-2 py-3 transition-colors duration-[140ms] ease-out", selected ? "bg-selected" : "hover:bg-selected/50")}
+      className={cn("file-row group relative grid grid-cols-[18px_minmax(0,1fr)] gap-x-3 px-3 py-4 transition-colors duration-[140ms] ease-out", selected ? "bg-selected" : "hover:bg-selected/50")}
       data-file={f.name}
     >
       <FileIcon name={f.name} mediaType={f.latest.media_type} className="mt-[3px]" />
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-baseline gap-x-2">
           {/* The name's button covers the row, so the whole row opens the file. */}
           <button
             type="button"
             onClick={() => open(f.id)}
             aria-current={selected ? "true" : undefined}
-            className="min-w-0 truncate text-left font-bold break-all after:absolute after:inset-0 after:content-[''] group-hover:underline focus-visible:outline-none focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-accent"
+            className="min-w-0 truncate text-left font-bold break-all after:absolute after:inset-0 after:content-[''] group-hover:underline focus-visible:outline-none focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-accent-strong"
           >
             {f.name}
           </button>
@@ -553,7 +553,7 @@ function NewFile({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control bg-ink px-4 font-bold text-on-ink disabled:opacity-60">
+        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control border border-accent-strong bg-accent px-4 font-bold text-on-accent disabled:border-rule disabled:bg-selected disabled:text-muted">
           {busy ? "Uploading…" : "Upload"}
         </button>
         {taken && (

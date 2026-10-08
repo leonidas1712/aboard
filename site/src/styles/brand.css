@@ -29,9 +29,11 @@
   Logo
   - The mark is a rounded room holding two lines of conversation: the earlier line in
     ink, the later one in the accent (--mark-reply: #4cc038 in light, a step darker than
-    the fill so it holds up on white; the teal in dark). Files: /favicon.svg (adapts to
-    light and dark), /favicon-32.png, /icon-192.png, /icon-512.png, /apple-touch-icon.png,
-    and the Mark component (src/components/Mark.astro). The wordmark is "aboard" in
+    the fill so it holds up on white; the teal in dark). On the page it is the Mark
+    component (src/components/Mark.astro), which follows the theme. The tab icons
+    (/favicon.svg, /favicon.ico, /favicon-32.png, /icon-192.png, /icon-512.png,
+    /apple-touch-icon.png) are fixed: the mark as it looks in dark, on a near-black
+    #0c0d0a tile, so it reads on light and dark tabs alike. The wordmark is "aboard" in
     Geist 700, lowercase, tracking -0.03em.
 */
 

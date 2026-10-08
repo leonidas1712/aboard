@@ -15,7 +15,7 @@ import { keyLabel, pressed, typing } from "./keys";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { usePref } from "./prefs";
 import { BoardNav } from "./sidebars";
-import { SenderMark } from "./timeline";
+import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
 
 export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
@@ -143,8 +143,8 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     // On a phone no row is selected: a tap reads the ask on its own.
     const selected = wide && m.id === current?.id;
     const ask = m.ask!;
-    return <li key={m.id}><button type="button" data-ask={m.id} onClick={() => read(m)} aria-current={selected ? "true" : undefined} className={cn("grid min-h-14 w-full grid-cols-[28px_minmax(0,1fr)] items-start gap-x-2.5 rounded-control px-2.5 py-2 text-left transition-colors duration-[140ms] ease-out hover:bg-hover active:bg-selected", selected && "bg-selected hover:bg-selected")}>
-      <SenderMark name={m.from.name} kind={m.from.kind} identity={identityOf(`${m.from.kind}:${m.from.name}`)} className="mt-0.5 size-7" />
+    return <li key={m.id}><button type="button" data-ask={m.id} onClick={() => read(m)} aria-current={selected ? "true" : undefined} className={cn("grid min-h-14 w-full grid-cols-[28px_minmax(0,1fr)] items-start gap-x-3 rounded-control px-2.5 py-3 text-left transition-colors duration-[140ms] ease-out hover:bg-hover active:bg-selected", selected && "bg-selected hover:bg-selected")}>
+      <SenderMark name={m.from.name} kind={m.from.kind} harness={m.from.harness} identity={identityOf(`${m.from.kind}:${m.from.name}`)} className="mt-0.5 size-7" />
       <span className="flex min-w-0 flex-col">
         <span className="flex min-w-0 items-baseline gap-3"><span className={cn("min-w-0 flex-1 truncate", selected && "font-bold")}>{askSummary(m.body)}</span><span className="shrink-0 text-meta text-muted tabular-nums">{age(m.at, now)}</span></span>
         <span className="truncate text-meta text-muted">{boardTitle(m.board)} · {m.from.name} · {ask.blocking ? "blocking" : `going with ${ask.going_with}${ask.going_at ? ` at ${clockTime(ask.going_at)}` : ""}`}</span>
@@ -153,8 +153,8 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   };
   // The headings stay in place while the list scrolls under them.
   const group = (title: string, label: string, list: Message[], first: boolean) => <>
-    <h2 className={cn("glass glass-page z-[1] px-2.5 lg:sticky lg:top-0 pb-1 text-meta font-bold", first ? "pt-2" : "pt-5")}>{title}</h2>
-    <ul aria-label={label} className="flex flex-col gap-0.5">{list.map(row)}</ul>
+    <h2 className={cn("glass glass-page z-[1] px-2.5 lg:sticky lg:top-0 pb-2 text-meta font-bold", first ? "pt-3" : "pt-7")}>{title}</h2>
+    <ul aria-label={label} className="flex flex-col gap-1">{list.map(row)}</ul>
   </>;
   const rest = current ? askDetail(current.body) : "";
   const sentLine = sent && <p role="status" key={sent.at} className={cn("max-w-[640px] truncate text-meta text-muted", wide ? "mb-5" : "px-2.5 pb-1", fading ? "animate-fade-out" : "animate-fade-in")}>Sent to @{sent.to}: &ldquo;{sent.body}&rdquo;</p>;
@@ -172,27 +172,27 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       {wide ? <aside aria-label="Boards" className="quiet-scroll border-rule bg-sidebar px-5 py-4 lg:overflow-y-auto lg:border-r">{nav}</aside>
         : <Sheet open={boardsOpen} onClose={() => setBoardsOpen(false)} side="left" title="Boards" back="Inbox">{nav}</Sheet>}
       <section aria-labelledby="inbox-title" className={cn("quiet-scroll flex flex-col gap-1 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:overflow-y-auto lg:border-r lg:border-rule", phoneReading && "hidden")}>
-        <h1 id="inbox-title" className="flex flex-wrap items-baseline gap-x-2 px-2.5 pt-4 pb-1 text-headline font-bold">Inbox<span className="text-meta font-normal text-muted tabular-nums">{waiting && `${waiting.length} ${waiting.length === 1 ? "needs" : "need"} you`}</span></h1>
+        <h1 id="inbox-title" className="flex flex-wrap items-baseline gap-x-2 px-2.5 pt-6 pb-2 text-headline font-bold">Inbox<span className="text-meta font-normal text-muted tabular-nums">{waiting && `${waiting.length} ${waiting.length === 1 ? "needs" : "need"} you`}</span></h1>
         {!wide && sentLine}
         {error !== null && <Problem error={error} />}
         {asks === null && error === null && <p role="status" className="px-2.5 text-muted">Loading asks…</p>}
-        <div role="group" aria-label="Needs you asks" className="flex flex-col gap-0.5">
+        <div role="group" aria-label="Needs you asks" className="flex flex-col gap-1">
           {blocking.length > 0 && going.length > 0 ? <>{group("Blocking", "Blocking asks", blocking, true)}{group("Going ahead unless you say", "Asks going ahead unless you say", going, false)}</> : group("Needs you", "Asks", waiting ?? [], true)}
         </div>
         {waiting?.length === 0 && <p className="px-2.5 text-meta text-muted">Nothing waits on you.</p>}
         {resting > 0 && <p className="px-2.5 pt-2 text-meta text-muted tabular-nums">{resting} snoozed on this browser · <button type="button" className="text-link hover:underline" onClick={() => setSnoozed({})}>Show {resting === 1 ? "it" : "them"} now</button></p>}
         {more && <p className="px-2.5 text-meta text-muted">Showing the first {asks?.length ?? 0} asks.</p>}
-        {notices.length > 0 && <><h2 className="px-2.5 pt-5 pb-1 text-meta font-bold text-muted">Worth a look</h2><ul aria-label="Worth a look" className="flex flex-col gap-0.5">{notices.map((n) => <li key={n.id}><a href={`/?board=${encodeURIComponent(n.board)}${n.task ? `&task=${encodeURIComponent(n.task)}` : ""}`} className="block rounded-control px-2.5 py-2.5 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-hover"><span className="block"><Clock className="mr-1.5 inline size-3.5 text-muted" aria-hidden />{n.text}</span><span className="text-meta text-muted">{n.title} · {n.detail}</span></a></li>)}</ul></>}
+        {notices.length > 0 && <><h2 className="px-2.5 pt-7 pb-2 text-meta font-bold text-muted">Worth a look</h2><ul aria-label="Worth a look" className="flex flex-col gap-1">{notices.map((n) => <li key={n.id}><a href={`/?board=${encodeURIComponent(n.board)}${n.task ? `&task=${encodeURIComponent(n.task)}` : ""}`} className="block rounded-control px-2.5 py-3 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-hover"><span className="block"><Clock className="mr-1.5 inline size-3.5 text-muted" aria-hidden />{n.text}</span><span className="text-meta text-muted">{n.title} · {n.detail}</span></a></li>)}</ul></>}
         {unavailable > 0 && <p className="px-2.5 pt-4 text-meta text-muted">Some board details could not be read. Refresh the Inbox to try again.</p>}
       </section>
       <section aria-label="The selected ask" className={cn("quiet-scroll px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:overflow-y-auto lg:px-10 lg:py-8", !wide && !phoneReading && "hidden")}>
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
-        {current ? <article className="flex max-w-[640px] flex-col gap-4" key={current.id}>
-          <p className="text-meta text-muted"><a href={boardHref} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task}`}</p>
+        {current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
+          <p className="text-meta text-muted"><a href={boardHref} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);
-            return <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><SenderMark name={current.from.name} kind={current.from.kind} identity={identityOf(`${current.from.kind}:${current.from.name}`)} /><strong>{current.from.name}</strong><span className="text-meta text-muted">{current.from.owner && `(${current.from.owner}'s agent) `}asks you · {relativeTime(current.at, now)}</span>{status && <StatusWord status={status} dot className="asker-status" />}</p>;
+            return <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><SenderMark name={current.from.name} kind={current.from.kind} harness={current.from.harness} identity={identityOf(`${current.from.kind}:${current.from.name}`)} /><strong>{current.from.name}</strong><span className="text-meta text-muted">{current.from.owner && `(${current.from.owner}'s agent) `}asks you · {relativeTime(current.at, now)}</span>{status && <StatusWord status={status} dot className="asker-status" />}</p>;
           })()}
           <div className="flex flex-col gap-2"><h2 className="text-headline font-bold break-words">{askSummary(current.body)}</h2>{rest && <p className="text-now whitespace-pre-wrap break-words">{rest}</p>}</div>
           <AskAnswers message={current} board={current.board!} keyboard onAnswered={answered} />
