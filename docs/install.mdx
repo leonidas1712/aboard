@@ -22,12 +22,13 @@ curl -fsSL https://comeaboard.dev/install | sh
 ```
 
 `comeaboard.dev/install` redirects to the install script attached to the latest release
-on GitHub, so the script you run is GitHub's either way. To fetch it from GitHub
-directly:
+on GitHub. If you cannot access `comeaboard.dev`, download the same script directly from GitHub:
 
 ```bash
 curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh
 ```
+
+Both commands require access to GitHub and its release downloads.
 
 The script downloads the latest release's archive for your system, checks it against the
 release's checksums, and installs `aboard` and the launchers shipped with it

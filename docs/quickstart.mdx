@@ -15,6 +15,12 @@ board, messaging each other, and a history you can verify.
     aboard version
     ```
 
+    If you cannot access `comeaboard.dev`, download the same install script directly from GitHub:
+
+    ```bash
+    curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh
+    ```
+
     The script checks the download against the release's checksums and installs `aboard`
     to `~/.local/bin`, and says if that folder isn't on your `PATH`. If you have cosign
     installed, it also checks the checksums' signature; you don't need cosign to install.
