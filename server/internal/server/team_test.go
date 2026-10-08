@@ -97,9 +97,9 @@ func launchTeam(t *testing.T, data string, adminNames ...string) (*teamServer, e
 		return nil, err
 	}
 	addr := ln.Addr().String()
-	_ = ln.Close()
 	pub, err := ParsePublicURL(publicURL)
 	if err != nil {
+		_ = ln.Close()
 		return nil, err
 	}
 	logs := &syncBuffer{}
@@ -107,7 +107,7 @@ func launchTeam(t *testing.T, data string, adminNames ...string) (*teamServer, e
 	done := make(chan error, 1)
 	go func() {
 		done <- Run(ctx, Options{
-			Addr: addr, DataDir: data, Version: "test",
+			Addr: addr, Listener: ln, DataDir: data, Version: "test",
 			Log:  slog.New(slog.NewJSONHandler(logs, nil)),
 			Team: &Team{PublicURL: pub, AdminName: adminName},
 		})
@@ -128,23 +128,36 @@ func launchTeam(t *testing.T, data string, adminNames ...string) (*teamServer, e
 		})
 	}
 	t.Cleanup(s.stop)
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+	client := &http.Client{Timeout: time.Second}
+	defer client.CloseIdleConnections()
 	for {
-		if c, err := (&net.Dialer{}).DialContext(context.Background(), "tcp", addr); err == nil {
-			_ = c.Close()
-			return s, nil
+		if strings.Contains(logs.String(), `"msg":"serving"`) {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/v1/info", http.NoBody)
+			if err != nil {
+				return nil, err
+			}
+			req.Host = pub.Host
+			if resp, err := client.Do(req); err == nil {
+				_, _ = io.Copy(io.Discard, resp.Body)
+				_ = resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					return s, nil
+				}
+			}
 		}
 		select {
 		case err := <-done:
 			stopped = true
 			once.Do(cancel)
 			return nil, fmt.Errorf("the team server didn't start: %w\n%s", err, logs)
-		default:
-		}
-		if time.Now().After(deadline) {
+		case <-deadline.C:
 			return nil, fmt.Errorf("the team server didn't start:\n%s", logs)
+		case <-tick.C:
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }
 

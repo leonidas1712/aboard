@@ -275,7 +275,13 @@ func (e *env) stateDir() string  { return filepath.Join(e.aboardHome(), "state")
 func (e *env) stopServer() {
 	// down waits for the original processes to exit, including unreaped exits, so
 	// TempDir cannot remove files while the daemon or server is still writing them.
-	if r := e.exec(nil, "", "down", "--json"); r.code != 0 {
+	var extra []string
+	if _, err := os.Stat(filepath.Join(e.dataDir(), "server.pid")); errors.Is(err, os.ErrNotExist) {
+		// A home without a server PID must not probe a port another test has reused.
+		// down still stops this home's delivery daemon through its own control socket.
+		extra = []string{"ABOARD_LOCAL_ADDR=127.0.0.1:0"}
+	}
+	if r := e.exec(extra, "", "down", "--json"); r.code != 0 {
 		e.t.Errorf("stop background processes before removing their home:\n%s", r)
 		// A failing shutdown must not leave the processes this home started behind.
 		for _, path := range []string{filepath.Join(e.dataDir(), "server.pid"), filepath.Join(e.stateDir(), "daemon.pid")} {

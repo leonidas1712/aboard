@@ -395,8 +395,10 @@ that is already approved.
 | Version-gate every hook event a profile installs, with only the safe set for an unknown or old version, and doctor naming what is missing (#42) | D171 |
 
 ### Testing
+
 | Feature | Decisions |
 | --- | --- |
+| Parallel server fixtures retain their listener or bind `:0`; cleanup avoids probing a reused port when the home has no server PID (in review, #204) | |
 | The skill says only Aboard writes delivered message blocks, so agents don't invent messages; live tests run cheap models by default, with `make live-smoke` checking each model answers first (#40) | |
 | Every process a test starts stops when the test process dies, including on SIGKILL (`ABOARD_EXIT_WITH_PID`, a watchdog per live lab) (#41) | D170 |
 | Each live lab gets a home folder of its own; omp's live start-up keeps its title from tmux (#45) | |
