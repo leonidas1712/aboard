@@ -905,8 +905,10 @@ has optional `queued` with the shape `QueuedMessages` in cli.yaml. It observes o
 that session's current seats, rechecks each own-token inbox and acknowledges nothing.
 A stale boot or seat is refused rather than substituted with another session. An old
 daemon's `invalid_request` leaves queue state unknown; it is never treated as no queue.
-`inbox --queued` uses this observation to select messages, then follows the ordinary
-own-token read/claim/ack path. It does not ask the daemon to acknowledge unseen gaps.
+`inbox --queued` uses this observation to preview messages by exact id with the current
+seat token, without claims, confirmation or acknowledgement. It never consumes or
+cancels a scheduled delivery. Accepted queue admission remains observed until turn
+start consumes the queue, even if the server already acknowledges those messages.
 
 `midturn-peer` on an extension's hello/welcome is a live negotiated capability. The
 same text on a profile alone cannot enable it. New combined peer context is delivered

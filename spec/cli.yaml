@@ -1503,6 +1503,10 @@ $defs:
   # ---------- aboard inbox [--wait SECONDS] [--peek] [--limit N] ----------
   InboxOutput:
     description: |
+      --queued is a read-only preview of the current session queue (QueuedMessages),
+      including messages already acknowledged on harness queue admission. It never
+      confirms or acknowledges; acked_up_to is null. Scheduled delivery is unchanged.
+
       Without --peek, the CLI acks up to the last returned message's seq before
       printing. If the ack fails, the command fails and prints nothing, so no message
       is shown as read without being acknowledged.
@@ -3869,10 +3873,11 @@ $defs:
 
   QueuedMessages:
     description: |
-      Messages queued for this session's turn end, not received. Absent means queue
-      state is unknown. Status never acknowledges. inbox --queued reads current own-token
-      messages and acknowledges only what it shows through the ordinary inbox path;
-      --peek acknowledges nothing. Entries are invalidated on seat/session changes.
+      Messages queued for this session's turn end, not yet shown. Absent means queue
+      state is unknown. Status never acknowledges. inbox --queued previews exact current
+      own-token messages, including accepted queue entries absent from the unread inbox,
+      and acknowledges nothing; acked_up_to is null. It never cancels scheduled delivery.
+      Entries are invalidated on seat/session changes.
       With several seats each entry remains bound to its immutable board/member ids.
     type: object
     required: [count, messages]

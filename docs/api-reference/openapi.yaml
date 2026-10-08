@@ -2582,6 +2582,65 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
 
+  /v1/me/midturn:
+    get:
+      tags: [people]
+      operationId: getMidturnPolicy
+      summary: Read your mid-turn delivery policy
+      description: |
+        A person reads their issuer-bound default and their own agent overrides.
+        An agent reads only its effective policy; it cannot enumerate another seat or
+        person. Ownership uses immutable person/member ids, never handle matching.
+        Reading this setting grants no message or board access. Unset defaults read
+        my-agents; older clients which cannot read it retain owner-only behavior.
+      responses:
+        "200":
+          description: The caller's current policy
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MidturnPolicyView" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [people]
+      operationId: setMidturnPolicy
+      summary: Set your default or an own-agent mid-turn override
+      description: |
+        Person tokens only, including the person's browser with ordinary CSRF checks.
+        With no member_id, policy sets the person's default. With member_id it sets an
+        override for that person's active agent; null policy clears that override.
+        Null policy without member_id is 422 invalid_request. A person never sets
+        another person's policy, even as admin or board owner. Hidden/missing/removed
+        member targets return 404 member_not_found before readable foreign targets
+        return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+        Recheck current ownership and membership in the write transaction and on
+        idempotent replay. This is preference bookkeeping, not a board event.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy]
+              properties:
+                member_id: { type: string }
+                policy:
+                  allOf: [{ $ref: "#/components/schemas/MidturnPolicy" }]
+                  nullable: true
+      responses:
+        "200":
+          description: Current policy after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MidturnPolicyView" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+
   /v1/me/presence:
     put:
       tags: [boards]
@@ -5318,6 +5377,30 @@ components:
           nullable: true
           x-omitempty: false
           description: The task the agent last started, opened or joined and hasn't finished or dropped. Null when none, and for people. Absent from servers without tasks.
+    MidturnPolicy:
+      type: string
+      enum: [owner-only, my-agents]
+      description: |
+        owner-only permits the recipient's person at tool boundaries. my-agents also
+        permits eligible same-owner urgent direct agent messages (D221). It changes
+        neither delivery mode nor access and never interrupts a running tool.
+    MidturnPolicyView:
+      type: object
+      required: [policy, source]
+      properties:
+        policy: { $ref: "#/components/schemas/MidturnPolicy" }
+        source: { type: string, enum: [person_default, agent_override] }
+        changed: { type: boolean }
+        overrides:
+          type: array
+          description: Own active agent overrides; absent for an agent token.
+          items:
+            type: object
+            required: [member_id, policy]
+            properties:
+              member_id: { type: string }
+              policy: { $ref: "#/components/schemas/MidturnPolicy" }
+
     DeliveryMode:
       type: string
       enum: [focused, all, humans, off, auto]

@@ -1469,28 +1469,35 @@ owner treatment at the next tool boundary; an owner target grants no extra autho
 
 ## Queued visibility and same-owner urgent delivery (D221)
 
-A message queued for a running session is still pending, not received. Queued means
-that the current session or its harness queue holds it for the end of this turn.
-The daemon exposes the current seat's queued messages to `status` and `inbox`, using
-that seat's own inbox token. A queued summary names the immutable board and member
-ids, message id and sequence, sender and intended boundary. It never names a message
-which the current token cannot read. Summaries are local observations, not authority.
-A daemon restart, ended session, rotated seat or expired report invalidates them.
+A queued message has been allocated for a running session but has not yet been
+shown in that turn. Its existing receipt state is unchanged: some harnesses confirm
+queue admission, so a receipt can already say received while the message is queued.
+Queued means the current daemon or harness queue holds it for the end of this turn;
+it never claims that the model has seen it. The daemon exposes that session's queued
+messages to `status` and `inbox`, including accepted harness-queue entries which the
+server no longer counts unread. A summary names the immutable board and member ids,
+message id and sequence, sender and intended boundary. Recheck access with that
+seat's own token; never fall back to a person's token. Summaries are observations,
+not authority. An ended session, rotated seat or expired report invalidates them.
 
-`aboard inbox --queued` reads those messages now, through the ordinary own-token inbox
-and acknowledgement path. It never marks an unseen gap read. With `--peek` it marks
-nothing read. Reading removes the corresponding pending handoff through the existing
-received-once mechanism; it must not deliver that message again at turn end. `status`
-and queue summaries alone acknowledge nothing. Without a daemon or a current session,
+`aboard inbox --queued` is an explicitly read-only preview of those messages now,
+including ones already acknowledged on queue admission. Fetch by exact board/message
+identity using the current seat's token, rather than assuming the ordinary unread
+inbox still contains them. It acknowledges and confirms nothing, never changes a
+cursor, and never consumes or cancels a scheduled handoff. It labels the preview
+`queued preview; still scheduled for turn end` so a later scheduled delivery is not
+presented as a new message. Ordinary inbox behavior is unchanged. `status` and queue
+summaries alone also acknowledge nothing. Without a daemon or a current session,
 queue state is unknown, not an empty queue. Several seats remain separate.
 
-The usual text is `1 queued, arriving at the end of this turn: #1340 from @reviewer`.
-A receipt stays `pending` and may add `queued` metadata; the board view renders
-`queued for reviewer's turn end`. Queue metadata is bookkeeping, never a board event.
-It is supplied by the recipient's authenticated daemon, bound to the current session,
-expires within 45 seconds without refresh, and is cleared by confirmed receipt,
-removal, rotation or session end. Readers must still pass the ordinary message and
-board access checks. No queued text or content is copied into a receipt.
+The usual summary is `1 queued, arriving at the end of this turn: #1340 from @reviewer`.
+A receipt keeps its current state and may add `queued` metadata; the board view renders
+`queued for reviewer's turn end` instead of implying model receipt. Queue metadata is
+bookkeeping, never a board event. It is supplied by the recipient's authenticated
+daemon, bound to the current session, expires within 45 seconds without refresh, and
+is cleared by observed turn start consuming the queue, removal, rotation or session
+end. Queue admission alone does not clear it. Readers must still pass the ordinary
+message and board access checks. No queued body is copied into a receipt.
 
 ### Who may reach a busy turn
 

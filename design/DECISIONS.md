@@ -860,8 +860,8 @@ Why: the launch shows one product, and the website already shows what the board 
 
 
 **D221. A person may let their own agents reach each other at the next tool boundary
-with urgent direct messages (refines D137); queued messages are visible without being
-received.** The default is `my-agents`; `owner-only` preserves D137's earlier policy,
+with urgent direct messages (refines D137); queued messages are visible without changing
+receipts.** The default is `my-agents`; `owner-only` preserves D137's earlier policy,
 and an owner may override it per agent. Eligibility uses immutable owner ids, current
 membership, explicit agent addressing, urgent permission and a verified harness
 capability. One sender may hand one peer urgent message to a recipient per turn;
