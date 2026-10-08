@@ -587,6 +587,40 @@ The wordmark beside the mark, and the browser tab's title, are the name in lower
   by 12px padding: a file icon, the file name (500 weight) over its type and version in
   Meta ("Markdown, version 2"), and "Open", underlined, on the right.
 
+### Attachment card
+
+- **Style:** a message's attached file version, under its body: 312px wide on a wide
+  screen and full width on a phone, wrapping in rows 8px apart; 1px rule border (a
+  field-border edge on hover), surface fill, 8px radius. A 40px square (6px radius, rule
+  border, page fill) holds the 18px file icon, or for an image a thumbnail of that exact
+  version. Beside it the path, its folders in `muted` and its name at 500, over Meta:
+  the version in ink ("v1 of 3" when newer ones exist), the size, and who wrote it with
+  their 16px mark. A 36px download button sits on the right. The whole card opens the
+  file panel at that version; its focus ring is the card's outline.
+- **Gone:** a file taken off the board keeps its card, with a dashed field-border edge,
+  "no longer on this board" and no actions.
+- **Never a person:** a box with a file icon, never an @, a tint or a sender mark in
+  the file's place.
+
+### File link
+
+- A board file's path in a message's text: Geist Mono at 0.9em, ink, a 1px underline in
+  ink at 40% that turns full ink on hover, after a file icon at the text's size. A
+  mention is a tint with a bold name and a task reference a dotted underline. It opens
+  the file panel.
+
+### Attaching in the message box
+
+- **Paperclip:** a 44px icon button inside the message box, before Post, on `selected`
+  while its list is open.
+- **File list:** a floating layer above the box at its right (surface, rule border, 8px
+  radius, the floating shadow), at most 26rem wide: a search field, rows 44px high (the
+  file icon, or an accent-strong check once attached; the path; "v3 · 2 h ago" in Meta),
+  the highlighted row on `selected`; and "Upload from this computer" below a rule.
+- **Chips:** above the text, like recipient chips but 36px high, with a file icon, the
+  name at 500 and the version, a select when the file has several. A taken name opens
+  the chip into a small box with the choice in a sentence and two buttons.
+
 ### Task card
 
 - **Style:** the reference in Meta over the title (bold; normal weight when closed), 1px

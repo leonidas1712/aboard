@@ -203,7 +203,12 @@ export type Message = {
   mentions: Mention[];
   ask?: MessageAsk;
   answer?: { ask_id: string; ask_seq: number; option: number | null; option_text?: string | null; withdrawn: boolean };
+  /** files are the file versions posted with the message; absent or empty when it has none. */
+  files?: FileRef[];
 };
+
+/** FileRef is one version of a board file a message carries: the file's id, its name, which version and that version's digest. */
+export type FileRef = { id: string; name: string; version: number; digest: string };
 
 export type MessageAsk = {
   to: MemberRef;

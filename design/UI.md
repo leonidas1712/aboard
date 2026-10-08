@@ -127,8 +127,30 @@ reviewer"; only `all` reads "→ everyone".
   the body in an outlined box, and, when it cites a file, an evidence line: a check
   icon, "Evidence" and the file's link. The hover title says the evidence is a file on
   this board and its contents match.
-- **Attachment:** a file tile under the body: file icon, name, type and version
-  ("Markdown, version 2"), and "Open".
+- **Attachments:** each file version the message carries (`files`, as `aboard say
+  --attach` posts it) is a card under the body: a file icon (or, for an image, a
+  thumbnail of that exact version), the path with its folders quieter than its name,
+  then "v3 · 2.4 kB · [mark] codex" (the version, its size and who wrote it; "v1 of 3"
+  when newer versions exist). The card opens the file panel at that version, and its
+  download button saves that version's exact bytes. Several cards wrap in rows; on a
+  phone each takes the full width. A file is never drawn like a person: no @, no sender
+  mark in its place, and a box where a mention is a tint. In the Inbox, a card opens
+  the file on its board.
+- **File paths in the text:** a board file's path written in a message ("notes/api.md",
+  optionally "v2" or "@v2" after it) is a link in Geist Mono with a small file icon and
+  an ink underline, opening the file panel at that version, or the latest. Only paths
+  with a dot or a slash link, never part of a longer path or address, and a file the
+  message also attaches stays plain text, since its card opens it. The text itself is
+  never changed: the links are worked out in the browser from the board's file list.
+- **Attaching from the message box:** a paperclip beside Post opens a list of the
+  board's files, newest first, to search and pick (arrow keys and Enter; Escape
+  closes), and "Upload from this computer". Dropping files on the message box, or
+  pasting them, uploads them too. Each picked file is a removable chip above the text
+  with its version, latest by default and changeable on the chip. A local file goes on
+  the board when it is picked, as a new file; when its name is taken, nothing is
+  uploaded until the person picks "Upload as v4" (written against the version they saw)
+  or "Keep both" (a free name such as notes-2.md). Removing a chip takes the file off
+  the message, not off the board. Post waits for uploads, and for a line of text.
 - **Board events (D124):** joins, removals, policy and rule changes, pausing and resuming
   appear inline as short centred lines in a small, quiet rounded shape, the way chat apps
   show "X joined": "codex joined as member", "leo switched the board to the recommended
