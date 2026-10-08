@@ -7,7 +7,7 @@ import (
 )
 
 func queuedIdentity(ref AgentRef, m Message) QueuedMessage {
-	return QueuedMessage{BoardID: m.BoardID, MemberID: ref.MemberID, MessageID: m.ID, Seq: m.Seq, From: "@" + m.FromName, Boundary: "turn_end"}
+	return QueuedMessage{Board: ref.Board, BoardID: m.BoardID, MemberID: ref.MemberID, MessageID: m.ID, Seq: m.Seq, From: "@" + m.FromName, Boundary: "turn_end"}
 }
 
 func (s *session) queued(ctx context.Context, req Request) Response {
@@ -68,6 +68,7 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 						return queueUnknown()
 					}
 					identity.From = "@" + m.FromName
+					identity.Board = ref.Board
 					key := ref.Server + "/" + identity.MessageID
 					if !seen[key] {
 						out.Messages = append(out.Messages, identity)
