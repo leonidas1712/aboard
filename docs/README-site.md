@@ -38,6 +38,9 @@ changes often, so check the linked page when something doesn't match.
   shown in the pages are covered by an e2e test or `e2e/RELEASE_CHECKLIST.md`
   (workflow rule 5).
 - Images live in `images/` and are linked from the docs root (`/images/board-view.png`).
+  The two board view screenshots (also in the README) are retaken from a seeded board
+  with `cd web && DOCS_SHOTS=../docs/images npx playwright test e2e/docs-shots.spec.ts`
+  after `make web`.
 - MDX is stricter than Markdown: `{`, `}` and `<` in prose start expressions and tags, so
   escape them or put them in backticks; comments are `{/* … */}`, never `<!-- -->`.
   ([format text](https://www.mintlify.com/docs/create/text))
