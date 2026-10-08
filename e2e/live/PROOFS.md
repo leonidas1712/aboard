@@ -418,6 +418,15 @@ first full run was not all green. Its failed artifacts remain private. Protected
 configuration stayed unchanged in all runs, and no Codex auth refresh occurred.
 The generated timing samples include the bounded reruns.
 
+The introduction was then moved after the unchanged bundle, preserving the
+changed-mode notice as its first line. Both mode-change e2e cases reproduced the
+old ordering failure and passed with races after the fix. Claude hook conformance
+also passed. An isolated native run of the corrected footer passed Claude's
+ping-pong and both cross-harness exchanges: three cases, no skips, 1m10s wall
+time. Protected configuration and volatile Claude state stayed unchanged; no auth
+refresh occurred. This bounded run verifies the footer placement, rather than
+claiming another full-suite run.
+
 Before the scenarios were written once, so under the earlier names.
 
 2026-10-02, Claude Code 2.1.287 (default model), no Codex installed. `make live`: 1 minute

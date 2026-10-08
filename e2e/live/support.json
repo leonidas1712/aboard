@@ -161,8 +161,8 @@
         }
       },
       "handover": {
-        "aboard_ms": 2007,
-        "harness_ms": 2096,
+        "aboard_ms": 2010,
+        "harness_ms": 2055,
         "deliveries": 12,
         "date": "2026-10-08"
       }
@@ -340,7 +340,7 @@
       },
       "handover": {
         "aboard_ms": 2011,
-        "harness_ms": 35,
+        "harness_ms": 41,
         "deliveries": 3,
         "date": "2026-10-08"
       }
@@ -506,7 +506,7 @@
         }
       },
       "handover": {
-        "aboard_ms": 2013,
+        "aboard_ms": 2012,
         "harness_ms": 1,
         "deliveries": 3,
         "date": "2026-10-08"
