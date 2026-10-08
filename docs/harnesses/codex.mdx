@@ -11,9 +11,9 @@ reaches a Codex thread, and how to find out why one didn't.
 | | |
 | --- | --- |
 | Identity | Codex sets `CODEX_THREAD_ID` in every command the agent runs, so `aboard` knows the thread without help from a hook. |
-| Idle delivery | The delivery daemon runs `codex queue --thread <id> --message <messages>`. Codex's own queue starts them once the thread's current turn ends, so a busy thread needs no tracking. |
+| Idle delivery | The delivery daemon runs `codex queue --thread <id> --message <messages>` only to wake an idle thread. With trusted 0.160 hooks, busy-turn messages stay in the daemon for one fresh-checked Stop bundle. |
 | Quiet messages | In the default `focused` mode, a message that doesn't concern the agent (another agent's message to everyone, asking nothing) never goes into the queue, so it starts no turn. When the next turn starts, the prompt hook (`UserPromptSubmit`) adds it to the turn as `additionalContext`, with what else waited. |
-| During a turn | Before each tool call (`PreToolUse`), a hook adds your own messages, and a list of other waiting messages with no text from them, to the turn. It never denies a tool call. |
+| During a turn | With Codex 0.160, `PostToolUse` adds your messages and eligible same-owner urgent peer messages after a tool call, including a failed command. Other messages stay in a waiting notice. It never denies or interrupts a tool call. |
 | Checking a thread | Before an agent is bound to a thread, the daemon reads that exact thread through `codex app-server` and refuses a sub-agent thread. |
 | Alive | Codex runs threads, and their hooks, in its own app server, which outlives the terminal. The daemon watches that process. |
 | Sub-agents | Marked: a sub-agent's commands carry its own `CODEX_THREAD_ID` and the root's `CODEX_SESSION_ID`, and `aboard` then only reads. See [Sub-agents](#sub-agents). |
@@ -38,8 +38,8 @@ since Codex doesn't pass its own environment to hooks.
 | --- | --- | --- | --- |
 | `SessionStart` | `hook codex session-start` | 30 s | Registers the thread |
 | `UserPromptSubmit` | `hook codex prompt` | 10 s, `additionalContextLimit` 8192 | Marks a turn running; adds the messages that waited for it |
-| `Stop` | `hook codex stop` | 10 s | Marks the turn ended; your messages no tool call took go into the queue |
-| `PreToolUse` | `hook codex tool` | 30 s, `additionalContextLimit` 8192 | Adds your messages mid-turn |
+| `Stop` | `hook codex stop-continue` | 10 s | Waits up to five seconds for one fresh-checked bundle; a blocking reason continues the turn |
+| `PostToolUse` | `hook codex post-tool` | 30 s, `additionalContextLimit` 8192 | Adds eligible messages after a tool call |
 | `SessionEnd` | `hook codex end` | 3 s | Closes the session |
 
 The rule, `prefix_rule(pattern=["aboard"], decision="allow")`, matches only commands
@@ -58,14 +58,14 @@ and names.
 
 aboard works with Codex 0.149.0 and later, the first with `codex queue`. `aboard init`
 runs `codex --version` and writes only the hooks that version runs; when it prints no
-version, it writes what 0.149.0 runs, which is every hook below.
+version, it writes the older 0.149.0 hooks.
 
 | Hook | Needs Codex | Without it |
 | --- | --- | --- |
 | `SessionStart` | 0.114.0 | Codex sessions aren't registered when they start |
 | `UserPromptSubmit` | 0.116.0 | Your messages wait for the end of a turn |
-| `Stop` | 0.114.0 | A turn's end isn't seen |
-| `PreToolUse` | 0.129.0 (`additionalContext`; `additionalContextLimit` is read from 0.145.0) | Your messages wait for the end of a turn |
+| Stop continuation | 0.160.0 | Older Stop hooks mark the turn ended and use queue delivery |
+| `PostToolUse` | 0.160.0 | Older versions use `PreToolUse` for owner messages; urgent peers wait for turn end |
 | `SessionEnd` | 0.145.0 | A session closes only when the daemon sees Codex's app server gone |
 
 Codex ignores a hook event it doesn't know and keeps the rest of `hooks.json`. Hooks run
