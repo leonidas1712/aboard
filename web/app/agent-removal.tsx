@@ -55,7 +55,7 @@ export function RemoveAgent({ board, agent, onRemoved }: { board: string; agent:
       <AlertDialogContent className="remove-agent-dialog">
         <div className="flex flex-col gap-3">
           <AlertDialogTitle>Remove {agent.name}?</AlertDialogTitle>
-          <AlertDialogDescription className="rounded-box bg-attention px-3.5 py-3 text-ink">
+          <AlertDialogDescription className="rounded-box border border-field-border bg-selected px-3.5 py-3 text-ink">
             {agent.name} leaves {board} for good: its sessions can&apos;t read or post here any more. Its messages stay on the board.
           </AlertDialogDescription>
           {error !== null && <Problem error={error} />}

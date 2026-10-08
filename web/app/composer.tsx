@@ -19,7 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ApiError, type Member, type MemberRef, type Message, post } from "./api";
 import { type Candidate, type Query, candidates, knownTargets, mentionsIn, queryAt, segments, toSummary, toWords } from "./mentions";
-import { SenderMark } from "./timeline";
+import { SenderMark } from "./agent-mark";
 import { harnessName, recipient } from "./words";
 
 type Props = {
@@ -292,7 +292,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
               )}
             >
               {c.member ? (
-                <SenderMark name={c.member.name} kind={c.member.kind} identity={identity(c.member)} className="size-6 rounded-[6px] text-[11px]" />
+                <SenderMark name={c.member.name} kind={c.member.kind} harness={c.member.harness} identity={identity(c.member)} className="size-6 rounded-[6px] text-[11px]" />
               ) : (
                 <span aria-hidden className="flex size-6 shrink-0 items-center justify-center rounded-[6px] border border-rule text-meta text-muted">
                   @
@@ -310,7 +310,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
       {/* One field holds the recipients, the text and Post. Focus changes the field
           once, softly; only a control reached by keyboard gets its own ring. */}
       <div
-        className="composer-field flex min-w-0 flex-wrap items-end gap-1 sm:flex-nowrap rounded-box border border-field-border bg-surface p-1 transition-[border-color,box-shadow] duration-[140ms] ease-out data-[focused]:border-[var(--field-focus)] data-[focused]:shadow-[0_0_0_3px_var(--focus-glow)]"
+        className="composer-field flex min-w-0 flex-wrap items-end gap-1 sm:flex-nowrap rounded-box border border-field-border bg-surface p-1 transition-[border-color,box-shadow] duration-[140ms] ease-out data-[focused]:border-[var(--field-focus)] data-[focused]:shadow-[0_0_0_4px_var(--focus-glow)]"
         data-focused={focused || undefined}
         onFocusCapture={() => setFocused(true)}
         onBlurCapture={(e) => {
@@ -319,7 +319,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
       >
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="to-label tap inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent sm:max-w-[16rem]"
+            className="to-label tap inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent-strong sm:max-w-[16rem]"
             aria-label={`Recipients: ${toWords(to)}. Change`}
           >
             <span className="truncate">To {summary}</span>

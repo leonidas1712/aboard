@@ -1,18 +1,9 @@
-// The lab's colour schemes beyond light and dark, defined in themes.css.
+// The colour schemes the lab panel offers: the real UI's own (app/themes.ts).
 
-export const labThemes = [
-  { id: "ember", label: "Ember (warm dark)" },
-  { id: "tide", label: "Tide (sea-green dark)" },
-  { id: "contrast", label: "High contrast" },
-];
+import { themes } from "@/app/themes";
 
 /** allThemes is every scheme the lab panel offers, the system's first. */
-export const allThemes = [
-  { id: "system", label: "Same as this computer" },
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  ...labThemes,
-];
+export const allThemes = themes.map((t) => ({ id: t.id, label: t.label }));
 
 /** setTheme applies a scheme and remembers it, as the account menu does. */
 export function setTheme(id: string) {

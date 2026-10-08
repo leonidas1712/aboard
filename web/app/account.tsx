@@ -3,7 +3,6 @@
 // Who you are, at the right of the top bar: your mark and name, opening a menu with
 // who you are on this board, which server this is, and this browser's settings.
 
-import { lab } from "aboard-lab";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -18,21 +17,29 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { type Me, get, session, signOut } from "./api";
 import { usePref } from "./prefs";
-import { SenderMark } from "./timeline";
+import { type Theme, isTheme, themes } from "./themes";
+import { SenderMark } from "./agent-mark";
 import { personIdentity } from "./words";
 
-/** Theme is "system", "light", "dark", or a scheme the UI lab offers (lab-seam.ts). */
-export type Theme = "system" | "light" | "dark" | (string & {});
-
-/** useTheme is the theme this browser chose, applied to the page. */
+/** useTheme is the colour scheme this browser chose, applied to the page. */
 export function useTheme(): [Theme, (t: Theme) => void] {
-  const [theme, setTheme] = usePref<Theme>("aboard.theme", "system");
+  const [stored, setTheme] = usePref<string>("aboard.theme", "system");
+  const theme: Theme = isTheme(stored) ? stored : "system";
   useEffect(() => {
     const root = document.documentElement;
     if (theme !== "system") root.dataset.theme = theme;
     else delete root.dataset.theme;
   }, [theme]);
   return [theme, setTheme];
+}
+
+/** Swatch is a scheme drawn small: its page, split for "Same as this computer", and its accent. */
+function Swatch({ colours: [left, right, accent] }: { colours: readonly [string, string, string] }) {
+  return (
+    <span aria-hidden className="ml-auto flex size-5 shrink-0 overflow-hidden rounded-[6px] border border-field-border" style={{ background: `linear-gradient(90deg, ${left} 50%, ${right} 50%)` }}>
+      <span className="m-auto h-1.5 w-2.5 rounded-full" style={{ background: accent }} />
+    </span>
+  );
 }
 
 type Props = {
@@ -95,12 +102,13 @@ export function Account({ admin, onSignOut, person }: Props) {
         {showPeople && <><DropdownMenuItem asChild><a href="/?view=people">People</a></DropdownMenuItem><DropdownMenuSeparator /></>}
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
-          <DropdownMenuRadioItem value="system">Same as this computer</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
-          {lab?.themes?.map((t) => (
-            <DropdownMenuRadioItem key={t.id} value={t.id}>
-              {t.label}
+          {themes.map((t) => (
+            <DropdownMenuRadioItem key={t.id} value={t.id} className="gap-3" data-scheme={t.id}>
+              <span className="flex min-w-0 flex-col">
+                <span>{t.label}</span>
+                {"hint" in t && <span className="text-meta text-muted">{t.hint}</span>}
+              </span>
+              <Swatch colours={t.swatch} />
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -119,7 +127,7 @@ export function Account({ admin, onSignOut, person }: Props) {
       </DropdownMenuContent>
     </DropdownMenu>
     {signOutProblem && (
-      <p role="alert" className="sign-out-problem basis-full rounded-box bg-attention px-3 py-2 text-ink">
+      <p role="alert" className="sign-out-problem basis-full rounded-box border border-field-border bg-selected px-3 py-2 text-ink">
         {signOutProblem}
       </p>
     )}

@@ -2166,7 +2166,7 @@ test("task cards and the task panel show who is on each task, and Tell the team 
   await expect(page.getByRole("region", { name: "Needs you", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Blocked", exact: true })).toHaveCount(0);
   await expect(page.locator(`[data-task="${finished.ref}"]`)).toHaveCount(0);
-  await page.getByRole("button", { name: "1 task done or cancelled · show" }).click();
+  await page.getByRole("button", { name: "1 task done · show" }).click();
   await expect(page.locator(`[data-task="${finished.ref}"]`)).toContainText("Rotate the staging key");
 
   // The panel: About, Where it stands with its byline, the conversation and who is on it.

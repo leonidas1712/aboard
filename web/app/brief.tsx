@@ -13,6 +13,7 @@ import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, u
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ApiError, type BriefSummary, type FileChanged, type MemberRef, fileText, putFile } from "./api";
+import { SenderMark } from "./agent-mark";
 import { CopyButton } from "./board-details";
 import { Problem } from "./chrome";
 import { HtmlFrame } from "./files";
@@ -150,8 +151,11 @@ export function Brief({
   canEdit,
   onChanged,
   openHistory,
+  identity,
 }: {
   board: string;
+  /** identity is a member's identity colour, for the writer's mark in the byline. */
+  identity: (m: MemberRef) => number;
   /** brief is undefined on a server without files: then nothing shows. */
   brief: BriefSummary | null | undefined;
   me: string | null;
@@ -234,13 +238,18 @@ export function Brief({
     <section
       aria-label="Brief"
       data-open={open || undefined}
-      className={cn("brief quiet-scroll mb-3 rounded-box border bg-surface px-4 py-3", open && "max-h-[62dvh] overflow-y-auto overscroll-contain", stale ? "border-dashed border-field-border" : "border-rule")}
+      className={cn("brief quiet-scroll mb-4 rounded-box border bg-surface px-5 py-4", open && "max-h-[62dvh] overflow-y-auto overscroll-contain", stale ? "border-dashed border-field-border" : "border-rule")}
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <h2 className="text-meta font-bold text-ink">Brief</h2>
         <p className="brief-byline min-w-0 flex-1 text-meta text-muted">
           <span title={`Version ${brief.version}, written ${exactTime(brief.at)}`}>
-            {nameOf(brief)} v{brief.version} by {who(brief.by, me)} · <time dateTime={brief.at}>{relativeTime(brief.at, now)}</time>
+            Updated by{" "}
+            <span className="brief-writer inline-flex items-baseline gap-1">
+              <SenderMark name={brief.by.name} kind={brief.by.kind} harness={brief.by.harness} identity={identity(brief.by)} className="size-4 translate-y-[3px] self-start rounded-[4px] text-[9px]" />
+              <span className="text-ink">{who(brief.by, me)}</span>
+            </span>{" "}
+            · <time dateTime={brief.at}>{relativeTime(brief.at, now)}</time> · {nameOf(brief)} v{brief.version}
           </span>
           {happened && <span title="What happened on the board after this version was written"> · since then {happened}</span>}
           {stale && (
@@ -268,7 +277,7 @@ export function Brief({
         ) : text === null ? (
           <p className="mt-1 h-6 w-2/3 rounded-control bg-selected motion-safe:animate-pulse" role="status" aria-label="Loading the brief" />
         ) : !open ? (
-          <p className="brief-summary mt-1 line-clamp-2 text-now">{short || <span className="text-muted">The brief has no text yet.</span>}</p>
+          <p className="brief-summary mt-2 line-clamp-2 text-now">{short || <span className="text-muted">The brief has no text yet.</span>}</p>
         ) : (
           <div className="animate-fade-in">
             <div className="mt-2 border-t border-rule pt-3">
@@ -623,7 +632,7 @@ function Segmented({ name, value, options, onChange }: { name: string; value: st
         <label
           key={o.value}
           className={cn(
-            "relative inline-flex min-h-9 pointer-coarse:min-h-10 cursor-pointer items-center rounded-[6px] px-3 transition-colors duration-[140ms] ease-out has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-accent",
+            "relative inline-flex min-h-9 pointer-coarse:min-h-10 cursor-pointer items-center rounded-[6px] px-3 transition-colors duration-[140ms] ease-out has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-accent-strong",
             value === o.value ? "bg-selected font-bold text-ink" : "text-muted hover:text-ink",
           )}
         >

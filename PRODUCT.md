@@ -94,9 +94,11 @@ the server checks the board's rules on every write.
   sentence, and in the board view's wordmark.
 - The existing visual assets are the board view itself (a screenshot is at
   [docs/images/board-view.png](docs/images/board-view.png)) and the design system
-  recorded in [DESIGN.md](DESIGN.md): its palette, the Atkinson Hyperlegible
-  Next typeface, and the colour-meaning rule (one accent for activity and selection, an
-  attention colour only for what a person must act on).
+  recorded in [DESIGN.md](DESIGN.md), which is the brand the website shares
+  (`site/src/styles/brand.css`, D220): its olive-tinted palette, the Geist and Geist
+  Mono typefaces, the logo (a room holding two lines of conversation), and the
+  colour-meaning rule (one accent, green in light and teal in dark, for what a person
+  must act on, the primary button and the focus ring; everything else neutral).
 - Voice: plain words, short sentences, labels that read on their own, no adjectives
   doing the work of facts ([engineering/writing.md](engineering/writing.md)).
 
