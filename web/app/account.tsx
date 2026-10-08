@@ -15,11 +15,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { type Me, get, session, signOut } from "./api";
+import { ApiError, type Me, type MidturnPolicy, get, session, signOut } from "./api";
 import { usePref } from "./prefs";
 import { type Theme, isTheme, themes } from "./themes";
 import { SenderMark } from "./agent-mark";
 import { personIdentity } from "./words";
+import { changeMidturn, midturnCopy, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 
 /** useTheme is the colour scheme this browser chose, applied to the page. */
 export function useTheme(): [Theme, (t: Theme) => void] {
@@ -57,6 +58,8 @@ export function Account({ admin, onSignOut, person }: Props) {
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();
   const signedIn = session();
+  const midturn = useMidturn();
+  const [midturnProblem, setMidturnProblem] = useState<string | null>(null);
   // A sign-out the server didn't confirm leaves the session on; the page says so.
   const [signOutProblem, setSignOutProblem] = useState<string | null>(null);
   useEffect(() => {
@@ -100,6 +103,29 @@ export function Account({ admin, onSignOut, person }: Props) {
         </dl>
         <DropdownMenuSeparator />
         {showPeople && <><DropdownMenuItem asChild><a href="/?view=people">People</a></DropdownMenuItem><DropdownMenuSeparator /></>}
+        {midturn.view && (
+          <>
+            <DropdownMenuLabel>Mid-turn messages from my agents</DropdownMenuLabel>
+            <p className="px-3 pb-1 text-meta text-muted">{midturnCopy}</p>
+            <DropdownMenuRadioGroup
+              className="midturn-setting"
+              value={midturn.view.policy}
+              onValueChange={(v) => {
+                setMidturnProblem(null);
+                changeMidturn(v as MidturnPolicy).catch((e: unknown) =>
+                  setMidturnProblem(e instanceof ApiError ? e.message : "Couldn't change the mid-turn setting."),
+                );
+              }}
+            >
+              {midturnPolicies.map((p) => (
+                <DropdownMenuRadioItem key={p} value={p}>
+                  {midturnLabels[p]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
           {themes.map((t) => (
@@ -126,6 +152,11 @@ export function Account({ admin, onSignOut, person }: Props) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    {midturnProblem && (
+      <p role="alert" className="midturn-problem basis-full rounded-box border border-field-border bg-selected px-3 py-2 text-ink">
+        {midturnProblem}
+      </p>
+    )}
     {signOutProblem && (
       <p role="alert" className="sign-out-problem basis-full rounded-box border border-field-border bg-selected px-3 py-2 text-ink">
         {signOutProblem}
