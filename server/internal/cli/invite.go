@@ -171,7 +171,7 @@ func runServerInvite(ctx context.Context, a *app, serverFlag string, ttl time.Du
 		return err
 	}
 	if serverFlag != "" {
-		srv, err := parseServerURL(serverFlag)
+		srv, err := a.namedServer(serverFlag)
 		if err != nil {
 			return err
 		}

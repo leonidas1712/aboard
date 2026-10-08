@@ -86,6 +86,9 @@ func (a *app) humanBoard(boardFlag string) (target, error) {
 		return target{}, err
 	}
 	if _, ok, err := a.readProject(); err != nil || ok {
+		if err == nil {
+			t.server = a.selectedServer(t.server, "project")
+		}
 		return t, err
 	}
 	if t.server, err = a.resolveServer(""); err != nil {

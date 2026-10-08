@@ -26,10 +26,18 @@ func (a *app) sessionKey() (delivery.SessionKey, bool) {
 
 // serverRefFor names a server URL the way output does.
 func (a *app) serverRefFor(url string) serverRef {
+	name := serverHostName(url)
 	if url == a.localServer().URL {
-		return a.localServer()
+		name = localServerName
 	}
-	return serverRef{Name: url, URL: url}
+	if known, _, err := a.knownServers(); err == nil {
+		for _, k := range known {
+			if k.URL == url {
+				return k.ref()
+			}
+		}
+	}
+	return serverRef{Name: name, URL: url}
 }
 
 // agentTarget resolves the agent an agent command acts as, and so its board: --as, then
