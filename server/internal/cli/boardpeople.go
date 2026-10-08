@@ -128,17 +128,22 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 		noun = "person"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s · %s · %d %s\n", out.Board, out.Visibility, len(r.JSON200.People), noun)
+	st := a.out()
+	vis := string(out.Visibility)
+	if out.Visibility == api.BoardVisibilityPrivate {
+		vis = st.warn(vis)
+	}
+	fmt.Fprintf(&b, "%s · %s · %d %s\n", st.name(out.Board), vis, len(r.JSON200.People), noun)
 	for _, p := range r.JSON200.People {
-		line := "  " + p.Name
+		line := "  " + st.name(p.Name)
 		if p.DisplayName != nil && *p.DisplayName != "" {
-			line = "  @" + p.Name + " (" + *p.DisplayName + ")"
+			line = "  " + st.name("@"+p.Name) + " " + st.dim("("+*p.DisplayName+")")
 		}
 		if p.BoardRole == api.BoardRoleOwner {
-			line += " (owner)"
+			line += " " + st.ok("(owner)")
 		}
 		if p.ServerRole == api.ServerRoleGuest {
-			line += " (guest)"
+			line += " " + st.warn("(guest)")
 		}
 
 		b.WriteString(line + "\n")
@@ -160,7 +165,7 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 					parts = append(parts, presenceText(s))
 				}
 				row.Agents = append(row.Agents, ag)
-				b.WriteString("    " + strings.Join(parts, " · ") + "\n")
+				b.WriteString("    " + st.dim(strings.Join(parts, " · ")) + "\n")
 			}
 		}
 		out.People = append(out.People, row)

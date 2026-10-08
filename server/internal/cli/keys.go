@@ -106,13 +106,15 @@ func (c *client) keys(ctx context.Context, person string) (*api.AccessKeyList, e
 	return r.JSON200, nil
 }
 
-// keysText lists keys one per line: name, state, last use, expiry and what depends on
-// each.
+// keysText lists keys as a table: name, state, last use, expiry, and what depends on
+// each. A key that expires within a week is flagged "(soon)", and the key this machine
+// uses "(this machine)".
 func (a *app) keysText(srv serverRef, list *api.AccessKeyList) string {
 	st := a.out()
 	now := time.Now()
-	text := fmt.Sprintf("Keys of %s on %s:\n", st.name(list.Person.Handle), srv.URL)
+	text := fmt.Sprintf("Keys of %s on %s:\n", st.name("@"+list.Person.Handle), srv.URL)
 	rows := make([][]string, 0, len(list.Keys))
+	soon := map[*string]bool{}
 	for _, k := range list.Keys {
 		row := []string{k.Name}
 		switch {
@@ -121,7 +123,12 @@ func (a *app) keysText(srv serverRef, list *api.AccessKeyList) string {
 		case k.State != nil && *k.State == api.AccessKeyStateExpired:
 			row = append(row, "expired")
 		default:
-			row = append(row, "working", lastUsedText(k.LastUsedAt, now), expiryText(k, now))
+			expires := expiryText(k, now)
+			if k.IdleExpirySeconds == nil && k.ExpiresAt != nil && k.ExpiresAt.Sub(now) < 7*24*time.Hour {
+				expires += " (soon)"
+				soon[&row[0]] = true
+			}
+			row = append(row, "working", lastUsedText(k.LastUsedAt, now), expires)
 			var extra []string
 			if n := count(k.BrowserSessions); n > 0 {
 				extra = append(extra, fmt.Sprintf("browser sessions: %d", n))
@@ -136,26 +143,42 @@ func (a *app) keysText(srv serverRef, list *api.AccessKeyList) string {
 		}
 		rows = append(rows, row)
 	}
-	return text + swarmTable(st, rows, func(r []string) []string { return r })
+	return text + st.table([]string{"KEY", "STATE", "LAST USED", "EXPIRES", "USED BY"}, rows, func(col int, c string, row []string) string {
+		switch {
+		case col == 0:
+			return st.name(c)
+		case col == 1 && c == "working":
+			return st.ok(c)
+		case col == 1:
+			return st.bad(c)
+		case col == 2:
+			return st.dim(c)
+		case col == 3 && soon[&row[0]]:
+			return st.warn(c)
+		case col == 4:
+			return strings.Replace(c, "(this machine)", st.ok("(this machine)"), 1)
+		}
+		return c
+	})
 }
 
 func lastUsedText(t *time.Time, now time.Time) string {
 	if t == nil {
-		return "never used"
+		return "never"
 	}
-	return "last used " + agoText(*t, now)
+	return agoText(*t, now)
 }
 
-// expiryText says when a key expires: "expires in 88 days", "expires when unused for 90
-// days" or "never expires".
+// expiryText says when a key expires: "in 88 days", "when unused for 90 days" or
+// "never".
 func expiryText(k api.AccessKey, now time.Time) string {
 	switch {
 	case k.IdleExpirySeconds != nil:
-		return "expires when unused for " + durationText(time.Duration(*k.IdleExpirySeconds)*time.Second)
+		return "when unused for " + daysText(time.Duration(*k.IdleExpirySeconds)*time.Second)
 	case k.ExpiresAt == nil:
-		return "never expires"
+		return "never"
 	}
-	return "expires in " + daysText(k.ExpiresAt.Sub(now))
+	return "in " + daysText(k.ExpiresAt.Sub(now))
 }
 
 // daysText is a duration in whole days, or in hours under two days.
@@ -297,7 +320,8 @@ func runKeysRevoke(ctx context.Context, a *app, args []string) error {
 	if started {
 		text = "Started local Aboard at " + srv.URL + "\n"
 	}
-	text += "Revoked " + got.Name + " on " + srv.URL + "."
+	st := a.out()
+	text += st.bad("Revoked") + " " + st.name(got.Name) + " on " + srv.URL + "."
 	var ended []string
 	if n := count(got.BrowserSessions); n > 0 {
 		ended = append(ended, counted(n, "browser session"))
@@ -391,9 +415,14 @@ func runKeysSessions(ctx context.Context, a *app, args []string) error {
 			if s.StartedWith == api.BrowserSessionStartAccessKey {
 				how = "pasted key"
 			}
-			rows = append(rows, []string{s.Id, "key " + s.Key.Name, how, "signed in " + agoText(s.CreatedAt, now), "ends in " + daysText(s.ExpiresAt.Sub(now))})
+			rows = append(rows, []string{s.Id, s.Key.Name, how, agoText(s.CreatedAt, now), "in " + daysText(s.ExpiresAt.Sub(now))})
 		}
-		text += swarmTable(st, rows, func(r []string) []string { return r })
+		text += st.table([]string{"ID", "KEY", "STARTED WITH", "SIGNED IN", "ENDS"}, rows, func(col int, c string, _ []string) string {
+			if col == 3 || col == 4 {
+				return st.dim(c)
+			}
+			return c
+		})
 		text += "Sign one out with: aboard keys sessions end <id>\n"
 	}
 	a.emit(map[string]any{"server": srv, "person": list.Person, "sessions": list.Sessions}, text)
