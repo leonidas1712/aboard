@@ -65,7 +65,7 @@ export function Brief() {
       <div className="flex flex-wrap items-baseline gap-x-2">
         <h2 className="text-meta font-bold text-ink">Brief</h2>
         <p className="min-w-0 flex-1 text-meta text-muted" title={`Version ${version}, ${exactTime(new Date(atMs).toISOString())}`}>
-          by {by === scenario.me ? "you" : by} · v{version} · updated {edited ? "just now" : ago(b.t, now)} · {count(since, "message", "messages")} since
+          Updated by {by === scenario.me ? "you" : by} · {edited ? "just now" : ago(b.t, now)} · v{version} · {count(since, "message", "messages")} since
           {stale && (
             <span>
               {" · "}

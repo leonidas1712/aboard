@@ -445,7 +445,7 @@ function Editor({
               </button>
             </span>
           </div>
-          <textarea readOnly value={ed.kept} aria-label="Your earlier text" rows={5} className="quiet-scroll w-full resize-y rounded-control bg-surface px-3 py-2 font-mono text-meta text-ink" />
+          <textarea readOnly value={ed.kept} aria-label="Your earlier text" rows={5} className="quiet-scroll w-full resize-y rounded-control bg-surface px-3 py-2 font-mono text-meta text-ink pointer-coarse:text-[16px]" />
         </section>
       )}
 
@@ -462,7 +462,7 @@ function Editor({
         spellCheck={ed.format === "md"}
         placeholder={ed.format === "md" ? "# What this board is for\n\nWhere it stands, in a sentence or two.\n\n## Who's doing what\n\n## Next" : "<h1>What this board is for</h1>\n<p>Where it stands, in a sentence or two.</p>"}
         className={cn(
-          "brief-text quiet-scroll min-h-40 w-full resize-y rounded-control border border-field-border bg-background px-3 py-2 font-mono text-meta leading-relaxed text-ink placeholder:text-muted/80",
+          "brief-text quiet-scroll min-h-40 w-full resize-y rounded-control border border-field-border bg-background px-3 py-2 font-mono text-meta leading-relaxed text-ink placeholder:text-muted/80 pointer-coarse:text-[16px]",
           mode === "preview" && "hidden",
         )}
       />
@@ -623,7 +623,7 @@ function Segmented({ name, value, options, onChange }: { name: string; value: st
         <label
           key={o.value}
           className={cn(
-            "relative inline-flex min-h-9 cursor-pointer items-center rounded-[6px] px-3 transition-colors duration-[140ms] ease-out has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-accent",
+            "relative inline-flex min-h-9 pointer-coarse:min-h-10 cursor-pointer items-center rounded-[6px] px-3 transition-colors duration-[140ms] ease-out has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-accent",
             value === o.value ? "bg-selected font-bold text-ink" : "text-muted hover:text-ink",
           )}
         >

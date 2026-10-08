@@ -41,7 +41,7 @@ export function Reactions({ m, me, onReact }: { m: Message; me: string | null; o
             <span
               data-reaction={r.name}
               title={`${who(r, me)} reacted with ${r.emoji}`}
-              className="reaction inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface px-2 text-meta text-ink tabular-nums"
+              className="reaction tap inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface px-2 text-meta text-ink tabular-nums"
             >
               <span aria-hidden className="text-[15px] leading-none">
                 {r.emoji}
@@ -100,7 +100,7 @@ export function ReactButton({ m, onReact, label }: { m: Message; onReact: OnReac
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
-        className="react-button flex h-7 shrink-0 items-center rounded-[6px] px-1.5 text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-hover focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
+        className="react-button tap flex h-7 shrink-0 items-center rounded-[6px] px-1.5 text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-hover focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
         aria-label={`React to ${label}`}
         title="React"
       >

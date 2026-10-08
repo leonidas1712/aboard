@@ -351,7 +351,7 @@ function WhereItStands({ task: t }: { task: ScenarioTask }) {
           </p>
           <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-muted">
             {stale && <Clock className="size-3" strokeWidth={2} aria-label="Not updated in a while" />}
-            by {t.note.by === scenario.me ? "you" : t.note.by} · {ago(t.note.t, now)} · {count(messages, "message", "messages")} since
+            Updated by {t.note.by === scenario.me ? "you" : t.note.by} · {ago(t.note.t, now)} · {count(messages, "message", "messages")} since
             {owner && (
               <>
                 {" · "}

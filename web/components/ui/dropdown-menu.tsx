@@ -20,8 +20,9 @@ export function DropdownMenuContent({ className, sideOffset = 6, ...props }: Com
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
+        collisionPadding={12}
         className={cn(
-          "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[14rem] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink shadow-float animate-fade-in",
+          "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] max-w-[calc(100vw-1.5rem)] min-w-[min(14rem,calc(100vw-1.5rem))] overflow-y-auto rounded-control border border-rule bg-surface p-1 text-ink shadow-float animate-fade-in",
           className,
         )}
         {...props}

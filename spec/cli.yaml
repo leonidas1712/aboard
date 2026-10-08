@@ -210,6 +210,9 @@ $defs:
       message_ref_invalid · check_failed · confirmation_required (the command would
       delete data and needs a person's yes, but can't ask: standard input isn't a
       terminal, or --json was given; the hint names the command again with --yes) ·
+      local_file_not_found (exit 1; a file put, brief put or say --attach local path
+      does not exist; the message names the path and the hint asks to check it or
+      create the file; no upload is made) ·
       board_file_not_found · board_file_invalid (the board file doesn't match
       spec/aboard.schema.json, or swarm up can't apply what it sets; details.errors lists
       each problem with its place in the file) · harness_unknown (an agent names a harness
