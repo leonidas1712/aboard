@@ -1648,7 +1648,10 @@ does not report that observation or cancel the scheduled handoff.
 A bundle shows each message's authoritative sent timestamp and relative age, such as
 `sent 2 h ago`, as Aboard framing outside the sender's body. Age uses the current
 handoff clock, clamps future timestamps to zero age, and is display only. Message bytes
-and sender labels are unchanged. Missing timestamps produce no invented age.
+and sender labels are unchanged. Missing timestamps produce no invented age. An unchanged
+retry keeps the original handoff clock across daemon restarts. Its journal retains
+rendering metadata and hashes, never message bodies; reconstruction uses a fresh
+own-token read and refuses parts that are no longer eligible.
 
 An old backlog already accepted by an external harness cannot be claimed to be
 retracted unless that harness offers a verified removal mechanism. The new behavior
