@@ -1556,6 +1556,34 @@ in the active turn, without ending it or running inbox. Older unsupported or unt
 hooks keep ordinary queued delivery and report that limitation.
 
 
+### Codex turn-end continuation
+
+For a Codex version with verified Stop continuation support, the synchronous Stop
+hook is the turn-end delivery path. It returns JSON `decision: "block"` with the
+combined bundle as `reason`; Codex continues with that reason as a new prompt.
+Immediately before allocating the bundle, recheck current own-token read state,
+local shown-message observations, access and seat generation. An empty result lets
+the turn end. A bounded wait may collect newly arriving messages before release;
+it must not keep an empty session running through repeated continuations.
+
+The profile declares `turn-end-hook` separately from `queue`: the former supplies
+turn-end context, while the latter wakes a genuinely idle session. A known running
+turn never receives an external queue entry. Eligible mid-turn messages use
+PostToolUse additionalContext. Unsupported or untrusted hooks retain the documented
+queue fallback, without claiming busy-turn backlog prevention.
+
+Stop continuation reasons retain Codex's default output limit (roughly 2,500 tokens);
+additionalContextLimit does not raise it. Bundle allocation must respect that limit
+and preserve undelivered messages for another handoff. A spilled or truncated reason
+must not be treated as proof that every message reached the model. Confirmation and
+immutable retry rules still apply; emitting hook JSON alone is not model receipt.
+Continuation prompts do not replenish the same-owner sender's logical-turn cap.
+
+The installed 0.160.0 CLI must pass an isolated live proof of Stop continuation,
+combined delivery and no external queue admission while busy before this profile
+path is reported as supported. The official hook reference is
+https://learn.chatgpt.com/docs/hooks#stop.
+
 ### Avoiding stale queue backlogs
 
 While a turn is known to be running, keep ordinary messages in the daemon, not in
