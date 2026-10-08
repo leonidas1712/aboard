@@ -414,7 +414,10 @@ that is already approved.
 
 ### Queued visibility and same-owner urgent tool boundaries
 
-Building (GEN-32, D221): queued session metadata in inbox/status and receipts;
+In review (#240, GEN-32, D221): queued session metadata in inbox/status and receipts;
 person default and own-agent overrides; capability-gated urgent direct peer delivery
-at the next tool boundary. Contracts first. Real harness proofs and independent
-security review remain required. No completed live proof is claimed.
+at the next tool boundary. Exact shown reads suppress future local offers, and retry
+age framing survives restart. Independent security passes and focused acceptance
+pass. Bounded urgent-peer proofs pass on all three harnesses; Codex Stop continuation
+and owner tool-boundary proofs pass. Board-view coordination, final combined live
+validation and CI remain pending; this feature is not yet shipped.
