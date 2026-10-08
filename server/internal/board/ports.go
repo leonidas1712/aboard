@@ -19,6 +19,7 @@ type Store interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	QueueReport(memberID string) (QueueReport, error)
 	FileBySelector(boardID, selector string) (File, error)
 	FileByName(boardID, name string) (File, error)
 	Files(boardID string) ([]File, error)
@@ -180,6 +181,7 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SaveQueueReport(QueueReport) error
 	SetHumanMidturn(humanID, policy string) error
 	SetAgentMidturn(memberID string, policy *string) error
 	SaveFile(File) error

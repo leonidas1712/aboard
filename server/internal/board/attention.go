@@ -136,8 +136,9 @@ const (
 
 // Receipt is whether a message has reached one recipient.
 type Receipt struct {
-	Member Member
-	State  string
+	QueuedUntil string
+	Member      Member
+	State       string
 	// Presence is an agent's presence when the receipt was read, never stored with it;
 	// nil for a person.
 	Presence *Presence
@@ -193,6 +194,10 @@ func (s *Service) Receipts(ctx context.Context, p Principal, boardName string, s
 			if r.Kind == "agent" {
 				pr := r.CurrentPresence(now)
 				rc.Presence = &pr
+				rc.QueuedUntil, err = queuedReceiptExpiry(tx, r, m, now)
+				if err != nil {
+					return err
+				}
 				if r.Cursor >= m.Seq {
 					rc.State = ReceiptReceived
 				}

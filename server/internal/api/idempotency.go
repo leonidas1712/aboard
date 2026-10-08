@@ -200,6 +200,20 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case method == http.MethodPut && path == "/v1/me/delivery-queue":
+		var body DeliveryQueueReport
+		if err := json.Unmarshal(request, &body); err != nil {
+			return err
+		}
+		if saved.Status != http.StatusOK {
+			_, err := svc.DeliveryQueue(ctx, principal(ctx))
+			return err
+		}
+		var result DeliveryQueueView
+		if err := json.Unmarshal(saved.Body, &result); err != nil {
+			return err
+		}
+		return svc.CheckQueueReplay(ctx, principal(ctx), body.Session, body.Boot, result.Epoch)
 	case method == http.MethodPut && path == "/v1/me/midturn":
 		var body SetMidturnPolicyJSONRequestBody
 		if err := json.Unmarshal(request, &body); err != nil {
