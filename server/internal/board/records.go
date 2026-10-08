@@ -302,19 +302,20 @@ const (
 
 // Message is a stored message with its sender.
 type Message struct {
-	Files      []FileRef
-	Ask        *Ask
-	Answer     *Answer
-	About      []TaskTag
-	ID         string
-	BoardID    string
-	Seq        int64
-	At         string
-	SenderID   string
-	To         []string
-	Body       string
-	ReplyTo    *string
-	ReplyToSeq *int64
+	MidturnPeerSenderID *string
+	Files               []FileRef
+	Ask                 *Ask
+	Answer              *Answer
+	About               []TaskTag
+	ID                  string
+	BoardID             string
+	Seq                 int64
+	At                  string
+	SenderID            string
+	To                  []string
+	Body                string
+	ReplyTo             *string
+	ReplyToSeq          *int64
 	// ReplyToFrom is the name of the member who sent the message this one replies to;
 	// the store fills it when it reads a message.
 	ReplyToFrom *string

@@ -14,8 +14,10 @@ import (
 
 // Message is what the delivery text shows of one board message.
 type Message struct {
-	At    time.Time
-	Files []File
+	ID, BoardID         string
+	MidturnPeerSenderID string
+	At                  time.Time
+	Files               []File
 	// About lists permanent task references recorded on this message.
 	About  []string
 	Ask    *Ask

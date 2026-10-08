@@ -5513,6 +5513,16 @@ components:
       properties:
         id: { type: string, pattern: "^msg_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
+        midturn_peer_sender_id:
+          type: string
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: |
+            Fresh inbox-only eligibility for an urgent message explicitly addressed to
+            this agent. Names the currently active sending agent's immutable member id
+            only when both agents belong to the same current person. Absent otherwise.
+            This does not authorize a handoff: the daemon also checks current policy,
+            mode, turn cap and live harness capabilities. Handles and sender labels
+            cannot substitute for this field. Older servers leave peer delivery queued.
         seq: { $ref: "#/components/schemas/Seq" }
         at: { $ref: "#/components/schemas/Timestamp" }
         from: { $ref: "#/components/schemas/MemberRef" }
@@ -5764,6 +5774,10 @@ components:
       required: [board, agent, messages, cursor, more]
       properties:
         board: { $ref: "#/components/schemas/BoardName" }
+        board_id:
+          type: string
+          pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: The immutable board identity for this own-token inbox read; absent on older servers.
         agent: { $ref: "#/components/schemas/MemberName" }
         member_id:
           type: string

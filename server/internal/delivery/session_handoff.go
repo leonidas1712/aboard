@@ -118,7 +118,13 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 		if a == nil || a.problem != "" || a.adopting {
 			return nil, nil, fmt.Errorf("seat no longer available")
 		}
-		manifest.Parts = append(manifest.Parts, HandoffPart{Agent: p.agent, Generation: a.generation, Seqs: orderedSeqs(p.msgs), DeliveryID: p.redeliver})
+		part := HandoffPart{Agent: p.agent, Generation: a.generation, Seqs: orderedSeqs(p.msgs), DeliveryID: p.redeliver}
+		for _, msg := range p.msgs {
+			if msg.ID != "" && msg.BoardID != "" {
+				part.Messages = append(part.Messages, queuedIdentity(p.agent, msg))
+			}
+		}
+		manifest.Parts = append(manifest.Parts, part)
 	}
 	if s.handoffs == nil {
 		s.handoffs = map[string]*sessionHandoff{}

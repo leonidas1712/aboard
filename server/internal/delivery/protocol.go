@@ -72,6 +72,7 @@ const (
 	// server decides whether it is a new seat or the session's earlier one.
 	OpJoin        = "join"
 	OpCreateBoard = "create_board"
+	OpQueued      = "queued"
 )
 
 // Events sent back on a waiting connection.
@@ -151,10 +152,11 @@ func (r Request) Key() SessionKey { return SessionKey{Harness: r.Harness, ID: r.
 
 // Response is one message from the daemon.
 type Response struct {
-	Nudge  string `json:"nudge,omitempty"`
-	V      int    `json:"v"`
-	Event  string `json:"event,omitempty"`
-	Bundle string `json:"bundle,omitempty"`
+	Queued *QueuedMessages `json:"queued,omitempty"`
+	Nudge  string          `json:"nudge,omitempty"`
+	V      int             `json:"v"`
+	Event  string          `json:"event,omitempty"`
+	Bundle string          `json:"bundle,omitempty"`
 	// ID is the delivery an EventDeliver on an extension connection carries, which the
 	// extension names when it confirms it.
 	ID            int64    `json:"id,omitempty"`
@@ -334,4 +336,20 @@ func WriteFrame(w io.Writer, v any) error {
 		return fmt.Errorf("write control message: %w", err)
 	}
 	return nil
+}
+
+// QueuedMessages is a read-only observation of this session's turn-end backlog.
+type QueuedMessages struct {
+	Count    int             `json:"count"`
+	Messages []QueuedMessage `json:"messages"`
+}
+
+// QueuedMessage binds one pending message to its immutable board and seat.
+type QueuedMessage struct {
+	BoardID   string `json:"board_id"`
+	MemberID  string `json:"member_id"`
+	MessageID string `json:"message_id"`
+	Seq       int    `json:"seq"`
+	From      string `json:"from"`
+	Boundary  string `json:"boundary"`
 }

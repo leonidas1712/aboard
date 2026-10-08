@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 )
@@ -171,4 +172,37 @@ func (s *Service) CheckMidturnReplay(ctx context.Context, p Principal, memberID 
 		}
 		return nil
 	})
+}
+
+// annotateMidturnPeers derives eligibility only for this fresh own-token inbox read.
+func annotateMidturnPeers(tx ReadTx, reader Member, msgs []Message) error {
+	for i := range msgs {
+		m := &msgs[i]
+		m.MidturnPeerSenderID = nil
+		if !m.Urgent || m.SenderID == reader.ID || !slices.Contains(m.Recipients, reader.ID) || !slices.Contains(m.To, "@"+reader.Name) {
+			continue
+		}
+		from, err := tx.MemberByID(m.SenderID)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if from.Kind != "agent" || from.Status != StatusActive || from.HumanID != reader.HumanID || from.BoardID != reader.BoardID {
+			continue
+		}
+		owner, err := tx.HumanMember(reader.BoardID, from.HumanID)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if owner.Status == StatusActive {
+			id := from.ID
+			m.MidturnPeerSenderID = &id
+		}
+	}
+	return nil
 }

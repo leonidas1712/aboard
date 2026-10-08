@@ -258,6 +258,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("inbox")
 	wait := fs.Int("wait", 0, "seconds to wait for a message when there are none")
 	peek := fs.Bool("peek", false, "show messages without acknowledging them")
+	queued := fs.Bool("queued", false, "preview this session's queued messages without acknowledging them")
 	limit := fs.Int("limit", 0, "the most messages to return")
 	as := fs.String("as", "", "the agent to act as")
 	boardFlag := fs.String("board", "", "the board")
@@ -266,6 +267,12 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	}
 	if *wait < 0 || *limit < 0 {
 		return usageError("--wait and --limit can't be negative.", use)
+	}
+	if *queued {
+		if *wait != 0 {
+			return usageError("--queued does not wait or acknowledge messages.", use)
+		}
+		return a.runQueuedInbox(ctx, *boardFlag, *as, *limit)
 	}
 	// In a session with several seats and no --board, the inbox covers every seat.
 	if key, ok := a.sessionKey(); ok && *boardFlag == "" && *as == "" && strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) == "" {

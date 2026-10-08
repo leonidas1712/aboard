@@ -453,12 +453,29 @@ func (j *Journal) Deliveries(ctx context.Context, states ...delivery.State) ([]d
 }
 
 func (j *Journal) deliveriesIn(ctx context.Context, state delivery.State) ([]delivery.Delivery, error) {
+	return j.deliveriesWhere(ctx, state, false)
+}
+
+// UnstartedDeliveries includes acknowledged queue admissions until a turn consumes them.
+func (j *Journal) UnstartedDeliveries(ctx context.Context) ([]delivery.Delivery, error) {
+	var out []delivery.Delivery
+	for _, state := range []delivery.State{delivery.StateHanded, delivery.StateConfirmed, delivery.StateDone} {
+		rows, err := j.deliveriesWhere(ctx, state, true)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rows...)
+	}
+	return out, nil
+}
+
+func (j *Journal) deliveriesWhere(ctx context.Context, state delivery.State, unstarted bool) ([]delivery.Delivery, error) {
 	rows, err := j.db.QueryContext(ctx, `
 		SELECT d.id, d.server, d.board, d.agent, d.member_id, d.harness, d.session_id, d.boot, d.attempts, d.reason,
 		       d.retry_at, d.created_at, d.updated_at, d.accepted_at, d.turn_started_at, d.stalled, d.handoff_id, m.seq
 		FROM deliveries d JOIN delivery_messages m ON m.delivery_id = d.id
-		WHERE d.state = ?
-		ORDER BY d.id, m.seq`, string(state))
+		WHERE d.state = ? AND (? = 0 OR (d.accepted_at != '' AND d.turn_started_at = ''))
+		ORDER BY d.id, m.seq`, string(state), unstarted)
 	if err != nil {
 		return nil, fmt.Errorf("list %s deliveries: %w", state, err)
 	}

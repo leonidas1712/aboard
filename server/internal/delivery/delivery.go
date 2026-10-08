@@ -185,6 +185,7 @@ const (
 // set (the mode is then focused); it only grows, so of two reads the one with the higher
 // revision is the newer.
 type HeldMode struct {
+	BoardID  string
 	Mode     Mode
 	Revision int64
 	// MidturnPolicy is authoritative only for the fresh inbox read that carried it.
@@ -334,6 +335,7 @@ type HandoffManifest struct {
 
 // HandoffPart identifies one seat's exact contribution to an immutable payload.
 type HandoffPart struct {
+	Messages   []QueuedMessage
 	Agent      AgentRef
 	Generation uint64
 	Seqs       []int

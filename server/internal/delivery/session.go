@@ -321,7 +321,9 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
-	s.noteProcess(ctx, req)
+	if req.Op != OpQueued {
+		s.noteProcess(ctx, req)
+	}
 	switch req.Op {
 	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent:
 		if s.started && !s.open {
@@ -428,6 +430,8 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if !s.open {
 			s.setOpen(ctx, true)
 		}
+	case OpQueued:
+		return s.queued(ctx, req)
 	case OpAgents:
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 		ok.Capabilities = negotiatedCapabilities(s.ext)
@@ -1462,6 +1466,9 @@ func (s *session) accepted(ctx context.Context, ds []*Delivery, idle bool) {
 	now := s.now()
 	for _, dl := range ds {
 		dl.AcceptedAt = now
+		if !idle {
+			dl.TurnStartedAt = now
+		}
 		s.saveDelivery(ctx, dl)
 	}
 	if !idle || !s.seenTurns || len(ds) == 0 {

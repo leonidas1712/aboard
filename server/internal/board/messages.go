@@ -354,6 +354,9 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 				return err
 			}
 			policy, _ := effectiveMidturn(person, me)
+			if err := annotateMidturnPeers(tx, me, msgs); err != nil {
+				return err
+			}
 			r = Reading{Board: b, Reader: me, Messages: msgs, Work: &work, MidturnPolicy: policy}
 			return nil
 		})

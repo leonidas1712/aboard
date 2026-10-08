@@ -77,7 +77,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Seats      []seatRow            `json:"seats,omitempty"`
 		SeatsUsage []string             `json:"seats_usage,omitempty"`
 		// Added are the boards the person was added to that are still new to them.
-		Added []addedNotice `json:"added,omitempty"`
+		Added  []addedNotice            `json:"added,omitempty"`
+		Queued *delivery.QueuedMessages `json:"queued,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	var setupLine string
 	out.Setup, setupLine = a.setupStatus()
@@ -119,6 +120,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 				seats, usage := seatsText(agents[0].Server, out.Seats)
 				out.SeatsUsage = usage
 				text.WriteString(seats)
+				out.Queued = a.statusQueued(ctx, "", "")
+				text.WriteString(queuedText(out.Queued))
 				a.emit(out, styleStatus(text.String(), a.out()))
 				return nil
 			}
@@ -267,6 +270,10 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	}
 	out.Added = a.addedAround(ctx, out.Server, *as)
 	text.WriteString(addedText(out.Added))
+	if selectedCred != nil {
+		out.Queued = a.statusQueued(ctx, selectedCred.Server, selectedCred.MemberID)
+		text.WriteString(queuedText(out.Queued))
+	}
 	a.emit(out, styleStatus(text.String(), a.out()))
 	return nil
 }

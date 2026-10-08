@@ -153,6 +153,17 @@ func (d *Daemon) restore(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load deliveries: %w", err)
 	}
+	if journal, ok := d.cfg.Journal.(QueuedAdmissionJournal); ok {
+		admissions, loadErr := journal.UnstartedDeliveries(ctx)
+		if loadErr != nil {
+			return fmt.Errorf("load queue admissions: %w", loadErr)
+		}
+		for _, admission := range admissions {
+			if admission.State == StateDone {
+				deliveries = append(deliveries, admission)
+			}
+		}
+	}
 	modes, err := d.cfg.Journal.Modes(ctx)
 	if err != nil {
 		return fmt.Errorf("load delivery modes: %w", err)
@@ -198,6 +209,9 @@ func (d *Daemon) restore(ctx context.Context) error {
 			if deliveries[i].Agent.Key() == b.Agent.Key() {
 				dl := deliveries[i]
 				a.deliveries[dl.ID] = &dl
+				if !dl.AcceptedAt.IsZero() && dl.TurnStartedAt.IsZero() && dl.Session == s.key && dl.Boot == s.boot {
+					s.awaitingTurn = append(s.awaitingTurn, &dl)
+				}
 			}
 		}
 		s.agents[b.Agent.Key()] = a
@@ -800,7 +814,7 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:
 		_ = WriteFrame(conn, d.serveJoin(ctx, req))
-	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
+	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
 		_ = WriteFrame(conn, errorResponse("invalid_request", fmt.Sprintf("The delivery daemon has no operation %q.", req.Op),
