@@ -154,8 +154,8 @@ export function AgentMark({ member, identity, size = "md", status }: { member: M
   return (
     <span className="agent-mark-status relative inline-flex shrink-0" data-status={status}>
       {mark}
-      <span aria-hidden className="absolute -top-[3px] -right-[3px] flex size-3 items-center justify-center rounded-full bg-[var(--mark-ring,var(--surface))]">
-        <StatusDot tone={status} />
+      <span aria-hidden className="absolute -top-1 -right-1 flex size-[13px] items-center justify-center rounded-full bg-[var(--mark-ring,var(--surface))]">
+        <StatusDot tone={status} className="size-[9px]" />
       </span>
     </span>
   );

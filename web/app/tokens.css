@@ -91,8 +91,8 @@
   --sidebar: #10110d;
   --selected: #1d1f19;
   --ink: #edeee7;
-  --muted: #a0a298;
-  --faint: #74766d;
+  --muted: #b3b5ab;
+  --faint: #8a8c82;
   --rule: #22241e;
   --field-border: #6b6d64;
   --on-ink: #0c0d0a;
@@ -101,29 +101,31 @@
   --attention-mix: 20%;
   --on-accent: #0f100d;
   --mark-reply: #14b8a6;
+  --mention: color-mix(in srgb, var(--accent) 42%, transparent);
   --link: #edeee7;
   --status-working: #edeee7;
   --status-needs: #14b8a6;
   --status-hold: #a898e6;
-  --status-idle: #74766d;
-  --id-1-bg: #523333;
-  --id-1-fg: #fdcdcc;
-  --id-2-bg: #503627;
-  --id-2-fg: #fad1bb;
-  --id-3-bg: #3c4024;
-  --id-3-fg: #d9e0b7;
-  --id-4-bg: #2c4431;
-  --id-4-fg: #c2e6c8;
-  /* The teal identity tint sat too close to the teal accent, so in dark it is steel,
-     as on the website. */
-  --id-5-bg: #26323c;
-  --id-5-fg: #c9d8e4;
-  --id-6-bg: #383b55;
-  --id-6-fg: #d3d8ff;
-  --id-7-bg: #44374f;
-  --id-7-fg: #e6d1f7;
-  --id-8-bg: #4e3343;
-  --id-8-fg: #f7cde3;
+  --status-idle: #8a8c82;
+  --id-1-bg: #7a3338;
+  --id-1-fg: #ffd6d6;
+  --id-2-bg: #763a0d;
+  --id-2-fg: #ffdcbe;
+  --id-3-bg: #4f5200;
+  --id-3-fg: #e8edb8;
+  --id-4-bg: #1d5b2b;
+  --id-4-fg: #c9f5ce;
+  /* In dark the identity tints are deeper and more saturated, so a harness tile reads as
+     its colour on the near-black page. The teal tint sat too close to the teal accent,
+     so in dark it is steel, as on the website. */
+  --id-5-bg: #30506c;
+  --id-5-fg: #d1ecff;
+  --id-6-bg: #414682;
+  --id-6-fg: #dce4ff;
+  --id-7-bg: #5a3d78;
+  --id-7-fg: #f3ddff;
+  --id-8-bg: #723459;
+  --id-8-fg: #ffd6f3;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
@@ -133,8 +135,8 @@
     --sidebar: #10110d;
     --selected: #1d1f19;
     --ink: #edeee7;
-    --muted: #a0a298;
-    --faint: #74766d;
+    --muted: #b3b5ab;
+    --faint: #8a8c82;
     --rule: #22241e;
     --field-border: #6b6d64;
     --on-ink: #0c0d0a;
@@ -144,31 +146,33 @@
   --attention-mix: 20%;
     --on-accent: #0f100d;
     --mark-reply: #14b8a6;
+    --mention: color-mix(in srgb, var(--accent) 42%, transparent);
+  --mention: color-mix(in srgb, var(--accent) 42%, transparent);
     --link: #edeee7;
     --status-working: #edeee7;
     --status-needs: #14b8a6;
     --status-hold: #a898e6;
-    --status-idle: #74766d;
+    --status-idle: #8a8c82;
     --shade: #000000;
     --float-shadow: 0 1px 2px color-mix(in oklab, var(--shade) 50%, transparent),
       0 12px 32px -12px color-mix(in oklab, var(--shade) 80%, transparent);
     --scrim: color-mix(in oklab, var(--shade) 55%, transparent);
-    --id-1-bg: #523333;
-    --id-1-fg: #fdcdcc;
-    --id-2-bg: #503627;
-    --id-2-fg: #fad1bb;
-    --id-3-bg: #3c4024;
-    --id-3-fg: #d9e0b7;
-    --id-4-bg: #2c4431;
-    --id-4-fg: #c2e6c8;
-    --id-5-bg: #26323c;
-    --id-5-fg: #c9d8e4;
-    --id-6-bg: #383b55;
-    --id-6-fg: #d3d8ff;
-    --id-7-bg: #44374f;
-    --id-7-fg: #e6d1f7;
-    --id-8-bg: #4e3343;
-    --id-8-fg: #f7cde3;
+    --id-1-bg: #7a3338;
+    --id-1-fg: #ffd6d6;
+    --id-2-bg: #763a0d;
+    --id-2-fg: #ffdcbe;
+    --id-3-bg: #4f5200;
+    --id-3-fg: #e8edb8;
+    --id-4-bg: #1d5b2b;
+    --id-4-fg: #c9f5ce;
+    --id-5-bg: #30506c;
+    --id-5-fg: #d1ecff;
+    --id-6-bg: #414682;
+    --id-6-fg: #dce4ff;
+    --id-7-bg: #5a3d78;
+    --id-7-fg: #f3ddff;
+    --id-8-bg: #723459;
+    --id-8-fg: #ffd6f3;
   }
 }
 :root[data-theme="light"] {
