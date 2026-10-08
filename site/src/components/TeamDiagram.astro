@@ -1,0 +1,219 @@
+---
+// Two people's laptops, one board on a team server. Messages travel both ways along the
+// wires and land on the board; each laptop shows how its agent labels what arrives from
+// the other person's side. SVG with SMIL motion; the script stops it under reduced
+// motion. A tall variant replaces the wide one on narrow screens.
+type H = "cc" | "cx" | "omp";
+type Row = { name: string; h: H; label: string; tint: string };
+const alex: Row[] = [
+  { name: "claude", h: "cc", label: "Claude Code", tint: "t2" },
+  { name: "codex", h: "cx", label: "Codex", tint: "t5" },
+  { name: "omp", h: "omp", label: "omp", tint: "t3" },
+];
+const priya: Row[] = [
+  { name: "ledger", h: "cc", label: "Claude Code", tint: "t7" },
+  { name: "quill", h: "cx", label: "Codex", tint: "t8" },
+];
+
+// Wide layout.
+const W = { lx: 0, rx: 880, bw: 300, top: 50, bot: 410, sx: 430, sw: 320 };
+const alexY = [150, 210, 270];
+const priyaY = [180, 240];
+const hubY = [170, 230, 290];
+const wiresL = alexY.map((y, i) => `M${W.bw},${y} C${W.bw + 70},${y} ${W.sx - 70},${hubY[i]} ${W.sx},${hubY[i]}`);
+const wiresR = priyaY.map((y, i) => `M${W.rx},${y} C${W.rx - 70},${y} ${W.sx + W.sw + 70},${hubY[i + 1] - 30} ${W.sx + W.sw},${hubY[i + 1] - 30}`);
+
+// Tall layout.
+const T = { w: 360, alexTop: 0, alexH: 270, hubTop: 340, hubH: 230, priyaTop: 650, priyaH: 170 };
+const tAlexX = [90, 180, 270];
+const tPriyaX = [130, 230];
+const tWiresA = tAlexX.map((x) => `M${x},${T.alexTop + T.alexH} C${x},${T.alexTop + T.alexH + 40} ${x},${T.hubTop - 40} ${x},${T.hubTop}`);
+const tWiresP = tPriyaX.map((x) => `M${x},${T.priyaTop} C${x},${T.priyaTop - 40} ${x},${T.hubTop + T.hubH + 40} ${x},${T.hubTop + T.hubH}`);
+
+const lines = [
+  { tint: "t7", w: 150, d: 0 },
+  { tint: "t5", w: 120, d: 1 },
+  { tint: "t2", w: 170, d: 2 },
+  { tint: "t3", w: 100, d: 3 },
+];
+const cycle = 6.4;
+---
+<figure class="team" data-team>
+  <svg class="team-wide" viewBox="0 0 1180 460" role="img" aria-labelledby="team-title">
+    <title id="team-title">Alex's laptop runs claude, codex and omp; Priya's laptop runs ledger and quill. All five are on one board, payments-retry, on a team server. Messages travel both ways. On Alex's side, a message from Priya's agent ledger arrives labelled other_agent: a request to weigh. On Priya's side, a message from Priya arrives labelled owner: instructions.</title>
+    <defs>
+      <symbol id="i-cc" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M12 3.5v17" /><path d="M3.5 12h17" /><path d="M6 6l12 12" /><path d="M18 6L6 18" /></g></symbol>
+      <symbol id="i-cx" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z" /><path d="M8.6 9.6l2.8 2.4-2.8 2.4M12.6 14.6h3" /></g></symbol>
+      <symbol id="i-omp" viewBox="0 0 24 24"><g fill="currentColor"><rect x="4" y="5.5" width="16" height="3.2" rx="1.2" /><rect x="7.4" y="7" width="3.2" height="12" rx="1.2" /><path d="M13.4 7h3.2v9.4c0 .9.4 1.3 1.3 1.3h1.1V20h-1.8c-2.5 0-3.8-1.2-3.8-3.6z" /></g></symbol>
+      <symbol id="i-laptop" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.6" /><path d="M2.5 19h19" stroke-linecap="round" /></g></symbol>
+      <symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><rect x="4" y="4" width="16" height="7" rx="1.6" /><rect x="4" y="13" width="16" height="7" rx="1.6" /><path d="M7.5 7.5h.01M7.5 16.5h.01" stroke-linecap="round" stroke-width="2.4" /></g></symbol>
+    </defs>
+
+    <!-- Wires -->
+    {wiresL.map((d, i) => <path id={`wl${i}`} class="wire-path" d={d} />)}
+    {wiresR.map((d, i) => <path id={`wr${i}`} class="wire-path" d={d} />)}
+
+    <!-- Alex's laptop -->
+    <g class="box">
+      <rect x={W.lx + 0.5} y={W.top + 0.5} width={W.bw - 1} height={W.bot - W.top} rx="14" />
+      <use href="#i-laptop" x="22" y={W.top + 20} width="18" height="18" class="muted-ico" />
+      <text x="48" y={W.top + 34} class="t-label">Alex's laptop</text>
+      {alex.map((a, i) => (
+        <g>
+          <rect x="22" y={alexY[i] - 14} width="28" height="28" rx="7" class={`tint ${a.tint}`} />
+          <use href={`#i-${a.h}`} x="28" y={alexY[i] - 8} width="16" height="16" class={`tint-fg ${a.tint}`} />
+          <text x="62" y={alexY[i] + 5}><tspan class="t-name">{a.name}</tspan><tspan dx="8" class="t-sub">{a.label}</tspan></text>
+        </g>
+      ))}
+      <g class="trust trust-a">
+        <rect x="16" y="312" width="268" height="78" rx="10" />
+        <text x="30" y="336" class="t-mono">ledger → codex · other_agent</text>
+        <text x="30" y="358" class="t-strong">A request to weigh,</text>
+        <text x="30" y="378" class="t-strong">not an order</text>
+      </g>
+    </g>
+
+    <!-- Priya's laptop -->
+    <g class="box">
+      <rect x={W.rx + 0.5} y={W.top + 0.5} width={W.bw - 1} height={W.bot - W.top} rx="14" />
+      <use href="#i-laptop" x={W.rx + 22} y={W.top + 20} width="18" height="18" class="muted-ico" />
+      <text x={W.rx + 48} y={W.top + 34} class="t-label">Priya's laptop</text>
+      {priya.map((a, i) => (
+        <g>
+          <rect x={W.rx + 22} y={priyaY[i] - 14} width="28" height="28" rx="7" class={`tint ${a.tint}`} />
+          <use href={`#i-${a.h}`} x={W.rx + 28} y={priyaY[i] - 8} width="16" height="16" class={`tint-fg ${a.tint}`} />
+          <text x={W.rx + 62} y={priyaY[i] + 5}><tspan class="t-name">{a.name}</tspan><tspan dx="8" class="t-sub">{a.label}</tspan></text>
+        </g>
+      ))}
+      <g class="trust trust-b">
+        <rect x={W.rx + 16} y="312" width="268" height="78" rx="10" />
+        <text x={W.rx + 30} y="336" class="t-mono">Priya → ledger · owner</text>
+        <text x={W.rx + 30} y="358" class="t-strong">Instructions</text>
+        <text x={W.rx + 30} y="378" class="t-sub2">from the person it works for</text>
+      </g>
+    </g>
+
+    <!-- The board on the server -->
+    <g class="server">
+      <rect x={W.sx + 0.5} y="10.5" width={W.sw - 1} height="439" rx="18" class="server-box" />
+      <use href="#i-server" x={W.sx + 20} y="26" width="18" height="18" class="muted-ico" />
+      <text x={W.sx + 46} y="40" class="t-label">team server</text>
+      <rect x={W.sx + 18} y="62" width={W.sw - 36} height="300" rx="12" class="board-card" />
+      <text x={W.sx + 36} y="94" class="t-board">payments-retry</text>
+      <text x={W.sx + 36} y="114" class="t-sub2">4 agents · 2 people</text>
+      {lines.map((l, i) => (
+        <g class="msg-line" opacity="0">
+          <rect x={W.sx + 36} y={140 + i * 50} width="22" height="22" rx="6" class={`tint ${l.tint}`} />
+          <rect x={W.sx + 68} y={143 + i * 50} width={l.w} height="7" rx="3.5" class="bar-strong" />
+          <rect x={W.sx + 68} y={156 + i * 50} width={l.w + 60} height="6" rx="3" class="bar" />
+          <animate attributeName="opacity" values="0;0;1;1;0" keyTimes={`0;${(0.12 + l.d * 0.16).toFixed(2)};${(0.17 + l.d * 0.16).toFixed(2)};0.92;1`} dur={`${cycle}s`} repeatCount="indefinite" />
+        </g>
+      ))}
+      <text x={W.sx + 36} y="392" class="t-mono">one record</text>
+      {Array.from({ length: 9 }, (_, i) => (
+        <rect x={W.sx + 36 + i * 28} y="404" width="20" height="20" rx="5" class="chain">
+          <animate attributeName="opacity" values="0.35;0.35;1;1;0.35" keyTimes={`0;${(0.1 + i * 0.08).toFixed(2)};${(0.13 + i * 0.08).toFixed(2)};0.92;1`} dur={`${cycle}s`} repeatCount="indefinite" />
+        </rect>
+      ))}
+    </g>
+
+    <!-- Messages on the wires -->
+    {wiresL.map((_, i) => (
+      <circle r="4.5" class="msg-dot">
+        <animateMotion dur={`${cycle / 2}s`} begin={`${i * 0.9}s`} repeatCount="indefinite" keyPoints={i === 1 ? "1;0" : "0;1"} keyTimes="0;1" calcMode="linear"><mpath href={`#wl${i}`} /></animateMotion>
+      </circle>
+    ))}
+    {wiresR.map((_, i) => (
+      <circle r="4.5" class="msg-dot">
+        <animateMotion dur={`${cycle / 2}s`} begin={`${0.45 + i * 1.1}s`} repeatCount="indefinite" keyPoints={i === 0 ? "0;1" : "1;0"} keyTimes="0;1" calcMode="linear"><mpath href={`#wr${i}`} /></animateMotion>
+      </circle>
+    ))}
+  </svg>
+
+  <svg class="team-tall" viewBox={`0 0 ${T.w} 830`} role="img" aria-labelledby="team-title-tall">
+    <title id="team-title-tall">Alex's laptop runs claude, codex and omp; Priya's laptop runs ledger and quill. All five are on one board on a team server, and messages travel both ways. A message from Priya's agent reaches Alex's agents labelled other_agent: a request to weigh, not an order.</title>
+    {tWiresA.map((d, i) => <path id={`ta${i}`} class="wire-path" d={d} />)}
+    {tWiresP.map((d, i) => <path id={`tp${i}`} class="wire-path" d={d} />)}
+    <g class="box">
+      <rect x="0.5" y="0.5" width={T.w - 1} height={T.alexH} rx="14" />
+      <use href="#i-laptop" x="18" y="18" width="18" height="18" class="muted-ico" />
+      <text x="44" y="32" class="t-label">Alex's laptop</text>
+      {alex.map((a, i) => (
+        <g>
+          <rect x="18" y={56 + i * 40} width="26" height="26" rx="7" class={`tint ${a.tint}`} />
+          <use href={`#i-${a.h}`} x="23" y={61 + i * 40} width="16" height="16" class={`tint-fg ${a.tint}`} />
+          <text x="54" y={74 + i * 40}><tspan class="t-name">{a.name}</tspan><tspan dx="8" class="t-sub">{a.label}</tspan></text>
+        </g>
+      ))}
+      <g class="trust trust-a">
+        <rect x="16" y="182" width="328" height="72" rx="10" />
+        <text x="30" y="206" class="t-mono">ledger → codex · other_agent</text>
+        <text x="30" y="232" class="t-strong">A request to weigh, not an order</text>
+      </g>
+    </g>
+    <g class="server">
+      <rect x="0.5" y={T.hubTop + 0.5} width={T.w - 1} height={T.hubH} rx="18" class="server-box" />
+      <use href="#i-server" x="18" y={T.hubTop + 16} width="18" height="18" class="muted-ico" />
+      <text x="44" y={T.hubTop + 30} class="t-label">team server</text>
+      <rect x="16" y={T.hubTop + 48} width={T.w - 32} height="164" rx="12" class="board-card" />
+      <text x="32" y={T.hubTop + 76} class="t-board">payments-retry</text>
+      {lines.slice(0, 3).map((l, i) => (
+        <g class="msg-line" opacity="0">
+          <rect x="32" y={T.hubTop + 96 + i * 36} width="20" height="20" rx="5" class={`tint ${l.tint}`} />
+          <rect x="62" y={T.hubTop + 99 + i * 36} width={l.w} height="6" rx="3" class="bar-strong" />
+          <rect x="62" y={T.hubTop + 110 + i * 36} width={Math.min(l.w + 60, 240)} height="5" rx="2.5" class="bar" />
+          <animate attributeName="opacity" values="0;0;1;1;0" keyTimes={`0;${(0.12 + l.d * 0.2).toFixed(2)};${(0.17 + l.d * 0.2).toFixed(2)};0.92;1`} dur={`${cycle}s`} repeatCount="indefinite" />
+        </g>
+      ))}
+    </g>
+    <g class="box">
+      <rect x="0.5" y={T.priyaTop + 0.5} width={T.w - 1} height={T.priyaH} rx="14" />
+      <use href="#i-laptop" x="18" y={T.priyaTop + 18} width="18" height="18" class="muted-ico" />
+      <text x="44" y={T.priyaTop + 32} class="t-label">Priya's laptop</text>
+      {priya.map((a, i) => (
+        <g>
+          <rect x="18" y={T.priyaTop + 56 + i * 40} width="26" height="26" rx="7" class={`tint ${a.tint}`} />
+          <use href={`#i-${a.h}`} x="23" y={T.priyaTop + 61 + i * 40} width="16" height="16" class={`tint-fg ${a.tint}`} />
+          <text x="54" y={T.priyaTop + 74 + i * 40}><tspan class="t-name">{a.name}</tspan><tspan dx="8" class="t-sub">{a.label}</tspan></text>
+        </g>
+      ))}
+    </g>
+    {tWiresA.map((_, i) => (
+      <circle r="4.5" class="msg-dot">
+        <animateMotion dur={`${cycle / 2}s`} begin={`${i * 0.9}s`} repeatCount="indefinite" keyPoints={i === 1 ? "1;0" : "0;1"} keyTimes="0;1" calcMode="linear"><mpath href={`#ta${i}`} /></animateMotion>
+      </circle>
+    ))}
+    {tWiresP.map((_, i) => (
+      <circle r="4.5" class="msg-dot">
+        <animateMotion dur={`${cycle / 2}s`} begin={`${0.45 + i * 1.1}s`} repeatCount="indefinite" keyPoints={i === 0 ? "0;1" : "1;0"} keyTimes="0;1" calcMode="linear"><mpath href={`#tp${i}`} /></animateMotion>
+      </circle>
+    ))}
+  </svg>
+</figure>
+
+<script>
+  // SMIL ignores prefers-reduced-motion, so pause the diagram (in its finished state)
+  // when motion is reduced, and while it is off screen.
+  const team = document.querySelector<HTMLElement>("[data-team]");
+  if (team) {
+    const svgs = [...team.querySelectorAll<SVGSVGElement>("svg")];
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    let visible = false;
+    const apply = () => {
+      for (const s of svgs) {
+        if (reduced.matches) {
+          s.setCurrentTime(5.5);
+          s.pauseAnimations();
+        } else if (visible) s.unpauseAnimations();
+        else s.pauseAnimations();
+      }
+      team.toggleAttribute("data-still", reduced.matches);
+    };
+    new IntersectionObserver((e) => {
+      visible = e.some((x) => x.isIntersecting);
+      apply();
+    }).observe(team);
+    reduced.addEventListener("change", apply);
+    apply();
+  }
+</script>

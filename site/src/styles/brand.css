@@ -18,8 +18,8 @@
     (7.8:1 on the dark background). Use it for outlines, check icons and the focus ring.
   - To recolour the brand, change --accent and --accent-strong in the light block and
     --accent in the two dark blocks below.
-  - Identity colours id-1…8 tell senders apart and mean nothing else (unchanged from
-    the board view).
+  - Identity colours id-1…8 tell senders apart and mean nothing else (the board view's
+    values, web/app/tokens.css).
 
   Type
   - Geist for everything, Geist Mono for code, commands, hashes and small labels. Both
@@ -78,6 +78,12 @@
   --rule: #e3e3dc;
   --field-border: #cfd0c8;
   --link: var(--ink);        /* links are ink with an underline */
+  /* Agent status, as the board view draws it: working is ink, needing a person is the
+     accent, on hold is violet, idle is a quiet grey. */
+  --status-working: #0f100d;
+  --status-needs: #2b7f1c;
+  --status-hold: #6a5aa8;
+  --status-idle: #7d7f76;
   --on-ink: #fafaf7;
 
   --id-1-bg: #fbd5d4; --id-1-fg: #743839;
@@ -103,19 +109,23 @@
   --sidebar: #10110d;
   --selected: #1d1f19;
   --ink: #edeee7;
-  --muted: #a0a298;
-  --faint: #74766d;
+  --muted: #b3b5ab;
+  --faint: #8a8c82;
+  --status-working: #edeee7;
+  --status-needs: #14b8a6;
+  --status-hold: #a898e6;
+  --status-idle: #8a8c82;
   --rule: #22241e;
   --field-border: #3a3c34;
   --on-ink: #0c0d0a;
-  --id-1-bg: #523333; --id-1-fg: #fdcdcc;
-  --id-2-bg: #503627; --id-2-fg: #fad1bb;
-  --id-3-bg: #3c4024; --id-3-fg: #d9e0b7;
-  --id-4-bg: #2c4431; --id-4-fg: #c2e6c8;
-  --id-5-bg: #1e4540; --id-5-fg: #b3e7df;
-  --id-6-bg: #383b55; --id-6-fg: #d3d8ff;
-  --id-7-bg: #44374f; --id-7-fg: #e6d1f7;
-  --id-8-bg: #4e3343; --id-8-fg: #f7cde3;
+  --id-1-bg: #7a3338; --id-1-fg: #ffd6d6;
+  --id-2-bg: #763a0d; --id-2-fg: #ffdcbe;
+  --id-3-bg: #4f5200; --id-3-fg: #e8edb8;
+  --id-4-bg: #1d5b2b; --id-4-fg: #c9f5ce;
+  --id-5-bg: #30506c; --id-5-fg: #d1ecff;
+  --id-6-bg: #414682; --id-6-fg: #dce4ff;
+  --id-7-bg: #5a3d78; --id-7-fg: #f3ddff;
+  --id-8-bg: #723459; --id-8-fg: #ffd6f3;
   --float-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 12px 32px -12px rgb(0 0 0 / 0.8);
 }
 
@@ -131,19 +141,23 @@
     --sidebar: #10110d;
     --selected: #1d1f19;
     --ink: #edeee7;
-    --muted: #a0a298;
-    --faint: #74766d;
+    --muted: #b3b5ab;
+    --faint: #8a8c82;
+    --status-working: #edeee7;
+    --status-needs: #14b8a6;
+    --status-hold: #a898e6;
+    --status-idle: #8a8c82;
     --rule: #22241e;
     --field-border: #3a3c34;
     --on-ink: #0c0d0a;
-    --id-1-bg: #523333; --id-1-fg: #fdcdcc;
-    --id-2-bg: #503627; --id-2-fg: #fad1bb;
-    --id-3-bg: #3c4024; --id-3-fg: #d9e0b7;
-    --id-4-bg: #2c4431; --id-4-fg: #c2e6c8;
-    --id-5-bg: #1e4540; --id-5-fg: #b3e7df;
-    --id-6-bg: #383b55; --id-6-fg: #d3d8ff;
-    --id-7-bg: #44374f; --id-7-fg: #e6d1f7;
-    --id-8-bg: #4e3343; --id-8-fg: #f7cde3;
+    --id-1-bg: #7a3338; --id-1-fg: #ffd6d6;
+    --id-2-bg: #763a0d; --id-2-fg: #ffdcbe;
+    --id-3-bg: #4f5200; --id-3-fg: #e8edb8;
+    --id-4-bg: #1d5b2b; --id-4-fg: #c9f5ce;
+    --id-5-bg: #30506c; --id-5-fg: #d1ecff;
+    --id-6-bg: #414682; --id-6-fg: #dce4ff;
+    --id-7-bg: #5a3d78; --id-7-fg: #f3ddff;
+    --id-8-bg: #723459; --id-8-fg: #ffd6f3;
     --float-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 12px 32px -12px rgb(0 0 0 / 0.8);
   }
 }

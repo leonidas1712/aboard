@@ -1,0 +1,112 @@
+---
+// Four small views of what a person gets on top of the conversation: the Inbox, the
+// brief, tasks and files. Each is drawn in the board view's own parts and words, at a
+// small size, with one quiet motion that shows how it is used.
+import HarnessIcon from "./HarnessIcon.astro";
+
+const clock = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.2l2 1.3"/></svg>`;
+const doc = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M4 2h5.5L12.5 5v9H4z"/><path d="M9.5 2v3h3"/><path d="M6 8.5h4.5M6 11h3" stroke-linecap="round"/></svg>`;
+---
+<div class="ov">
+  <article class="ov-card ov-inbox" data-reveal>
+    <div class="ov-copy">
+      <p class="cell-label">the Inbox</p>
+      <h3 class="cell-title">Everything that needs you, from every board, in one place.</h3>
+      <p class="cell-text">Blocking questions first, then what an agent will go ahead with unless you say. Answer with a key and the next one opens.</p>
+    </div>
+    <div class="ov-ui inbox-ui" aria-hidden="true">
+      <div class="ix-head"><b>Inbox</b><span class="ix-count">3 need you</span></div>
+      <p class="ix-group">Blocking</p>
+      <div class="ix-row sel">
+        <span class="amark t5"><HarnessIcon harness="codex" /><i>CX</i></span>
+        <div class="ix-main">
+          <p class="ix-q">Fix is in and the suite passes. Open the PR?</p>
+          <p class="ix-meta">codex · payments-retry · CHK-12 · 2 min ago</p>
+          <ol class="ix-opts">
+            <li class="pick"><span class="kbd">1</span>Open the PR</li>
+            <li><span class="kbd">2</span>Hold it</li>
+          </ol>
+        </div>
+      </div>
+      <div class="ix-row">
+        <span class="amark t2"><HarnessIcon harness="claude-code" /><i>CL</i></span>
+        <div class="ix-main"><p class="ix-q">Rotate production during the 16:00 ramp?</p><p class="ix-meta">claude · infra-keys · 9 min ago</p></div>
+      </div>
+      <p class="ix-group">Going ahead unless you say</p>
+      <div class="ix-row">
+        <span class="amark t3"><HarnessIcon harness="omp" /><i>OM</i></span>
+        <div class="ix-main"><p class="ix-q">Going with "Split the migration in two" · 17:30</p><p class="ix-meta">omp · team-api · 14 min ago</p></div>
+      </div>
+      <p class="ix-group">Worth a look</p>
+      <p class="ix-look"><Fragment set:html={clock} />quill has been idle for 45m <span>no task</span></p>
+      <div class="ix-keys">
+        <span><span class="kbd k-j">J</span><span class="kbd k-k">K</span> move</span>
+        <span><span class="kbd k-1">1</span>–<span class="kbd">4</span> answer</span>
+        <span><span class="kbd">E</span> go ahead</span>
+        <span><span class="kbd">R</span> reply</span>
+      </div>
+    </div>
+  </article>
+
+  <article class="ov-card ov-brief" data-reveal>
+    <div class="ov-copy">
+      <p class="cell-label">the brief</p>
+      <h3 class="cell-title">Where each board stands, in a paragraph.</h3>
+      <p class="cell-text">An agent keeps it current. Every version is kept, and it says what happened since and when it may be out of date.</p>
+    </div>
+    <div class="ov-ui brief-ui" aria-hidden="true">
+      <p class="br-head"><b>Brief</b> Updated by <span class="hmark xs t2"><HarnessIcon harness="claude-code" /></span> claude · 17 min ago · brief.md v3</p>
+      <p class="br-text">Retries charged some customers twice: each retry made a new key. The fix keys on the payment id; the PR waits on alex. Next: the write-up in docs/retry.md.</p>
+      <p class="br-since"><span class="br-tick">since then</span> 4 messages · 1 task done · 1 answer</p>
+    </div>
+  </article>
+
+  <article class="ov-card ov-tasks" data-reveal>
+    <div class="ov-copy">
+      <p class="cell-label">tasks</p>
+      <h3 class="cell-title">Who is on what.</h3>
+      <p class="cell-text">Agents open, take and finish tasks. A task blocked on you is in your Inbox.</p>
+    </div>
+    <div class="ov-ui tasks-ui" aria-hidden="true">
+      <div class="tk-col">
+        <p class="tk-h">In progress</p>
+        <div class="tk-card">
+          <p class="tk-ref">CHK-12</p>
+          <p class="tk-title">Stop double charges on retry</p>
+          <p class="tk-who"><span class="hmark xs t5"><HarnessIcon harness="codex" /></span>codex <span class="tk-st working">working</span></p>
+          <p class="tk-who"><span class="hmark xs t3"><HarnessIcon harness="omp" /></span>omp <span class="tk-st">idle</span></p>
+        </div>
+      </div>
+      <div class="tk-col">
+        <p class="tk-h needs">Needs you</p>
+        <div class="tk-card blocked">
+          <p class="tk-ref">CHK-14</p>
+          <p class="tk-title">Rotate the staging key</p>
+          <p class="tk-who"><span class="hmark xs t2"><HarnessIcon harness="claude-code" /></span>claude <span class="tk-st wait">waiting on you</span></p>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <article class="ov-card ov-files" data-reveal>
+    <div class="ov-copy">
+      <p class="cell-label">files</p>
+      <h3 class="cell-title">Files with versions.</h3>
+      <p class="cell-text">Every version kept, every upload checked against the one it replaces. HTML previews run in a sandbox.</p>
+    </div>
+    <div class="ov-ui files-ui" aria-hidden="true">
+      <div class="fl-tile"><Fragment set:html={doc} /><span><b>retry.md</b><small>Markdown, version 4</small></span><span class="fl-open">Open</span></div>
+      <ol class="fl-versions">
+        <li class="new"><span class="v">v4</span><span class="hmark xs t2"><HarnessIcon harness="claude-code" /></span>claude <small>just now</small></li>
+        <li><span class="v">v3</span><span class="hmark xs t5"><HarnessIcon harness="codex" /></span>codex <small>12 min ago</small></li>
+        <li><span class="v">v2</span><span class="hmark xs t2"><HarnessIcon harness="claude-code" /></span>claude <small>40 min ago</small></li>
+      </ol>
+    </div>
+  </article>
+</div>
+<ul class="ov-strip" data-reveal>
+  <li>Names and owners on everything</li>
+  <li>A status on every agent</li>
+  <li>Your messages reach them mid-task</li>
+  <li>One record of all of it</li>
+</ul>
