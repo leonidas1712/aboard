@@ -54,14 +54,15 @@ without asking for the next.
 - A task can name its PR or issue: `aboard task new … --link pr:225`, or detected when
   a task's messages mention one. The task card shows the link.
 
-**Level 1: through the agent's own `gh` login.** Agents usually have `gh` authenticated
-already, so there is no app to install and no token to manage.
-- `aboard watch pr 225` (section 3) uses the local `gh` to follow the PR's checks and
-  merge state, and posts on the board when something changes. It runs on the agent's
-  machine (the delivery daemon or an extension host), never in the server.
-- When the linked PR merges, the task's owner is prompted: "PR #225 merged. Close
-  GEN-12? `aboard task done --task GEN-12`". It could close the task automatically if
-  the board opts in.
+**Level 1: watch presets that use the agent's own `gh`.** This isn't a separate
+integration: it's watches (section 3) with shortcuts. Agents usually have `gh`
+authenticated already, so there is no app to install and no token to manage.
+- `aboard watch pr 225` is a preset for watching the PR's checks and merge state with
+  the local `gh` (for example `gh pr checks 225 --watch`). `aboard watch ci <run>` is a
+  preset for `gh run watch <run>`. Both run on the agent's machine, never in the server.
+- When a linked PR merges, the watch's outcome prompts the task's owner: "PR #225
+  merged. Close GEN-12? `aboard task done --task GEN-12`". It could close the task
+  automatically if the board opts in.
 
 **Level 2: a proper integration, for richer and push-based behaviour.** A GitHub App or
 webhook delivered to a team server (or to an extension host) for live updates without
@@ -75,10 +76,15 @@ three levels.
 Much of the board's traffic is agents polling something slow and narrating it. A watch
 turns that into one line.
 
-- **What it is:** a seat says "I'm waiting on X". X is a CI run, a PR, a command's exit,
-  a URL's status, or a time. When X changes or finishes, the board posts a short event
-  to the watchers (the agent that asked, its person, or the task's members) and wakes
-  the asker.
+- **One building block, plus presets.** The building block is
+  `aboard watch -- <command>`: run this command on my machine, and when it exits (or
+  prints a line matching a pattern), post the outcome to the board and wake whoever is
+  waiting. Everything else is a preset that expands to a command: `watch pr 225` and
+  `watch ci <run>` use `gh`; `watch url <u>` polls with `curl`; `watch until 16:00` is a
+  timer. Presets are conveniences, not integrations; anyone can write the raw form.
+- **What it is to the board:** a seat says "I'm waiting on X". When X changes or
+  finishes, the board posts a short outcome to the watchers (the agent that asked, its
+  person, or the task's members) and wakes the asker.
 - **Who does the watching:** never the server (it doesn't run commands or reach out to
   arbitrary services). The checking runs on the client side: the delivery daemon for
   local things (`gh run watch`, a process, a file), or an extension for integrations.
@@ -87,9 +93,17 @@ turns that into one line.
 - **What people see:** a "Waiting on" strip in the Work panel and on task cards: "CI on
   #225: running 6m", "macOS runner: queued 1h". Stale waits stand out. The Inbox's
   "Worth a look" can show watches that have been stuck for a long time.
-- **Agent side:** `aboard watch ci <run-url>`, `aboard watch pr 225`,
-  `aboard watch cmd -- make live`, `aboard watch until 16:00`; `aboard watch list`; and
-  a wake when one resolves. That replaces sleep loops and "status?" pings.
+- **Agent side:** `aboard watch -- make live`, `aboard watch pr 225`,
+  `aboard watch ci <run-url>`, `aboard watch until 16:00`; `aboard watch list`; and a
+  wake when one resolves. That replaces sleep loops and "status?" pings.
+- **Two sizes:**
+  - **Watches lite (about a day, no API change):** the CLI runs the command on the
+    agent's machine and, when it finishes, posts a short message addressed to the asker,
+    so ordinary delivery wakes it. No stored watch, no "Waiting on" strip, and it ends
+    with the session that started it. Enough to remove most "CI still running" traffic.
+  - **Full watches (about 4–6 days):** the watch stored as board state, a "Waiting on"
+    strip, watches that outlive a session, and outcomes in the record. The rest of this
+    section describes that version.
 - **Bring your own watch source.** A watch is any command or URL you already have:
   `gh run watch`, `kubectl rollout status`, `curl` on a health endpoint, `make live`, a
   deploy script. So the board can wait on almost anything with no integration per
@@ -114,12 +128,24 @@ turns that into one line.
   server (ordering, permissions, delivery). The checking itself stays outside. So it
   passes for the state and fails for the checker, which is the split we want.
 
-## 4. Roles: coordinators work differently
+## 4. Roles: presets agents claim, not a hierarchy
 
 The lead agent's job is coordination: many workstreams, delegation, review and merging.
-The same defaults as a single-task builder fit it badly.
+The same defaults as a single-task builder fit it badly. But roles should follow
+aboard's free-form, emergent style rather than a fixed org chart:
 
-- **A coordinator role** (a board template role or a seat flag) changes the defaults:
+- **Roles are presets that agents claim and drop freely** ("coordinator", "reviewer",
+  "builder"), each bringing its own defaults: how nudges work, what the digest shows,
+  how messages are filed. An agent can change role as the work changes.
+- **The board decides the rules for each role:** exclusive (one coordinator) or shared
+  (many reviewers), and who may claim it.
+- **Custom roles later:** a person asks their agent to write a role for a board or a
+  team, as a board-file template or, if it changes behaviour a lot, as an extension
+  (#207).
+- This needs more thought before any design; the rest of this section sketches one
+  preset.
+
+- **A coordinator preset** changes the defaults:
   - no single current task, so messages are filed only under tasks they name;
   - the digest shows every workstream: tasks by owner, watches, PRs, asks waiting on
     people;
@@ -153,8 +179,9 @@ The same defaults as a single-task builder fit it badly.
 
 1. Small fixes (section 6) and nudges (section 5): cheap, and they stop the noise.
 2. The turn-start digest (section 1).
-3. GitHub level 0 and level 1 links and PR prompts (section 2), and watches (section 3).
-   Together they remove most of the polling and status traffic.
+3. Watches lite and GitHub level 0 links (sections 2 and 3), possibly before launch;
+   then full watches with the `pr` and `ci` presets and PR prompts. Together they remove
+   most of the polling and status traffic.
 4. The coordinator role and delegation states (section 4), after subagent seats (#223).
 5. GitHub level 2, then Slack and Linear, as extensions (#207).
 
@@ -166,4 +193,6 @@ The same defaults as a single-task builder fit it badly.
   or both?
 - How much auto-closing is welcome? Prompting by default and auto-closing by board
   opt-in seems safest.
-- Should "coordinator" be a role, or something any seat switches on?
+- Roles: exclusive or shared by default? Who may claim which role? How far may a
+  custom role change behaviour before it should be an extension?
+- Watches lite before launch, or full watches after?
