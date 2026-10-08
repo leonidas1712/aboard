@@ -561,7 +561,7 @@ function TellTheTeam({ board, task, to, suggestions, preset, narrow, onPosted }:
     {problem !== null && <Problem error={problem} />}
     <div className="flex flex-wrap items-center gap-2">
       {suggestions.map((s) => <button key={s.label} type="button" onClick={() => { setText(s.text); setPicked(s.to); key.current = ""; }} className="min-h-11 rounded-control border border-rule px-3 text-meta transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover">{s.label}</button>)}
-      <button type="submit" disabled={busy || !text.trim()} className="ml-auto min-h-11 rounded-control border border-accent-strong bg-accent px-5 font-bold text-on-accent transition-opacity duration-[140ms] ease-out disabled:opacity-60">Send</button>
+      <button type="submit" disabled={busy || !text.trim()} className="ml-auto min-h-11 rounded-control border border-accent-strong bg-accent px-5 font-bold text-on-accent transition-opacity duration-[140ms] ease-out disabled:border-rule disabled:bg-selected disabled:text-muted">Send</button>
     </div>
   </form>;
 }

@@ -186,6 +186,12 @@ test("the brief shows under the Now line with its version, author and what happe
   await brief.getByRole("button", { name: "All 2 versions" }).click();
   const panel = page.getByRole("region", { name: "File brief.md" });
   await expect(panel.getByRole("region", { name: "Versions" }).getByRole("listitem")).toHaveCount(2);
+
+  // Closed, the summary reads as text: inline Markdown marks don't show.
+  await brief.getByRole("button", { name: "Show less" }).click();
+  await putBrief(board, "brief.md", "# Checkout v2\n\n_Last updated 2026-10-08 by @claude-2._ **Staging** is on `v2`; see [the runbook](https://example.com/runbook), as in snake_case_notes.\n", { id: first.id, version: 2 });
+  await expect(brief.locator(".brief-byline")).toContainText("brief.md v3");
+  await expect(brief.locator(".brief-summary")).toHaveText("Last updated 2026-10-08 by @claude-2. Staging is on v2; see the runbook, as in snake_case_notes.");
 });
 
 test("a person writes the brief and edits it, each save a new version with the exact text", async ({ page }) => {

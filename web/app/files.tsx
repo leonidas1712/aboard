@@ -138,8 +138,8 @@ function Who({ by, me, identity }: { by: MemberRef; me: string | null; identity:
       <span className="relative inline-flex shrink-0" data-status={status?.tone}>
         <SenderMark name={by.name} kind={by.kind} identity={identity(by)} className="size-5 rounded-[5px] text-[10px]" />
         {status && (
-          <span aria-hidden className="absolute -top-[3px] -right-[3px] flex size-2.5 items-center justify-center rounded-full bg-[var(--mark-ring,var(--background))]">
-            <StatusDot tone={status.tone} className="size-1.5" />
+          <span aria-hidden className="absolute -top-1 -right-1 flex size-3 items-center justify-center rounded-full bg-[var(--mark-ring,var(--background))]">
+            <StatusDot tone={status.tone} className="size-2" />
           </span>
         )}
       </span>
@@ -553,7 +553,7 @@ function NewFile({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control border border-accent-strong bg-accent px-4 font-bold text-on-accent disabled:opacity-60">
+        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control border border-accent-strong bg-accent px-4 font-bold text-on-accent disabled:border-rule disabled:bg-selected disabled:text-muted">
           {busy ? "Uploading…" : "Upload"}
         </button>
         {taken && (
