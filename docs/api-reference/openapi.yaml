@@ -5792,6 +5792,14 @@ components:
             The `seq` of the event that set `delivery_mode`, or 0 when it was never set. A
             client that reads the inbox more than once at a time keeps the mode with the
             highest revision.
+        midturn_policy:
+          allOf: [{ $ref: "#/components/schemas/MidturnPolicy" }]
+          description: |
+            The agent's effective own-person policy, read in the same transaction as
+            these messages and current membership. Missing or a failed fresh inbox
+            read never authorizes peer mid-turn delivery. The message's authoritative
+            sender classification identifies same-owner agents using immutable ids;
+            names and display owners grant no authority.
         work:
           allOf: [{ $ref: "#/components/schemas/AgentWork" }]
           description: |
