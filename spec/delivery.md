@@ -1531,6 +1531,13 @@ recipient identities and the current turn id; retrying or reconnecting the same 
 cannot reset it. The cap is charged only by a durable handoff allocation, whose retries
 reuse that allocation. Excess messages remain queued; they are not rejected or lost.
 
+A peer tool-boundary handoff is confirmed only after the hook has successfully
+written its additional context, or the extension has successfully added the aside.
+The client then reports the immutable handoff id with `received`. A later tool
+event alone must not confirm a peer handoff whose output failed. An unconfirmed
+allocation keeps its sender cap charged and remains eligible for recovery at turn
+end; a reconnect never creates another allowance for that sender in the same turn.
+
 Before each handoff, recheck current access, seat generation, ownership, policy,
 mode and live capability. A policy downgrade takes effect before the next handoff.
 The harness must declare `midturn-peer` as well as `tool-boundary`. An extension must
