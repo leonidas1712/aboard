@@ -320,6 +320,7 @@ func TestOwnerReachesBusy(t *testing.T) {
 		l := newLab(t)
 		d.setUp(l)
 		board := l.pairCLI()
+		l.run("delivery", "midturn", "owner-only")
 		proj := l.project("project", d.p.Harness)
 		secs := slowSeconds(20)
 		writeSlowTask(t, proj, secs)
