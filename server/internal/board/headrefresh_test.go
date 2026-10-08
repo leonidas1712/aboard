@@ -20,10 +20,11 @@ import (
 
 type headReads struct {
 	board.Store
-	mu          sync.Mutex
-	all         int
-	boards      []string
-	fullMembers int
+	mu           sync.Mutex
+	all          int
+	boards       []string
+	fullMembers  int
+	unreadCounts int
 }
 
 type watchedHeads struct {
@@ -176,6 +177,13 @@ func (tx headReadTx) Members(id string) ([]board.Member, error) {
 	return tx.ReadTx.Members(id)
 }
 
+func (tx headReadTx) CountUnread(m board.Member, addressedOnly, mentions bool) (int64, error) {
+	tx.reads.mu.Lock()
+	tx.reads.unreadCounts++
+	tx.reads.mu.Unlock()
+	return tx.ReadTx.CountUnread(m, addressedOnly, mentions)
+}
+
 func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 	w := newKeyWorld(t)
 	st := &headReads{Store: w.gate.Store}
@@ -213,7 +221,6 @@ func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 		t.Fatalf("changed head: %+v %v", u, err)
 	}
 	st.mu.Lock()
-	defer st.mu.Unlock()
 	if st.all != 0 {
 		t.Errorf("board notification refreshed the complete membership list %d times", st.all)
 	}
@@ -225,4 +232,19 @@ func TestAStreamRefreshesOnlyTheBoardThatChanged(t *testing.T) {
 			t.Error("board notification refreshed the unchanged sibling")
 		}
 	}
+	st.mu.Unlock()
+	if _, _, err := w.svc.SetPresence(ctx, w.auth(t, w.agent), board.PresenceWorking, "all"); err != nil {
+		t.Fatal(err)
+	}
+	st.mu.Lock()
+	st.unreadCounts = 0
+	st.mu.Unlock()
+	if u, _, err := f.Next(ctx, nil); err != nil || len(u.Presence) != 1 {
+		t.Fatalf("presence update: %+v %v", u, err)
+	}
+	st.mu.Lock()
+	if st.unreadCounts != 0 {
+		t.Errorf("presence-only change recounted messages %d times", st.unreadCounts)
+	}
+	st.mu.Unlock()
 }

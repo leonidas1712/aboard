@@ -113,6 +113,9 @@ type ReadTx interface {
 	MemberByName(boardID, name string) (Member, error)
 	// Members lists a board's members in the order they joined.
 	Members(boardID string) ([]Member, error)
+	// StreamMembers returns identity, owner, status, cursor and presence only. It
+	// includes human seats so streams can exclude agents whose owner left.
+	StreamMembers(boardID string) ([]Member, error)
 	// JoinCodeByDigest finds a join code by the digest of the code.
 	JoinCodeByDigest(digest string) (JoinCode, error)
 	// JoinCodeByID finds a join code by id.

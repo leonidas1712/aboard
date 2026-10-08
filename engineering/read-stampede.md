@@ -46,3 +46,8 @@ The stream member read will use a narrow internal store projection: permanent me
 and board IDs, name, kind, owner ID, status, cursor and presence. It must include human
 members so the existing active-owner filter still hides agents whose person left.
 Token, role, display and current-task fields are not needed for this snapshot.
+
+Change-kind refreshes distinguish board events, presence, agent receipts and the
+person's own read position. Presence and agent receipts do not recount the person's
+unread messages. Human read acknowledgements have their own owner-scoped key. A board
+event or reconciliation tick still checks every field needed on the affected boards.

@@ -155,7 +155,7 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 			if positions[id], err = positionOf(tx, me, false); err != nil {
 				return err
 			}
-			members, err := tx.Members(id)
+			members, err := tx.StreamMembers(id)
 			if err != nil {
 				return err
 			}
