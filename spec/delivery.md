@@ -1579,6 +1579,12 @@ must not be treated as proof that every message reached the model. Confirmation 
 immutable retry rules still apply; emitting hook JSON alone is not model receipt.
 Continuation prompts do not replenish the same-owner sender's logical-turn cap.
 
+Aboard caps Stop reasons at 2,000 UTF-8 bytes, below the documented approximate
+token limit. Messages that cannot fit receive an identity-only read hint directing
+the agent to `aboard inbox`; their bodies remain unread and unacknowledged. A hint
+is shown once per binding while pending, rather than continuing empty turns forever.
+The normal inbox command reads and acknowledges the full messages.
+
 The installed 0.160.0 CLI must pass an isolated live proof of Stop continuation,
 combined delivery and no external queue admission while busy before this profile
 path is reported as supported. The official hook reference is
