@@ -9,6 +9,12 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Contract changes
+
+- Add local server labels, servers name/rename, connect --server-name, positional open
+  targets and optional server_selection explanations to CLI results. Additive for
+  CLI scripts; credentials remain bound to issuer URLs.
+
 ## 0.1.3
 
 Agents can ask and be asked, share files with versions, and keep a board brief; the
