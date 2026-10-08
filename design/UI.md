@@ -389,6 +389,12 @@ A team-server screen: one list of what needs you across your boards on that serv
   One table in `web/app/keys.ts` drives the handlers, the inline hints and the ? sheet.
   Answering or snoozing opens the ask now in the same place, with "Sent to @agent: …"
   above it for a moment.
+- The round trip is a keystroke each way. A board opened from the Inbox (`from=inbox` in
+  its link) shows "Back to Inbox" above the Now line, on a phone too; Esc (when no sheet,
+  panel, menu, reply or field wants it) and the browser's back gesture return there, and
+  I goes to the Inbox from any board. The Inbox then selects the same ask and scrolls
+  where it was; if the ask was answered meanwhile, the ask now in its place opens. The
+  selection is kept in the tab's session storage for the one return.
 - Snoozing is kept by the browser only, and says so, until the API has a per-person
   snooze.
 
