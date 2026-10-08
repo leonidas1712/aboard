@@ -376,25 +376,19 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 		moved  bool
 		owner  string
 	)
-	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, _, err := seatOf(tx, *p.Agent)
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
+		b, me, err := seatOf(tx, *p.Agent)
 		if err != nil {
 			return err
 		}
 		if upTo > b.HeadSeq {
 			return ackOutOfRange(upTo, b.HeadSeq)
 		}
-		before, err := tx.MemberByName(b.ID, p.Agent.Name)
-		if err != nil {
-			return err
+		cursor, moved, owner = max(me.Cursor, upTo), upTo > me.Cursor, me.HumanID
+		if moved {
+			return tx.SetCursor(me.ID, cursor)
 		}
-		if err := tx.SetCursor(p.Agent.ID, upTo); err != nil {
-			return err
-		}
-		me, err := tx.MemberByName(b.ID, p.Agent.Name)
-		cursor, moved = me.Cursor, me.Cursor != before.Cursor
-		owner = me.HumanID
-		return err
+		return nil
 	})
 	if err == nil && moved {
 		// Whoever acknowledged, the owner's delivery daemon follows the read position.

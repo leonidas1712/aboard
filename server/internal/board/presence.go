@@ -82,7 +82,7 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 	var b Board
 	var me Member
 	changed := false
-	err := s.writeAs(ctx, p, func(tx Tx) error {
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
 		var err error
 		if b, me, err = seatOf(tx, *p.Agent); err != nil {
 			return err

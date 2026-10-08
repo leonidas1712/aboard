@@ -16,6 +16,13 @@ type Store interface {
 	Write(ctx context.Context, fn func(Tx) error) error
 }
 
+// BookkeepingStore may group acknowledgement and presence callbacks into a commit.
+// Each callback has its own rollback boundary. Success waits for the durable commit.
+// Event writes use Store.Write. Stores without this port keep separate transactions.
+type BookkeepingStore interface {
+	WriteBookkeeping(ctx context.Context, fn func(Tx) error) error
+}
+
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {

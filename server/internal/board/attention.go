@@ -57,7 +57,7 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		owner string
 		kind  string
 	)
-	err := s.writeAs(ctx, p, func(tx Tx) error {
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
 		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -65,8 +65,10 @@ func (s *Service) AckBoard(ctx context.Context, p Principal, boardName string, u
 		if upTo > b.HeadSeq {
 			return ackOutOfRange(upTo, b.HeadSeq)
 		}
-		if err := tx.SetCursor(me.ID, upTo); err != nil {
-			return err
+		if upTo > me.Cursor {
+			if err := tx.SetCursor(me.ID, upTo); err != nil {
+				return err
+			}
 		}
 		moved, id = upTo > me.Cursor, b.ID
 		owner = me.HumanID

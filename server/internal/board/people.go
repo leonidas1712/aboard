@@ -78,7 +78,19 @@ func workingKey(tx ReadTx, id, now string) (AccessKey, error) {
 // expired since the request was authenticated can't write, nor can a browser login or
 // agent token it started. Every write a caller makes goes through here.
 func (s *Service) writeAs(ctx context.Context, p Principal, fn func(Tx) error) error {
-	return s.st.Write(ctx, func(tx Tx) error {
+	return s.writeWith(ctx, p, fn, s.st.Write)
+}
+
+func (s *Service) writeBookkeepingAs(ctx context.Context, p Principal, fn func(Tx) error) error {
+	write := s.st.Write
+	if st, ok := s.st.(BookkeepingStore); ok {
+		write = st.WriteBookkeeping
+	}
+	return s.writeWith(ctx, p, fn, write)
+}
+
+func (s *Service) writeWith(ctx context.Context, p Principal, fn func(Tx) error, write func(context.Context, func(Tx) error) error) error {
+	return write(ctx, func(tx Tx) error {
 		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
 			return err
 		}
