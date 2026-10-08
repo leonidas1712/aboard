@@ -1,0 +1,141 @@
+---
+title: "Kubernetes"
+description: "Run an aboard team server in Kubernetes from the recipe: a volume claim, a deployment, a service and an ingress."
+---
+
+At the end of this page an aboard team server runs in your cluster at an `https://`
+address, you are signed in as its admin, and you know how to back it up, upgrade it and
+go back. [Run a team server](/team-server) explains the settings and the image.
+
+[`deploy/kubernetes/aboard.yaml`](https://github.com/leonidas1712/aboard/blob/main/deploy/kubernetes/aboard.yaml)
+is a complete recipe: a volume claim, a deployment, a service and an ingress.
+
+## Deploy it
+
+<Steps>
+  <Step title="Get the recipe">
+    Take the recipe from the release you run, and make a namespace for it:
+
+    ```bash
+    curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v0.1.3/deploy/kubernetes/aboard.yaml
+    kubectl create namespace aboard
+    ```
+  </Step>
+
+  <Step title="Fill in your cluster's values">
+    Edit `aboard.yaml`:
+
+    - **The host.** Replace `aboard.example.com` everywhere: in `ABOARD_PUBLIC_URL`, in
+      the `Host` header of the three probes, and in the ingress's `tls` and `rules`.
+    - **The image.** The release you run, such as `ghcr.io/leonidas1712/aboard:0.1.3`,
+      or your own registry's copy.
+    - **The storage class.** Uncomment `storageClassName` and name a class backed by a
+      block disk. Never NFS or another network file system.
+    - **The ingress.** Uncomment `ingressClassName` and name your controller. Point
+      `secretName: aboard-tls` at the certificate for the host: issue it with your
+      cluster's certificate manager, or create it from files with
+      `kubectl create secret tls aboard-tls -n aboard --cert=tls.crt --key=tls.key`.
+    - **The timeouts.** The event stream and long waits for messages stay open for up
+      to 10 minutes, so the ingress needs a read timeout of at least 11 minutes. With
+      ingress-nginx, uncomment these annotations in the ingress's `metadata`; other
+      controllers take the timeout their own way:
+
+      ```yaml
+      annotations:
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "660"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "660"
+      ```
+
+      Ingress controllers keep the `Host` header by default; keep it so.
+  </Step>
+
+  <Step title="Let the cluster pull a private image">
+    Skip this step when the image is public. When it is private, for example a copy in
+    your own registry, make a pull secret with a token that can read packages:
+
+    ```bash
+    kubectl create secret docker-registry aboard-pull -n aboard \
+      --docker-server=ghcr.io --docker-username=<user> --docker-password=<token>
+    ```
+
+    Then uncomment `imagePullSecrets` in the deployment.
+  </Step>
+
+  <Step title="Apply it">
+    ```bash
+    kubectl apply -n aboard -f aboard.yaml
+    kubectl rollout status -n aboard deploy/aboard
+    ```
+
+    The pod is ready once its probes pass. Its log says the first admin was made, and
+    names the file with their key, never the key:
+
+    ```bash
+    kubectl logs -n aboard deploy/aboard
+    ```
+  </Step>
+</Steps>
+
+What the recipe already sets, and why:
+
+- **One replica, recreated on upgrade.** SQLite has one writer, so only one server may
+  open the database at a time. `Recreate` stops the old pod before the new one starts.
+- **A volume claim of 10 GiB, `ReadWriteOnce`.** Messages are small; files count toward
+  it. Grow it with your storage class if it fills.
+- **A locked-down container.** A non-root user, a read-only root file system with
+  `/tmp` on an empty folder for SQLite, and no extra privileges.
+- **No `X-Forwarded-*` headers are read.** The server knows it is behind HTTPS from its
+  public URL. Rate limits per address count the proxy as one address, and the
+  server-wide limits still apply.
+
+## Sign in as the first admin
+
+Pipe the key into `aboard login` on your own machine, and delete the file once the login
+worked:
+
+```bash
+kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://aboard.example.com \
+  && kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key
+```
+
+Then [bring your colleagues in](/team-server#bring-your-colleagues-in).
+
+## Back up
+
+Take a snapshot of the volume with your cluster's or cloud's snapshot tool before each
+upgrade, with the server stopped so the copy is clean. `kubectl scale` returns before
+the pod is gone, so wait for it to be deleted first:
+
+```bash
+kubectl scale -n aboard deploy/aboard --replicas=0
+kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
+# take the snapshot of the aboard-data volume here
+kubectl scale -n aboard deploy/aboard --replicas=1
+```
+
+## Upgrade, and go back
+
+Read the release notes, then point the deployment at the new image and wait for it:
+
+```bash
+kubectl set image -n aboard deploy/aboard aboard=ghcr.io/leonidas1712/aboard:0.2.0
+kubectl rollout status -n aboard deploy/aboard
+```
+
+To go back after an upgrade that worked, stop the server, put the copy the upgrade made
+in place of the database, and start the older image:
+
+```bash
+kubectl scale -n aboard deploy/aboard --replicas=0
+kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
+kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/leonidas1712/aboard:0.1.3 \
+  --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/leonidas1712/aboard:0.1.3","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
+# in that shell:
+ls /data/aboard/backups
+cp /data/aboard/backups/aboard-<time>-schema-<n>.db /data/aboard/aboard.db && rm -f /data/aboard/aboard.db-wal /data/aboard/aboard.db-shm
+exit
+kubectl set image -n aboard deploy/aboard aboard=ghcr.io/leonidas1712/aboard:<older-version>
+kubectl scale -n aboard deploy/aboard --replicas=1
+```
+
+Anything written after that copy was made is lost.
