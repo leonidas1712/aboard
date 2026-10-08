@@ -86,6 +86,15 @@ func TestReceiptChangesWakeOnlyTheOwnersStream(t *testing.T) {
 }
 
 func BenchmarkPostToManyBoardListeners(b *testing.B) {
+	benchmarkHeadChanges(b, false)
+}
+
+func BenchmarkPresenceToManyBoardListeners(b *testing.B) {
+	benchmarkHeadChanges(b, true)
+}
+
+func benchmarkHeadChanges(b *testing.B, presence bool) {
+	b.Helper()
 	ctx := context.Background()
 	clk := clock.NewFake(time.Date(2026, 10, 1, 16, 0, 0, 0, time.UTC))
 	st, err := sqlite.Open(ctx, filepath.Join(b.TempDir(), "aboard.db"), clk)
@@ -112,6 +121,17 @@ func BenchmarkPostToManyBoardListeners(b *testing.B) {
 		}
 		hot = v.Board.Name
 	}
+	var agent board.Principal
+	if presence {
+		joined, err := svc.Join(ctx, p, board.JoinInput{Board: hot, Role: "member"})
+		if err != nil {
+			b.Fatal(err)
+		}
+		agent, err = svc.Authenticate(ctx, joined.Token)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
 	feeds := make([]*board.HeadFeed, 10)
 	for i := range feeds {
 		feeds[i], err = svc.FollowHeads(p)
@@ -129,14 +149,26 @@ func BenchmarkPostToManyBoardListeners(b *testing.B) {
 	}
 	reads.mu.Lock()
 	reads.all, reads.boards = 0, nil
+	reads.unreadCounts = 0
 	reads.mu.Unlock()
 	b.ResetTimer()
-	for range b.N {
-		if _, err := svc.PostMessage(ctx, p, hot, board.NewMessage{Body: "one hot board"}); err != nil {
-			b.Fatal(err)
+	for i := range b.N {
+		if presence {
+			state := board.PresenceWorking
+			if i%2 != 0 {
+				state = board.PresenceIdle
+			}
+			if _, _, err := svc.SetPresence(ctx, agent, state, "all"); err != nil {
+				b.Fatal(err)
+			}
+		} else {
+			if _, err := svc.PostMessage(ctx, p, hot, board.NewMessage{Body: "one hot board"}); err != nil {
+				b.Fatal(err)
+			}
 		}
 		for _, feed := range feeds {
-			if u, _, err := feed.Next(ctx, nil); err != nil || len(u.Heads) != 1 {
+			u, _, err := feed.Next(ctx, nil)
+			if err != nil || (!presence && len(u.Heads) != 1) || (presence && len(u.Presence) != 1) {
 				b.Fatalf("stream update: %+v %v", u, err)
 			}
 		}
@@ -145,6 +177,7 @@ func BenchmarkPostToManyBoardListeners(b *testing.B) {
 	reads.mu.Lock()
 	b.ReportMetric(float64(reads.all)/float64(b.N), "membership-scans/post")
 	b.ReportMetric(float64(len(reads.boards))/float64(b.N), "board-reads/post")
+	b.ReportMetric(float64(reads.unreadCounts)/float64(b.N), "unread-counts/change")
 	reads.mu.Unlock()
 }
 

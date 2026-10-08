@@ -116,6 +116,9 @@ type ReadTx interface {
 	// StreamMembers returns identity, owner, status, cursor and presence only. It
 	// includes human seats so streams can exclude agents whose owner left.
 	StreamMembers(boardID string) ([]Member, error)
+	// StreamBoard returns only ID, name, head sequence and lifecycle. Callers must
+	// separately validate membership in the same snapshot before exposing it.
+	StreamBoard(boardID string) (Board, error)
 	// JoinCodeByDigest finds a join code by the digest of the code.
 	JoinCodeByDigest(digest string) (JoinCode, error)
 	// JoinCodeByID finds a join code by id.

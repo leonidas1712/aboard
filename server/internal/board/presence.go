@@ -137,7 +137,7 @@ func (s *Service) presenceOn(ctx context.Context, boardIDs []string, p Principal
 			return err
 		}
 		for _, id := range boardIDs {
-			b, err := tx.BoardByID(id)
+			b, err := tx.StreamBoard(id)
 			if errors.Is(err, ErrNotFound) || (err == nil && lifecycleOf(b) == LifecycleDeleted) {
 				continue
 			}

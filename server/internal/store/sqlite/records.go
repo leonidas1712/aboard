@@ -447,6 +447,13 @@ func (t *tx) Members(boardID string) ([]board.Member, error) {
 	return out, rows.Err()
 }
 
+func (t *tx) StreamBoard(boardID string) (board.Board, error) {
+	var b board.Board
+	err := t.queryRow("SELECT id, name, head_seq, lifecycle FROM boards WHERE id = ?", boardID).
+		Scan(&b.ID, &b.Name, &b.HeadSeq, &b.Lifecycle)
+	return b, notFound(err)
+}
+
 func (t *tx) StreamMembers(boardID string) ([]board.Member, error) {
 	rows, err := t.tx.QueryContext(t.ctx, `SELECT id, board_id, name, kind, human_id,
 		status, cursor, COALESCE(presence, ''), COALESCE(presence_since, ''),

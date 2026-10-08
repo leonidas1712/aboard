@@ -262,7 +262,7 @@ func (f *HeadFeed) readBoards(ctx context.Context, selected []string, fields hea
 				return err
 			}
 			for _, id := range selected {
-				b, err := tx.BoardByID(id)
+				b, err := tx.StreamBoard(id)
 				if errors.Is(err, ErrNotFound) {
 					continue
 				}
