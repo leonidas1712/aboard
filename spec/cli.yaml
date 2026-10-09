@@ -4043,6 +4043,9 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
       invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      prompt:
+        type: string
+        description: Ready-to-send colleague setup prompt only when an invite is newly executed; absent on replay.
       next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
 
   HeldAdminOutput:
