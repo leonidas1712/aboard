@@ -5,21 +5,28 @@
 // people, charter, rules and details) on the right.
 
 import { lab } from "aboard-lab";
-import { CheckCheck } from "lucide-react";
+import { ArrowLeft, CheckCheck, Menu, PanelRight } from "lucide-react";
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
 import { Header, Problem } from "./chrome";
-import { TaskBoard, TaskContext, TaskDetail, WorkTasks, useTasks } from "./task-ui";
+import { TaskBoard, TaskContext, TaskDetail, type WorkBy, WorkTasks, WorkTitle, useTasks } from "./task-ui";
 import { FilePanel, FilesView, useFiles } from "./files";
+import { Brief } from "./brief";
 import { Composer } from "./composer";
+import { FilesContext } from "./attachments";
 import { replyRecipients } from "./mentions";
 import { FilterChips, FilterControl } from "./filter";
 import { type Limits, type PanelSize, SidePanel, clampSize, headerRow, stripWidth } from "./panels";
 import { Account } from "./account";
+import { HarnessProvider } from "./agent-mark";
+import { attentionCount } from "./asks";
+import { Sheet, useWide } from "./sheet";
 import { usePref } from "./prefs";
+import { Kbd, KeysSheet } from "./keys-sheet";
+import { keyLabel, pressed, typing } from "./keys";
 import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
 import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
 import { threadsOf, useThreadPrefs } from "./threads";
@@ -43,13 +50,19 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const taskState = useTasks(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
   const tasks = taskState.list?.tasks ?? [];
   const fileState = useFiles(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
-  const files = fileState.list?.files ?? [];
+  const files = useMemo(() => fileState.list?.files ?? [], [fileState.list]);
   const [filePanel, setFilePanel] = useState<string | null>(null);
+  // The version the panel opens at, as when an attachment opens it; n makes each request count.
+  const [fileAt, setFileAt] = useState<{ version: number | null; n: number }>({ version: null, n: 0 });
   // Tasks appears with the first task. Files is on every board whose server keeps files,
   // so a person can always put a file on the board from here.
   const views: View[] = ["conversation", ...(tasks.length > 0 ? (["tasks"] as const) : []), ...(fileState.list !== null ? (["files"] as const) : [])];
   const shownView: View = views.includes(view) ? view : "conversation";
+  // A sheet's Back names the view under it.
+  const backTo = shownView === "files" ? "Files" : shownView === "tasks" ? "Tasks" : "Conversation";
   const [showEvents, setShowEvents] = usePref("aboard.showBoardEvents", true);
+  // The Work panel groups the board by task or by agent; each browser remembers which.
+  const [workBy, setWorkBy] = usePref<WorkBy>("aboard.workBy", "task");
   const [leftPref, setLeft] = usePref<PanelSize>("aboard.panel.left", {
     width: leftPanel.initial,
     collapsed: false,
@@ -60,16 +73,27 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   });
   const left = clampSize(leftPref, leftPanel);
   const right = clampSize(rightPref, rightPanel);
+  // On a phone the panels are sheets over the conversation, opened one at a time.
+  const wide = useWide();
+  const [sheet, setSheet] = useState<"left" | "right" | null>(null);
   const openTask = useCallback((ref: string) => {
     setFilePanel(null);
     setTaskPanel(ref);
-    setRight({ ...rightPref, collapsed: false });
-  }, [rightPref, setRight]);
-  const openFile = useCallback((id: string) => {
+    if (wide) setRight({ ...rightPref, collapsed: false });
+    else setSheet("right");
+  }, [rightPref, setRight, wide]);
+  const openFile = useCallback((id: string, version?: number) => {
     setTaskPanel(null);
     setFilePanel(id);
-    setRight({ ...rightPref, collapsed: false });
-  }, [rightPref, setRight]);
+    setFileAt((a) => ({ version: version ?? null, n: a.n + 1 }));
+    if (wide) setRight({ ...rightPref, collapsed: false });
+    else setSheet("right");
+  }, [rightPref, setRight, wide]);
+  // A board opened from the Inbox says so in its link, and offers the way back.
+  const [fromInbox] = useState(() => new URLSearchParams(window.location.search).get("from") === "inbox");
+  const [keysOpen, setKeysOpen] = useState(false);
+  // What a panel shows in the conversation closes its sheet, so the person sees it.
+  const toConversation = useCallback(() => setSheet(null), []);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [stick, setStick] = useState(0);
   const [postError, setPostError] = useState<unknown>(null);
@@ -136,6 +160,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     (from: MemberRef) => colours.get(`${from.kind}:${from.name}`) ?? identityOf(`${from.kind}:${from.name}`),
     [colours],
   );
+  // Each agent's harness, for its mark where a reference doesn't carry one (a file's author).
+  const harnesses = useMemo(() => new Map((s.members ?? []).filter((m) => m.kind === "agent").map((m) => [m.name, m.harness])), [s.members]);
 
   // A reply counts as new until the person has seen it: after the newest reply they saw
   // in its thread, else after the last message they saw on the board, else after what
@@ -294,6 +320,17 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     }
   }, [tasks, openTask]);
 
+  // A link from outside the board (an attachment in the Inbox) opens a file at a version.
+  const linkedFile = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("file");
+    if (!id || linkedFile.current === id || fileState.list === null) return;
+    linkedFile.current = id;
+    const version = Number(params.get("version"));
+    openFile(id, Number.isSafeInteger(version) && version > 0 ? version : undefined);
+  }, [fileState.list, openFile]);
+
   const onToggle = useCallback((root: string, open: boolean) => prefs.setOpen(root, open), [prefs]);
 
   // A reaction shows at once from the answer; everyone else's view follows the stream.
@@ -331,10 +368,11 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     (section: string) => {
       setTaskPanel(null);
       setFilePanel(null);
-      if (right.collapsed) setRight({ ...right, collapsed: false });
+      if (!wide) setSheet("right");
+      else if (right.collapsed) setRight({ ...right, collapsed: false });
       setReveal((r) => ({ section, n: (r?.n ?? 0) + 1 }));
     },
-    [right, setRight],
+    [right, setRight, wide],
   );
 
   // Who a reply goes to unless the person changes it: the asker and the thread's people.
@@ -384,6 +422,22 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     Date.now(),
   );
 
+  // I goes to the Inbox from anywhere on the board; Escape does too when the board was
+  // opened from it and nothing else (a sheet, a panel, a menu, a reply) wants the key.
+  const covered = sheet !== null || taskPanel !== null || filePanel !== null || replyTo !== null;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (typing(e) || e.defaultPrevented) return;
+      if (pressed("help", e)) setKeysOpen(true);
+      else if (pressed("inbox", e)) window.location.href = "/?inbox";
+      else if (fromInbox && !covered && pressed("back", e) && !document.querySelector('[role="menu"], [role="alertdialog"], [data-radix-popper-content-wrapper]')) window.location.href = "/?inbox";
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [fromInbox, covered]);
+
   if (s.gone) {
     return (
       <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
@@ -416,7 +470,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   // An archived board takes nothing new: no message box, no replies, no reactions.
   const readOnly = isArchived(s.board);
   const columns = `${left.collapsed ? stripWidth : left.width}px minmax(0,1fr) ${right.collapsed ? stripWidth : right.width}px`;
-  const panel = (agents: boolean) => (
+  const panel = (agents: boolean, byAgent = false) => (
     <BoardPanel
       board={s.board}
       members={s.members}
@@ -432,11 +486,65 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       latest={(agent) => known.findLast((m) => m.from.kind === "agent" && m.from.name === agent) ?? null}
       onShowMessage={(id) => {
         setView("conversation");
+        toConversation();
         onShow(id);
       }}
       agents={agents}
+      byAgent={byAgent}
     />
   );
+  const boardsNav = (
+    <nav aria-label="Boards">
+      {lab?.Nav ? <lab.Nav current={name} boards={s.boards} /> : <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />}
+    </nav>
+  );
+  // Work, grouped by task or by agent, once the board has a task; before that, the board.
+  const rightTitle = lab?.RightTitle ? <lab.RightTitle board={name} fallback={s.board ? boardLabel(s.board) : name} /> : filePanel ? "File" : taskPanel ? "Task" : tasks.length > 0 ? <WorkTitle by={workBy} setBy={setWorkBy} /> : s.board ? boardLabel(s.board) : name;
+  const boardPanel = lab?.RightPanel ? (
+    // Only the UI lab draws the board panel its own way (lab-seam.ts).
+    <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
+  ) : filePanel ? (
+    <FilePanel
+      board={name}
+      id={filePanel}
+      at={fileAt}
+      activity={s.activity}
+      back={() => setFilePanel(null)}
+      identity={identity}
+      me={me}
+      canUpload={s.me?.kind === "human" && !readOnly}
+      onShow={(id, seq) => {
+        setView("conversation");
+        toConversation();
+        // A message the timeline hasn't loaded is read first, as a permalink is.
+        if (byId.has(id)) onShow(id);
+        else s.loadMessage(id, seq).then(() => onShow(id), setPostError);
+      }}
+    />
+  ) : taskPanel ? (
+    <TaskDetail
+      board={name}
+      reference={taskPanel}
+      activity={s.activity}
+      readOnly={readOnly}
+      back={() => setTaskPanel(null)}
+      narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); toConversation(); }}
+      pick={(member) => { setFilter((f) => ({ ...f, from: member })); setView("conversation"); toConversation(); }}
+      onPosted={() => { setStick((n) => n + 1); s.refresh(); }}
+    />
+  ) : (
+    <div className="flex flex-col gap-6">
+      {workBy === "task" && <WorkTasks tasks={tasks} open={openTask} />}
+      {/* The agents, people, charter and rules sit apart from the work above them. */}
+      <div className={cn(workBy === "task" && tasks.some((t) => t.state === "open" || t.state === "in_progress") && "border-t border-rule pt-6")}>{panel(true, workBy === "agent" && tasks.length > 0)}</div>
+    </div>
+  );
+  // On a phone, the buttons in the header that open the two sheets. Each carries a
+  // marigold dot while something there waits on the person.
+  const boardsWaiting = (s.boards ?? []).some((b) => b.name !== name && attentionCount(b) > 0);
+  const agentsWaiting = (s.members ?? []).some((m) => m.kind === "agent" && m.presence === "waiting");
+  const sheetButton = "relative inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink transition-colors duration-[140ms] ease-out hover:bg-hover";
+  const waitingDot = <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full border-2 border-surface bg-status-needs" />;
   // The conversation, which only the UI lab ever wraps (lab-seam.ts).
   const centre = (conversation: ReactNode) =>
     lab?.Centre ? (
@@ -448,9 +556,11 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     );
 
   return (
+    <HarnessProvider value={harnesses}>
     <TaskContext tasks={tasks} open={openTask} members={s.members ?? []} identity={identity} me={me} asks={taskState.asks}>
+    <FilesContext board={name} files={files} open={openFile} identity={identity} me={me}>
     <TooltipProvider delayDuration={250}>
-      <div className="flex min-h-dvh flex-col lg:min-h-0 lg:flex-1">
+      <div className="flex min-h-0 flex-1 flex-col">
         <Header
           board={name}
           title={s.board?.title}
@@ -459,29 +569,46 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
           shared={people.length > 1}
           onTitle={s.board ? () => show("board-details") : undefined}
           onStarter={() => show("rules")}
+          lead={!wide && (
+            <button type="button" className={cn(sheetButton, "-ml-1.5")} aria-label={boardsWaiting ? "Boards and Inbox, something waits on you" : "Boards and Inbox"} aria-haspopup="dialog" onClick={() => setSheet("left")}>
+              <Menu className="size-5" strokeWidth={1.75} aria-hidden />
+              {boardsWaiting && waitingDot}
+            </button>
+          )}
+          tools={!wide && (
+            <button type="button" className={sheetButton} aria-label={agentsWaiting ? "Board panel: agents, tasks and rules, an agent waits on a person" : "Board panel: agents, tasks and rules"} aria-haspopup="dialog" onClick={() => { setReveal(null); setSheet("right"); }}>
+              <PanelRight className="size-5" strokeWidth={1.75} aria-hidden />
+              {agentsWaiting && waitingDot}
+            </button>
+          )}
           account={<Account person={s.me} admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
         />
         <div
-          className="board-columns flex w-full flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[var(--columns)]"
+          className="board-columns flex min-h-0 w-full flex-1 flex-col lg:grid lg:grid-cols-[var(--columns)]"
           style={{ "--columns": columns } as CSSProperties}
         >
-          <SidePanel
-            side="left"
-            title="Boards"
-            label="board list"
-            size={left}
-            setSize={setLeft}
-            limits={leftPanel}
-            className="order-3 lg:order-none"
-          >
-            <nav aria-label="Boards">
-              {lab?.Nav ? <lab.Nav current={name} boards={s.boards} /> : <BoardNav current={name} boards={s.boards} onMarkRead={markRead} />}
-            </nav>
-          </SidePanel>
+          {wide ? (
+            <SidePanel side="left" title="Boards" label="board list" size={left} setSize={setLeft} limits={leftPanel}>
+              {boardsNav}
+            </SidePanel>
+          ) : (
+            <Sheet open={sheet === "left"} onClose={() => setSheet(null)} side="left" title="Boards" back={backTo}>
+              {boardsNav}
+            </Sheet>
+          )}
 
-          <main className="order-1 flex h-[calc(100dvh-4rem)] min-h-[480px] min-w-0 flex-col lg:order-none lg:h-auto lg:min-h-0">
+          <main className="board-main flex min-h-0 min-w-0 flex-1 flex-col lg:flex-none">
             <div className={column}>
-              <div className={cn(headerRow, "items-start justify-between gap-x-4 py-1.5")}>
+              {fromInbox && (
+                <p className="flex min-h-11 items-center gap-x-4 text-meta text-muted">
+                  <a href="/?inbox" className="back-to-inbox -ml-2.5 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link no-underline transition-colors duration-[140ms] ease-out hover:bg-hover">
+                    <ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />
+                    Back to Inbox<Kbd>{keyLabel("back")}</Kbd>
+                  </a>
+                  <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-link hover:underline pointer-coarse:hidden" onClick={() => setKeysOpen(true)}><Kbd>{keyLabel("help")}</Kbd>All keys</button>
+                </p>
+              )}
+              <div className={cn(headerRow, "items-start justify-between gap-x-4 py-2.5")}>
                 <NowLine parts={loading ? null : now} onShow={onShow} />
                 {!loading && s.board && (s.board.unread ?? 0) > 0 && <MarkAllRead onClick={() => markRead(s.board!)} />}
                 <FilterControl
@@ -499,17 +626,21 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                   <Problem error={error} />
                 </div>
               )}
+              {/* The server leaves brief out when the board has none, so a server that keeps files and sends no brief means "no brief yet". */}
+              {!loading && s.board && !lab?.Centre && (
+                <Brief board={name} brief={s.board.brief ?? (fileState.list !== null ? null : undefined)} me={me} canEdit={s.me?.kind === "human" && !readOnly} onChanged={s.refresh} openHistory={openFile} identity={identity} />
+              )}
             </div>
             {centre(
               <>
-            {views.length > 1 && <div role="tablist" aria-label="Board views" className={`${column} flex shrink-0 gap-4 border-b border-rule`}>
-              {views.map((v, i) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={shownView === v} tabIndex={shownView === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? views[0] : e.key === "End" ? views[views.length - 1] : views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length]; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-11 border-b-2 px-1", shownView === v ? "border-accent font-bold text-ink" : "border-transparent text-muted hover:text-ink", v === "files" && "animate-appear")}>{v === "conversation" ? "Conversation" : v === "tasks" ? <>Tasks <span className="font-normal text-muted tabular-nums">{tasks.length}</span></> : <>Files <span className="font-normal text-muted tabular-nums">{files.length}</span></>}</button>)}
-            </div>}
+            {views.length > 1 && <div className={`${column} shrink-0 pb-3`}><div role="tablist" aria-label="Board views" className="board-views inline-flex max-w-full gap-0.5 overflow-x-auto rounded-box border border-rule bg-surface p-1">
+              {views.map((v, i) => <button key={v} type="button" role="tab" id={`tab-${v}`} aria-selected={shownView === v} tabIndex={shownView === v ? 0 : -1} onKeyDown={(e) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return; e.preventDefault(); const next = e.key === "Home" ? views[0] : e.key === "End" ? views[views.length - 1] : views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length]; setView(next); document.getElementById(`tab-${next}`)?.focus(); }} aria-controls={`view-${v}`} onClick={() => setView(v)} className={cn("min-h-9 shrink-0 rounded-control px-3 transition-colors duration-[140ms] ease-out pointer-coarse:min-h-11", shownView === v ? "bg-selected font-bold text-ink" : "text-muted hover:bg-hover hover:text-ink", v === "files" && "animate-appear")}>{v === "conversation" ? "Conversation" : v === "tasks" ? <>Tasks <span className="font-normal text-muted tabular-nums">{tasks.length}</span></> : <>Files <span className="font-normal text-muted tabular-nums">{files.length}</span></>}</button>)}
+            </div></div>}
             {taskState.list?.more && shownView === "tasks" && <p className={`${column} py-2 text-meta text-muted`}>Showing the first {tasks.length} tasks.</p>}
             {taskState.error !== null && <div className={column}><Problem error={taskState.error} /></div>}
             {fileState.error !== null && <div className={column}><Problem error={fileState.error} /></div>}
             <div id="view-conversation" role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 ? "tab-conversation" : undefined} className={cn("min-h-0 flex-1 flex-col", shownView === "conversation" ? "flex" : "hidden")}>
-            {filter.task && <p className={`${column} flex min-h-11 flex-wrap items-center gap-2 text-meta text-muted`}>Narrowed to {filter.task}<button type="button" onClick={() => setFilter((f) => ({ ...f, task: undefined }))} className="min-h-11 text-accent hover:underline">Show everything</button></p>}
+            {filter.task && <p className={`${column} flex min-h-11 flex-wrap items-center gap-2 text-meta text-muted`}>Narrowed to {filter.task}<button type="button" onClick={() => setFilter((f) => ({ ...f, task: undefined }))} className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline">Show everything</button></p>}
             {loading ? (
               <div className={cn(column, "min-h-0 flex-1")}>
                 <Loading />
@@ -549,6 +680,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                   me={me}
                   replyTo={replyTo}
                   replyDefault={replyDefault}
+                  files={fileState.list !== null ? files : null}
+                  onFilesChanged={fileState.reload}
                   identity={identity}
                   onCancelReply={() => setReplyTo(null)}
                   onPosted={(m) => {
@@ -588,47 +721,23 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             )}
           </main>
 
-          <SidePanel
-            side="right"
-            title={lab?.RightTitle ? <lab.RightTitle board={name} fallback={s.board ? boardLabel(s.board) : name} /> : tasks.length > 0 ? "Work · by task" : s.board ? boardLabel(s.board) : name}
-            label="board panel"
-            size={right}
-            setSize={setRight}
-            limits={rightPanel}
-            className="order-2 lg:order-none"
-          >
-            {/* Only the UI lab draws the board panel its own way (lab-seam.ts). */}
-            {lab?.RightPanel ? (
-              <lab.RightPanel board={name} members={s.members ?? []} identity={identity} pick={pick} boardPanel={panel(false)} />
-            ) : filePanel ? (
-              <FilePanel
-                board={name}
-                id={filePanel}
-                activity={s.activity}
-                back={() => setFilePanel(null)}
-                identity={identity}
-                me={me}
-                canUpload={s.me?.kind === "human" && !readOnly}
-                onShow={(id, seq) => {
-                  setView("conversation");
-                  // A message the timeline hasn't loaded is read first, as a permalink is.
-                  if (byId.has(id)) onShow(id);
-                  else s.loadMessage(id, seq).then(() => onShow(id), setPostError);
-                }}
-              />
-            ) : taskPanel ? (
-              <TaskDetail board={name} reference={taskPanel} activity={s.activity} readOnly={readOnly} back={() => setTaskPanel(null)} narrow={(ref) => { setFilter((f) => ({ ...f, task: ref })); setView("conversation"); }} pick={(member) => { setFilter((f) => ({ ...f, from: member })); setView("conversation"); }} onPosted={() => { setStick((n) => n + 1); s.refresh(); }} />
-            ) : (
-              <>
-                <WorkTasks tasks={tasks} open={openTask} />
-                {panel(true)}
-              </>
-            )}
-          </SidePanel>
+          {wide ? (
+            <SidePanel side="right" title={rightTitle} label="board panel" size={right} setSize={setRight} limits={rightPanel}>
+              {boardPanel}
+            </SidePanel>
+          ) : (
+            <Sheet open={sheet === "right"} onClose={() => { setSheet(null); setFilePanel(null); setTaskPanel(null); }} side="right" title={filePanel ? "File" : taskPanel ? "Task" : rightTitle} back={backTo}>
+              {/* Opened from Files, the sheet's own Back is the way back; the panel's link to Work would be a second one. */}
+              <div className={cn("flex flex-col gap-4", shownView === "files" && filePanel && "[&_.panel-back]:hidden")}>{boardPanel}</div>
+            </Sheet>
+          )}
         </div>
+        <KeysSheet open={keysOpen} onClose={() => setKeysOpen(false)} place="board" />
       </div>
     </TooltipProvider>
+    </FilesContext>
     </TaskContext>
+    </HarnessProvider>
   );
 }
 
@@ -641,7 +750,7 @@ function NowLine({ parts, onShow }: { parts: NowPart[] | null; onShow: (id: stri
         const text = p.target ? (
           <button
             type="button"
-            className={cn("underline decoration-1 underline-offset-[3px] hover:no-underline", p.attention ? "text-ink" : "now-link text-link")}
+            className={cn("text-left underline decoration-1 underline-offset-[3px] hover:no-underline", p.attention ? "rounded-[4px] bg-attention px-1 text-on-accent" : "now-link text-link")}
             onClick={() => onShow(p.target!)}
           >
             {p.text}
@@ -652,7 +761,7 @@ function NowLine({ parts, onShow }: { parts: NowPart[] | null; onShow: (id: stri
         return (
           <span key={p.text}>
             {i > 0 && <span className="text-muted"> · </span>}
-            {p.attention ? <span className="rounded-[4px] bg-attention px-1 text-ink">{text}</span> : text}
+            {p.attention && !p.target ? <span className="rounded-[4px] bg-attention px-1 text-on-accent [box-decoration-break:clone] [-webkit-box-decoration-break:clone]">{text}</span> : text}
           </span>
         );
       })}

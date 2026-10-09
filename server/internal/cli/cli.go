@@ -65,8 +65,11 @@ func isTerminal(f *os.File) bool {
 
 // app is one invocation of the aboard command.
 type app struct {
-	env  Env
-	json bool
+	env             Env
+	serverSelection *serverSelection
+	json            bool
+	// noColor is set by --no-color, which every command accepts.
+	noColor bool
 	// boardServerFlag is the --server of a person's board command (policy, add, remove,
 	// leave, owner, visibility): the server of the board --board names, in place of the
 	// one this directory's .aboard names. Empty when not given.
@@ -119,10 +122,14 @@ func commands() []command {
 		{"up", runUp},
 		{"down", runDown},
 		{"pair", runPair},
+		{"pairing", runPairing},
 		{"join", runJoin},
 		{"invite", runInvite},
 		{"connect", runConnect},
+		{"setup", runSetup},
 		{"approve", runApprove},
+		{"allowance", runAllowance},
+		{"approvals", runApprovals},
 		{"login", runLogin},
 		{"keys", runKeys},
 		{"people", runPeople},
@@ -130,6 +137,7 @@ func commands() []command {
 		{"say", runSay},
 		{"task", runTask},
 		{"file", runFile},
+		{"brief", runBrief},
 		{"storage", runStorage},
 		{"ask", runAsk},
 		{"inbox", runInbox},
@@ -151,6 +159,7 @@ func commands() []command {
 		{"uninstall", runUninstall},
 		{"upgrade", runUpgrade},
 		{"version", runVersion},
+		{"skill", runSkill},
 		{"help", runHelp},
 		{"serve", runServe},
 		{"daemon", runDaemon},
@@ -165,6 +174,15 @@ func Run(ctx context.Context, args []string, env Env) int {
 	ctx, stop := exitWith(ctx, env.Getenv(exitWithVar))
 	defer stop()
 	a := &app{env: env, json: wantsJSON(args), started: time.Now()}
+	flagEnd := len(args)
+	if separator := slices.Index(args, "--"); separator >= 0 {
+		flagEnd = separator
+	}
+	if slices.Contains(args[:flagEnd], "--no-color") {
+		a.noColor = true
+		prefix := slices.DeleteFunc(slices.Clone(args[:flagEnd]), func(s string) bool { return s == "--no-color" })
+		args = append(prefix, args[flagEnd:]...)
+	}
 	if len(args) == 0 {
 		_, _ = io.WriteString(env.Stderr, overviewText(a.errStyles()))
 		return exitUsage
@@ -206,7 +224,7 @@ func Run(ctx context.Context, args []string, env Env) int {
 
 // noLaunchClaim are the commands that never hand in the session's launch ticket: the
 // ones a harness or a person runs rather than the agent.
-var noLaunchClaim = []string{"hook", "daemon", "serve", "help", "version", "up", "down", "swarm"}
+var noLaunchClaim = []string{"hook", "daemon", "serve", "help", "version", "skill", "up", "down", "swarm"}
 
 // wantsJSON looks for --json before flags are parsed, so even a usage error can be
 // printed as JSON.
@@ -263,6 +281,9 @@ func (a *app) report(err error) int {
 		if e.Hint != "" {
 			msg += st.warn("Hint:") + " " + e.Hint + "\n"
 		}
+		if e.Next != nil {
+			msg += e.Next.Command + "\n" + e.Next.Resume + "\n"
+		}
 		_, _ = io.WriteString(a.env.Stderr, msg)
 	}
 	if e.Usage != "" {
@@ -273,18 +294,41 @@ func (a *app) report(err error) int {
 
 // emit prints a command's result: v as JSON with --json, otherwise text.
 func (a *app) emit(v any, text string) {
-	if a.json {
-		a.writeJSON(v)
-		return
+	_ = a.emitChecked(v, text)
+}
+
+func (a *app) emitChecked(v any, text string) error {
+	if selection := a.serverSelection; selection != nil {
+		boardNamed := false
+		if raw, err := json.Marshal(v); err == nil {
+			var object map[string]json.RawMessage
+			if json.Unmarshal(raw, &object) == nil && object != nil {
+				boardNamed = len(object["board"]) > 0 && string(object["board"]) != "null" && string(object["board"]) != `""`
+				object["server_selection"], _ = json.Marshal(selection)
+				v = object
+			}
+		}
+		if !boardNamed && a.explainServer(selection) {
+			why := map[string]string{"flag": "an explicit server", "project": "this folder's .aboard", "default": "this machine's default", "only": "the only known server", "local": "the local fallback"}[selection.Source]
+			text += fmt.Sprintf("Server: %s (%s), from %s. For your local server, use --server local.\n", selection.Server.Name, hostOf(selection.Server), why)
+		}
 	}
-	_, _ = io.WriteString(a.env.Stdout, text)
+	if a.json {
+		return a.writeJSONChecked(v)
+	}
+	_, err := io.WriteString(a.env.Stdout, text)
+	return err
 }
 
 func (a *app) writeJSON(v any) {
+	_ = a.writeJSONChecked(v)
+}
+
+func (a *app) writeJSONChecked(v any) error {
 	enc := json.NewEncoder(a.env.Stdout)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
-	_ = enc.Encode(v)
+	return enc.Encode(v)
 }
 
 func runVersion(_ context.Context, a *app, args []string) error {

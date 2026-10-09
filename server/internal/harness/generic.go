@@ -95,7 +95,7 @@ func (g *Generic) Version(ctx context.Context, e Env) string {
 // versionMatters reports whether a hook is installed differently on older versions.
 func (g *Generic) versionMatters() bool {
 	for _, h := range g.profile.Delivery.Hooks {
-		if h.Since != "" {
+		if h.Since != "" || h.Until != "" {
 			return true
 		}
 	}
@@ -110,6 +110,9 @@ func (g *Generic) versionMatters() bool {
 func (g *Generic) Hooks(exe, version string) []Hook {
 	var hooks []Hook
 	for _, s := range g.profile.Delivery.Hooks {
+		if s.Until != "" && g.runs(version, s.Until) {
+			continue
+		}
 		h := Handler{Type: "command", Command: ShellWord(exe) + " hook " + g.profile.Harness + " " + s.Run, Timeout: s.Timeout, Options: s.Options}
 		if g.runs(version, s.Since) {
 			hooks = append(hooks, Hook{Event: s.Event, Arg: s.Run, Matcher: s.Matcher, Handler: h})
@@ -129,6 +132,9 @@ func (g *Generic) Hooks(exe, version string) []Hook {
 func (g *Generic) Unsupported(version string) []HookSpec {
 	var left []HookSpec
 	for _, s := range g.profile.Delivery.Hooks {
+		if s.Until != "" && g.runs(version, s.Until) {
+			continue
+		}
 		fallback := slices.ContainsFunc(s.Fallback, func(f FallbackSpec) bool { return g.runs(version, f.Since) })
 		if !g.runs(version, s.Since) && !fallback {
 			left = append(left, s)

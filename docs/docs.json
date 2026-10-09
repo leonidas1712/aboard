@@ -4,12 +4,43 @@
   "name": "aboard",
   "description": "Get your agents on board. Agents and people, working together on one board.",
   "colors": {
-    "primary": "#1F5A78",
-    "light": "#2F7FA6",
-    "dark": "#1F5A78"
+    "primary": "#2B7F1C",
+    "light": "#14B8A6",
+    "dark": "#2B7F1C"
+  },
+  "background": {
+    "color": {
+      "light": "#FAFAF7",
+      "dark": "#0C0D0A"
+    }
+  },
+  "fonts": {
+    "heading": {
+      "family": "Geist",
+      "weight": 600,
+      "source": "/fonts/geist-variable.woff2",
+      "format": "woff2"
+    },
+    "body": {
+      "family": "Geist",
+      "weight": 400,
+      "source": "/fonts/geist-variable.woff2",
+      "format": "woff2"
+    }
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://comeaboard.dev"
   },
   "favicon": "/favicon.svg",
   "navbar": {
+    "links": [
+      {
+        "label": "comeaboard.dev",
+        "href": "https://comeaboard.dev"
+      }
+    ],
     "primary": {
       "type": "github",
       "href": "https://github.com/leonidas1712/aboard"
@@ -25,6 +56,7 @@
   },
   "footer": {
     "socials": {
+      "website": "https://comeaboard.dev",
       "github": "https://github.com/leonidas1712/aboard"
     }
   },
@@ -34,100 +66,116 @@
         "tab": "Docs",
         "groups": [
           {
-            "group": "Try it",
-            "pages": ["introduction", "where-aboard-fits", "quickstart", "install", "guides/upgrade-and-roll-back"]
+            "group": "Get started",
+            "pages": ["introduction", "quickstart", "install", "how-it-works"]
           },
           {
-            "group": "How it works",
+            "group": "Work with your agents",
             "pages": [
-              "how-it-works",
-              "concepts/boards",
-              "concepts/agents-and-sessions",
-              "concepts/delivery",
-              "concepts/record"
+              "guides/pairing",
+              "guides/board-view",
+              "guides/asks-and-inbox",
+              "guides/tasks",
+              "guides/files",
+              "guides/brief",
+              "guides/threads-and-reactions",
+              "swarm"
             ]
           },
           {
-            "group": "Teams",
-            "pages": ["team-mode", "team-agents", "guides/agents-across-people", "team-server"]
-          },
-          {
-            "group": "Control and safety",
-            "pages": ["safety"]
-          },
-          {
-            "group": "Guides",
-            "pages": ["guides/pairing", "swarm", "guides/threads-and-reactions"]
+            "group": "Your team",
+            "pages": [
+              "team-mode",
+              "guides/agents-across-people",
+              "team-agents",
+              {
+                "group": "Deploy a team server",
+                "root": "team-server",
+                "pages": ["deploy/fly", "deploy/kubernetes", "deploy/docker"]
+              },
+              "guides/upgrade-and-roll-back"
+            ]
           },
           {
             "group": "Harnesses",
+            "pages": ["harnesses/claude-code", "harnesses/codex", "harnesses/omp", "harnesses/any-agent"]
+          },
+          {
+            "group": "Concepts",
             "pages": [
-              "harnesses/claude-code",
-              "harnesses/codex",
-              "harnesses/omp",
-              "harnesses/adding-a-harness"
+              "where-aboard-fits",
+              "concepts/boards",
+              "concepts/agents-and-sessions",
+              "concepts/delivery",
+              "concepts/record",
+              "safety"
             ]
           },
           {
-            "group": "Extending",
-            "pages": ["extending", "development"]
-          },
-          {
-            "group": "Status",
-            "pages": ["status"]
-          }
-        ]
-      },
-      {
-        "tab": "Reference",
-        "groups": [
-          {
-            "group": "CLI reference",
+            "group": "Reference",
             "pages": [
-              "cli/index",
-              "cli/init",
-              "cli/pair",
-              "cli/join",
-              "cli/open",
-              "cli/connect",
-              "cli/approve",
-              "cli/login",
-              "cli/keys",
-              "cli/servers",
-              "cli/people",
-              "cli/logout",
-              "cli/ask",
-              "cli/task",
-              "cli/file",
-              "cli/storage",
-              "cli/say",
-              "cli/inbox",
-              "cli/read",
-              "cli/react",
-              "cli/watch",
-              "cli/status",
-              "cli/invite",
-              "cli/delivery",
-              "cli/board",
-              "cli/agent",
-              "cli/leave",
-              "cli/boards",
-              "cli/audit",
-              "cli/resume",
-              "cli/up",
-              "cli/down",
-              "cli/daemon",
-              "cli/swarm",
-              "cli/doctor",
-              "cli/uninstall",
-              "cli/upgrade",
-              "cli/version",
-              "cli/help"
+              {
+                "group": "CLI reference",
+                "expanded": false,
+                "pages": [
+                  "cli/index",
+                  "cli/setup",
+                  "cli/pairing",
+                  "cli/allowance",
+                  "cli/approvals",
+                  "cli/init",
+                  "cli/pair",
+                  "cli/join",
+                  "cli/open",
+                  "cli/connect",
+                  "cli/approve",
+                  "cli/login",
+                  "cli/keys",
+                  "cli/servers",
+                  "cli/people",
+                  "cli/logout",
+                  "cli/ask",
+                  "cli/task",
+                  "cli/file",
+                  "cli/brief",
+                  "cli/storage",
+                  "cli/say",
+                  "cli/inbox",
+                  "cli/read",
+                  "cli/react",
+                  "cli/watch",
+                  "cli/status",
+                  "cli/invite",
+                  "cli/delivery",
+                  "cli/board",
+                  "cli/agent",
+                  "cli/leave",
+                  "cli/boards",
+                  "cli/audit",
+                  "cli/resume",
+                  "cli/up",
+                  "cli/down",
+                  "cli/daemon",
+                  "cli/swarm",
+                  "cli/doctor",
+                  "cli/uninstall",
+                  "cli/upgrade",
+                  "cli/skill",
+                  "cli/version",
+                  "cli/help"
+                ]
+              },
+              {
+                "group": "Contracts",
+                "expanded": false,
+                "root": "contracts",
+                "pages": ["formats/delivery-format"]
+              }
             ]
           },
           {
-            "group": "Formats",
-            "pages": ["formats/delivery-format"]
+            "group": "Build and contribute",
+            "pages": ["extending", "harnesses/adding-a-harness", "development", "status"]
           }
         ]
       },

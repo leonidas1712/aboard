@@ -29,6 +29,7 @@ type TaskContext struct {
 
 // TaskWork is the task part of an agent's inbox work, including its board's nudge policy.
 type TaskWork struct {
+	Brief                       *BriefContext
 	CurrentTask                 *TaskContext
 	OpenTasks, PostsWithoutTask int
 	AsksWaiting, AsksToIt       int
@@ -163,4 +164,24 @@ func reorientAsks(w TaskWork, board string, contexts []Context) string {
 		return ""
 	}
 	return fmt.Sprintf(" %d asks waiting for answers, %d to you: %s", w.AsksWaiting, w.AsksToIt, boardCommand("aboard ask --open", board, contexts))
+}
+
+// BriefContext contains freshness facts only for the latest version's author.
+type BriefContext struct {
+	FileID, Name                           string
+	Version, MessagesSince, TasksDoneSince int
+	At                                     time.Time
+}
+
+// BriefStale reminds the keeper after visible work accumulates; it never wakes them.
+func BriefStale(w TaskWork, now time.Time, board string, contexts ...Context) *Nudge {
+	b := w.Brief
+	if !w.Nudges || b == nil || b.FileID == "" || b.Version < 1 || b.At.IsZero() || now.Sub(b.At) < time.Hour || (b.MessagesSince < 30 && b.TasksDoneSince < 3) {
+		return nil
+	}
+	name := "<path>"
+	if b.Name == "brief.md" || b.Name == "brief.html" {
+		name = b.Name
+	}
+	return taskNudge("brief_stale", fmt.Sprintf("Aboard: your brief is %d messages and %d completed tasks old. Refresh it: %s", b.MessagesSince, b.TasksDoneSince, boardCommand("aboard brief get "+name, board, contexts)))
 }

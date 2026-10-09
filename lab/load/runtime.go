@@ -50,16 +50,20 @@ type (
 		board    *board
 		session  string
 		ext      *extension
+		observer *http.Client
 	}
 	fixture struct {
-		root, binary, url string
-		admin             *machine
-		people            []*machine
-		boards            []*board
-		client            *http.Client
-		ctx               context.Context
-		workers           sync.WaitGroup
-		throttles         atomic.Int64
+		root, binary, url                               string
+		admin                                           *machine
+		people                                          []*machine
+		boards                                          []*board
+		client                                          *http.Client
+		ctx                                             context.Context
+		workers                                         sync.WaitGroup
+		throttles                                       atomic.Int64
+		joinThrottles, connectThrottles, otherThrottles atomic.Int64
+		setupThrottles                                  atomic.Int64
+		monitor                                         *resourceMonitor
 	}
 	headLog struct {
 		mu      sync.Mutex
@@ -99,14 +103,27 @@ func run(ctx context.Context, o options) (r report, err error) {
 	if o.People < 1 || o.Agents < 1 || o.Boards < 1 || o.Rounds < 1 || o.Boards > o.People*o.Agents {
 		return r, errors.New("positive topology and rounds required; each board needs a seat")
 	}
+	if o.Writers < 0 || (o.Writers > 0 && o.WritesPerWriter < 1) || o.Soak < 0 {
+		return r, errors.New("nonnegative writers and soak required; enabled writers need positive messages")
+	}
+	if _, err := remoteOrigin(o); err != nil {
+		return r, err
+	}
 	root, err := os.MkdirTemp("/tmp", "aboard-load-")
 	if err != nil {
 		return r, err
 	}
 	defer func() { _ = os.RemoveAll(root) }()
-	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: &http.Client{Timeout: 65 * time.Second}}
+	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: loadClient()}
 	progress := runProgress{Stage: "build"}
-	defer func() { f.finishReport(&r, progress, err); cancel(); f.close() }()
+	defer func() {
+		if f.monitor != nil {
+			r.Resources = f.monitor.stop(ctx)
+		}
+		f.finishReport(&r, progress, err)
+		cancel()
+		f.close()
+	}()
 	if f.binary == "" {
 		f.binary = filepath.Join(root, "aboard")
 		// #nosec G204 -- builds a fixed repository command into its private scratch directory.
@@ -127,34 +144,44 @@ func run(ctx context.Context, o options) (r report, err error) {
 		return r, err
 	}
 	r.Setup = time.Since(start).Seconds()
+	f.setupThrottles.Store(f.throttles.Load())
 	r.Daemons = len(f.people)
+	r.ConfiguredStreams = 2 * len(f.people)
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
 	start = time.Now()
 	progress.MeasurementStart = start
 	progress.Stage = "round"
-	for round := range o.Rounds {
-		if err := f.round(ctx, round, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &r); err != nil {
+	f.setPhase("delivery")
+	for round := 0; moreRounds(round, o.Rounds, time.Since(start), o.Soak); round++ {
+		if err := f.round(ctx, round, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &progress.Write, &r); err != nil {
 			return r, err
 		}
+		r.Rounds++
 	}
 	r.Measurement = time.Since(start).Seconds()
 	r.Throughput = float64(r.Posts) / r.Measurement
 	r.Throttles = int(f.throttles.Load())
 	progress.Stage = "confirmation"
-	if err := f.finishExtensions(o.Rounds); err != nil {
+	f.setPhase("confirmation")
+	if err := f.finishExtensions(r.Rounds); err != nil {
 		return r, err
 	}
 	if err := checks.validate(); err != nil {
 		return r, err
 	}
-	for _, p := range f.people {
-		for _, s := range p.seats {
-			if err := f.awaitAck(s, checks.Expected[s.MemberID][len(checks.Expected[s.MemberID])-1].Seq); err != nil {
-				return r, err
-			}
+	if err := f.verifyAcks(ctx, func(s *seat) int64 { return checks.Expected[s.MemberID][len(checks.Expected[s.MemberID])-1].Seq }); err != nil {
+		return r, err
+	}
+	if o.Writers > 0 {
+		progress.Stage = "concurrent_writers"
+		f.setPhase("concurrent_writers")
+		r.Concurrent, err = f.concurrentWrites(ctx, o.Writers, o.WritesPerWriter)
+		if err != nil {
+			return r, err
 		}
 	}
 	progress.Stage = "audit"
+	f.setPhase("audit")
 	for _, b := range f.boards {
 		if err := f.cli(f.admin, "", "audit", "verify", "--board", b.Name, "--json"); err != nil {
 			return r, fmt.Errorf("chain verification: %w", err)
@@ -167,9 +194,9 @@ func run(ctx context.Context, o options) (r report, err error) {
 		for _, seat := range person.seats {
 			boards[seat.board.ID] = true
 		}
-		wantStream += len(boards) * o.Rounds
+		wantStream += len(boards) * r.Rounds
 	}
-	if r.Posts != o.Boards*o.Rounds || r.Deliveries != o.People*o.Agents*o.Rounds || len(progress.Poll) != r.Deliveries || len(progress.Handover) != r.Deliveries || len(progress.Stream) != wantStream {
+	if r.Posts != o.Boards*r.Rounds || r.Deliveries != o.People*o.Agents*r.Rounds || len(progress.Poll) != r.Deliveries || len(progress.Handover) != r.Deliveries || len(progress.Stream) != wantStream {
 		return r, errors.New("measurement sample counts do not match the topology")
 	}
 	if r.Stream, err = summarize(progress.Stream); err != nil {
@@ -243,6 +270,9 @@ func (f *fixture) process(m *machine, args ...string) error {
 func (f *fixture) close() {
 	for _, p := range f.people {
 		for _, s := range p.seats {
+			if s.observer != nil {
+				s.observer.CloseIdleConnections()
+			}
 			if s.ext != nil {
 				_ = s.ext.conn.Close()
 			}
@@ -262,6 +292,10 @@ func (f *fixture) close() {
 }
 
 func (f *fixture) api(ctx context.Context, method, path, token string, body any) (map[string]any, error) {
+	return f.apiWithClient(ctx, f.client, method, path, token, body)
+}
+
+func (f *fixture) apiWithClient(ctx context.Context, client *http.Client, method, path, token string, body any) (map[string]any, error) {
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -278,15 +312,24 @@ func (f *fixture) api(ctx context.Context, method, path, token string, body any)
 		if method != "GET" {
 			req.Header.Set("Idempotency-Key", fmt.Sprintf("load-%x", sha256.Sum256(append([]byte(path+token), raw...))))
 		}
-		resp, err := f.client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}
 		data := map[string]any{}
 		err = json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(&data)
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 16<<20))
 		_ = resp.Body.Close()
 		if resp.StatusCode == 429 {
 			f.throttles.Add(1)
+			switch {
+			case method == http.MethodPost && path == "/v1/join":
+				f.joinThrottles.Add(1)
+			case method == http.MethodPost && path == "/v1/connect":
+				f.connectThrottles.Add(1)
+			default:
+				f.otherThrottles.Add(1)
+			}
 			seconds, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
 			if seconds < 1 {
 				seconds = 60
@@ -330,32 +373,7 @@ func wait(ctx context.Context, try func() bool) error {
 }
 
 func (f *fixture) setup(o options) error {
-	listener, err := (&net.ListenConfig{}).Listen(f.ctx, "tcp", "127.0.0.1:0")
-	if err != nil {
-		return err
-	}
-	addr := listener.Addr().String()
-	_ = listener.Close()
-	f.url = "http://" + addr
-	f.admin, err = f.machine("admin", addr)
-	if err != nil {
-		return err
-	}
-	if err := f.process(f.admin, "serve"); err != nil {
-		return err
-	}
-	if err := wait(f.ctx, func() bool {
-		raw, e := os.ReadFile(filepath.Join(f.admin.home, "aboard", "config", "local-owner-token"))
-		if e != nil {
-			return false
-		}
-		key := strings.TrimSpace(string(raw))
-		_, e = f.api(f.ctx, "GET", "/v1/me", key, nil)
-		if e == nil {
-			f.admin.key = key
-		}
-		return e == nil
-	}); err != nil {
+	if err := f.setupServer(o); err != nil {
 		return err
 	}
 	for i := range o.Boards {
@@ -453,7 +471,7 @@ func (f *fixture) setup(o options) error {
 			return e
 		}
 	}
-	return nil
+	return f.primeObservers()
 }
 
 func socketPath(state string) string {
@@ -573,7 +591,7 @@ func (f *fixture) stream(p *machine) (*headLog, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+p.key)
 	// A stream lasts the run; the ordinary request client has a response deadline.
-	response, err := (&http.Client{Transport: f.client.Transport}).Do(req)
+	response, err := (&http.Client{Transport: f.client.Transport, CheckRedirect: refuseLoadRedirect}).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -652,7 +670,9 @@ type polled struct {
 	err  error
 }
 
-func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, streams, polls, handover *[]time.Duration, r *report) error {
+func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, streams, polls, handover, writes *[]time.Duration, r *report) (err error) {
+	timing := newRoundTiming(r, round+1)
+	defer func() { timing.finish(err) }()
 	replies := make(chan polled, len(f.people)*len(f.people[0].seats))
 	started := make(chan error, cap(replies))
 	for _, p := range f.people {
@@ -660,10 +680,12 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			f.background(func() {
 				var ready sync.Once
 				trace := &httptrace.ClientTrace{WroteRequest: func(info httptrace.WroteRequestInfo) {
-					ready.Do(func() { started <- info.Err })
+					if info.Err == nil {
+						ready.Do(func() { started <- nil })
+					}
 				}}
 				ctx := httptrace.WithClientTrace(ctx, trace)
-				data, err := f.api(ctx, "GET", fmt.Sprintf("/v1/me/inbox?wait=60&after=%d", s.board.Head), s.Token, nil)
+				data, err := f.apiWithClient(ctx, s.observer, "GET", fmt.Sprintf("/v1/me/inbox?wait=60&after=%d", s.board.Head), s.Token, nil)
 				ready.Do(func() {
 					if err == nil {
 						err = errors.New("long poll returned without request transmission evidence")
@@ -684,8 +706,14 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			}
 		}
 	}
+	timing.next("delivery")
 	byBoard := map[string]sample{}
-	markers := map[string]sample{}
+	posted := map[string]*postedBoard{}
+	for _, b := range f.boards {
+		posted[b.ID] = &postedBoard{ready: make(chan struct{})}
+	}
+	confirmations := startConfirmations(ctx, replies, posted)
+	defer confirmations.finish(checks, polls, handover, r)
 	for i, b := range f.boards {
 		marker := fmt.Sprintf("load-r%d-b%d", round, i)
 		start := time.Now()
@@ -694,16 +722,25 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			return err
 		}
 		v := sample{messageKey{b.ID, seq(data, "seq")}, start, marker}
+		*writes = append(*writes, time.Since(start))
 		b.Head = v.key.Seq
 		byBoard[b.ID] = v
-		markers[marker] = v
+		posted[b.ID].sample = v
+		close(posted[b.ID].ready)
 		r.Posts++
+	}
+	for _, p := range f.people {
+		for _, s := range p.seats {
+			checks.Expected[s.MemberID] = append(checks.Expected[s.MemberID], byBoard[s.board.ID].key)
+		}
+	}
+	if err := confirmations.collect(checks, polls, handover, r); err != nil {
+		return err
 	}
 	for _, p := range f.people {
 		visited := map[string]bool{}
 		for _, s := range p.seats {
 			v := byBoard[s.board.ID]
-			checks.Expected[s.MemberID] = append(checks.Expected[s.MemberID], v.key)
 			if visited[s.board.ID] {
 				continue
 			}
@@ -720,79 +757,14 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			*streams = append(*streams, at.Sub(v.started))
 		}
 	}
-	for range cap(replies) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case reply := <-replies:
-			if reply.err != nil {
-				return reply.err
-			}
-			want := byBoard[reply.seat.board.ID]
-			messages, _ := reply.data["messages"].([]any)
-			if len(messages) != 1 {
-				return errors.New("long poll lost or duplicated a round message")
-			}
-			message, _ := messages[0].(map[string]any)
-			if seq(message, "seq") != want.key.Seq || str(message, "body") != want.marker {
-				return errors.New("long poll returned the wrong message")
-			}
-			*polls = append(*polls, reply.at.Sub(want.started))
-		}
-	}
-	for _, p := range f.people {
-		for _, s := range p.seats {
-			v, err := s.ext.next(ctx)
-			if err != nil {
-				return err
-			}
-			if v.Event != "deliver" {
-				return errors.New("missing extension delivery")
-			}
-			found := markerPattern.FindAllString(v.Bundle, -1)
-			if len(found) != 1 {
-				return errors.New("delivery lost or duplicated its marker")
-			}
-			sample, ok := markers[found[0]]
-			if !ok || sample.key.BoardID != s.board.ID {
-				return errors.New("delivery crossed boards or repeated an older message")
-			}
-			actual, err := renderedMessage(v.Bundle, s.Board)
-			if err != nil {
-				return err
-			}
-			if actual != sample.key.Seq {
-				return errors.New("rendered message sequence disagrees with posted message")
-			}
-			checks.Seen[s.MemberID] = append(checks.Seen[s.MemberID], messageKey{s.board.ID, actual})
-			*handover = append(*handover, v.at.Sub(sample.started))
-			r.Deliveries++
-			answer := map[string]any{"v": 1, "op": "received", "id": v.ID}
-			if v.Handoff != "" {
-				delete(answer, "id")
-				answer["handoff_id"] = v.Handoff
-			}
-			if err := send(s.ext.conn, answer); err != nil {
-				return err
-			}
-			if err := send(s.ext.conn, map[string]any{"v": 1, "op": "prompt"}); err != nil {
-				return err
-			}
-			if err := send(s.ext.conn, map[string]any{"v": 1, "op": "turn_end"}); err != nil {
-				return err
-			}
-			if err := f.awaitAck(s, sample.key.Seq); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	timing.next("acknowledgments")
+	return f.verifyAcks(ctx, func(s *seat) int64 { return byBoard[s.board.ID].key.Seq })
 }
 
-func (f *fixture) awaitAck(s *seat, want int64) error {
+func (f *fixture) awaitAck(ctx context.Context, s *seat, want int64) error {
 	var terminal error
-	err := wait(f.ctx, func() bool {
-		data, e := f.api(f.ctx, "GET", "/v1/me/inbox", s.Token, nil)
+	err := wait(ctx, func() bool {
+		data, e := f.api(ctx, "GET", "/v1/me/inbox", s.Token, nil)
 		if e != nil {
 			terminal = e
 			return true
@@ -875,4 +847,37 @@ func (f *fixture) finishExtensions(rounds int) error {
 func (f *fixture) background(work func()) {
 	f.workers.Add(1)
 	go func() { defer f.workers.Done(); work() }()
+}
+
+func (f *fixture) setupLocalServer() error {
+	listener, err := (&net.ListenConfig{}).Listen(f.ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		return err
+	}
+	addr := listener.Addr().String()
+	_ = listener.Close()
+	f.url = "http://" + addr
+	f.admin, err = f.machine("admin", addr)
+	if err != nil {
+		return err
+	}
+	if err := f.process(f.admin, "serve", "--test-server"); err != nil {
+		return err
+	}
+	f.monitor = startResources(f.ctx, f.admin.cmd.Process.Pid)
+	if err := wait(f.ctx, func() bool {
+		raw, e := os.ReadFile(filepath.Join(f.admin.home, "aboard", "config", "local-owner-token"))
+		if e != nil {
+			return false
+		}
+		key := strings.TrimSpace(string(raw))
+		_, e = f.api(f.ctx, "GET", "/v1/me", key, nil)
+		if e == nil {
+			f.admin.key = key
+		}
+		return e == nil
+	}); err != nil {
+		return err
+	}
+	return nil
 }

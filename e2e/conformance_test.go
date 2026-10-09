@@ -384,9 +384,20 @@ func (s *kitSession) nextBundle(w *proc, within time.Duration) string {
 	if s.ext != nil {
 		return s.ext.deliver(within, true).Bundle
 	}
+	if w != nil && s.p.Delivery.Method == "queue" {
+		r := w.wait(within)
+		var output struct {
+			Decision string `json:"decision"`
+			Reason   string `json:"reason"`
+		}
+		if r.code != 0 || r.stderr != "" || json.Unmarshal([]byte(r.stdout), &output) != nil || output.Decision != "block" || !strings.Contains(output.Reason, "<aboard-messages") {
+			s.e.t.Fatalf("the Stop hook should return a JSON continuation reason\n%s", r)
+		}
+		return output.Reason
+	}
 	if s.p.WaitsForIdle() {
 		r := w.wait(within)
-		if r.code != 2 || !strings.Contains(r.stderr, "<aboard-messages") {
+		if r.code != 2 || !strings.HasSuffix(r.stderr, "\n\nAboard delivery: new messages for this session.\n") || !strings.Contains(r.stderr, "<aboard-messages") {
 			s.e.t.Fatalf("the waiting hook should exit 2 with a bundle\n%s", r)
 		}
 		return r.stderr
@@ -568,8 +579,8 @@ func kitInit(t *testing.T, p support.Profile, scope string) {
 
 // kitVersions checks aboard init writes only the hook events the installed version of
 // the harness runs, reading the version from its command: the oldest version Aboard
-// works with, one just older, and one that can't be read (which gets what the oldest
-// runs) each get exactly the hooks and fallbacks whose since they have reached.
+// works with, one just older, one that can't be read (which gets what the oldest
+// runs), and the latest hook version each get the hooks and fallbacks active there.
 func kitVersions(t *testing.T, p support.Profile) {
 	if !slices.ContainsFunc(p.Delivery.Hooks, func(h support.Hook) bool { return h.Since != "" }) {
 		t.Skip("no hook depends on the harness's version")
@@ -579,6 +590,15 @@ func kitVersions(t *testing.T, p support.Profile) {
 		{oldest, oldest},
 		{kitBelow(oldest), kitBelow(oldest)},
 		{"unknown", oldest},
+	}
+	latest := oldest
+	for _, h := range p.Delivery.Hooks {
+		if h.Since != "" && support.VersionAtLeast(h.Since, latest) {
+			latest = h.Since
+		}
+	}
+	if latest != oldest {
+		cases = append(cases, struct{ prints, as string }{latest, latest})
 	}
 	for _, c := range cases {
 		t.Run(c.prints, func(t *testing.T) {
@@ -611,6 +631,9 @@ func kitVersions(t *testing.T, p support.Profile) {
 			}
 			var want []string
 			for _, h := range p.Delivery.Hooks {
+				if h.Until != "" && support.VersionAtLeast(c.as, h.Until) {
+					continue
+				}
 				if support.VersionAtLeast(c.as, h.Since) {
 					want = append(want, h.Event+" "+h.Run)
 					continue
@@ -677,6 +700,47 @@ func kitCheckHooksFile(t *testing.T, e *env, p support.Profile, content string) 
 	if file.Model != "their own setting" {
 		t.Errorf("aboard init dropped the person's own setting")
 	}
+	var version string
+	for _, kv := range e.vars {
+		if path, ok := strings.CutPrefix(kv, "PATH="); ok {
+			for _, dir := range filepath.SplitList(path) {
+				command := filepath.Join(dir, p.Command)
+				if info, err := os.Stat(command); err == nil && !info.IsDir() {
+					cmd := exec.Command(command, "--version")
+					cmd.Env = e.vars
+					output, err := cmd.Output()
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, word := range strings.Fields(string(output)) {
+						if word[0] >= '0' && word[0] <= '9' {
+							version = word
+							break
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+	if version == "" {
+		version = p.Checks.MinVersion
+	}
+	expected := map[string]int{}
+	for _, h := range p.Delivery.Hooks {
+		if h.Until != "" && support.VersionAtLeast(version, h.Until) {
+			continue
+		}
+		if support.VersionAtLeast(version, h.Since) {
+			expected[h.Event+" "+h.Run] = 1
+		} else {
+			for _, fallback := range h.Fallback {
+				if support.VersionAtLeast(version, fallback.Since) {
+					expected[fallback.Event+" "+h.Run] = 1
+				}
+			}
+		}
+	}
 	marker := " hook " + p.Harness + " "
 	found := 0
 	personKept := false
@@ -691,6 +755,12 @@ func kitCheckHooksFile(t *testing.T, e *env, p support.Profile, content string) 
 					continue
 				}
 				found++
+				_, run, _ := strings.Cut(command, marker)
+				key := event + " " + run
+				if expected[key] != 1 {
+					t.Errorf("%s is duplicated or inactive in %s", key, version)
+				}
+				expected[key]--
 				i := slices.IndexFunc(p.Delivery.Hooks, func(h support.Hook) bool {
 					return h.Event == event && strings.HasSuffix(command, marker+h.Run)
 				})
@@ -716,8 +786,10 @@ func kitCheckHooksFile(t *testing.T, e *env, p support.Profile, content string) 
 			}
 		}
 	}
-	if found != len(p.Delivery.Hooks) {
-		t.Errorf("the hooks file has %d of Aboard's hooks; the profile lists %d", found, len(p.Delivery.Hooks))
+	for hook, remaining := range expected {
+		if remaining != 0 {
+			t.Errorf("the hooks file has %d of Aboard's hooks; %s has count difference %d for %s", found, hook, remaining, version)
+		}
 	}
 	if !personKept {
 		t.Errorf("aboard init dropped the person's own hook")
@@ -1106,13 +1178,27 @@ func kitTurnEnd(t *testing.T, p support.Profile) {
 	for _, body := range []string{"one", "two", "three"} {
 		writerSays(t, e, "peer note "+body)
 	}
-	if p.HoldsWhileBusy() {
+	if p.HoldsWhileBusy() || kitStopContinues(p) {
 		if n := s.unread(); n != 3 {
 			t.Fatalf("%d unread while the turn runs; want all 3 waiting", n)
 		}
-		bundle := s.nextBundle(s.idle(), 10*time.Second)
+		var w *proc
+		if kitStopContinues(p) {
+			if q := s.queuedText(); q != "" {
+				t.Fatalf("busy-turn messages reached the queue:\n%s", q)
+			}
+			w = s.startOp("wait")
+		} else {
+			w = s.idle()
+		}
+		bundle := s.nextBundle(w, 10*time.Second)
 		if !strings.Contains(bundle, `count="3"`) || strings.Index(bundle, "peer note one") > strings.Index(bundle, "peer note three") {
 			t.Fatalf("want one bundle of all three, oldest first:\n%s", bundle)
+		}
+		for _, body := range []string{"one", "two", "three"} {
+			if n := strings.Count(bundle, "peer note "+body); n != 1 {
+				t.Fatalf("peer note %s arrived %d times:\n%s", body, n, bundle)
+			}
 		}
 		return
 	}
@@ -1318,4 +1404,9 @@ func kitResume(t *testing.T, p support.Profile) {
 	if got := back.nextBundle(back.idle(), 10*time.Second); !strings.Contains(got, "sent while closed") {
 		t.Fatalf("the resumed session should get the message that waited:\n%s", got)
 	}
+}
+
+func kitStopContinues(p support.Profile) bool {
+	_, ok := p.Hook("wait")
+	return p.Delivery.Method == "queue" && ok
 }

@@ -20,7 +20,7 @@ function problemOf(err: unknown): Problem {
 
 function ProblemBox({ problem }: { problem: Problem }) {
   return (
-    <div role="alert" className="problem mt-4 rounded-box bg-attention px-4 py-3 text-ink">
+    <div role="alert" className="problem mt-4 rounded-box border border-field-border bg-selected px-4 py-3 text-ink">
       <p className="font-bold">{problem.what}</p>
       {problem.next && <p>{problem.next}</p>}
     </div>
@@ -30,7 +30,7 @@ function ProblemBox({ problem }: { problem: Problem }) {
 /** InsecureNotice says why this page won't sign in: it isn't served over HTTPS. */
 export function InsecureNotice() {
   return (
-    <div role="alert" className="insecure mt-4 rounded-box bg-attention px-4 py-3 text-ink">
+    <div role="alert" className="insecure mt-4 rounded-box border border-field-border bg-selected px-4 py-3 text-ink">
       <p className="font-bold">Signing in with a key needs https.</p>
       <p>
         Use <code>aboard open</code> from a signed-in machine, or reach this server over https.
@@ -110,7 +110,7 @@ export default function Login({ onSignedIn, signedOut, note }: Props) {
             required
             disabled={!secure}
             placeholder="abh_…"
-            className="h-11 w-full rounded-control border border-field-border bg-surface px-3.5 text-body text-ink outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-11 w-full rounded-control border border-field-border bg-surface px-3.5 text-body text-ink pointer-coarse:text-[16px] outline-none placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
           />
           <Button type="submit" disabled={busy || !secure} className="self-start">
             {busy ? "Signing in…" : "Sign in"}
@@ -174,7 +174,7 @@ export function ConfirmSignIn({ pending, session, onSignedIn, onCancel }: Confir
           <strong>{pending.preview.key.name}</strong>. Continue only if you opened it yourself, with <code>aboard open</code>.
         </p>
         {session && (
-          <div role="alert" className="switch-warning mt-4 rounded-box bg-attention px-4 py-3 text-ink">
+          <div role="alert" className="switch-warning mt-4 rounded-box border border-field-border bg-selected px-4 py-3 text-ink">
             <p className="font-bold">
               You're signed in as <span className="current-person">@{session.person.handle}</span>. This link would sign you in
               as @{who} instead.

@@ -207,10 +207,11 @@ func checkTargets(tx ReadTx, b Board, to []string) ([]string, error) {
 
 // Reading is a page of messages for one reader.
 type Reading struct {
-	Work     *AgentWork
-	Board    Board
-	Reader   Member
-	Messages []Message
+	MidturnPolicy string
+	Work          *AgentWork
+	Board         Board
+	Reader        Member
+	Messages      []Message
 	// NextAfter and PrevBefore are set when more matching messages come after or before
 	// the page; Inbox leaves PrevBefore unset.
 	NextAfter  *int64
@@ -348,7 +349,15 @@ func (s *Service) Inbox(ctx context.Context, p Principal, wait time.Duration, af
 			if err != nil {
 				return err
 			}
-			r = Reading{Board: b, Reader: me, Messages: msgs, Work: &work}
+			person, err := tx.HumanByID(me.HumanID)
+			if err != nil {
+				return err
+			}
+			policy, _ := effectiveMidturn(person, me)
+			if err := annotateMidturnPeers(tx, me, msgs); err != nil {
+				return err
+			}
+			r = Reading{Board: b, Reader: me, Messages: msgs, Work: &work, MidturnPolicy: policy}
 			return nil
 		})
 		if err != nil || len(r.Messages) > 0 || wait <= 0 {
@@ -374,36 +383,32 @@ func (s *Service) Ack(ctx context.Context, p Principal, upTo int64) (int64, erro
 	var (
 		cursor int64
 		moved  bool
+		owner  string
 	)
-	err := s.writeAs(ctx, p, func(tx Tx) error {
-		b, _, err := seatOf(tx, *p.Agent)
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
+		b, me, err := seatOf(tx, *p.Agent)
 		if err != nil {
 			return err
 		}
 		if upTo > b.HeadSeq {
 			return ackOutOfRange(upTo, b.HeadSeq)
 		}
-		before, err := tx.MemberByName(b.ID, p.Agent.Name)
-		if err != nil {
-			return err
+		cursor, moved, owner = max(me.Cursor, upTo), upTo > me.Cursor, me.HumanID
+		if moved {
+			return tx.SetCursor(me.ID, cursor)
 		}
-		if err := tx.SetCursor(p.Agent.ID, upTo); err != nil {
-			return err
-		}
-		me, err := tx.MemberByName(b.ID, p.Agent.Name)
-		cursor, moved = me.Cursor, me.Cursor != before.Cursor
-		return err
+		return nil
 	})
 	if err == nil && moved {
 		// Whoever acknowledged, the owner's delivery daemon follows the read position.
-		s.notify.Changed(readKey(p.Agent.BoardID))
+		s.notify.Changed(readKey(p.Agent.BoardID, owner))
 	}
 	return cursor, err
 }
 
 // readKey is the Notifier key that changes when an agent's read position on the board
 // moves. Like presence, a read position is bookkeeping, never an event.
-func readKey(boardID string) string { return "read/" + boardID }
+func readKey(boardID, humanID string) string { return "read/" + boardID + "/" + humanID }
 
 // Log is a page of a board's event log.
 type Log struct {

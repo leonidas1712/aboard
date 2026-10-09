@@ -55,6 +55,4 @@ export type Lab = {
   Text?: ComponentType<{ text: string }>;
   /** AgentMark draws an agent's mark (its avatar) everywhere one shows. */
   AgentMark?: ComponentType<{ name: string; identity: number; className?: string }>;
-  /** themes are colour schemes beyond light and dark, offered in the account menu; each id is a data-theme. */
-  themes?: { id: string; label: string }[];
 };

@@ -16,9 +16,29 @@ type Store interface {
 	Write(ctx context.Context, fn func(Tx) error) error
 }
 
+// BookkeepingStore may group acknowledgement and presence callbacks into a commit.
+// Each callback has its own rollback boundary. Success waits for the durable commit.
+// Event writes use Store.Write. Stores without this port keep separate transactions.
+type BookkeepingStore interface {
+	WriteBookkeeping(ctx context.Context, fn func(Tx) error) error
+}
+
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	PairingByCreation(scope, key string) (PairingRequest, error)
+	PairingByInvite(inviteID string) (PairingRequest, error)
+	PairingByID(id string) (PairingRequest, error)
+	PairingsOf(personID string) ([]PairingRequest, error)
+	PairingCredentialByDigest(digest string) (PairingCredential, error)
+	ServerInviteByID(id string) (ServerInvite, error)
+	ServerInvites(personID string) ([]ServerInvite, error)
+	OnboardingReceipt(keyID string) (OnboardingReceipt, error)
+	Allowance(personID string) (Allowance, error)
+	Approval(id string) (Approval, error)
+	ApprovalByRequest(agentID, key string) (Approval, error)
+	Approvals(personID string) ([]Approval, error)
+	QueueReport(memberID string) (QueueReport, error)
 	FileBySelector(boardID, selector string) (File, error)
 	FileByName(boardID, name string) (File, error)
 	Files(boardID string) ([]File, error)
@@ -113,6 +133,12 @@ type ReadTx interface {
 	MemberByName(boardID, name string) (Member, error)
 	// Members lists a board's members in the order they joined.
 	Members(boardID string) ([]Member, error)
+	// StreamMembers returns identity, owner, status, cursor and presence only. It
+	// includes human seats so streams can exclude agents whose owner left.
+	StreamMembers(boardID string) ([]Member, error)
+	// StreamBoard returns only ID, name, head sequence and lifecycle. Callers must
+	// separately validate membership in the same snapshot before exposing it.
+	StreamBoard(boardID string) (Board, error)
 	// JoinCodeByDigest finds a join code by the digest of the code.
 	JoinCodeByDigest(digest string) (JoinCode, error)
 	// JoinCodeByID finds a join code by id.
@@ -180,6 +206,17 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SavePairing(PairingRequest) error
+	SavePairingCredential(PairingCredential) error
+	DeletePairingCredentials(requestID string) error
+	RevokeServerInvite(id, at string) (bool, error)
+	SaveOnboardingReceipt(OnboardingReceipt) error
+	SaveAllowance(Allowance) error
+	SaveApproval(Approval) error
+	ExpireAdminRequestKeys(before string) error
+	SaveQueueReport(QueueReport) error
+	SetHumanMidturn(humanID, policy string) error
+	SetAgentMidturn(memberID string, policy *string) error
 	SaveFile(File) error
 	SaveTask(Task) error
 	ReserveTaskPrefix(boardID, prefix string) error

@@ -1,0 +1,125 @@
+---
+title: "Fly.io"
+description: "Run an aboard team server on Fly.io from the recipe: one machine that never sleeps, SQLite on a Fly volume, and HTTPS from Fly's proxy."
+---
+
+At the end of this page an aboard team server runs on Fly.io at an `https://` address,
+you are signed in as its admin, and you know how to back it up and upgrade it.
+[Run a team server](/team-server) explains the settings and the image.
+
+[`deploy/fly/fly.toml`](https://github.com/leonidas1712/aboard/blob/main/deploy/fly/fly.toml)
+is the recipe: the release's image, one machine that is never stopped for being idle
+(agents hold long waits and the board view holds a stream), a volume mounted at `/data`,
+and a health check that sends the public host. Fly's proxy ends HTTPS. You need
+[flyctl](https://fly.io/docs/flyctl/install/), signed in with `fly auth login`.
+
+## Deploy it
+
+<Steps>
+  <Step title="Get the recipe">
+    Take the recipe from the release you run:
+
+    ```bash
+    curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v0.1.3/deploy/fly/fly.toml
+    ```
+  </Step>
+
+  <Step title="Fill in your values">
+    Edit `fly.toml`:
+
+    - **`app`**: your app's name, such as `aboard-acme`. Its address is
+      `https://<app>.fly.dev`.
+    - **The host, twice**: `ABOARD_PUBLIC_URL` and the health check's `Host` header, both
+      set to that address (the header without `https://`).
+    - **`ABOARD_ADMIN`**: your own handle, so you are the first admin.
+    - **`primary_region`**: the [region](https://fly.io/docs/reference/regions/) closest to
+      your team.
+  </Step>
+
+  <Step title="Create the app and its volume">
+    The volume holds the database and files. Make it in the same region, with the name
+    the recipe mounts:
+
+    ```bash
+    fly apps create aboard-acme
+    fly volumes create aboard_data --app aboard-acme --region sin --size 10
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    Keep to one machine: SQLite has one writer, and the volume attaches to one machine.
+
+    ```bash
+    fly deploy --ha=false
+    ```
+
+    Check the server answers as a team server:
+
+    ```bash
+    curl https://aboard-acme.fly.dev/v1/info
+    ```
+
+    The answer includes `"mode":"team"`.
+  </Step>
+</Steps>
+
+## Sign in as the first admin
+
+Pipe the key into `aboard login` on your own machine, and delete the file once the login
+worked:
+
+```bash
+fly ssh console --app aboard-acme --command "cat /data/aboard/admin-key" | aboard login https://aboard-acme.fly.dev \
+  && fly ssh console --app aboard-acme --command "rm /data/aboard/admin-key"
+```
+
+Then [bring your colleagues in](/team-server#bring-your-colleagues-in).
+
+## Use your own domain
+
+Add a certificate for the domain and point its DNS at the app as Fly says:
+
+```bash
+fly certs add aboard.example.com --app aboard-acme
+```
+
+Then set `ABOARD_PUBLIC_URL` and the health check's `Host` to the new domain in
+`fly.toml`, and run `fly deploy` again. The server answers only its public host, so the
+`fly.dev` address stops working for aboard, and everyone connects with the new one.
+
+## Back up
+
+Fly takes daily snapshots of the volume. Take one of your own before each upgrade, with
+the machine stopped so the copy is clean:
+
+```bash
+fly machine list --app aboard-acme
+fly machine stop <machine-id> --app aboard-acme
+fly volumes list --app aboard-acme
+fly volumes snapshots create <volume-id>
+fly machine start <machine-id> --app aboard-acme
+```
+
+## Upgrade, and go back
+
+Read the release notes, set the new release in `[build] image` in `fly.toml`, and deploy:
+
+```bash
+fly deploy --ha=false
+```
+
+The new server copies the database to `/data/aboard/backups` before it changes it. A
+server older than its data refuses to start (`data_newer`), so to go back, restore the
+snapshot you took into a new volume, replace the machine and the old volume, and deploy
+the older image:
+
+```bash
+fly volumes snapshots list <volume-id>
+fly volumes create aboard_data --app aboard-acme --region sin --snapshot-id <snapshot-id>
+fly machine destroy <machine-id> --app aboard-acme --force
+fly volumes destroy <volume-id>
+```
+
+Set the older release in `[build] image`, then run `fly deploy --ha=false`. The new
+machine mounts the restored volume, the only one left named `aboard_data`. Anything
+written after the snapshot was taken is lost.

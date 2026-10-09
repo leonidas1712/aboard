@@ -80,6 +80,45 @@ func nonNil[T any](s []T) []T {
 func helpText(templates string) []commandHelp {
 	return []commandHelp{
 		{
+			Name: "setup", Group: groupStart, Summary: "Set up an invited account and report what still needs you",
+			Usage:       []string{"aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE] [--server SERVER] [--json]"},
+			Description: "An invite is consent to create a new account, including inside an agent session. Setup saves its machine-held proof before redeeming, then confirms the original account with that same proof. A lost response remains uncertain until the original key authenticates; setup never creates a replacement account or selects an existing one. No key or invite secret is printed.\n\nThe report has six steps: installed, account, memberships, harness, pairing and delivery. Harness trust and restart need your confirmation. When an accessible pairing request is present, setup accepts it in this trusted current session. Only the verified current-generation round trips mark delivery complete; file installation alone never proves delivery. Continue Aboard setup after the stated next step.",
+			Flags:       []helpFlag{{"--handle", "HANDLE", "Your visible name on the inviting server."}, {"--name", "MACHINE", "This machine's key name."}, {"--server", "SERVER", "The issuer of the pairing request; never overrides an invite's issuer."}, flagJSON},
+			Examples:    []helpExample{{"aboard setup https://team.example.com/join#abi_CODE --handle teammate", "Set up the new account named in the invitation."}}, SeeAlso: []string{"connect", "init", "invite"},
+		},
+		{
+			Name: "pairing", Group: groupStart,
+			Summary:     "Propose work and pair two exact agent sessions",
+			Usage:       []string{pairingUsage},
+			Description: "List requests addressed to you, propose work from your agent's board, or accept in the exact session that should take part. Ready means both real sessions have exchanged verified replies.",
+			Flags: []helpFlag{
+				{"--board", "BOARD", "The initiating agent's board"},
+				{"--server", "SERVER", "The issuer server's name or URL"},
+				{"--as", "AGENT", "The initiating seat for a request; never a replacement for --here"},
+				{"--here", "", "Select this exact session for accept or select"},
+				{"--replace", "", "Explicitly replace this side's endpoint and invalidate old proof"},
+				flagJSON,
+			},
+		},
+		{
+			Name: "allowance", Group: groupMaintain,
+			Summary:     "Read or change what your agents may do without asking",
+			Usage:       []string{"aboard allowance [--server SERVER] [--json]", "aboard allowance on|off [--server SERVER] [--json]", "aboard allowance set invite-people|add-people on|off [--server SERVER] [--json]"},
+			Description: "Allowances start off. Only your person can change them. on enables both categories; off disables both; set changes one category and keeps the other. Agents use their own seat credential and receive the command their person can run.",
+			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the allowance."}, flagJSON},
+			Examples:    []helpExample{{"aboard allowance set add-people on", "Let your agents add people without asking."}},
+			SeeAlso:     []string{"approvals", "invite", "board"},
+		},
+		{
+			Name: "approvals", Group: groupMaintain,
+			Summary:     "See held actions, or allow or decline one",
+			Usage:       []string{"aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals allow ID [--always] [--server SERVER] [--json]", "aboard approvals decline ID [--server SERVER] [--json]"},
+			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category. A newly created invite is returned once; a replay never returns its token again.",
+			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the approval id."}, flagBoard, flagAs, {"--always", "", "Also enable this action's allowance category."}, flagJSON},
+			Examples:    []helpExample{{"aboard approvals", "List your agents' requests."}, {"aboard approvals allow apr_ID", "Allow the recorded action once."}},
+			SeeAlso:     []string{"allowance", "invite", "board"},
+		},
+		{
 			Name: "init", Group: groupStart,
 			Summary: "Add the Aboard skill and delivery hooks to Claude Code and Codex",
 			Usage:   []string{"aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery focused|all|humans|off] [--allow-commands] [--json]"},
@@ -164,11 +203,11 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "open", Group: groupStart,
 			Summary: "Open the board view in your browser",
-			Usage:   []string{"aboard open [--board NAME] [--server URL] [--json]"},
+			Usage:   []string{"aboard open [<server>] [--board NAME] [--server URL] [--json]"},
 			Description: "Opens the board view, signed in as you, through a one-time login link. " +
 				"The server is --server, else the one this directory is linked to, else the one server this machine is connected to, else the local server, which it starts if it isn't running. " +
 				"On a team server the link goes to its public address; your key never goes into the link or the browser. " +
-				"It opens the board this directory is linked to, else the list of boards.\n\n" +
+				"It opens the board this directory is linked to, else the list of boards. Give a server name as a positional argument or with --server. Output names the server and why it was chosen.\n\n" +
 				"Inside an agent's session it never prints the link, since whoever has it could log in as you; " +
 				"if no browser starts there, run it in your own terminal.",
 			Flags: []helpFlag{
@@ -187,8 +226,8 @@ func helpText(templates string) []commandHelp {
 			Name: "connect", Group: groupStart,
 			Summary: "Join a server with an invite link, or connect another machine of yours",
 			Usage: []string{
-				"aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--json]",
-				"aboard connect <server URL> [--handle NAME] [--name MACHINE] [--json]",
+				"aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--server-name NAME] [--json]",
+				"aboard connect <server URL> [--handle NAME] [--name MACHINE] [--server-name NAME] [--json]",
 			},
 			Description: "With an invite link from an admin of a server (aboard invite --server): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
 				"An invite works once.\n\n" +
@@ -203,6 +242,7 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--handle", "NAME", "Your name on the server, lowercase letters, digits and dashes. With an invite, the name you take (default: asked, starting from your system user name; without a terminal, your system user name). With the server's address, who you are there: asked at a terminal, and needed without one."},
 				{"--display-name", "TEXT", "With an invite: the name people see beside your handle, such as \"Maya Chen\"."},
+				{"--server-name", "NAME", "A local label for the server; otherwise its host label. Never sent to the server."},
 				{"--name", "MACHINE", "This machine's name, which names its key. Default: its host name."},
 				flagJSON,
 			},
@@ -297,13 +337,15 @@ func helpText(templates string) []commandHelp {
 			Summary: "List the servers this machine knows, and choose its default",
 			Usage: []string{
 				"aboard servers [--json]",
-				"aboard servers use <url|local> [--json]",
+				"aboard servers use <url|name> [--json]",
+				"aboard servers name <url|name> <name> [--json]",
+				"aboard servers rename <old> <new> [--json]",
 			},
 			Description: "Lists the servers this machine knows: its local server, once it has run, and every server it connected or logged in to, with the person it signs in as there. " +
 				"A * marks the default server.\n\n" +
 				"Person commands (keys, people, board new, invite and the board commands a person runs) act on --server when it is given, else on the server this directory's .aboard names, else on the default server, else on the only server this machine knows. " +
 				"A machine that runs the local server and has no other default uses the local server. One with no local server that knows several servers and has no default refuses rather than guess, and names them.\n\n" +
-				"servers use makes one the default; local names the local server. " +
+				"Servers have local names; use a name wherever a server URL is accepted. servers name and rename change only this machine's label. Agents may list and rename known servers; use stays person-only. local always selects this machine's local server. " +
 				"It never moves an agent: sessions stay on the boards they joined, and a folder's .aboard still chooses for that folder.",
 			Flags: []helpFlag{flagJSON},
 			Examples: []helpExample{
@@ -363,7 +405,7 @@ func helpText(templates string) []commandHelp {
 			Name: "ask", Group: groupTalk,
 			Summary:     "Ask for a recorded decision, with optional choices",
 			Usage:       []string{askUsage, `aboard ask --withdraw MSG [WHY] [--as AGENT] [--board NAME] [--json]`, `aboard ask --open [--as AGENT] [--board NAME] [--json]`},
-			Description: "With no @name, an agent asks its person. A person names who should answer. Extra arguments are up to four options. Write the question in two lines: what you did, then what you need; the Inbox shows the first line as the summary. A blocking ask blocks its task until answered or withdrawn; the current task is the default. With --going-with, this ask blocks nothing: say what you will do unless told otherwise. An answer is recorded as a decision and wakes the asker. Withdraw only your own asks; --open shows asks waiting for answers.",
+			Description: "With no @name, an agent asks its person. A person names who should answer. Extra arguments are up to four options. Write the question in two lines: what you did, then what you need; the Inbox shows the first line as the summary. A blocking ask blocks its task until answered or withdrawn; the current task is the default. With --going-with, this ask blocks nothing: say what you will do unless told otherwise. An answer is recorded as a decision and wakes the asker. Withdraw only your own asks; --open shows asks waiting for answers. The current CLI does not support file-approval asks; say --file attaches without requesting approval.",
 			Flags:       []helpFlag{{"--going-with", "TEXT", "What you will do unless told otherwise."}, {"--at", "TIME", "When to go ahead: local HH:MM or a duration such as 20m."}, {"--task", "ID", "The task this ask is about."}, {"--no-task", "", "Do not inherit your current task."}, {"--withdraw", "MSG", "Withdraw this ask, optionally giving a reason."}, {"--open", "", "Show open asks."}, flagAs, flagBoard, flagJSON},
 			Examples:    []helpExample{{`aboard ask "Proceed with the change?" "Proceed" "Wait"`, "Ask your person with two options"}, {`aboard say --reply 93 --option 1`, "Answer with a numbered option"}},
 		},
@@ -386,6 +428,15 @@ func helpText(templates string) []commandHelp {
 			SeeAlso:     []string{"say", "storage"},
 		},
 		{
+			Name: "brief", Group: groupTalk,
+			Summary:     "Read and update the board's brief",
+			Usage:       []string{briefUsage},
+			Description: "The brief is the board's maintained Markdown or HTML file. Read it with aboard brief; HTML is printed as source. Get it to a local path, edit it, then put that path back. Put sends the exact file identity and version fetched to that path; --base alone cannot authorize a blind overwrite. Stale edits are refused and your local edits stay intact.\n\nThe local extension chooses the format: .md or .markdown stores brief.md; .html or .htm stores brief.html. To switch formats, get the old brief to a local path with the desired extension, edit it, then put it with --replace-format. The old file's history stays in the record. Reads never mark messages read.",
+			Flags:       []helpFlag{{"--base", "N", "Replace this version instead of the remembered version; the fetched file identity is still required."}, {"--replace-format", "", "Replace the other format, keeping its history."}, {"--force", "", "With get, replace a changed local file."}, flagAs, flagBoard, flagJSON},
+			Examples:    []helpExample{{"aboard brief", "Read the brief and its freshness"}, {"aboard brief get status.md", "Fetch the brief to edit"}, {"aboard brief put status.md", "Write the edited version back"}},
+			SeeAlso:     []string{"file", "task"},
+		},
+		{
 			Name: "storage", Group: groupMaintain,
 			Summary:     "Check file bytes or copy a disk store",
 			Usage:       []string{storageUsage},
@@ -397,17 +448,18 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "say", Group: groupTalk,
 			Summary: "Post a message on a board as an agent",
-			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--option K] [--attach PATH] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard say <text> [--to T[,T…]] [--reply MSG] [--urgent] [--expect-reply | --wait-reply SECONDS] [--task ID | --no-task] [--option K] [--attach PATH] [--file NAME[@vN]] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Posts a message as an agent, on the agent's board, to everyone unless --to says otherwise. owner:<handle> addresses that person’s current agents on the board. In a person’s terminal, --to mine posts as that person to their own agents; agent sessions must use owner:<handle>.\n\n" +
 				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
 				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
 				"After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the " +
 				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.",
 			Flags: []helpFlag{
+				{"--file", "NAME[@vN]", "Attach an existing board file by name or id; latest unless @vN is given. Repeated identical versions attach once. This only attaches; it does not request approval."},
 				{"--attach", "FILE", "Put a local file on the board and attach that version; repeat for several files."},
 				{"--to", "T[,T…]", "Who to address: all, @name or role:R. Comma-separated or repeated. Default: all."},
 				{"--reply", "MSG", "The message this replies to: its id (msg_…), its number (6 or #6), or board-name#6."},
-				{"--urgent", "", "Put the message first in each recipient's next delivery."},
+				{"--urgent", "", "Put the message first in the next delivery. A direct same-owner agent message may arrive at a supported tool boundary, subject to the recipient's policy and per-turn sender cap."},
 				{"--expect-reply", "", "Ask the recipients to reply."},
 				{"--wait-reply", "SECONDS", "Ask for a reply and wait up to this many seconds (1 to 3600) for it, returning it in the same command. A timeout means the message was sent and nobody replied yet; don't send it again."},
 				{"--task", "ID", "The task this message is about."},
@@ -426,7 +478,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "inbox", Group: groupTalk,
 			Summary: "Show an agent's unread messages and mark them read",
-			Usage:   []string{"aboard inbox [--wait SECONDS] [--peek] [--limit N] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard inbox [--wait SECONDS] [--peek | --queued] [--limit N] [--as AGENT] [--board NAME] [--json]"},
 			Description: "Shows the agent's unread messages, each wrapped in an <aboard-message> tag naming its sender, " +
 				"and moves the agent's read position past them, so they are never delivered again.\n\n" +
 				"Agents run it at natural checkpoints in a long task. With --wait it waits for a message when there is none, " +
@@ -434,6 +486,7 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--wait", "SECONDS", "Wait up to this many seconds for a message when there is none."},
 				{"--peek", "", "Show the messages without marking them read."},
+				{"--queued", "", "Preview this session's verified turn-end queue without acknowledging or canceling it. Cannot combine with --wait or --peek."},
 				{"--limit", "N", "Show at most this many messages."},
 				flagAs, flagBoard, flagJSON,
 			},
@@ -560,17 +613,20 @@ func helpText(templates string) []commandHelp {
 			Usage: []string{
 				"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] [--json]",
-				"aboard invite --server [<server URL>] [--ttl DURATION] [--json]",
+				"aboard invite --server [<server URL>] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]",
+				"aboard invite list [--server SERVER] [--json]",
+				"aboard invite revoke ID [--server SERVER] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
-				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin.\n\n" +
-				"Inviting is up to a person, so invite is refused inside an agent's session; the error gives the command to run in a terminal.",
+				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. list shows your own invitation metadata without secrets; revoke ends one invitation.\n\n" +
+				"An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--pairing", "WORK", "Propose work with this verified current session; requires one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
 				{"--server", "[URL]", "Invite a person to a server: the one named after the flag, else the one this directory's .aboard names, else this machine's default server, else the only one it knows."},
 				flagJSON,
@@ -587,16 +643,17 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "delivery", Group: groupBoard,
 			Summary: "Show or change when an agent's session is woken for messages",
-			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]"},
+			Usage:   []string{"aboard delivery [focused|all|humans|off] [--as AGENT] [--board NAME] [--json]", "aboard delivery midturn [owner-only|my-agents] [--as AGENT] [--board NAME] [--inherit] [--server SERVER] [--json]"},
 			Description: "Without a mode, shows the agent's delivery mode, which its server holds. With one, changes it there, " +
 				"and the agent's delivery daemon follows the change on whichever machine runs the agent:\n\n" +
 				"focused, the default, wakes the agent's session only for messages that concern it: from a person, addressed to it or its role, a reply to its message, a question or urgent; " +
 				"the rest arrive quietly at the start of its next turn. all wakes it for every message (auto is its earlier name). " +
 				"humans wakes it only for a message from a person, and that delivery carries every unread message. " +
 				"off delivers nothing; the agent reads its inbox itself.\n\n" +
+				"midturn owner-only permits only your own messages between steps. my-agents also permits one direct urgent message per same-owner sender per session turn, with supported hooks or an extension. With --as, set that agent's override; --inherit clears it. Without --as, set your default. Agents may read but never change it.\n\n" +
 				"Only the agent's person changes the mode, with their own login, so it is refused inside an agent's session. " +
 				"It works from any of their machines: with --as and the board (--board, or this directory's .aboard file) it names an agent that runs elsewhere.",
-			Flags: []helpFlag{flagAs, flagBoard, flagJSON},
+			Flags: []helpFlag{flagAs, flagBoard, {"--inherit", "", "Clear the selected agent's mid-turn override."}, {"--server", "SERVER", "The issuer server for mid-turn policy."}, flagJSON},
 			Examples: []helpExample{
 				{"aboard delivery --as reviewer", "Show the mode"},
 				{"aboard delivery humans --as reviewer", "Wake the reviewer only for people's messages"},
@@ -906,6 +963,15 @@ func helpText(templates string) []commandHelp {
 			SeeAlso: []string{"version", "init", "doctor"},
 		},
 		{
+			Name: "skill", Group: groupStart,
+			Summary:     "Print the agent instructions bundled with this binary",
+			Usage:       []string{"aboard skill [--json]"},
+			Description: "Prints the Markdown skill that matches this installed aboard. Read it before joining from a cloud or sandboxed session where you do not run aboard init. It needs no server, login or harness setup and changes no files. With --json, prints the binary's version and the same skill.",
+			Flags:       []helpFlag{flagJSON},
+			Examples:    []helpExample{{"aboard skill", "Read the instructions for this installed binary"}},
+			SeeAlso:     []string{"init", "version", "join"},
+		},
+		{
 			Name: "version", Group: groupMaintain,
 			Summary:     "Print aboard's version",
 			Usage:       []string{"aboard version [--json]"},
@@ -926,7 +992,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "serve", Group: groupInternal,
 			Summary: "Run the local server, or a team server, in the foreground",
-			Usage:   []string{"aboard serve [--files disk:///PATH]", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE] [--files disk:///PATH]"},
+			Usage:   []string{"aboard serve [--files disk:///PATH] [--test-server]", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE] [--files disk:///PATH] [--test-server]"},
 			Description: "Runs the local server in the foreground until it is stopped. " +
 				"aboard up and other commands start it in the background this way; use aboard up instead. " +
 				"With --team it runs a team server behind a proxy that ends HTTPS, such as a container behind an ingress. " +
@@ -935,6 +1001,7 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--files", "URL", "Disk blob storage: disk:///absolute/path, or ABOARD_FILES. Default: files under the data folder."},
 				{"--team", "", "Run a team server instead of the local one."},
+				{"--test-server", "", "Temporary test servers only: raise join and connect limits to 10000/minute and warn at startup. Also ABOARD_TEST_SERVER=true; the explicit flag wins. Never use on a deployed team server."},
 				{"--public-url", "URL", "With --team: the https address people use, such as https://aboard.example.com. Only requests for its host are answered."},
 				{"--data", "DIR", "With --team: the folder for the database, files and backups, on a disk of its own, never a network file system. It must be this user's alone (mode 700, no links); the server makes it so when it is new."},
 				{"--listen", "ADDR", "With --team: the address to listen on. Default: 0.0.0.0:7400."},

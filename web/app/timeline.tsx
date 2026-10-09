@@ -7,8 +7,10 @@
 import { lab } from "aboard-lab";
 import { TaskChips, TaskLinks } from "./task-ui";
 import { AskAnswers } from "./ask-ui";
+import { Attachments, FileLinks } from "./attachments";
 
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
+import { SenderMark } from "./agent-mark";
 import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -355,9 +357,9 @@ export function showMessage(id: string): boolean {
 function NewDivider() {
   return (
     <li className="new-divider flex items-center gap-3 py-1" aria-label="New since you last looked">
-      <span className="h-px flex-1 bg-accent" />
+      <span className="h-px flex-1 bg-accent-strong" />
       <span className="text-meta font-bold text-link">New since you last looked</span>
-      <span className="h-px flex-1 bg-accent" />
+      <span className="h-px flex-1 bg-accent-strong" />
     </li>
   );
 }
@@ -367,39 +369,6 @@ function Time({ at, now }: { at: string; now: number }) {
     <time dateTime={at} title={exactTime(at)} className="shrink-0 text-meta whitespace-nowrap text-muted tabular-nums">
       {relativeTime(at, now)}
     </time>
-  );
-}
-
-/** SenderMark is a sender's one or two letters on its identity colour. */
-export function SenderMark({
-  name,
-  kind,
-  identity,
-  className,
-}: {
-  name: string;
-  kind: "agent" | "human";
-  identity: number;
-  className?: string;
-}) {
-  const mark = markOf(name, kind);
-  // Only the UI lab draws an agent's mark another way (lab-seam.ts).
-  if (lab?.AgentMark && kind === "agent") return <lab.AgentMark name={name} identity={identity} className={className} />;
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "sender-mark flex size-8 shrink-0 items-center justify-center rounded-control font-bold tracking-[0.02em] select-none",
-        mark.length > 1 ? "text-[13px]" : "text-body",
-        className,
-      )}
-      style={{
-        background: `var(--id-${identity}-bg)`,
-        color: `var(--id-${identity}-fg)`,
-      }}
-    >
-      {mark}
-    </span>
   );
 }
 
@@ -425,7 +394,7 @@ function Kind({ m, nested }: { m: Message; nested: boolean }) {
   if (m.reply_to) {
     return (
       <span title="Reply">
-        <Reply className={cn(glyph, "text-accent")} strokeWidth={1.75} aria-label="Reply" />
+        <Reply className={cn(glyph, "text-muted")} strokeWidth={1.75} aria-label="Reply" />
       </span>
     );
   }
@@ -497,7 +466,7 @@ function MessageEntry({
     <button
       type="button"
       onClick={onReply}
-      className="reply-button h-7 shrink-0 rounded-[6px] px-2 text-meta text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:underline focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+      className="reply-button tap h-7 shrink-0 rounded-[6px] px-2 text-meta text-link opacity-0 transition-opacity duration-[140ms] ease-out group-focus-within:opacity-100 group-hover:opacity-100 hover:underline focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
       aria-label={`Reply to ${self ? "your message" : m.from.name}`}
     >
       Reply
@@ -512,15 +481,15 @@ function MessageEntry({
   return (
     <li
       className={cn(
-        "message group relative grid px-2.5 transition-colors duration-200 ease-out",
+        "message group relative grid px-3 transition-colors duration-200 ease-out",
         nested ? "reply grid-cols-[24px_minmax(0,1fr)] gap-x-2.5" : "grid-cols-[32px_minmax(0,1fr)] gap-x-3",
-        grouped ? "pt-0.5" : nested ? "pt-2" : "pt-3",
-        groupGoesOn ? "pb-0.5" : threaded ? "pb-1.5" : nested ? "pb-2" : "pb-3",
+        grouped ? "pt-1" : nested ? "pt-2.5" : "pt-4",
+        groupGoesOn ? "pb-1" : threaded ? "pb-2" : nested ? "pb-2.5" : "pb-4",
         ruled && !grouped && "border-t border-rule",
         self && "own bg-own",
         self && !grouped && "rounded-t-box",
         self && !groupGoesOn && "rounded-b-box",
-        outlined && "my-1.5 rounded-box border",
+        outlined && "my-2.5 rounded-box border",
         outlined && (m.urgent ? "urgent border-[var(--outline-strong)]" : "asks border-[var(--outline-faint)]"),
         arrived && "animate-arrive",
       )}
@@ -542,6 +511,7 @@ function MessageEntry({
           <SenderMark
             name={m.from.name}
             kind={m.from.kind}
+            harness={m.from.harness}
             identity={identity}
             className={nested ? "size-6 rounded-[6px] text-[11px]" : undefined}
           />
@@ -580,23 +550,24 @@ function MessageEntry({
         {grouped && !threaded && !nested && m.about?.length ? <div className="pt-0.5"><TaskChips tags={m.about} /></div> : null}
         {m.reply_to !== null && quoted && (
           <p className="flex items-center gap-1.5 text-meta text-muted" title={quote ?? undefined}>
-            {grouped && <Reply className="size-3.5 shrink-0 text-accent" strokeWidth={1.75} aria-label="Reply" />}
+            {grouped && <Reply className="size-3.5 shrink-0 text-muted" strokeWidth={1.75} aria-label="Reply" />}
             <span className="truncate">{quote ?? "Replying to an earlier message"}</span>
           </p>
         )}
         {grouped && lab?.MessageMeta && receipts && <lab.MessageMeta board={receipts.board} message={m} grouped />}
-        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24")}>
+        <p className={cn("body whitespace-pre-wrap break-words", !grouped && "mt-0.5", grouped && "pr-24 pointer-coarse:pr-0")}>
           <Body m={m} mentions={mentions} />
         </p>
+        <Attachments files={m.files} />
         {lab?.MessageFooter && receipts && <lab.MessageFooter board={receipts.board} message={m} />}
         {m.ask && receipts && <AskAnswers message={m} board={receipts.board} readOnly={!onReply} />}
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
-        {grouped && actions && <div className="absolute top-0 right-2.5">{actions}</div>}
+        {grouped && actions && <div className="absolute top-0 right-2.5 pointer-coarse:static pointer-coarse:mt-1 pointer-coarse:flex pointer-coarse:justify-end">{actions}</div>}
         {waiting && (
-          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-on-accent">
             <p>{m.from.name} is waiting for your reply.</p>
-            {onReply && <Button onClick={onReply}>Reply</Button>}
+            {onReply && <Button variant="onAccent" onClick={onReply}>Reply</Button>}
           </div>
         )}
       </div>
@@ -659,14 +630,14 @@ function ThreadBlock({
       </span>
       {thread.fresh > 0 && !open && (
         <span className="thread-new inline-flex animate-fade-in items-center gap-1.5 font-bold text-link">
-          <span className="size-2 rounded-full bg-accent" aria-hidden />
+          <span className="size-2 rounded-full bg-ink" aria-hidden />
           {thread.fresh} new
         </span>
       )}
     </>
   );
   const toggle = thread.filtered ? (
-    <p className="thread-toggle flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
+    <p className="thread-toggle flex min-h-9 pointer-coarse:min-h-11 flex-wrap items-center gap-x-2 gap-y-1 text-meta">{summary}</p>
   ) : (
     <button
       type="button"
@@ -697,9 +668,9 @@ function ThreadBlock({
         toggle
       )}
       {!open && thread.waiting && (
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-ink">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-on-accent">
           <p>{thread.waiting.from.name} is waiting for your reply in this thread.</p>
-          {onReply && <Button onClick={() => onReply(thread.waiting!)}>Reply</Button>}
+          {onReply && <Button variant="onAccent" onClick={() => onReply(thread.waiting!)}>Reply</Button>}
         </div>
       )}
       {open && (
@@ -736,7 +707,7 @@ function ThreadBlock({
           {!thread.filtered && onReply && (
             <button
               type="button"
-              className="thread-reply -ml-1.5 min-h-9 rounded-control px-1.5 text-meta text-link hover:underline"
+              className="thread-reply -ml-1.5 min-h-9 pointer-coarse:min-h-11 rounded-control px-1.5 text-meta text-link hover:underline"
               onClick={() => onReply(root)}
             >
               Reply in thread
@@ -753,8 +724,8 @@ type Mentions = { onMention: (target: string) => void };
 
 /**
  * Body is a message's text as written, with each mention the server recorded when it
- * was posted marked as a button that shows the member or role in the board panel. The
- * text stays text, never HTML.
+ * was posted marked as a button that shows the member or role in the board panel, and
+ * each board file's path as a link that opens the file. The text stays text, never HTML.
  */
 function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
   return segments(m.body, mentionedTargets(m)).map((s, i) =>
@@ -772,14 +743,16 @@ function Body({ m, mentions }: { m: Message; mentions: Mentions }) {
     ) : lab?.Text ? (
       <lab.Text key={i} text={s.text} />
     ) : (
-      <Fragment key={i}><TaskLinks text={s.text} tags={m.about} /></Fragment>
+      <Fragment key={i}>
+        <FileLinks text={s.text} skip={m.files} rest={(t, k) => <TaskLinks key={k} text={t} tags={m.about} />} />
+      </Fragment>
     ),
   );
 }
 
 function EventLine({ e, line, now, arrived }: { e: BoardEvent; line: string; now: number; arrived: boolean }) {
   return (
-    <li className={cn("board-event flex justify-center px-6 py-2.5", arrived && "animate-arrive")}>
+    <li className={cn("board-event flex justify-center px-6 py-3", arrived && "animate-arrive")}>
       <p
         className="max-w-full rounded-full border border-rule bg-surface px-3 py-0.5 text-center text-meta text-muted"
         title={exactTime(e.at)}

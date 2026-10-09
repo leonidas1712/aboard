@@ -83,9 +83,9 @@ export function AskAnswers({ message, board, keyboard = false, readOnly = false,
         else if (pressed("leave", e)) { e.preventDefault(); leave(); }
       }} rows={3} className="w-full resize-y rounded-control border border-field-border bg-surface px-2.5 py-1.5 text-ink" disabled={busy} />
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={busy || !text.trim()} className="inline-flex min-h-10 items-center gap-2 rounded-control bg-ink px-3.5 font-bold text-on-ink disabled:opacity-60">{busy ? "Sending…" : `Send to ${message.from.name}`}{keyboard && !busy && <span aria-hidden className="font-normal opacity-80">{keyLabel("send")}</span>}</button>
-        <button type="button" disabled={busy} className="min-h-10 text-meta text-link hover:underline" onClick={leave}>Cancel</button>
-        {keyboard && <span className="text-meta text-muted">or {keyLabel("leave")}</span>}
+        <button type="submit" disabled={busy || !text.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-control border border-accent-strong bg-accent px-3.5 font-bold text-on-accent disabled:border-rule disabled:bg-selected disabled:text-muted">{busy ? "Sending…" : `Send to ${message.from.name}`}{keyboard && !busy && <span aria-hidden className="font-normal opacity-80 pointer-coarse:hidden">{keyLabel("send")}</span>}</button>
+        <button type="button" disabled={busy} className="min-h-11 px-1 text-meta text-link hover:underline" onClick={leave}>Cancel</button>
+        {keyboard && <span className="text-meta text-muted pointer-coarse:hidden">or {keyLabel("leave")}</span>}
       </div>
     </form> : <button ref={replyButton} type="button" disabled={busy} onClick={() => setWriting(true)} className={choice}>{keyboard && <Kbd>{keyLabel("reply")}</Kbd>}Reply with something else</button>)}
     {error !== null && <Problem error={error} />}

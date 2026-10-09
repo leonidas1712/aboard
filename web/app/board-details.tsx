@@ -91,7 +91,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 function RecordLine({ record }: { record: RecordCheck }) {
   if (record.state === "failed") {
     return (
-      <div role="alert" className="record rounded-box bg-attention px-3.5 py-3 text-ink">
+      <div role="alert" className="record rounded-box border border-field-border bg-selected px-3.5 py-3 text-ink">
         <p className="flex items-center gap-2 font-bold">
           <ShieldAlert className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />
           Record doesn&apos;t verify
@@ -110,9 +110,9 @@ function RecordLine({ record }: { record: RecordCheck }) {
       <TooltipTrigger asChild>
         <button
           type="button"
-          className="record -mx-2 flex min-h-9 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
+          className="record -mx-2 flex min-h-9 pointer-coarse:min-h-11 w-fit items-center gap-2 rounded-[6px] px-2 text-left text-meta whitespace-nowrap text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
         >
-          <ShieldCheck className="size-4 shrink-0 text-accent" strokeWidth={1.5} aria-hidden />
+          <ShieldCheck className="size-4 shrink-0 text-accent-strong" strokeWidth={1.5} aria-hidden />
           Record verified · {n} {n === 1 ? "event" : "events"}
         </button>
       </TooltipTrigger>
@@ -300,7 +300,7 @@ export function CopyButton({ text, label, variant }: { text: string; label: stri
       <span aria-live="polite" className="copy-status text-meta">
         {copied && (
           <span className={`inline-flex items-center gap-1.5 ${copied === "fading" ? "animate-fade-out" : "animate-fade-in"}`}>
-            <Check className="size-4 text-accent" strokeWidth={1.75} aria-hidden />
+            <Check className="size-4 text-accent-strong" strokeWidth={1.75} aria-hidden />
             Copied
           </span>
         )}

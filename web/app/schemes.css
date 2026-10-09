@@ -1,0 +1,129 @@
+/* Colour schemes beyond light and dark (D220, first tried in the UI lab). Each is a full
+   set of the tokens in tokens.css on the same names, so every component follows. A
+   scheme applies as data-theme on <html>, chosen in the account menu; "Same as this
+   computer" keeps following the system's light or dark. Each follows the brand's rules:
+   tinted neutrals, one accent that marks what needs a person, links in ink.
+   lab/contrast.mjs checks each one against WCAG AA. */
+
+/* Ember: a warm dark, for late evenings. Its accent is marigold. */
+:root[data-theme="ember"] {
+  color-scheme: dark;
+  --background: #15110e;
+  --surface: #1e1915;
+  --sidebar: #110e0b;
+  --selected: #2e251f;
+  --ink: #f2e9de;
+  --muted: #bcab9c;
+  --faint: #86776a;
+  --rule: #352b25;
+  --field-border: #7d6b5b;
+  --on-ink: #15110e;
+  --accent: #eab04e;
+  --accent-strong: #eab04e;
+  --attention-mix: 20%;
+  --on-accent: #15110e;
+  --mark-reply: #eab04e;
+  --link: #f2e9de;
+  --status-working: #f2e9de;
+  --status-needs: #eab04e;
+  --status-hold: #b7a4ea;
+  --status-idle: #988879;
+  --id-1-bg: #563432;
+  --id-1-fg: #fdd0cc;
+  --id-2-bg: #553a29;
+  --id-2-fg: #fad6bf;
+  --id-3-bg: #3f4326;
+  --id-3-fg: #dde3bb;
+  --id-4-bg: #2e4632;
+  --id-4-fg: #c6e8cb;
+  --id-5-bg: #214641;
+  --id-5-fg: #b7e8e0;
+  --id-6-bg: #3b3d57;
+  --id-6-fg: #d6daff;
+  --id-7-bg: #473951;
+  --id-7-fg: #e9d5f8;
+  --id-8-bg: #513546;
+  --id-8-fg: #f8d0e5;
+}
+
+/* Tide: a deep sea-green dark, the distinctive one. Its accent is the brand's green. */
+:root[data-theme="tide"] {
+  color-scheme: dark;
+  --background: #08191a;
+  --surface: #0d2324;
+  --sidebar: #051213;
+  --selected: #153332;
+  --ink: #e2f2ee;
+  --muted: #9cbfb8;
+  --faint: #66897f;
+  --rule: #1d3b39;
+  --field-border: #52807a;
+  --on-ink: #08191a;
+  --accent: #7cdf64;
+  --accent-strong: #7cdf64;
+  --attention-mix: 20%;
+  --on-accent: #0f100d;
+  --mark-reply: #7cdf64;
+  --link: #e2f2ee;
+  --status-working: #e2f2ee;
+  --status-needs: #7cdf64;
+  --status-hold: #b4a6ee;
+  --status-idle: #7fa29b;
+  --id-1-bg: #4f3536;
+  --id-1-fg: #fdcdcc;
+  --id-2-bg: #4d3829;
+  --id-2-fg: #fad1bb;
+  --id-3-bg: #3a4126;
+  --id-3-fg: #d9e0b7;
+  --id-4-bg: #284633;
+  --id-4-fg: #c2e6c8;
+  --id-5-bg: #29404f;
+  --id-5-fg: #cfe0ef;
+  --id-6-bg: #343c57;
+  --id-6-fg: #d3d8ff;
+  --id-7-bg: #413850;
+  --id-7-fg: #e6d1f7;
+  --id-8-bg: #4b3445;
+  --id-8-fg: #f7cde3;
+}
+
+/* High contrast: a dark with the strongest text, edges and focus, for low vision or
+   bright rooms. Muted text stays above 7:1; rules and edges above 3:1. */
+:root[data-theme="contrast"] {
+  color-scheme: dark;
+  --background: #050604;
+  --surface: #0d0e0b;
+  --sidebar: #020302;
+  --selected: #24261f;
+  --ink: #fafbf5;
+  --muted: #d7d9cf;
+  --faint: #a7a99f;
+  --rule: #74766b;
+  --field-border: #b6b8ad;
+  --on-ink: #050604;
+  --accent: #8ff06f;
+  --accent-strong: #8ff06f;
+  --on-accent: #050604;
+  --mark-reply: #8ff06f;
+  --link: #fafbf5;
+  --status-working: #fafbf5;
+  --status-needs: #8ff06f;
+  --status-hold: #c4b6ff;
+  --status-idle: #b6b8ad;
+  --id-1-bg: #6a2b2b;
+  --id-1-fg: #ffe3e1;
+  --id-2-bg: #6a3a1c;
+  --id-2-fg: #ffe5d4;
+  --id-3-bg: #4b5214;
+  --id-3-fg: #f0f5d2;
+  --id-4-bg: #1f5a30;
+  --id-4-fg: #dcf7e1;
+  --id-5-bg: #035c53;
+  --id-5-fg: #d6fbf5;
+  --id-6-bg: #3c4290;
+  --id-6-fg: #e6e9ff;
+  --id-7-bg: #5e3c7a;
+  --id-7-fg: #f3e6ff;
+  --id-8-bg: #74325a;
+  --id-8-fg: #ffe1f0;
+}

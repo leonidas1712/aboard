@@ -1,14 +1,15 @@
 "use client";
 
-import { ArrowLeft, Clock, MessagesSquare } from "lucide-react";
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { ArrowLeft, CircleCheck, CircleSlash, Clock, MessagesSquare } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { type AskList, type Member, type MemberRef, type Message, type Presence as PresenceState, type Task, type TaskList, type TaskTag, ApiError, get, getTask, listTasks, post } from "./api";
-import { AgentMark } from "./agent-mark";
+import { type AskList, type Member, type MemberRef, type Message, type Task, type TaskList, type TaskTag, ApiError, get, getTask, listTasks, post } from "./api";
+import { AgentMark, SenderMark } from "./agent-mark";
 import { AskAnswers } from "./ask-ui";
 import { Problem } from "./chrome";
-import { count, harnessName, presenceWords, relativeTime } from "./words";
+import { LineText, type Status, StatusWord, agentStatus, blocksOf } from "./status";
+import { count, harnessName, relativeTime } from "./words";
 
 type TaskRoom = {
   tasks: Task[];
@@ -52,6 +53,25 @@ export function taskState(t: Task): string {
   return t.state === "done" ? "Done" : "Cancelled";
 }
 
+/**
+ * ClosedMark says how a task ended, so the two never read alike: done with a check in the
+ * strong accent, cancelled with a slashed circle in muted (and its title struck through
+ * where it shows).
+ */
+export function ClosedMark({ task }: { task: Task }) {
+  return task.state === "done" ? (
+    <span className="task-closed inline-flex items-center gap-1 text-ink" data-closed="done">
+      <CircleCheck className="size-3.5 shrink-0 text-accent-strong" strokeWidth={2} aria-hidden />
+      Done
+    </span>
+  ) : (
+    <span className="task-closed inline-flex items-center gap-1 text-muted" data-closed="cancelled">
+      <CircleSlash className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+      Cancelled
+    </span>
+  );
+}
+
 export function TaskChips({ tags }: { tags: TaskTag[] | undefined }) {
   const { tasks, open } = useContext(Tasks);
   if (!tags?.length) return null;
@@ -60,7 +80,7 @@ export function TaskChips({ tags }: { tags: TaskTag[] | undefined }) {
     {unique.map((tag) => {
       const task = tasks.find((t) => t.id === tag.id);
       return <Tooltip key={tag.id}><TooltipTrigger asChild>
-        <button type="button" aria-label={`Open task ${tag.ref}`} data-task-chip={tag.ref} onClick={() => open(tag.ref)} className="task-chip inline-flex max-w-[240px] items-baseline gap-1 rounded-[6px] border border-rule px-1.5 text-meta font-normal text-muted transition-colors duration-[140ms] ease-out hover:border-field-border hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
+        <button type="button" aria-label={`Open task ${tag.ref}`} data-task-chip={tag.ref} onClick={() => open(tag.ref)} className="task-chip tap inline-flex max-w-[240px] items-baseline gap-1 rounded-[6px] border border-rule px-1.5 text-meta font-normal text-muted transition-colors duration-[140ms] ease-out hover:border-field-border hover:text-ink focus-visible:outline-2 focus-visible:outline-accent-strong">
           <span className="shrink-0 tabular-nums">{tag.ref}</span>{task && unique.length === 1 && <span className="truncate">· {task.title}</span>}
         </button>
       </TooltipTrigger><TooltipContent><strong className="block">{tag.ref}{task && ` ${task.title}`}</strong>{task && <span className="block">{taskState(task)}{task.owner && ` · owner ${task.owner.name}`}</span>}<span className="block">Click to open the task</span></TooltipContent></Tooltip>;
@@ -82,23 +102,54 @@ function onTask(t: Task): MemberRef[] {
   return [...(t.owner ? [t.owner] : []), ...t.with.filter((m) => !(t.owner && m.name === t.owner.name && m.kind === t.owner.kind))];
 }
 
-/** Who is a member of the task with the details the board's member list adds: harness and presence. */
-function useWho() {
-  const { members, identity } = useContext(Tasks);
-  return (m: MemberRef) => {
-    const found = members.find((x) => x.name === m.name && x.kind === m.kind);
-    return { ref: m, harness: found?.harness ?? m.harness ?? null, presence: m.kind === "agent" ? (found?.presence ?? "no_session") : null, identity: identity(m) };
+/**
+ * useStatus is an agent's status on this board: its presence and state from the member
+ * list, and the open blocking asks it waits on from the board's tasks.
+ */
+export function useStatus() {
+  const { tasks, me } = useContext(Tasks);
+  const blocks = useMemo(() => blocksOf(tasks), [tasks]);
+  return useCallback(
+    (agent: Pick<Member, "name" | "owner" | "presence"> & Partial<Pick<Member, "state" | "line">>): Status => agentStatus(agent, blocks.get(agent.name), me),
+    [blocks, me],
+  );
+}
+
+/** useAgentStatus is a board agent's status by name, or null for a person or an agent no longer on the board. */
+export function useAgentStatus() {
+  const { members } = useContext(Tasks);
+  const status = useStatus();
+  return (m: MemberRef): Status | null => {
+    if (m.kind !== "agent") return null;
+    const found = members.find((x) => x.kind === "agent" && x.name === m.name);
+    return found ? status(found) : null;
   };
 }
 
-function Presence({ presence }: { presence: PresenceState }) {
+/** Who is a member of the task with the details the board's member list adds: harness and status. */
+function useWho() {
+  const { members, identity } = useContext(Tasks);
+  const status = useStatus();
+  return (m: MemberRef) => {
+    const found = members.find((x) => x.name === m.name && x.kind === m.kind);
+    return {
+      ref: m,
+      line: found?.line ?? null,
+      late: found?.state === "late",
+      harness: found?.harness ?? m.harness ?? null,
+      status: m.kind === "agent" ? status(found ?? { name: m.name, owner: m.owner, presence: "no_session" }) : null,
+      identity: identity(m),
+    };
+  };
+}
+
+/** Writer is who wrote a task's About or Where it stands, with their mark, in a byline. */
+function Writer({ by }: { by: MemberRef }) {
+  const { identity, me } = useContext(Tasks);
   return (
-    <span className={cn("presence inline-flex items-center gap-1.5 text-meta", presence === "working" || presence === "waiting" ? "text-ink" : "text-muted")}>
-      <span
-        aria-hidden
-        className={cn("size-2 shrink-0 rounded-full", presence === "working" ? "bg-accent" : presence === "no_session" ? "border border-muted" : presence === "waiting" ? "bg-ink" : "bg-muted")}
-      />
-      {presenceWords[presence]}
+    <span className="writer inline-flex items-baseline gap-1">
+      <SenderMark name={by.name} kind={by.kind} harness={by.harness} identity={identity(by)} className="size-4 translate-y-[3px] self-start rounded-[4px] text-[9px]" />
+      <span className="text-ink">{by.kind === "human" && by.name === me ? "you" : by.name}</span>
     </span>
   );
 }
@@ -120,24 +171,72 @@ function OwnerLabel({ task }: { task: Task }) {
   );
 }
 
+/** WorkBy is how the Work panel groups the board: by task, or one row per agent with its tasks. */
+export type WorkBy = "task" | "agent";
+
+/** WorkTitle heads the Work panel, with the switch between grouping by task and by agent. */
+export function WorkTitle({ by, setBy }: { by: WorkBy; setBy: (b: WorkBy) => void }) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="text-ink">Work</span>{" "}
+      <span aria-hidden className="font-normal text-faint">·</span>{" "}
+      <span role="group" aria-label="Group the work" className="work-by inline-flex gap-0.5 font-normal">
+        {(["task", "agent"] as const).map((b) => (
+          <button
+            key={b}
+            type="button"
+            aria-pressed={by === b}
+            onClick={() => setBy(b)}
+            className={cn("tap rounded-[6px] px-1.5 transition-colors duration-[140ms] ease-out", by === b ? "bg-selected font-bold text-ink" : "text-muted hover:bg-hover hover:text-ink")}
+          >
+            by {b}
+          </button>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/** useAgentTasks is the live tasks each agent is on, owner or helper, for Work by agent. */
+export function useAgentTasks(): (name: string) => Task[] {
+  const { tasks } = useContext(Tasks);
+  return useCallback((name: string) => tasks.filter((t) => isLive(t) && onTask(t).some((m) => m.kind === "agent" && m.name === name)), [tasks]);
+}
+
 export function WorkTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) => void }) {
   const who = useWho();
-  const active = tasks.filter(isLive);
+  const { me } = useContext(Tasks);
+  // What waits on the person first, then the work under way, the blocked, and last what nobody has taken.
+  const rank = (t: Task) => (waitsOnMe(t, me) ? 0 : t.blocked ? 2 : t.state === "in_progress" ? 1 : 3);
+  const active = tasks.filter(isLive).sort((a, b) => rank(a) - rank(b));
   if (!active.length) return null;
-  return <div className="work flex flex-col gap-4" aria-label="Work by task">
-    {active.map((t) => <section key={t.id} aria-label={`Task ${t.ref}: ${t.title}`} className="flex flex-col gap-1">
-      <h3><button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="group flex min-h-11 w-full items-baseline gap-2 text-left"><span className="shrink-0 text-meta text-muted tabular-nums">{t.ref}</span><span className="min-w-0 flex-1 font-bold group-hover:underline">{t.title}</span></button></h3>
-      {onTask(t).length > 0 ? <ul className="flex flex-col gap-1.5">
-        {onTask(t).map((m, i) => {
-          const w = who(m);
-          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 items-center gap-2 text-meta">
-            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} size="sm" />
-            <span className="truncate">{m.name}{i === 0 && t.owner && <span className="text-muted"> · owner</span>}</span>
-            {w.presence && <span className="ml-auto shrink-0"><Presence presence={w.presence} /></span>}
-          </li>;
-        })}
-      </ul> : <p className="text-meta text-muted">Not picked up</p>}
-    </section>)}
+  return <div className="work flex flex-col gap-3" aria-label="Work by task">
+    {active.map((t) => {
+      const needs = waitsOnMe(t, me);
+      const people = onTask(t);
+      return <section key={t.id} aria-label={`Task ${t.ref}: ${t.title}`} data-work-task={t.ref} className={cn("work-task flex flex-col gap-3 rounded-box border px-3.5 py-3", needs ? "border-accent-strong bg-attention-soft" : "border-rule bg-surface")}>
+        <h3><button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="group flex w-full flex-col items-start gap-1 text-left">
+          <span className="flex items-center gap-2 text-meta text-muted tabular-nums">
+            {t.ref}
+            {needs ? <span className="rounded-[4px] bg-attention px-1.5 text-on-accent">needs you</span> : t.blocked ? <span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-1.5 rounded-full bg-status-hold" />blocked</span> : null}
+          </span>
+          <span className="font-bold leading-snug text-ink group-hover:underline">{t.title}</span>
+        </button></h3>
+        {people.length > 0 ? <ul className="flex flex-col gap-2.5 pt-1">
+          {people.map((m, i) => {
+            const w = who(m);
+            return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 flex-col gap-1 text-meta">
+              <span className="flex min-w-0 items-center gap-2">
+                <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} size="sm" status={w.status?.tone} />
+                <span className="truncate">{m.name}{i === 0 && t.owner && <span className="text-muted"> · owner</span>}</span>
+                {w.status && <StatusWord status={w.status} className="ml-auto shrink-0" />}
+              </span>
+              <LineText line={w.line} late={w.late} className="pl-7" />
+            </li>;
+          })}
+        </ul> : <p className="flex items-center gap-2 text-meta text-muted"><span aria-hidden className="size-2 shrink-0 rounded-full border border-dashed border-muted" />Not picked up yet</p>}
+      </section>;
+    })}
   </div>;
 }
 
@@ -166,14 +265,14 @@ export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) 
   return <div className="task-view quiet-scroll min-h-0 flex-1 overflow-y-auto">
     <div className="px-4 pt-4 pb-10 sm:px-6">
       <div className="task-board grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:max-w-[calc(var(--cols)*320px)] lg:grid-cols-[repeat(var(--cols),minmax(0,1fr))]" style={{ "--cols": columns.length } as CSSProperties}>
-        {columns.map((c) => <section key={c.key} aria-label={c.title} className="task-column flex min-w-0 flex-col gap-2">
+        {columns.map((c) => <section key={c.key} aria-label={c.title} className="task-column flex min-w-0 flex-col gap-3">
           <h2 id={`tasks-${c.key}`} className="flex min-h-7 items-center gap-2 text-meta font-bold text-ink">
-            {c.key === "needs" ? <span className="rounded-[4px] bg-attention px-1.5">{c.title} <span className="tabular-nums">{c.list.length}</span></span> : <>
-              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", c.key === "doing" ? "border-2 border-accent" : c.key === "blocked" ? "bg-ink" : "border border-dashed border-muted")} />
+            {c.key === "needs" ? <span className="rounded-[4px] bg-attention px-1.5 text-on-accent">{c.title} <span className="tabular-nums">{c.list.length}</span></span> : <>
+              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", c.key === "doing" ? "bg-status-working" : c.key === "blocked" ? "bg-status-hold" : "border border-dashed border-muted")} />
               {c.title}<span className="font-normal text-muted tabular-nums">{c.list.length}</span>
             </>}
           </h2>
-          <ul className="flex flex-col gap-2">{c.list.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={c.key === "needs"} /></li>)}</ul>
+          <ul className="flex flex-col gap-3">{c.list.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={c.key === "needs"} /></li>)}</ul>
           {c.list.length === 0 && <p className="text-meta text-muted">{c.key === "doing" ? "Nothing in progress." : "Every task has an owner."}</p>}
           {c.key === "open" && idle.length > 0 && <div className="free-agents mt-2 flex flex-col gap-2 border-t border-rule pt-3">
             <h3 className="text-meta font-bold text-muted">Free agents</h3>
@@ -182,19 +281,29 @@ export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) 
         </section>)}
       </div>
       {finished.length > 0 && <section aria-label="Done" className="mt-8 flex flex-col gap-2">
-        <button type="button" aria-expanded={done} onClick={() => setDone(!done)} className="min-h-11 self-start text-meta text-muted hover:text-ink hover:underline">{count(finished.length, "task", "tasks")} done or cancelled · {done ? "hide" : "show"}</button>
+        <button type="button" aria-expanded={done} onClick={() => setDone(!done)} className="min-h-11 self-start text-meta text-muted hover:text-ink hover:underline">{closedSummary(finished)} · {done ? "hide" : "show"}</button>
         {done && <ul className="grid animate-fade-in gap-2 sm:grid-cols-2 lg:grid-cols-4">{finished.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={false} /></li>)}</ul>}
       </section>}
     </div>
   </div>;
 }
 
+/** closedSummary counts finished tasks by how they ended: "3 tasks done, 1 cancelled". */
+function closedSummary(finished: Task[]): string {
+  const done = finished.filter((t) => t.state === "done").length;
+  const cancelled = finished.length - done;
+  if (!cancelled) return `${count(done, "task", "tasks")} done`;
+  if (!done) return `${count(cancelled, "task", "tasks")} cancelled`;
+  return `${count(done, "task", "tasks")} done, ${cancelled} cancelled`;
+}
+
 function FreeAgent({ agent }: { agent: Member }) {
   const { identity } = useContext(Tasks);
+  const status = useStatus()(agent);
   return <li className="flex min-w-0 items-center gap-2" data-free-agent={agent.name}>
-    <AgentMark member={agent} identity={identity(agent)} />
+    <AgentMark member={agent} identity={identity(agent)} status={status.tone} />
     <span className="min-w-0 flex-1 truncate">{agent.name}</span>
-    <Presence presence={agent.presence ?? "no_session"} />
+    <StatusWord status={status} className="shrink-0" />
   </li>;
 }
 
@@ -217,27 +326,27 @@ function TaskCard({ task: t, open, needs }: { task: Task; open: (ref: string) =>
       data-task={t.ref}
       data-needs-you={needs || undefined}
       className={cn(
-        "task-card relative flex flex-col gap-2.5 rounded-box px-3.5 py-3 transition-colors duration-[140ms] ease-out has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent",
-        needs ? "bg-attention text-ink" : cn("border border-rule hover:border-field-border hover:bg-hover", done ? "bg-transparent" : "bg-surface"),
+        "task-card relative flex flex-col gap-3 rounded-box px-4 py-3.5 transition-colors duration-[140ms] ease-out has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent-strong",
+        needs ? "border border-accent-strong bg-attention-soft text-ink" : cn("border hover:border-field-border hover:bg-hover", t.state === "cancelled" ? "border-dashed border-field-border bg-transparent" : done ? "border-rule bg-transparent" : "border-rule bg-surface"),
       )}
     >
       <button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="card-open flex flex-col gap-0.5 text-left outline-none after:absolute after:inset-0 after:rounded-box after:content-['']">
-        <span className={cn("text-meta tabular-nums", needs ? "text-ink" : "text-muted")}>{t.ref}{t.state === "cancelled" && " · cancelled"}</span>
-        <span className={cn("leading-snug", done ? "font-normal" : "font-bold")}>{t.title}</span>
+        <span className={cn("flex items-center gap-2 text-meta tabular-nums", needs ? "text-ink" : "text-muted")}>{t.ref}{done && <ClosedMark task={t} />}</span>
+        <span className={cn("leading-snug", done ? "font-normal" : "font-bold", t.state === "cancelled" && "text-muted line-through decoration-field-border")}>{t.title}</span>
       </button>
       {line && <p className={cn("task-block line-clamp-3 text-meta", needs ? "text-ink" : "text-muted")}>{line}</p>}
-      {people.length > 0 && <ul className={cn("flex flex-col gap-2 border-t pt-2.5", needs ? "border-ink/20" : "border-rule")}>
+      {people.length > 0 && <ul className={cn("flex flex-col gap-2 border-t pt-2.5", needs ? "border-accent-strong/40" : "border-rule")}>
         {people.map((m, i) => {
           const w = who(m);
-          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 items-center gap-2" data-on-task={m.name}>
-            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} />
-            <span className="min-w-0 flex-1 truncate">{m.name}{i === 0 && t.owner && <span className={needs ? "" : "text-muted"}> · <OwnerLabel task={t} /></span>}</span>
-            {!done && w.presence && <Presence presence={w.presence} />}
+          return <li key={`${m.kind}:${m.name}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" data-on-task={m.name}>
+            <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} status={done ? undefined : w.status?.tone} />
+            <span className="max-w-[calc(100%-2rem)] min-w-0 truncate">{m.name}{i === 0 && t.owner && <span className={needs ? "" : "text-muted"}> · <OwnerLabel task={t} /></span>}</span>
+            {!done && w.status && <StatusWord status={w.status} className={cn("ml-auto", needs && "text-ink")} />}
           </li>;
         })}
       </ul>}
-      <p className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-2 text-meta", needs ? "border-ink/20 text-ink" : "border-rule text-muted")}>
-        {t.message_count > 0 && <button type="button" onClick={() => open(t.ref)} className="task-threads relative z-10 inline-flex min-h-7 items-center gap-1 underline decoration-1 underline-offset-[3px] hover:text-ink">
+      <p className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-2 text-meta", needs ? "border-accent-strong/40 text-ink" : "border-rule text-muted")}>
+        {t.message_count > 0 && <button type="button" onClick={() => open(t.ref)} className="task-threads tap relative z-10 inline-flex min-h-7 items-center gap-1 underline decoration-1 underline-offset-[3px] hover:text-ink">
           <MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />{t.message_count} in conversation
         </button>}
         <span className="ml-auto">{done && t.closed_at ? `closed ${relativeTime(t.closed_at, Date.now())}` : relativeTime(t.updated_at, Date.now())}</span>
@@ -278,6 +387,10 @@ export function TaskDetail({ board, reference, activity, back, narrow, pick, onP
   const people = t ? onTask(t) : [];
   const agentsOn = people.filter((m) => m.kind === "agent").map((m) => m.name);
   const owner = t?.owner?.kind === "agent" ? t.owner.name : null;
+  // Asking the owner to update Where it stands fills in Tell the team, as the lab does.
+  const [preset, setPreset] = useState<Preset | null>(null);
+  useEffect(() => setPreset(null), [reference]);
+  const askUpdate = t && owner && isLive(t) && !readOnly ? { to: [owner], text: `${t.ref}: please update where it stands (aboard task note "…" --task ${t.ref}).` } : null;
   const stale = t?.stands ? now - new Date(t.stands.at).getTime() > staleAfter && isLive(t) : false;
   const suggestions: Suggestion[] = t ? [
     owner ? { label: "Split", to: [owner], text: `${t.ref}: please split this into smaller tasks, each with an owner, and post them here.` } : null,
@@ -294,9 +407,11 @@ export function TaskDetail({ board, reference, activity, back, narrow, pick, onP
         <h2 className="text-title font-bold text-balance">{t.title}</h2>
         <p className="text-meta text-muted">opened by {t.opened_by.name === me ? "you" : t.opened_by.name} · {relativeTime(t.opened_at, now)}</p>
         <p className="task-state flex flex-wrap items-center gap-x-1.5 text-meta">
-          {needs ? <span className="rounded-[4px] bg-attention px-1.5 text-ink">{stateText}</span> : <>
-            <span aria-hidden className={cn("size-2 shrink-0 rounded-full", !isLive(t) ? "bg-muted" : t.blocked ? "bg-ink" : t.state === "open" ? "border border-dashed border-muted" : "border-2 border-accent")} />
-            <span className="text-muted">{stateText}</span>
+          {needs ? <span className="rounded-[4px] bg-attention px-1.5 text-on-accent">{stateText}</span> : <>
+            {isLive(t) ? <>
+              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", t.blocked ? "bg-status-hold" : t.state === "open" ? "border border-dashed border-muted" : "bg-status-working")} />
+              <span className="text-muted">{stateText}</span>
+            </> : <ClosedMark task={t} />}
           </>}
           {t.owner && <span className="text-muted">· <OwnerLabel task={t} /> {t.owner.name === me ? "you" : t.owner.name}</span>}
         </p>
@@ -307,25 +422,26 @@ export function TaskDetail({ board, reference, activity, back, narrow, pick, onP
           <Label id={`about-${t.id}`} help="What the task is and why, written when it was opened. It rarely changes.">About</Label>
           {t.about ? <>
             <p className="whitespace-pre-wrap break-words"><TaskLinks text={t.about.text} /></p>
-            <p className="text-meta text-muted">by {t.about.by.name} · {relativeTime(t.about.at, now)}</p>
+            <p className="text-meta text-muted">by <Writer by={t.about.by} /> · {relativeTime(t.about.at, now)}</p>
           </> : <p className="text-meta text-muted">Nothing written yet.</p>}
         </section>
         <section aria-labelledby={`stands-${t.id}`} className="where-it-stands flex flex-col gap-0.5">
           <Label id={`stands-${t.id}`} help="Where the task is now, in two or three lines. Its owner keeps it current, as the task's own brief.">Where it stands</Label>
           {t.stands ? <>
             <p className={cn("whitespace-pre-wrap break-words", stale && "text-muted")}><TaskLinks text={t.stands.text} /></p>
-            <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-muted" data-stale={stale || undefined}>
-              {stale && <Clock className="size-3" strokeWidth={2} aria-label="Not updated in a while" />}
-              by {t.stands.by.name} · {relativeTime(t.stands.at, now)}{t.stands.messages_since !== undefined && ` · ${count(t.stands.messages_since, "message", "messages")} since`}
+            <p className="text-meta text-muted" data-stale={stale || undefined}>
+              {stale && <Clock className="mr-1 inline size-3 -translate-y-px" strokeWidth={2} aria-label="Not updated in a while" />}
+              Updated by <Writer by={t.stands.by} /> · {relativeTime(t.stands.at, now)}{t.stands.messages_since !== undefined && ` · ${count(t.stands.messages_since, "message", "messages")} since`}
+              {askUpdate && <> · <AskButton onClick={() => setPreset({ ...askUpdate, n: Date.now() })}>Ask {owner} to update</AskButton></>}
             </p>
-          </> : <p className="text-meta text-muted">Nothing yet.</p>}
+          </> : <p className="text-meta text-muted">Nothing yet.{askUpdate && <> <AskButton onClick={() => setPreset({ ...askUpdate, n: Date.now(), text: `${t.ref}: please say where it stands (aboard task note "…" --task ${t.ref}).` })}>Ask {owner} to write it</AskButton></>}</p>}
         </section>
       </div>
 
       {isLive(t) && t.blocked_on.map((b) => {
         const ask = asks.get(b.ask_id);
         const mine = b.to.kind === "human" && b.to.name === me;
-        return <section key={b.ask_id} aria-label="Open question" className={cn("open-question flex flex-col gap-1", mine && "-mx-3 rounded-box bg-attention px-3 py-3 text-ink")}>
+        return <section key={b.ask_id} aria-label="Open question" className={cn("open-question flex flex-col gap-1", mine && "-mx-3 rounded-box border border-accent-strong bg-attention-soft px-3 py-3 text-ink")}>
           <h3 className={cn("text-meta font-bold", !mine && "text-muted")}>{mine ? "Waiting on you" : `Blocked on ${b.to.name}`}</h3>
           {ask ? <>
             <p className="font-bold whitespace-pre-wrap break-words">{ask.body}</p>
@@ -350,31 +466,38 @@ export function TaskDetail({ board, reference, activity, back, narrow, pick, onP
           {people.map((m) => {
             const w = who(m);
             return <li key={`${m.kind}:${m.name}`} className="flex min-h-11 min-w-0 items-center gap-2.5" data-on-task={m.name}>
-              <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} />
+              <AgentMark member={{ ...m, harness: w.harness }} identity={w.identity} status={w.status?.tone} />
               <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1.5">
                 <button type="button" onClick={() => pick(m.name)} title={`Show only ${m.name}'s messages`} className="truncate hover:underline">{m.name === me ? "you" : m.name}</button>
                 {t.owner && m.name === t.owner.name && m.kind === t.owner.kind && <span className="text-muted"><OwnerLabel task={t} /></span>}
                 {m.kind === "agent" && harnessName(w.harness) && <span className="text-meta text-muted">{harnessName(w.harness)}</span>}
               </span>
-              {w.presence ? <Presence presence={w.presence} /> : <span className="text-meta text-muted">person</span>}
+              {w.status ? <StatusWord status={w.status} className="shrink-0" /> : <span className="text-meta text-muted">person</span>}
             </li>;
           })}
         </ul>
       </section>}
 
-      {isLive(t) && !readOnly && <TellTheTeam key={t.id} board={board} task={t.ref} to={agentsOn} suggestions={suggestions} narrow={narrow} onPosted={onPosted} />}
+      {isLive(t) && !readOnly && <TellTheTeam key={t.id} board={board} task={t.ref} to={agentsOn} suggestions={suggestions} preset={preset} narrow={narrow} onPosted={onPosted} />}
     </> : error === null && <p className="text-meta text-muted" role="status">Loading task…</p>}
   </section>;
 }
 
 type Suggestion = { label: string; to: string[]; text: string };
+/** Preset is a message filled into Tell the team from elsewhere in the panel; n tells two asks apart. */
+type Preset = { to: string[]; text: string; n: number };
+
+/** AskButton is a quiet link-styled button in a byline that fills in a message. */
+function AskButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return <button type="button" onClick={onClick} className="ask-update tap text-link underline decoration-1 underline-offset-[3px] hover:no-underline">{children}</button>;
+}
 
 /**
  * TellTheTeam is a message to the agents on a task, as text the person reads and can
  * change before it goes. Split, Reassign and Hold fill in a suggestion and pick who it
  * goes to; Send posts an ordinary message about the task.
  */
-function TellTheTeam({ board, task, to, suggestions, narrow, onPosted }: { board: string; task: string; to: string[]; suggestions: Suggestion[]; narrow: (ref: string) => void; onPosted: () => void }) {
+function TellTheTeam({ board, task, to, suggestions, preset, narrow, onPosted }: { board: string; task: string; to: string[]; suggestions: Suggestion[]; preset: Preset | null; narrow: (ref: string) => void; onPosted: () => void }) {
   // Everyone on the task, until a suggestion picks someone else; everyone with no one on it.
   const [picked, setPicked] = useState<string[] | null>(null);
   const recipients = picked ?? to;
@@ -383,6 +506,19 @@ function TellTheTeam({ board, task, to, suggestions, narrow, onPosted }: { board
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
   const key = useRef("");
+  const field = useRef<HTMLTextAreaElement>(null);
+  // "Ask the owner to update" fills the box in, ready to read and send.
+  useEffect(() => {
+    if (!preset) return;
+    setSent(null);
+    setText(preset.text);
+    setPicked(preset.to);
+    key.current = "";
+    requestAnimationFrame(() => {
+      field.current?.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      field.current?.focus({ preventScroll: true });
+    });
+  }, [preset]);
   const label = recipients.length ? recipients.join(", ") : "everyone";
   if (sent) {
     return <p className="tell-sent text-meta" role="status">
@@ -413,18 +549,19 @@ function TellTheTeam({ board, task, to, suggestions, narrow, onPosted }: { board
   return <form className="tell flex flex-col gap-2 border-t border-rule pt-4" onSubmit={send}>
     <label htmlFor={`tell-${task}`} className="text-meta font-bold text-muted">Tell the team on {task}</label>
     <textarea
+      ref={field}
       id={`tell-${task}`}
       value={text}
       onChange={(e) => { setText(e.target.value); key.current = ""; }}
       rows={3}
       placeholder={`A message to ${label}`}
-      className="w-full resize-y rounded-control border border-field-border bg-surface px-3 py-2 text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-accent"
+      className="w-full resize-y rounded-control border border-field-border bg-surface px-3 py-2 text-ink placeholder:text-muted focus-visible:outline-2 focus-visible:outline-accent-strong"
     />
     <p className="tell-to text-meta text-muted">To {label} · about {task}</p>
     {problem !== null && <Problem error={problem} />}
     <div className="flex flex-wrap items-center gap-2">
       {suggestions.map((s) => <button key={s.label} type="button" onClick={() => { setText(s.text); setPicked(s.to); key.current = ""; }} className="min-h-11 rounded-control border border-rule px-3 text-meta transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover">{s.label}</button>)}
-      <button type="submit" disabled={busy || !text.trim()} className="ml-auto min-h-11 rounded-control bg-ink px-5 font-bold text-on-ink transition-opacity duration-[140ms] ease-out disabled:opacity-60">Send</button>
+      <button type="submit" disabled={busy || !text.trim()} className="ml-auto min-h-11 rounded-control border border-accent-strong bg-accent px-5 font-bold text-on-accent transition-opacity duration-[140ms] ease-out disabled:border-rule disabled:bg-selected disabled:text-muted">Send</button>
     </div>
   </form>;
 }

@@ -283,7 +283,7 @@ func derefSeq(p *int) int {
 	return *p
 }
 
-func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bool, reply string, option int, body string, to []string, urgent, expect bool, wait int) error {
+func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bool, reply string, option int, body string, to []string, urgent, expect bool, wait int, boardFiles, attach []string) error {
 	if wait != 0 {
 		return newError("agent_not_selected", "Waiting for a reply needs an agent seat; a person can answer an option without waiting.", "Omit --wait-reply, or run the command from the selected agent session.")
 	}
@@ -341,6 +341,13 @@ func runAskOption(ctx context.Context, a *app, board, as, task string, noTask bo
 		req.About = ptrTo([]string{task})
 	} else if noTask {
 		req.About = ptrTo([]string{})
+	}
+	files, err := a.sayFiles(ctx, c, t, boardFiles, attach)
+	if err != nil {
+		return err
+	}
+	if len(files) > 0 {
+		req.Files = &files
 	}
 	r, err := c.api.PostMessageWithResponse(ctx, t.board, &api.PostMessageParams{}, req)
 	if err != nil {

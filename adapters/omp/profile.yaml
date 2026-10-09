@@ -73,7 +73,7 @@ lifecycle:
 
 delivery:
   method: extension
-  capabilities: [extension, turn-start]
+  capabilities: [extension, turn-start, tool-boundary, midturn-peer]
   mid_turn: tool-hook
   waiting_notice: true
 

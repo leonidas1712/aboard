@@ -40,7 +40,7 @@ type SavedResponse struct {
 // creationRequestHash keeps the incoming bytes before validation applies defaults.
 func creationRequestHash(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/v1/delegations/boards" {
+		if r.Method == http.MethodPost && (r.URL.Path == "/v1/delegations/boards" || r.URL.Path == "/v1/pairing-requests") {
 			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 			if err != nil {
 				writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body could not be read.", "Send the request again."))
@@ -75,8 +75,15 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				strings.HasSuffix(r.URL.Path, "/join-codes") && strings.Count(r.URL.Path, "/") == 4) ||
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
+			r.URL.Path == "/v1/pairing-credentials" ||
+			r.URL.Path == "/v1/pairing-requests" ||
 			// Creation keeps its answer in the board transaction, with one expiry.
 			r.URL.Path == "/v1/delegations/boards" ||
+			// Administrative requests save their nonsecret receipt in the action's
+			// transaction; invite secrets must never enter this response cache.
+			r.URL.Path == "/v1/me/admin-requests" ||
+			(r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/me/approvals/") &&
+				(strings.HasSuffix(r.URL.Path, "/allow") || strings.HasSuffix(r.URL.Path, "/decline"))) ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
 			// call, which the server answers by finding the same seat.
 			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)
@@ -200,6 +207,86 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case path == "/v1/pairing-credentials":
+		var input CreatePairingCredential
+		if err := json.Unmarshal(request, &input); err != nil {
+			return err
+		}
+		if principal(ctx).Browser || principal(ctx).Agent != nil || principal(ctx).Human == nil {
+			return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{})
+		}
+		var result PairingCredential
+		if saved.Status == http.StatusOK {
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			return svc.CheckPairingReplay(ctx, principal(ctx), input.RequestId, result.Request.Generation, string(input.Side))
+		}
+		return svc.CheckPairingReplay(ctx, principal(ctx), input.RequestId, input.Generation, string(input.Side))
+	case path == "/v1/pairing-requests" && method == http.MethodPost:
+		if saved.Status == http.StatusCreated {
+			var result PairingRequest
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			return svc.CheckPairingReplay(ctx, principal(ctx), result.Id, 0, "")
+		}
+		var input CreatePairingRequest
+		if err := json.Unmarshal(request, &input); err != nil {
+			return err
+		}
+		return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{ID: input.BoardId})
+	case strings.HasPrefix(path, "/v1/pairing-requests/"):
+		if len(parts) < 3 {
+			return fmt.Errorf("pairing replay has no id")
+		}
+		side := ""
+		generation := 0
+		if strings.HasSuffix(path, "/cancel") {
+			side = "initiator"
+		}
+		if strings.HasSuffix(path, "/decline") {
+			side = "recipient"
+		}
+		if strings.HasSuffix(path, "/accept") {
+			var input AcceptPairingRequest
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			generation = input.Generation
+		}
+		if strings.HasSuffix(path, "/verify") {
+			var input PairingRoundTrip
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			generation = input.Generation
+		}
+		return svc.CheckPairingReplay(ctx, principal(ctx), parts[2], generation, side)
+	case method == http.MethodPut && path == "/v1/me/delivery-queue":
+		var body DeliveryQueueReport
+		if err := json.Unmarshal(request, &body); err != nil {
+			return err
+		}
+		if saved.Status != http.StatusOK {
+			_, err := svc.DeliveryQueue(ctx, principal(ctx))
+			return err
+		}
+		var result DeliveryQueueView
+		if err := json.Unmarshal(saved.Body, &result); err != nil {
+			return err
+		}
+		return svc.CheckQueueReplay(ctx, principal(ctx), body.Session, body.Boot, result.Epoch)
+	case method == http.MethodPut && path == "/v1/me/midturn":
+		var body SetMidturnPolicyJSONRequestBody
+		if err := json.Unmarshal(request, &body); err != nil {
+			return err
+		}
+		member := ""
+		if body.MemberId != nil {
+			member = *body.MemberId
+		}
+		return svc.CheckMidturnReplay(ctx, principal(ctx), member)
 	case method == http.MethodPost && strings.HasPrefix(path, "/v1/people/") && strings.HasSuffix(path, "/rename"):
 		var result struct {
 			Person struct {
@@ -245,6 +332,7 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	case len(parts) >= 3 && parts[0] == "v1" && parts[1] == "boards":
 		in.Name = parts[2]
 		in.Tasks = len(parts) >= 4 && (parts[3] == "tasks" || parts[3] == "files")
+		in.FileWrite = len(parts) >= 4 && parts[3] == "files"
 		if len(parts) == 4 && parts[3] == "people" && method == http.MethodPost {
 			var add struct {
 				Handle string `json:"handle"`

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
+	"github.com/leonidas1712/aboard/server/internal/delivery/control"
 	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 	"github.com/leonidas1712/aboard/server/internal/harness"
 )
@@ -76,6 +77,7 @@ func runHook(ctx context.Context, a *app, args []string) error {
 		return hookExit(0)
 	}
 	h := hookCall{a: a, harness: name, in: in, boot: a.env.Getenv("ABOARD_BOOT"), started: started}
+	h.peerBoundary = hs.Profile().HasCapability("midturn-peer") && (name != "codex" || event == "post-tool")
 	var hookErr error
 	switch call.Op {
 	case harness.OpSessionStart:
@@ -115,11 +117,14 @@ func (a *app) hookNote(msg string) {
 }
 
 type hookCall struct {
-	a       *app
-	harness string
-	in      harness.HookInput
-	boot    string
-	started time.Time
+	a            *app
+	harness      string
+	in           harness.HookInput
+	boot         string
+	started      time.Time
+	completion   *delivery.Request
+	continued    *bool
+	peerBoundary bool
 }
 
 func (h hookCall) request(op string) delivery.Request {
@@ -255,13 +260,12 @@ func (h hookCall) turnStart(ctx context.Context, wake bool) error {
 	var e *Error
 	if errors.As(err, &e) && e.Code == "invalid_request" {
 		req.Op = delivery.OpPrompt
-		_, err = h.a.callDaemon(ctx, req)
-		return err
+		resp, err = h.a.callDaemon(ctx, req)
 	}
 	if err != nil {
 		return err
 	}
-	text := resp.Bundle
+	text := strings.TrimSpace(resp.Nudge + "\n\n" + resp.Bundle)
 	if !wake {
 		// Never with a wake: the line is quiet, for a turn the person started.
 		text += "\n\n" + h.addedNote(ctx, false)
@@ -274,11 +278,23 @@ func (h hookCall) turnStart(ctx context.Context, wake bool) error {
 func (h hookCall) tool(ctx context.Context) error {
 	req := h.request(delivery.OpBoundary)
 	req.Started = h.started
+	if h.peerBoundary {
+		req.Capabilities = []string{"tool-boundary", "midturn-peer"}
+	}
 	resp, err := h.a.callDaemon(ctx, req)
 	if err != nil {
 		return err
 	}
-	return h.addContext(strings.TrimSpace(resp.Bundle+"\n\n"+resp.Notice), "PostToolUse")
+	if err := h.addContext(strings.TrimSpace(resp.Bundle+"\n\n"+resp.Notice), "PostToolUse"); err != nil {
+		return err
+	}
+	if resp.HandoffID != "" {
+		receipt := h.request(delivery.OpReceived)
+		receipt.HandoffID, receipt.Boot, receipt.TurnID = resp.HandoffID, resp.Boot, resp.TurnID
+		_, err := h.a.callDaemon(ctx, receipt)
+		return err
+	}
+	return nil
 }
 
 // addContext prints text as the hook's additionalContext, for the event the hook input
@@ -371,6 +387,19 @@ const stopRetries = 5
 // error and exits 2, which wakes the session with it; when released it exits 0. If the
 // daemon goes away, the hook starts it again and keeps waiting.
 func (h hookCall) stop(ctx context.Context) error {
+	var completion delivery.Request
+	continued := false
+	h.completion, h.continued = &completion, &continued
+	defer func() {
+		if !continued && completion.TurnID != 0 {
+			h.completeTurn(ctx, completion)
+		}
+	}()
+	if h.harness == "codex" {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
 	resumed := false
 	failures := 0
 	for {
@@ -390,7 +419,9 @@ func (h hookCall) stop(ctx context.Context) error {
 		}
 		req := withHarnessProcess(h.request(delivery.OpWait))
 		req.V, req.Resumed, req.Started = delivery.ProtocolVersion, resumed, h.started
+		stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 		code, done := h.waitOn(conn, req)
+		stop()
 		_ = conn.Close()
 		if done {
 			return hookExit(code)
@@ -416,15 +447,57 @@ func (h hookCall) waitOn(conn io.ReadWriter, req delivery.Request) (code int, do
 			return 0, false
 		}
 		switch {
+		case resp.Event == delivery.EventWaiting:
+			if h.completion != nil && resp.TurnID != 0 && resp.Boot != "" {
+				*h.completion = req
+				h.completion.Op, h.completion.TurnID, h.completion.Boot = delivery.OpTurnEnd, resp.TurnID, resp.Boot
+			}
 		case resp.Error != nil:
 			h.a.hookNote(resp.Error.Message)
 			return 0, true
 		case resp.Event == delivery.EventDeliver:
+			if h.harness == "codex" {
+				if err := json.NewEncoder(h.a.env.Stdout).Encode(struct {
+					Decision string `json:"decision"`
+					Reason   string `json:"reason"`
+				}{Decision: "block", Reason: resp.Bundle}); err != nil {
+					return 0, true
+				}
+				_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
+				if h.continued != nil {
+					*h.continued = true
+				}
+				return 0, true
+			}
 			_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
-			_, _ = io.WriteString(h.a.env.Stderr, resp.Bundle+"\n")
+			_, _ = io.WriteString(h.a.env.Stderr, resp.Bundle+"\n\nAboard delivery: new messages for this session.\n")
+			if h.continued != nil {
+				*h.continued = true
+			}
 			return exitWake, true
 		case resp.Event == delivery.EventRelease:
 			return 0, true
 		}
+	}
+}
+
+// Missing completion keeps the peer cap charged; it never starts another daemon.
+func (h hookCall) completeTurn(parent context.Context, req delivery.Request) {
+	p, err := h.a.paths()
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), time.Second)
+	defer cancel()
+	conn, err := control.Dial(ctx, p.socket())
+	if err != nil {
+		return
+	}
+	defer func() { _ = conn.Close() }()
+	_ = conn.SetDeadline(time.Now().Add(time.Second))
+	req.V = delivery.ProtocolVersion
+	if delivery.WriteFrame(conn, req) == nil {
+		var response delivery.Response
+		_ = delivery.ReadFrame(bufio.NewReader(conn), &response)
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"cmp"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/leonidas1712/aboard/server/internal/clock"
@@ -20,7 +24,10 @@ import (
 
 // Config is everything the daemon needs from outside.
 type Config struct {
-	Journal Journal
+	PairingFor func(string) PairingRuntime
+	// AllowBriefNudge limits already-rendered keeper advice using local private bookkeeping.
+	AllowBriefNudge func(AgentRef, deliverytext.BriefContext) bool
+	Journal         Journal
 	// ResolveAgent verifies a seat using its saved credential. Nil is used by
 	// adapters whose agent references are already trusted, such as contract fixtures.
 	ResolveAgent func(context.Context, AgentRef) (AgentRef, error)
@@ -58,9 +65,11 @@ var errIdle = errors.New("no open session")
 
 // Daemon delivers messages to the sessions open on this machine.
 type Daemon struct {
-	cfg      Config
-	adapters map[string]Adapter
-	log      *slog.Logger
+	pairingWatching map[string]bool
+	pairingBoot     string
+	cfg             Config
+	adapters        map[string]Adapter
+	log             *slog.Logger
 
 	g   *errgroup.Group
 	ctx context.Context
@@ -106,6 +115,13 @@ func Run(ctx context.Context, cfg Config) error {
 		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentKey]string{},
 		generations: map[AgentKey]uint64{}, modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
+	if cfg.PairingFor != nil {
+		nonce := make([]byte, 32)
+		if _, err := rand.Read(nonce); err != nil {
+			return fmt.Errorf("make pairing runtime binding: %w", err)
+		}
+		d.pairingBoot = hex.EncodeToString(nonce)
+	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
 	}
@@ -149,6 +165,17 @@ func (d *Daemon) restore(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("load deliveries: %w", err)
 	}
+	if journal, ok := d.cfg.Journal.(QueuedAdmissionJournal); ok {
+		admissions, loadErr := journal.UnstartedDeliveries(ctx)
+		if loadErr != nil {
+			return fmt.Errorf("load queue admissions: %w", loadErr)
+		}
+		for _, admission := range admissions {
+			if admission.State == StateDone {
+				deliveries = append(deliveries, admission)
+			}
+		}
+	}
 	modes, err := d.cfg.Journal.Modes(ctx)
 	if err != nil {
 		return fmt.Errorf("load delivery modes: %w", err)
@@ -171,6 +198,8 @@ func (d *Daemon) restore(ctx context.Context) error {
 			continue
 		}
 		s.boot, s.open, s.proc, s.lost, s.started, s.turned = r.Boot, r.Open, r.Process, r.Lost, true, r.Turned
+		s.inTurn, s.seenTurns = r.InTurn, r.SeenTurns
+		s.peerTurnActive, s.peerTurn, s.busyAt = r.PeerTurnActive, r.PeerTurn, r.BusyAt
 		d.open[r.Key] = r.Open
 		d.turned[r.Key] = r.Turned
 	}
@@ -193,6 +222,9 @@ func (d *Daemon) restore(ctx context.Context) error {
 			if deliveries[i].Agent.Key() == b.Agent.Key() {
 				dl := deliveries[i]
 				a.deliveries[dl.ID] = &dl
+				if s.seenTurns && !dl.AcceptedAt.IsZero() && dl.TurnStartedAt.IsZero() && dl.Session == s.key && dl.Boot == s.boot {
+					s.awaitingTurn = append(s.awaitingTurn, &dl)
+				}
 			}
 		}
 		s.agents[b.Agent.Key()] = a
@@ -791,11 +823,13 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveExtension(ctx, conn, r, req)
 	case OpBoards:
 		_ = WriteFrame(conn, d.serveBoards(ctx, req))
+	case OpPairing:
+		_ = WriteFrame(conn, d.servePairing(ctx, req))
 	case OpCreateBoard:
 		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:
 		_ = WriteFrame(conn, d.serveJoin(ctx, req))
-	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents:
+	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued, OpReceived, OpShown:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
 		_ = WriteFrame(conn, errorResponse("invalid_request", fmt.Sprintf("The delivery daemon has no operation %q.", req.Op),
@@ -1052,6 +1086,10 @@ func (w *waiter) write(r Response) error {
 
 // accepted tells the hook its wait is registered.
 func (w *waiter) accepted() { _ = w.write(Response{V: ProtocolVersion, Event: EventWaiting}) }
+
+func (w *waiter) acceptedTurn(boot string, turn uint64) {
+	_ = w.write(Response{V: ProtocolVersion, Event: EventWaiting, Boot: boot, TurnID: turn})
+}
 
 // Release tells the hook to exit without a bundle.
 func (w *waiter) Release() { _ = w.write(Response{V: ProtocolVersion, Event: EventRelease}) }

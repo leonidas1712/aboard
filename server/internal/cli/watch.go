@@ -17,6 +17,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/clock"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/apiserver"
+	"github.com/leonidas1712/aboard/server/internal/retry"
 )
 
 // watchUsage is the usage line of aboard watch.
@@ -142,9 +143,10 @@ func (w *watchRun) print(page *api.MessagePage) {
 			enc := json.NewEncoder(w.a.env.Stdout)
 			enc.SetEscapeHTML(false)
 			_ = enc.Encode(struct {
-				Board   string     `json:"board"`
-				Message cliMessage `json:"message"`
-			}{page.Board, cliMessage{Message: m}})
+				Board     string           `json:"board"`
+				Message   cliMessage       `json:"message"`
+				Selection *serverSelection `json:"server_selection,omitempty"`
+			}{page.Board, cliMessage{Message: m}, w.a.serverSelection})
 		} else {
 			_, _ = io.WriteString(w.a.env.Stdout, timelineText([]api.Message{m}))
 		}
@@ -180,7 +182,7 @@ func (w *watchRun) follow(ctx context.Context, srv *apiserver.Server, poke func(
 				"Run aboard doctor to check the local server and its login.")
 		}
 		failures++
-		wait := watchBackoff(failures)
+		wait := retry.Delay(watchBackoff(failures))
 		_, _ = fmt.Fprintf(w.a.env.Stderr, "Lost the connection to %s; reconnecting in %s.\n", w.c.server.URL, wait)
 		select {
 		case <-ctx.Done():

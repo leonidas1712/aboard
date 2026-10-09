@@ -1097,9 +1097,12 @@ test("the desktop room scrolls its timeline and panels without moving the page",
     await page.screenshot({ path: join(tmpdir(), `aboard-scroll-desktop-${theme}.png`) });
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-    await page.getByRole("complementary", { name: "Scroll room" }).scrollIntoViewIfNeeded();
-    await expect(page.getByRole("complementary", { name: "Scroll room" })).toBeVisible();
+    // On a phone the board panel is a sheet over the conversation (D219).
+    await page.getByRole("button", { name: /^Board panel/ }).click();
+    await expect(page.getByRole("dialog", { name: "Scroll room" })).toBeVisible();
     await page.screenshot({ path: join(tmpdir(), `aboard-scroll-mobile-${theme}.png`) });
+    await page.getByRole("button", { name: "Conversation", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Scroll room" })).toBeHidden();
     await page.setViewportSize({ width: 1440, height: 720 });
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
@@ -1215,7 +1218,7 @@ test("a collapsed reply is not read by showing its thread summary", async ({ pag
   await expect.poll(() => unreadOn(board)).toBe(0);
 });
 
-test("each agent shows its delivery mode, and its person changes it from a menu with each mode's rule", async ({ page }) => {
+test("each agent shows its delivery mode and its mid-turn setting, and its person changes them from menus", async ({ page }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Delivery check", "--json"));
   const board: string = pair.board.name;
   const found = execFileSync("find", [home, "-name", "local-owner-token"], { encoding: "utf8" }).trim().split("\n")[0];
@@ -1281,6 +1284,67 @@ test("each agent shows its delivery mode, and its person changes it from a menu 
   });
   expect(refused.status).toBe(403);
   expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_owner_required");
+
+  // The mid-turn setting (D221): the person's default is my-agents, changed from the account menu
+  // and held by the server; the agent follows it, carries an override, and kim's agent has no control.
+  const policy = async () =>
+    (await (await fetch(`http://${env.ABOARD_LOCAL_ADDR}/v1/me/midturn`, { headers: { Authorization: `Bearer ${owner}` } })).json()) as {
+      policy: string;
+      overrides?: { policy: string }[];
+    };
+  expect((await policy()).policy).toBe("my-agents");
+  for (const theme of ["Dark", "Light"]) {
+    await page.getByRole("button", { name: /^You are alex/ }).click();
+    await page.getByRole("menuitemradio", { name: theme }).click();
+    await page.getByRole("button", { name: /^You are alex/ }).click();
+    const menu = page.locator(".account-menu");
+    await expect(menu).toContainText("Urgent messages from your own agents arrive at their next step instead of waiting for the turn to end.");
+    await expect(menu.getByRole("menuitemradio", { name: "My agents" })).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+  }
+  await page.getByRole("button", { name: /^You are alex/ }).click();
+  await page.getByRole("menuitemradio", { name: "Owner only" }).click();
+  await expect.poll(async () => (await policy()).policy).toBe("owner-only");
+
+  await details(writer);
+  const follows = /^Mid-turn messages for writer: owner only, from your setting/;
+  await expect(writer.getByRole("button", { name: follows })).toBeVisible();
+  await writer.getByRole("button", { name: /^Mid-turn messages for writer/ }).click();
+  await expect(page.locator(".midturn-options").getByRole("menuitemradio", { name: /^Default/ })).toHaveAttribute("aria-checked", "true");
+  await page.locator(".midturn-options").getByRole("menuitemradio", { name: "My agents" }).click();
+  await expect(writer.getByRole("button", { name: "Mid-turn messages for writer: my agents. Change it" })).toBeVisible();
+  await expect.poll(async () => (await policy()).overrides?.map((o) => o.policy)).toEqual(["my-agents"]);
+  expect((await policy()).policy).toBe("owner-only");
+  await expect(page.locator(".midturn-options")).toHaveCount(0);
+  await writer.getByRole("button", { name: /^Mid-turn messages for writer/ }).click();
+  await page.locator(".midturn-options").getByRole("menuitemradio", { name: /^Default/ }).click();
+  await expect(writer.getByRole("button", { name: follows })).toBeVisible();
+  await expect.poll(async () => (await policy()).overrides ?? []).toEqual([]);
+
+  await expect(theirs.getByRole("button", { name: /^Mid-turn/ })).toHaveCount(0);
+  await expect(theirs.locator(".midturn")).toHaveCount(0);
+  const members = (await api(owner, "GET", `/v1/boards/${board}/members`)) as { members: { id: string; name: string }[] };
+  const kimId = members.members.find((m) => m.name === kimAgent)!.id;
+  const noOverride = await fetch(`http://${env.ABOARD_LOCAL_ADDR}/v1/me/midturn`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${owner}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ member_id: kimId, policy: "owner-only" }),
+  });
+  expect(noOverride.status).toBe(403);
+
+  // A message to kim's agent which it reports queued shows as queued and stays pending. The
+  // delivery daemon doesn't report queues yet, so the receipt answer is a fixture of the contract's shape.
+  aboard("say", "--as", "writer", "--board", board, "--to", `@${kimAgent}`, "Urgent: check the intro.");
+  await page.route("**/receipts", async (route) => {
+    const real = await route.fetch();
+    const body = (await real.json()) as { recipients: Record<string, unknown>[] };
+    body.recipients = body.recipients.map((r) => ({ ...r, queued: { boundary: "turn_end", expires_at: new Date(Date.now() + 60_000).toISOString() } }));
+    await route.fulfill({ response: real, json: body });
+  });
+  await page.reload();
+  const mark = page.locator(".message", { hasText: "Urgent: check the intro." }).locator(".receipt-mark");
+  await expect(mark).toHaveText("Queued");
+  await expect(mark).toHaveAttribute("aria-label", new RegExp(`${kimAgent}: queued, arrives at the end of its turn`));
 });
 
 // ownerKey is alex's key on the local server, started if it isn't running.
@@ -2163,7 +2227,7 @@ test("task cards and the task panel show who is on each task, and Tell the team 
   await expect(page.getByRole("region", { name: "Needs you", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Blocked", exact: true })).toHaveCount(0);
   await expect(page.locator(`[data-task="${finished.ref}"]`)).toHaveCount(0);
-  await page.getByRole("button", { name: "1 task done or cancelled · show" }).click();
+  await page.getByRole("button", { name: "1 task done · show" }).click();
   await expect(page.locator(`[data-task="${finished.ref}"]`)).toContainText("Rotate the staging key");
 
   // The panel: About, Where it stands with its byline, the conversation and who is on it.
@@ -2172,7 +2236,7 @@ test("task cards and the task panel show who is on each task, and Tell the team 
   await expect(detail.getByRole("heading", { name: "About" })).toBeVisible();
   await expect(detail).toContainText("The v1 endpoints close next month.");
   await expect(detail.locator(".where-it-stands")).toContainText("Intents move over; refunds are next.");
-  await expect(detail.locator(".where-it-stands")).toContainText(/by claude · (just now|\d+ min ago) · 1 message since/);
+  await expect(detail.locator(".where-it-stands")).toContainText(/Updated by claude · (just now|\d+ min ago) · 1 message since/);
   await expect(detail.getByRole("heading", { name: "Conversation · 1" })).toBeVisible();
   const onIt = detail.locator(".on-it");
   await expect(onIt.locator('[data-on-task="claude"] [data-harness="claude-code"]')).toBeVisible();

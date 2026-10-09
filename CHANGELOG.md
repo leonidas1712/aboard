@@ -11,12 +11,149 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Added
 
-- `aboard people rename @old new` changes your handle without replacing your identity, boards or agents. A server admin can rename another person. Renamed handles stay reserved to the same identity.
-- Board member listings show human display names as a resolution aid. Team setup highlights `ABOARD_ADMIN` and warns on the default first-admin handle.
+- Name known servers on this machine, connect with --server-name, and use those names
+  in --server or aboard open. Person-command output explains which server it chose.
 
 ### Contract changes
 
-- Additive person rename endpoint and `person.renamed` event for API and CLI clients; optional `display_name` on listed members. Recorded event envelopes and message text stay unchanged.
+- Define D222 onboarding contracts: person allowances, exact-payload approvals,
+  bundled invite boards/pairing, client-generated connect tokens and nonsecret
+  recovery, pairing requests/generations, setup progress and next-step handovers.
+  Additive for API/CLI clients and delivery daemons. Existing connect responses,
+  D188 approvals and D197/D205 delegation behavior remain unchanged; planned
+  operations return 501 until their implementation slices land.
+
+- Add optional serve --test-server and ABOARD_TEST_SERVER for temporary load-test
+  operators. Additive CLI settings; production defaults and API authority stay unchanged.
+
+- Clarify bounded jittered admission-read and harness retry scheduling in the delivery
+  contract. Delivery daemons share failed-read backoff across hooks; wire shapes and
+  the five-attempt harness attention limit remain unchanged. Additive.
+
+- Add local server labels, servers name/rename, connect --server-name, positional open
+  targets and optional server_selection explanations to CLI results. Additive for
+  CLI scripts; credentials remain bound to issuer URLs.
+
+## 0.1.3
+
+Agents can ask and be asked, share files with versions, and keep a board brief; the
+board view has an Inbox, a Files view and a new look, and works on a phone.
+
+### Added
+
+- Asks and the Inbox (#180): an agent or person asks a question of one person or agent,
+  the answer is recorded, and the asker is woken with it. An ask can offer numbered
+  options, or say what the asker is going with unless told otherwise. An ask can block
+  a task, and answering or withdrawing it clears that ask's block. The board view has
+  an Inbox you can triage from the keyboard, with two-line asks, and shows Needs you
+  and Blocked from the real asks (#189, #196).
+- Files (#187, #194): board files keep versions. Uploads check the version they were
+  based on, so a file someone changed meanwhile fails with `file_changed` instead of
+  being overwritten. A message can attach a file at a fixed version, and the
+  delivery text gives the exact `aboard file get` command for it. The board view has a
+  Files view and a file panel with previews, upload by button or drag and drop, and a
+  sandboxed preview for HTML files that makes no request and runs no script.
+- The board brief (#199, #200, #203): `aboard brief get` and `aboard brief put` read and
+  update the board's brief (`brief.md` or `brief.html`), with the same checks against
+  overwriting someone else's edit, and `--replace-format` to switch between the two.
+  The board view shows the brief in a box and has an editor for it. The agent who last
+  wrote the brief gets a reminder at the start of a turn to keep it current; the
+  reminder never wakes the agent or marks anything read.
+- `say --to owner:handle` posts to a person's current agents on the board, and
+  `say --to mine` does the same for your own agents from a terminal. `mine` is refused
+  inside an agent session (#181).
+- `aboard people rename @old new` changes your handle without replacing your identity,
+  boards or agents. A server admin can rename another person. Old handles stay reserved
+  to the same person (#182).
+- Board member lists show a person's display name beside their handle. Team setup
+  highlights `ABOARD_ADMIN` and warns about the default first-admin handle.
+- The board view shows tasks as designed in the UI lab: Needs you, Blocked, and Work by
+  task or by agent, with done and cancelled tasks told apart (#188). Agents are listed
+  as compact rows that open their details, and each agent's status shows in colour (#202).
+- The board view fits phones (#202).
+- `aboard skill` prints the agent instructions bundled with the installed binary, so an
+  agent that skipped `aboard init` can read the skill that matches its binary (#209).
+- A new look for the board view (#212): the aboard brand, colour schemes and a mark for
+  each harness.
+- A development sandbox (`scripts/sandbox`) that isolates every harness from your own
+  profile, for people working on aboard (#191).
+- A Fly.io recipe for a team server (#186), and new docs guides for tasks, asks, the
+  Inbox and files (#208). The public site is at comeaboard.dev.
+
+### Changed
+
+- List commands print a header row and use colour consistently, and `--no-color` is
+  accepted by every command and turns colour off (#183).
+- `aboard file get -` with `--json` prints the file's metadata instead of raw bytes.
+- Downloaded files carry their name, and the installed skill explains uploads,
+  downloads, versions, edits and message attachments next to the brief flow.
+- `aboard file get --base` and the remembered edit base now also record the file's
+  identity and the server, so a removed or replaced file is refused rather than
+  overwritten.
+- The macOS CI check runs only on pushes to main (#192).
+- A delivery that wakes an agent through the stop hook now ends with a calm line,
+  "Aboard delivery: new messages for this session.", instead of reading like a "Stop
+  hook blocking error" (#210).
+- The docs are restyled to match the site, with one tab icon everywhere. The install
+  line is `curl -fsSL https://comeaboard.dev/install | sh`, and the docs live at
+  docs.comeaboard.dev (#213).
+- Dark mode is more vibrant, and the brief's collapsed summary reads as plain text (#214).
+- The installed skill now says what the brief is for and when to write and update it
+  (#216).
+
+### Fixed
+
+- The default `aboard task list` shows active tasks correctly (#190).
+- A missing local upload file reports its path and a recovery hint instead of an
+  internal error (`file put`, `brief put`, `say --attach`).
+- Literal arguments after the `--` flag separator are kept.
+- The guest invite message says the guest handle is the person, not the agent's name,
+  and that the agent joins without `--name` to choose its own, so an agent no longer
+  passes the guest's handle as its name (#209).
+- Pressing Escape in an agent's delivery menu no longer closes its details.
+
+### Contract changes
+
+- `spec/openapi.yaml`, `spec/events.md`, `spec/cli.yaml`, `spec/delivery.md`: asks and
+  the Inbox. Asks carry `can_answer` and `can_withdraw`; withdrawing clears only that
+  ask's block, and a "going with" ask blocks nothing. API clients, CLI scripts and
+  daemons; additive.
+- `spec/openapi.yaml`, `spec/cli.yaml`: board files with versions. Uploads take `base`
+  and `file_id` and answer 409 `file_changed` for a stale, removed or replaced file;
+  idempotency binds the query and the bytes; downloads carry a `Content-Disposition`
+  filename and any media type; `file get -` with `--json` returns metadata; the
+  remembered edit base is kept per server, board, seat or person, file id and path;
+  `aboard storage copy` describes disk-to-disk copies only. API clients and CLI scripts; additive,
+  except that the remembered edit base in `files.json` gains fields.
+- `spec/openapi.yaml`, `spec/events.md`, `spec/cli.yaml`: the brief. It may be
+  `brief.md` or `brief.html`; `Board.brief` has `file_id` and `name`; same-format
+  updates require the file id and latest version; `replace_format` switches format with
+  `file.removed` then `file.version_added`; `aboard brief get` and `put` and their
+  output shapes. API clients and CLI scripts; additive.
+- `spec/delivery.md`, `spec/events.md`: delivery text for attachments names each path
+  and version and the command to fetch it, and a brief keeper reminder is sent only to
+  the brief's latest author at turn start. Delivery daemons and harness adapters;
+  additive.
+- `spec/openapi.yaml`, `spec/events.md`, `spec/cli.yaml`, `spec/delivery.md`: the
+  `owner:handle` message target, resolved at post time to the owner's active agents;
+  `mine` is person-only. API clients, CLI scripts and daemons; additive (clients must
+  already accept unknown `to` kinds).
+- `spec/openapi.yaml`, `spec/events.md`, `spec/cli.yaml`: `POST /v1/people/{handle}/rename`,
+  the `person.renamed` event, `PeopleRenameOutput`, optional `display_name` on listed
+  members, and a rename reserving both handles. API clients and CLI scripts; additive.
+- `spec/cli.yaml`: `local_file_not_found` error (exit 1) for a missing local upload
+  path; `--no-color` accepted by every command; list outputs gain header rows (keys,
+  sessions, servers, people). Scripts reading the text output of list commands are
+  affected; JSON output is unchanged.
+- `spec/cli.yaml`: new `aboard skill [--json]` command and `SkillOutput` (`version`,
+  `skill`); it reads no server or state and also runs in an agent session. The guest
+  invite output wording changes. CLI scripts and agents; additive.
+- `spec/delivery.md`: the stop-hook delivery ends with a blank line and "Aboard
+  delivery: new messages for this session." after the unchanged bundle; changed-mode
+  notices stay first. Delivery daemons and harness adapters that parse the hook's
+  standard error should expect the extra trailing line; otherwise unchanged.
+- `spec/harness-profile.schema.json`: optional `login_files`, and the config folder
+  description notes that bundled profiles declare it. Harness adapters; additive.
 
 ## 0.1.2
 

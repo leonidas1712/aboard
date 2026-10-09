@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
@@ -24,7 +25,9 @@ type offer struct {
 
 // composed is what goes into one bundle.
 type composed struct {
-	parts []offer
+	peerBoundary bool
+	renderedAt   time.Time
+	parts        []offer
 	// tooLarge are messages that don't fit in a bundle even on their own.
 	tooLarge  []offer
 	text      string
@@ -49,6 +52,7 @@ func orderForBundle(msgs []Message) {
 // composeOptions carries session context; fair selection advances only when the
 // caller commits the admitted handoff, not when it reconstructs a retry.
 type composeOptions struct {
+	Now       time.Time
 	MultiSeat bool
 	First     int
 	// WholeLimit is the payload cap before notes or other seats reserve space.
@@ -66,6 +70,7 @@ func compose(offers []offer, limit int, options ...composeOptions) composed {
 			opts.WholeLimit = limit
 		}
 	}
+	c.renderedAt = opts.Now
 	groups := byAgent(offers)
 	if len(groups) == 0 {
 		return c
@@ -81,9 +86,9 @@ func compose(offers []offer, limit int, options ...composeOptions) composed {
 		if used > 0 {
 			room -= 2
 		}
-		context := deliverytext.Context{}
+		context := deliverytext.Context{Now: opts.Now}
 		if opts.MultiSeat {
-			context = deliverytext.Context{Seat: agentOffers[0].agent.Name, BoardQualified: true}
+			context.Seat, context.BoardQualified = agentOffers[0].agent.Name, true
 		}
 		parts, tooLarge, text, digest := composeAgent(agentOffers, room, opts.WholeLimit, context)
 		c.tooLarge = append(c.tooLarge, tooLarge...)
@@ -115,14 +120,18 @@ func compose(offers []offer, limit int, options ...composeOptions) composed {
 // renderComposition reproduces the admitted allocation without running fair selection
 // or digest thresholds again. The caller keeps the original parts and digest choices
 // with an in-flight handoff; a restart checks the reconstructed payload's hash.
-func renderComposition(parts []offer, multiSeat bool, digests map[AgentKey]bool) string {
+func renderComposition(parts []offer, multiSeat bool, digests map[AgentKey]bool, renderedAt ...time.Time) string {
+	var now time.Time
+	if len(renderedAt) > 0 {
+		now = renderedAt[0]
+	}
 	type group struct{ board, text string }
 	var rendered []group
 	for _, groupOffers := range byAgent(parts) {
 		agent, mode := groupOffers[0].agent, groupOffers[0].mode
-		context := deliverytext.Context{}
+		context := deliverytext.Context{Now: now}
 		if multiSeat {
-			context = deliverytext.Context{Seat: agent.Name, BoardQualified: true}
+			context.Seat, context.BoardQualified = agent.Name, true
 		}
 		var msgs []Message
 		for _, o := range groupOffers {
@@ -193,7 +202,7 @@ func composeAgent(offers []offer, limit, wholeLimit int, context deliverytext.Co
 	}
 	// Retain the existing single-seat allocation while several-seat sizing uses the
 	// complete rendered wrappers and routing hints.
-	legacyFocused := mode == ModeFocused && context == (deliverytext.Context{})
+	legacyFocused := mode == ModeFocused && context.Seat == "" && !context.BoardQualified
 	fits := func(msgs []Message) bool {
 		if len(render(msgs)) > limit {
 			return false

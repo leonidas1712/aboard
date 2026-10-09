@@ -11,7 +11,8 @@
 #   Without --json the error goes to stderr as "Error (<code>): <message>", then
 #   "Hint: <hint>" on its own line when there is one.
 # - Exit codes: 0 ok · 1 error · 2 usage error · 3 a check ran and failed.
-# - Text output is colored only when it goes to a terminal, NO_COLOR is unset, TERM
+# - Text output is colored only when it goes to a terminal, NO_COLOR is unset, --no-color
+#   (accepted by every command) wasn't given, TERM
 #   isn't dumb, --json wasn't given and the command doesn't run inside a harness session
 #   (see below); otherwise it is plain text, and the words are the same either way. A
 #   command asks questions only when standard input and output are both terminals,
@@ -62,7 +63,7 @@
 #   pre-tool hook adds to a subagent's aboard commands, and no more specific harness
 #   marker says the command runs elsewhere; or CODEX_THREAD_ID differs from
 #   CODEX_SESSION_ID, as in a Codex sub-agent), only reading commands run: read, status,
-#   inbox --peek, doctor, audit, help, version and hook. Every other command refuses with
+#   inbox --peek, doctor, audit, help, version, skill and hook. Every other command refuses with
 #   subagent_without_seat and exits 1 before it does anything, whatever --as or
 #   ABOARD_AGENT name. A subagent's commands find its parent's session, and so its
 #   parent's agent, in every harness: a Codex sub-agent's through CODEX_SESSION_ID,
@@ -105,6 +106,18 @@
 #   -wal and -shm), server.pid, admin-key, admin-key.pending or bootstrap.lock in it is
 #   a link, another user's or readable by others. Plain `aboard serve` is unchanged and
 #   ignores those variables.
+# - Temporary test servers may opt in with `aboard serve --test-server` (also with
+#   --team), or ABOARD_TEST_SERVER=true. The flag wins over the variable, including
+#   --test-server=false. An invalid boolean variable refuses before opening state
+#   with invalid_request (exit 2). Opt-in raises only POST /v1/join per-address and
+#   POST /v1/connect (also guest-join) per-address/server limits to 10000 per minute;
+#   authentication, sign-in limits, permissions and durability do not change.
+#   Startup logs {"msg":"test rate limits enabled","joins_per_minute":10000,
+#   "connects_per_minute":10000,"connects_per_minute_server":10000}. Defaults stay
+#   30/10/60 without opt-in. Use only for an isolated test server, never a deployed
+#   team server. `make load` opts in only for the local server it creates; targeting
+#   a remote server never changes its configuration. A temporary remote test app
+#   must opt in in its own startup environment.
 # - Certificates: every command that talks to a server trusts, besides the system's
 #   roots, the PEM certificates in SSL_CERT_FILE when it is set, on every platform.
 # - Board for agent commands (say, inbox, read, react, task, ask, working, paused, file, brief; a task reference also names its board among the session's seats): the board of the agent they act as.
@@ -143,6 +156,19 @@ $id: https://aboard.example/spec/cli.yaml
 title: Aboard CLI JSON output
 
 $defs:
+  SkillOutput:
+    description: |
+      aboard skill [--json] prints the agent instructions bundled with this binary.
+      Text output is the Markdown skill itself. JSON gives the binary's version and
+      the same Markdown. No server, login, harness setup or state is read or changed;
+      it also runs in an agent session or subagent. Exit 0, or 2 for invalid arguments.
+    type: object
+    required: [version, skill]
+    properties:
+      version: { type: string }
+      skill: { type: string }
+    additionalProperties: false
+
   # ---------- shared ----------
   Error:
     $ref: openapi.yaml#/components/schemas/Error
@@ -183,6 +209,8 @@ $defs:
       second seat to an extension session that did not negotiate handoff-v1; no seat or
       binding changes. The hint says to run aboard init in a terminal and restart the
       harness; spec/control.md, "Combined handoffs") ·
+      queue_unknown (the current session queue or its boundary could not be verified;
+      no preview is returned and nothing is acknowledged; check the connection and seat) ·
       daemon_not_running · daemon_in_sandbox (the daemon isn't running and the command runs
       inside a harness's sandbox, where it won't start one) · sandbox_blocks_network (the
       command runs inside a harness's sandbox that blocks network access, Codex's by
@@ -209,6 +237,9 @@ $defs:
       message_ref_invalid · check_failed · confirmation_required (the command would
       delete data and needs a person's yes, but can't ask: standard input isn't a
       terminal, or --json was given; the hint names the command again with --yes) ·
+      local_file_not_found (exit 1; a file put, brief put or say --attach local path
+      does not exist; the message names the path and the hint asks to check it or
+      create the file; no upload is made) ·
       board_file_not_found · board_file_invalid (the board file doesn't match
       spec/aboard.schema.json, or swarm up can't apply what it sets; details.errors lists
       each problem with its place in the file) · harness_unknown (an agent names a harness
@@ -892,7 +923,7 @@ $defs:
       server or a guest's; a member's is handle_taken. Agents can't make guest codes:
       inside a harness session, or with ABOARD_AGENT set, it refuses with
       human_command_in_session before it sends anything. Text output:
-        Created a guest code for board payments-design on https://team.example.com: sam joins it as a guest from outside the server, once, within 24 hours. Anyone with the code can use it, so give it only to sam.
+        Created a guest code for board payments-design on https://team.example.com: guest sam's agent joins it from outside the server, once, within 24 hours. The guest handle is the person, not the agent name; join without --name to choose an agent name. Anyone with the code can use it, so give it only to sam.
 
         Give this to sam, to paste into their agent's session:
 
@@ -923,8 +954,36 @@ $defs:
       `--server https://team.example.com` or `--server=https://team.example.com`, as
       other commands take --server URL. The invite works once, makes a member (never an admin) and
       expires after --ttl (Go duration, 1m to 720h; default 168h). A person who isn't a
-      server admin gets server_admin_required. Inside a harness session it refuses with
-      human_command_in_session, so an agent never sees the link. Text output:
+      server admin gets server_admin_required. An agent uses its selected seat and
+      the D222 administrative request path: an enabled allowance executes, otherwise
+      the exact request is held for its person. Without a selected seat, it refuses
+      with agent_session_required. In a trusted session, the daemon first checks for
+      an open own-person pairing request on the chosen issuer; when one exists,
+      next.command is `aboard pairing list --server SERVER`. Otherwise it is
+      `aboard boards` (with --server when known); join one with
+      `aboard join --board NAME`, then retry. It never uses the person's login.
+      Repeatable --board NAME|ID carries ordinary memberships; resolve each selector
+      to an immutable board id with current access before writing. --pairing "work"
+      adds a pairing proposal from this session's selected initiating agent and needs
+      exactly one board. --role and --guest remain incompatible with --server.
+      When the agent request executes immediately, the CLI selects the initiating
+      endpoint through this exact trusted session before returning the issued invite.
+      If selection fails, return the issued invite once with a pending next.command
+      to select that same pairing id; never issue another invite automatically.
+      Held approvals do not select an endpoint. After execution, select the returned
+      pairing_request_id from the original initiating session with
+      `aboard pairing select ID --here --server SERVER`.
+      Both invite authority and current add-member authority on every board are
+      checked at issue and redemption. Agent automatic execution also needs each
+      admission's allowance or existing per-board grant; otherwise hold the whole
+      exact payload without creating a partial invite. The response includes the
+      bundled immutable board ids and pairing_request_id when supplied. Existing
+      ordinary invites are unchanged.
+      Bundled invites also include prompt, ready to paste into the colleague's agent:
+      "Set up Aboard and join using <link>. Verify you can exchange messages with the
+      inviting agent." This secret-bearing prompt is shown once with the invite,
+      never in listings, approval replays, hooks or setup progress.
+      The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
           aboard connect http://127.0.0.1:7400/join#abi_K8s2…
       preceded by "Started local Aboard at http://127.0.0.1:7400" when it started the server.
@@ -938,6 +997,40 @@ $defs:
         description: The server's URL, then /join#, then the invite. Works once.
         examples: ["http://127.0.0.1:7400/join#abi_K8s2Lq9Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj"]
       expires_at: { type: string, format: date-time }
+      boards:
+        type: array
+        items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+      pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+      prompt: { type: string, description: Ready-to-send colleague setup prompt, shown only on issuance. }
+
+  ServerInvitesOutput:
+    description: |
+      aboard invite list --server SERVER [--json] lists only your invitations and
+      your agents' invitations, with immutable issuer agent id and state, never
+      an invite secret or hidden board name. Person-only; agents get
+      human_token_required with next.command. Losing admin authority does not
+      prevent inspecting or revoking your own invitations. Exit 0 or 1.
+    type: object
+    required: [server, invites]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      invites:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/ServerInviteMetadata" }
+  ServerInviteRevocationOutput:
+    description: |
+      aboard invite revoke ID --server SERVER [--json] revokes your invitation once;
+      repeats return changed=false. It never removes an already connected person.
+      Person-only; agents get human_token_required with next.command. Unknown or
+      another person's id gets invite_not_found without revealing ownership.
+      Exit 0 or 1; no secret is returned.
+    type: object
+    required: [server, id, revoked, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+      revoked: { const: true }
+      changed: { type: boolean }
 
   # ---------- aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] ----------
   # ---------- aboard connect <server URL> [--handle NAME] [--name MACHINE] ----------
@@ -969,6 +1062,12 @@ $defs:
       longer than the request lasts. Only the named person's approval counts; a
       handle nobody has gives a request nobody can approve, which then expires.
       --display-name is a usage error here.
+
+      --server-name sets a per-machine label, never sent in the request. Without it,
+      use the advertised team name when it is a valid available label, otherwise the
+      first hostname label; disambiguate automatic collisions with a numeric suffix.
+      Existing connections without saved names derive host labels on read. Explicit
+      labels are validated before redemption; a taken label fails server_name_taken.
 
       Either way, a server other than this machine's must use https (insecure_server),
       and a machine already connected to the server, or this machine's own local server,
@@ -1041,12 +1140,14 @@ $defs:
       Keys management is up to a person: inside a harness session every keys command
       refuses with human_command_in_session, and the server refuses agent and browser
       tokens with human_token_required. Text output:
-        Keys of maya on https://team.example.com:
-          maya-laptop   working  last used 2 days ago  expires in 88 days  browser sessions: 1  agents: 2
-          maya-desktop  working  last used just now    expires in 90 days  (this machine)
+        Keys of @maya on https://team.example.com:
+          KEY           STATE                LAST USED  EXPIRES      USED BY
+          maya-laptop   working              2 days ago in 88 days   browser sessions: 1  agents: 2
+          maya-desktop  working              just now   in 90 days   (this machine)
           phone         revoked 3 hours ago
-      "expires when unused for 90 days" stands in for the expiry of a key that expires
-      only once unused, and "never expires" for the local server's own key.
+      "when unused for 90 days" stands in for the expiry of a key that expires only once
+      unused, and "never" for the local server's own key. A key that expires within a
+      week reads "in 3 days (soon)", in amber at a terminal.
     type: object
     required: [server, person, keys, current_key_id]
     properties:
@@ -1108,8 +1209,9 @@ $defs:
       such key). Sessions of revoked or expired keys have ended and aren't listed. Inside a
       harness session it refuses with human_command_in_session. Text output:
         Browser sessions of maya on https://team.example.com:
-          ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8  key phone        pasted key   signed in 2h ago  ends in 30 days
-          ses_01K6Q1B3D5F7H9K1M3P5R7T9V1  key maya-laptop  aboard open  signed in 3d ago  ends in 27 days
+          ID                              KEY          STARTED WITH  SIGNED IN  ENDS
+          ses_01K6Q3V8P2M4N6R8T0W2Y4A6C8  phone        pasted key    2h ago     in 30 days
+          ses_01K6Q1B3D5F7H9K1M3P5R7T9V1  maya-laptop  aboard open   3d ago     in 27 days
         Sign one out with: aboard keys sessions end <id>
       or "No browser is signed in to https://team.example.com as maya."
     type: object
@@ -1188,16 +1290,49 @@ $defs:
           the local server leaves the default alone and false here.
 
   # ---------- aboard servers ----------
+  ServerSelection:
+    description: |
+      Optional server_selection on person-command results explains the chosen server.
+      Local labels are never sent to the server and never change credential ownership.
+      Sources are flag (including an open positional), project, default, only, or local.
+      Text prints the server/why line only when several servers are known or the
+      folder overrides the normal default, and not when the output already names its
+      board. JSON retains the selection even for an obvious or local target. Agent paths do not acquire a person login from labels.
+    type: object
+    required: [server, source]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      source: { enum: [flag, project, default, only, local] }
+  ServersNameOutput:
+    description: |
+      aboard servers name <url|name> <name>, or servers rename <old> <new>, changes
+      only this machine's label for a known server in servers.json. Agents may list,
+      name and rename known servers, without keys or network requests. Connect, login
+      and servers use remain person-only. Names use letters, digits, hyphens and
+      underscores, start with a letter, and are unique ignoring case. local is reserved
+      for this machine's local server. Conflicts return server_name_taken; malformed
+      names return invalid_server_name; unknown labels return server_unknown. URLs
+      remain accepted anywhere a server is accepted. aboard open accepts one positional
+      server name or URL, mutually exclusive with --server.
+    type: object
+    required: [server, previous_name]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      previous_name: { type: string }
   ServersOutput:
     description: |
+      Names are labels stored per machine, never sent to a server. Legacy connections
+      derive names from their host until named explicitly. local remains an alias for
+      this machine even if its display label changes.
+
       The servers this machine knows (D203): the local server, once it has an owner
       login, and every server in servers.json, from aboard connect, aboard login or a
       join line. One of them may be the machine's default server, which person commands
-      use outside a folder whose .aboard chooses one (see the rules above). A person
-      command; it reads only this machine's files and sends nothing. Text output:
+      use outside a folder whose .aboard chooses one (see the rules above). Agents and people may list them; it reads only this machine's files and sends nothing. Text output:
         Servers this machine knows:
-        * https://team.example.com  maya  (default)
-          http://127.0.0.1:7400     local
+          SERVER                    LOGIN                DEFAULT
+        * https://team.example.com  logged in as @maya   default
+          http://127.0.0.1:7400     local server
         Change the default with: aboard servers use <url|local>
       With several servers and no default, the last line is instead "No default server:
       outside a linked folder, person commands need --server. Choose one with: aboard
@@ -1246,7 +1381,7 @@ $defs:
 
   # ---------- aboard say "text" [--to T[,T…]] [--reply MSG] [--urgent]
   #            [--expect-reply | --wait-reply SECONDS]
-  #            [--task ID | --no-task] [--option K] [--attach FILE] ----------
+  #            [--task ID | --no-task] [--option K] [--attach FILE] [--file NAME[@vN]] ----------
   # (aboard ask makes an ask, with AskOutput; it is no longer `aboard say --expect-reply`.)
   # `say --to owner:handle` addresses that person’s current agents on this board.
   # In a human terminal, `say --to mine` posts as the person to owner:<their handle>.
@@ -1266,7 +1401,10 @@ $defs:
       - `recipients`: when each recipient will see the message, from its presence and
         delivery mode as the board's members list shows them. `outcome` is `now` (its
         session is idle and delivery wakes it), `turn_end` (its session is working; it
-        gets the message when its turn ends), `next_turn` (its mode is `focused` and the
+        gets the message when its turn ends), `next_step_if_supported` (current same-owner
+        urgent direct-message policy permits a verified tool boundary, subject to the
+        per-turn cap; this is eligibility, not a delivery confirmation),
+        `turn_end_owner_only` (its person permits only person input mid-turn), `next_turn` (its mode is `focused` and the
         message doesn't concern it, so it doesn't wake it: it sees the message at the
         start of its next turn; spec/delivery.md, "Delivery modes"), `not_woken` (its
         delivery mode is `off`, or `humans` and the sender is an agent; it sees the
@@ -1331,7 +1469,20 @@ $defs:
       makes it about nothing (tasks the text names are still linked). --option K, with
       --reply to an ask, answers it with option K, and the body defaults to that option's
       text. --attach FILE puts the file on the board (as aboard file put) and attaches
-      that version. `nudges` holds the reminders for the agent (Nudge), printed after
+      that version. --file NAME[@vN] attaches an existing board file by path or immutable
+      file id, without uploading bytes. An existing immutable id wins over a matching
+      current path; otherwise the selector is a current path. To select a path that
+      equals another file's id, use that path's own immutable id. Repeat --file for several files; it may be
+      combined with --attach. Identical immutable file id/version pairs are attached
+      once, retaining their first position; distinct versions remain separate. This
+      includes pairs produced by --attach. On say, --file only attaches and does not
+      request approval. Without @vN it pins the latest version observed during
+      lookup. With @vN it pins that positive integer version. Every selector is resolved
+      using the acting seat's credential on the selected board before any local upload
+      or message write. Unknown files or versions return file_not_found with a hint to
+      run aboard file list --board <board> or upload with --attach; malformed version
+      suffixes return invalid_request. No message is posted on refusal. The server
+      rechecks file access and availability when posting. `nudges` holds the reminders for the agent (Nudge), printed after
       everything else.
     type: object
     required: [message, unread, recipients]
@@ -1376,7 +1527,7 @@ $defs:
               enum: [focused, all, humans, off, auto, null]
               description: The agent's delivery mode as last reported; null for a person or when never reported (treated as focused). auto, reported by an older daemon, means all.
             outcome:
-              enum: [now, turn_end, next_turn, not_woken, no_session, cannot_read, over_limit, person]
+              enum: [now, turn_end, next_step_if_supported, turn_end_owner_only, next_turn, not_woken, no_session, cannot_read, over_limit, person]
       warning:
         description: |
           Set when the message is to everyone and wakes no agent (see above); null
@@ -1431,6 +1582,16 @@ $defs:
   # ---------- aboard inbox [--wait SECONDS] [--peek] [--limit N] ----------
   InboxOutput:
     description: |
+      --queued is a read-only preview of the current session queue (QueuedMessages),
+      including messages already acknowledged on harness queue admission. It never
+      confirms or acknowledges; acked_up_to is null. Scheduled delivery is unchanged.
+
+      With --wait, a connection reset or other transient transport failure retries
+      the waiting GET with exponential backoff and jitter, within the original wait
+      deadline; the existing response-timeout grace remains. Refused credentials and
+      API error responses are not retried. No write
+      or acknowledgement is replayed by this reconnect behavior.
+
       Without --peek, the CLI acks up to the last returned message's seq before
       printing. If the ack fails, the command fails and prints nothing, so no message
       is shown as read without being acknowledged.
@@ -1449,6 +1610,8 @@ $defs:
     type: object
     required: [board, agent, messages, acked_up_to, more]
     properties:
+      queued:
+        $ref: "#/$defs/QueuedMessages"
       board: { type: string }
       agent: { type: string }
       messages:
@@ -1872,7 +2035,9 @@ $defs:
       then each new matching message as it arrives, in read's text format, until
       interrupted (Ctrl-C exits 0). Status lines ("Watching writer-reviewer. Stop with
       Ctrl-C." and reconnect notices) go to stderr. If the stream drops it reconnects
-      and prints what it missed, never skipping or repeating a message.
+      with exponential backoff and jitter, and prints what it missed, never skipping
+      or repeating a message. Connection resets are retryable; credential refusals
+      stop the watch.
 
       With --json it prints JSON Lines instead of one object: one WatchOutput object per
       message, as each arrives. This is the one command whose --json output is a stream.
@@ -2284,6 +2449,8 @@ $defs:
     type: object
     required: [server, server_running, server_replaced, sandbox_blocks_network, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
+      queued:
+        $ref: "#/$defs/QueuedMessages"
       server: { $ref: "#/$defs/ServerRef" }
       sandbox_blocks_network:
         type: boolean
@@ -2991,9 +3158,10 @@ $defs:
       set, it refuses with human_command_in_session before it sends anything. Text
       output:
         People on https://team.example.com:
-          alex  admin
-          maya  member  Maya Chen
-          sam   guest
+          HANDLE  SERVER ROLE  NAME
+          @alex   admin
+          @maya   member       Maya Chen
+          @sam    guest
     type: object
     required: [server, people]
     properties:
@@ -3638,7 +3806,8 @@ $defs:
       that version and immutable file id, so a changed, removed or replaced file fails with file_changed instead
       of being overwritten. With --json and standard output (-), it returns this metadata
       instead of raw bytes. What is remembered is kept in files.json in the state folder,
-      per seat or person, board, file and absolute path; --base N overrides it. get
+      per issuer server, immutable board id, seat or person id, immutable file id
+      and absolute path; --base N overrides the version, never the remembered identity. get
       replaces an existing local file only when it holds what the CLI last wrote or put
       there; otherwise it refuses and names --force. Text output:
         Wrote notes/api.md v5 (2.1 kB) from checkout-v2 to ./api.md. Put it back with: aboard file put api.md
@@ -3675,7 +3844,9 @@ $defs:
       The board's brief (its file brief.md or brief.html; a board has one) with its
       freshness, then its text (HTML is printed as its source). With no brief,
       file_not_found, whose hint says how to write one
-      (aboard brief put <a .md or .html file>). Text output starts:
+      (aboard brief put <a .md or .html file>). Uses the selected board's brief file id
+      and version, then the ordinary authenticated file download. It does not mark
+      messages read. HTML is source text here, never executed. Text output starts:
         checkout-v2 · brief.md v6 by claude-2 · 2 h ago · since then 41 messages, 3 tasks done, 1 answer
     type: object
     required: [board, brief, text]
@@ -3693,13 +3864,26 @@ $defs:
       or HTML; pass a .md or .html file." It names the version aboard brief get wrote to
       that path as the one it replaces (or --base N); with no brief yet it creates one,
       and with a brief but no version remembered for the path it fails with file_changed
-      naming the latest version and aboard brief get. People and agents use the same
+      naming the latest version and aboard brief get. Every update also sends the
+      remembered immutable file id; --base alone cannot authorize a blind overwrite.
+      The first put, with no existing brief, only creates; concurrent first puts have
+      one winner. An existing brief changed, removed or replaced since get refuses
+      with file_changed and keeps the local edits intact. Writing to stdout with get
+      does not remember a local edit base. Agent commands use only their seat's
+      credential and selected board; a person's login is never a fallback.
+      People and agents use the same
       commands; there is no editor command (people can also use the board view's Edit).
       aboard file put to brief.md or brief.html is refused (brief_path_reserved). Writing the
       other format while one exists fails with brief_exists (exit 1), whose hint names
       --replace-format, aboard file rm and aboard file mv; with --replace-format the old
       file is taken off the board and the new one added in one transaction, its history
-      staying in the record. Text output:
+      staying in the record. The remembered file id and version identify the old
+      format, not the new destination. Get the old brief to a local path with the
+      desired extension, edit it, then put that same path with --replace-format;
+      for example, get /tmp/status.html while the board has brief.md, then put
+      /tmp/status.html --replace-format. A concurrent old-format edit or format switch
+      refuses without removing either file. The replacement is a new file at v1,
+      with no approval inherited from the old one. Text output:
         Put the brief of checkout-v2 as brief.md v7 (replaces v6).
         Put the brief of checkout-v2 as brief.html v1, replacing brief.md (its 7 versions stay in the record).
     type: object
@@ -3772,3 +3956,233 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       person: { $ref: openapi.yaml#/components/schemas/Person }
       changed: { type: boolean }
+
+
+  QueuedMessages:
+    description: |
+      Messages queued for this session's turn end, not yet shown. Absent means queue
+      state is unknown. Status never acknowledges. inbox --queued previews exact current
+      own-token messages, including accepted queue entries absent from the unread inbox,
+      and acknowledges nothing; acked_up_to is null. It never cancels scheduled delivery.
+      Entries are invalidated on seat/session changes.
+      With several seats each entry remains bound to its immutable board/member ids.
+    type: object
+    required: [count, messages]
+    properties:
+      count: { type: integer, minimum: 0 }
+      messages:
+        type: array
+        items:
+          type: object
+          required: [board_id, member_id, message_id, seq, from, boundary]
+          properties:
+            board_id: { type: string }
+            board: { type: string, description: Current readable board name; immutable board_id remains the identity. }
+            member_id: { type: string }
+            message_id: { type: string }
+            seq: { type: integer, minimum: 1 }
+            from: { type: string }
+            boundary: { const: turn_end }
+
+  MidturnDeliveryOutput:
+    description: |
+      aboard delivery midturn [owner-only|my-agents] [--as AGENT] [--board BOARD].
+      With no policy reads the person's default, or their own selected agent's override.
+      Setting is person-only; agents receive human_command_in_session, never use a human
+      login. --inherit clears a selected agent's override. With no --as the change applies
+      to the person's default on the selected issuer server. Other owners' agents refuse
+      with agent_owner_required. Per-agent overrides are immutable-member bound.
+    type: object
+    required: [server, policy, source, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      policy: { enum: [owner-only, my-agents] }
+      source: { enum: [person_default, agent_override] }
+      board: { type: string }
+      agent: { type: string }
+      changed: { type: boolean }
+
+  # ---------- D222 onboarding (planned; not implemented in this slice) ----------
+  AllowanceOutput:
+    description: |
+      aboard allowance [--server SERVER] [--json] reads the selected person's
+      per-server allowance. aboard allowance on|off switches every allowable
+      category on or off; aboard allowance set invite-people|add-people on|off
+      changes only that category, preserving the others. Reads and changes are
+      person-only; selected agents receive human_token_required with next.command.
+      Default is off. Board creation through D205 is unchanged. Only admission
+      as an ordinary member is allowable; roles, removals, keys and policy never
+      become automatic. Text lists each category and on/off. Exit 0 or 1.
+    type: object
+    required: [server, allowance]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      allowance: { $ref: "openapi.yaml#/components/schemas/Allowance" }
+
+  ApprovalsOutput:
+    description: |
+      aboard approvals [--server SERVER] [--json] lists only the caller's approvals:
+      a person sees their agents' requests, an agent sees its own immutable agent
+      identity's requests. Agents use their selected seat credential, never the
+      person's login. With several seats, --board selects a seat; server selection
+      never changes a seat's issuer. Text shows id, action, requester and state,
+      pending first. An inaccessible board's name or payload is never printed.
+      Exit 0 or 1. Planned until GEN-35.
+    type: object
+    required: [server, approvals]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      approvals:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/Approval" }
+
+  ApprovalDecisionOutput:
+    description: |
+      aboard approvals allow ID [--always] [--server SERVER] [--json] executes the
+      frozen action once, subject to current authority. --always also enables that
+      category; it is invalid_request for destructive/privilege-raising actions
+      and changes nothing. aboard approvals decline ID refuses it. Both commands
+      are person-only, refuse in sessions, and never accept replacement payloads.
+      Text shows the action and terminal state. A newly created invite link is
+      shown once; repeated decisions cannot reissue or retrieve its secret.
+      Exit 0 or 1. Planned until GEN-35.
+    type: object
+    required: [server, approval]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
+      invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      prompt:
+        type: string
+        description: Ready-to-send colleague setup prompt only when an invite is newly executed; absent on replay.
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  HeldAdminOutput:
+    description: |
+      An agent admin command outside its allowance returns this shape with exit 0:
+      the request was held, not performed. Text says Pending approval and prints
+      next.command for the person's terminal, plus next.board_view and next.resume
+      when present. The exact command includes the actual approval id and issuer,
+      safely quoted, without placeholders or secrets. This is distinct from an
+      API refusal (exit 1). Existing D188 approve remains a separate person command.
+      Planned until GEN-35; existing refusal behavior stays until implementation.
+    type: object
+    required: [server, state, approval, next]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      state: { const: pending }
+      approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  PairingListOutput:
+    description: |
+      aboard pairing [list] [--server SERVER] [--json] lists the person's visible
+      requests, addressed to that person rather than a guessed active session.
+      An agent uses only its issuer-bound onboarding/seat authority, never the
+      person's CLI client. Text shows id, board, other person and state; no token,
+      invitation secret or private board outside current access. Exit 0 or 1.
+      Machine delegation powers are not extended.
+    type: object
+    required: [server, requests]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      requests:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
+
+  PairingOutput:
+    description: |
+      aboard pairing request @person|me --board BOARD "proposed work" creates a
+      person-directed request. Resolve the person and board to immutable ids under
+      current access before writing. Proposed work is content, not control over the
+      recipient's session. Self-pairing changes no allowance or existing D205 behavior.
+      aboard pairing accept [ID] --here selects this exact, verified harness session.
+      aboard pairing select ID --here selects the inviter's exact initiating session,
+      including deliberate recovery after its daemon restarts. It uses the same
+      private endpoint mint and generation CAS; only the inviter may select it.
+      This never accepts on behalf of the recipient. --replace explicitly replaces
+      an existing initiating endpoint. A person-terminal request or a selected-seat
+      request outside a real session remains awaiting this selection; recent
+      activity never fills it in. --as may name that request's initiating seat,
+      but select and accept always use the verified current session, not --as.
+      If ID is omitted, exactly one accessible pending request must exist; otherwise
+      refuse with pairing_ambiguous (details.requests contains only visible ids).
+      Never guess from activity. --replace is explicit endpoint replacement using
+      the current generation; a different endpoint without it gets pairing_changed.
+      The trusted daemon mints the selected endpoint credential privately with its
+      issuer-bound parent key after checking the exact session; no key reaches the CLI.
+      For a fresh zero-seat session, own-person request lookup is a trusted daemon
+      read, followed by existing D197 join and scoped endpoint selection.
+      Same endpoint repeat is idempotent. Missing trusted session gets agent_session_required.
+      aboard pairing decline ID declines as the recipient; cancel ID as the inviter.
+      Acceptance reuses a board seat or joins through the existing authorized path;
+      it never resurrects a removed seat or extends D197. Cross-person ordinary
+      membership admission needs the inviter's authority plus allowance/approval,
+      or recipient self-join on an open board. Pairing becomes ready only after both
+      real-session round trips at the current generation. Offline peers stay pending.
+      Text shows board, request state, awaited endpoint and precise next step.
+      Exit 0 for accepted/pending/ready, 1 for refusal, 2 for usage.
+    type: object
+    required: [server, board, request]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      request: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  SetupOutput:
+    description: |
+      aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE]
+      [--server SERVER] [--json] resumes the first incomplete setup step.
+      Inside an agent session, connect with an invite link uses this same safe
+      setup path and SetupOutput, including uncertain recovery. Existing person
+      connect output and D188 no-invite approval behavior are unchanged.
+      A pasted one-use invite is consent for setup in this session; an existing
+      account is never selected by an invite or a handle. Existing-account/new-machine
+      login uses D188 and still needs the person's approval. No human-client fallback.
+      --handle is the visible person name; --name names the machine's key.
+      With an invite, generate 256 random bits as a client token and save pending
+      state durably mode 0600, bound to issuer and invite, before /v1/connect.
+      Save failure stops before redemption. Never show the token or invite secret
+      in hook output, the socket, the model's context, progress logs or --json.
+      HTTPS except this machine's loopback server; never follow redirects or use
+      another issuer. client_token chooses the nonsecret 200 response. After a lost
+      response, only authenticated GET /v1/me/onboarding with the same saved token
+      and matching result completes the account step. A definite refusal of the first
+      redemption, such as invite_invalid, returns that error with next and exit 1.
+      A lost response or failed recovery check with an existing attempted proof,
+      including consumed invite, remains uncertain: preserve pending state, do not generate a
+      replacement key/account or interpret unauthorized as unused. Interrupted or
+      revoked-key recovery needs the person's action named in next.
+      Report all six steps, without claiming completion from process startup alone:
+      installed, account, memberships, harness, pairing, delivery. Trust/restart
+      waits have precise harness actions and the words Continue Aboard setup.
+      A rerun reuses completed memberships/seats and rechecks current authority;
+      removed access is never recreated. Text names completed steps, first pending
+      step, and next. JSON progress goes to stderr, one result to stdout.
+      Exit 0 for complete or waiting on a stated person/harness step, 1 for errors
+      and uncertain account recovery (with SetupOutput retained),
+      2 for usage. Planned GEN-36/37; does not claim implementation in this slice.
+    type: object
+    required: [server, state, steps]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      state: { enum: [complete, pending, uncertain] }
+      steps:
+        type: array
+        minItems: 6
+        maxItems: 6
+        items:
+          type: object
+          required: [step, state]
+          properties:
+            step: { enum: [installed, account, memberships, harness, pairing, delivery] }
+            state: { enum: [complete, pending, uncertain] }
+            message: { type: string }
+          additionalProperties: false
+      person: { $ref: "openapi.yaml#/components/schemas/Person" }
+      pairing_request: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }

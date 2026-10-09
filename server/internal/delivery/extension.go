@@ -55,6 +55,7 @@ func (d *Daemon) serveExtension(ctx context.Context, conn net.Conn, r *bufio.Rea
 		return
 	}
 	c := &extConn{conn: conn, handoffs: map[string]bool{}, supportsHandoffs: slices.Contains(hello.Capabilities, CapabilityHandoffV1), took: map[int64]bool{}, registered: make(chan bool, 1), signal: make(chan struct{}, 1), gone: make(chan struct{})}
+	c.supportsPeer = slices.Contains(hello.Capabilities, "midturn-peer") && slices.Contains(hello.Capabilities, "tool-boundary")
 	defer close(c.gone)
 	s.mail.put(sessionMsg{req: hello, ext: c})
 	select {
@@ -114,6 +115,7 @@ type extConn struct {
 	handoffs         map[string]bool
 	pendingHandoff   string
 	supportsHandoffs bool
+	supportsPeer     bool
 	registered       chan bool
 	signal           chan struct{}
 	gone             chan struct{}
@@ -212,6 +214,12 @@ func (c *extConn) DeliverHandoff(ctx context.Context, h Handover) error {
 	class := ClassMixed
 	if h.Class == ClassOwnerOnly {
 		class = ClassOwnerOnly
+	}
+	if h.Class == ClassMidturnPeer {
+		if !c.SupportsHandoffs() || !c.supportsPeer {
+			return ErrExtensionOutdated
+		}
+		class = ClassMidturnPeer
 	}
 	if h.HandoffID == "" {
 		if err := c.write(Response{V: ProtocolVersion, Event: EventDeliver, ID: h.ID, Bundle: h.Bundle, DeliveryClass: class}); err != nil {
@@ -358,6 +366,9 @@ func (s *session) onExtensionGone(ctx context.Context, c *extConn) {
 
 func negotiatedCapabilities(c *extConn) []string {
 	if c.SupportsHandoffs() {
+		if c.supportsPeer {
+			return []string{CapabilityHandoffV1, "tool-boundary", "midturn-peer"}
+		}
 		return []string{CapabilityHandoffV1}
 	}
 	return nil

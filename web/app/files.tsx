@@ -18,6 +18,7 @@ import {
   type FileVersion,
   type MemberRef,
   fileText,
+  isBriefName,
   getFile,
   listFiles,
   putFile,
@@ -25,16 +26,17 @@ import {
 } from "./api";
 import { Problem } from "./chrome";
 import { Markdown } from "./markdown";
-import { TaskChips } from "./task-ui";
-import { SenderMark } from "./timeline";
+import { StatusDot } from "./status";
+import { TaskChips, useAgentStatus } from "./task-ui";
+import { SenderMark } from "./agent-mark";
 import { count, exactTime, relativeTime } from "./words";
 
 /** The most a board takes in one file (spec/openapi.yaml, putFile). */
-const maxBytes = 50 * 1024 * 1024;
+export const maxBytes = 50 * 1024 * 1024;
 /** The most text the panel previews; a longer file is offered as a download. */
 const maxPreview = 512 * 1024;
 
-const namePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
+export const namePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 
 export function useFiles(board: string, activity: number, head: number | undefined, enabled: boolean) {
   const [list, setList] = useState<FileList | null>(null);
@@ -115,7 +117,7 @@ export function size(bytes: number): string {
   return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
 
-function FileIcon({ name, mediaType, className }: { name: string; mediaType: string; className?: string }) {
+export function FileIcon({ name, mediaType, className }: { name: string; mediaType: string; className?: string }) {
   const kind = kindOf(name, mediaType);
   const Icon = kind === "image" ? FileImage : kind === "html" ? FileCode : kind === "other" ? FileGeneric : FileText;
   return <Icon className={cn("size-[18px] shrink-0 text-muted", className)} strokeWidth={1.5} aria-hidden />;
@@ -129,10 +131,20 @@ function downloadName(name: string): string {
 type Identity = (m: MemberRef) => number;
 
 function Who({ by, me, identity }: { by: MemberRef; me: string | null; identity: Identity }) {
+  // An agent still on the board carries its status (D218), named in the mark's title.
+  const status = useAgentStatus()(by);
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5 align-top">
-      <SenderMark name={by.name} kind={by.kind} identity={identity(by)} className="size-5 rounded-[5px] text-[10px]" />
+    <span className="inline-flex min-w-0 items-center gap-1.5 align-top" title={status?.sentence}>
+      <span className="relative inline-flex shrink-0" data-status={status?.tone}>
+        <SenderMark name={by.name} kind={by.kind} identity={identity(by)} className="size-5 rounded-[5px] text-[10px]" />
+        {status && (
+          <span aria-hidden className="absolute -top-1 -right-1 flex size-3 items-center justify-center rounded-full bg-[var(--mark-ring,var(--background))]">
+            <StatusDot tone={status.tone} className="size-2" />
+          </span>
+        )}
+      </span>
       <span className="min-w-0 truncate">{by.kind === "human" && by.name === me ? "you" : by.name}</span>
+      {status && <span className="sr-only">, {status.word}</span>}
     </span>
   );
 }
@@ -165,9 +177,10 @@ const shows: { key: Show; label: string }[] = [
 
 /**
  * useDrop makes an element a place to drop a file from this computer. over is true
- * while a file is dragged over it; onFile gets the first file dropped and how many came.
+ * while a file is dragged over it; onFile gets the first file dropped, how many came,
+ * and all of them.
  */
-export function useDrop(enabled: boolean, onFile: (f: File, count: number) => void) {
+export function useDrop(enabled: boolean, onFile: (f: File, count: number, all: File[]) => void) {
   const depth = useRef(0);
   const [over, setOver] = useState(false);
   const carriesFiles = (e: DragEvent) => enabled && Array.from(e.dataTransfer.types).includes("Files");
@@ -200,19 +213,19 @@ export function useDrop(enabled: boolean, onFile: (f: File, count: number) => vo
       depth.current = 0;
       setOver(false);
       const f = e.dataTransfer.files[0];
-      if (f) onFile(f, e.dataTransfer.files.length);
+      if (f) onFile(f, e.dataTransfer.files.length, Array.from(e.dataTransfer.files));
     },
   };
   return { over, props };
 }
 
 /** DropHint is the calm outline and line of text shown while a file is dragged over a drop place. */
-function DropHint({ over, text }: { over: boolean; text: string }) {
+export function DropHint({ over, text }: { over: boolean; text: string }) {
   if (!over) return null;
   return (
-    <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent bg-[var(--drop)] p-4 animate-fade-in">
+    <div aria-hidden className="drop-hint pointer-events-none absolute inset-1.5 z-10 flex items-center justify-center rounded-box border-2 border-dashed border-accent-strong bg-[var(--drop)] p-4 animate-fade-in">
       <p className="inline-flex items-center gap-2 rounded-box border border-rule bg-surface px-4 py-3 font-bold text-ink">
-        <Paperclip className="size-4 text-accent" strokeWidth={1.75} aria-hidden />
+        <Paperclip className="size-4 text-accent-strong" strokeWidth={1.75} aria-hidden />
         {text}
       </p>
     </div>
@@ -349,7 +362,7 @@ export function FilesView({
             </p>
           )}
           {more && <p className="pt-3 text-meta text-muted">Showing the first {files.length} files.</p>}
-          {canUpload && files.length > 0 && <p className="pt-3 text-meta text-muted">Drop a file here to upload it, or drop one on an open file for its next version.</p>}
+          {canUpload && files.length > 0 && <p className="pt-3 text-meta text-muted pointer-coarse:hidden">Drop a file here to upload it, or drop one on an open file for its next version.</p>}
         </div>
       </div>
     </div>
@@ -378,18 +391,18 @@ function NoFiles({ upload }: { upload: ReactNode }) {
 function FileRow({ f, selected, open, identity, me, now }: { f: BoardFile; selected: boolean; open: (id: string) => void; identity: Identity; me: string | null; now: number }) {
   return (
     <article
-      className={cn("file-row group relative grid grid-cols-[18px_minmax(0,1fr)] gap-x-3 px-2 py-3 transition-colors duration-[140ms] ease-out", selected ? "bg-selected" : "hover:bg-selected/50")}
+      className={cn("file-row group relative grid grid-cols-[18px_minmax(0,1fr)] gap-x-3 px-3 py-4 transition-colors duration-[140ms] ease-out", selected ? "bg-selected" : "hover:bg-selected/50")}
       data-file={f.name}
     >
       <FileIcon name={f.name} mediaType={f.latest.media_type} className="mt-[3px]" />
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-baseline gap-x-2">
           {/* The name's button covers the row, so the whole row opens the file. */}
           <button
             type="button"
             onClick={() => open(f.id)}
             aria-current={selected ? "true" : undefined}
-            className="min-w-0 truncate text-left font-bold break-all after:absolute after:inset-0 after:content-[''] group-hover:underline focus-visible:outline-none focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-accent"
+            className="min-w-0 truncate text-left font-bold break-all after:absolute after:inset-0 after:content-[''] group-hover:underline focus-visible:outline-none focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-accent-strong"
           >
             {f.name}
           </button>
@@ -444,7 +457,7 @@ function conflictText(e: ApiError, name: string, me: string | null, now: number)
   );
 }
 
-function uploadProblem(e: unknown, name: string, me: string | null, now: number): { text: ReactNode; conflict: boolean } {
+export function uploadProblem(e: unknown, name: string, me: string | null, now: number): { text: ReactNode; conflict: boolean } {
   if (e instanceof ApiError && (e.code === "file_exists" || e.code === "file_changed")) return { text: conflictText(e, name, me, now), conflict: true };
   if (e instanceof ApiError && e.code === "file_has_secret") return { text: "The file looks like it holds a credential, such as an API key or a private key. Nothing was uploaded. Take the credential out, then upload it again.", conflict: false };
   if (e instanceof ApiError && e.code === "file_too_large") return { text: "Files can be at most 50 MB. Nothing was uploaded.", conflict: false };
@@ -453,7 +466,7 @@ function uploadProblem(e: unknown, name: string, me: string | null, now: number)
 }
 
 /** boardName turns a local file's name into a name the board takes: no spaces or other characters a path can't hold. */
-function boardName(local: string): string {
+export function boardName(local: string): string {
   const cleaned = local.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[^A-Za-z0-9]+/, "");
   return cleaned || "file";
 }
@@ -541,7 +554,7 @@ function NewFile({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control bg-ink px-4 font-bold text-on-ink disabled:opacity-60">
+        <button type="submit" disabled={!valid || busy || taken !== undefined} className="min-h-11 rounded-control border border-accent-strong bg-accent px-4 font-bold text-on-accent disabled:border-rule disabled:bg-selected disabled:text-muted">
           {busy ? "Uploading…" : "Upload"}
         </button>
         {taken && (
@@ -574,9 +587,12 @@ export function FilePanel({
   me,
   canUpload,
   onShow,
+  at,
 }: {
   board: string;
   id: string;
+  /** at is the version to show first, as when an attachment opens the panel, and a count that changes with each request. */
+  at?: { version: number | null; n: number };
   activity: number;
   back: () => void;
   identity: Identity;
@@ -596,6 +612,11 @@ export function FilePanel({
     setError(null);
     setViewing(null);
   }, [board, id]);
+  const atVersion = at?.version ?? null;
+  const atN = at?.n ?? 0;
+  useEffect(() => {
+    setViewing(atVersion);
+  }, [id, atVersion, atN]);
   useEffect(() => {
     let live = true;
     getFile(board, id).then(
@@ -639,7 +660,7 @@ export function FilePanel({
       {...drop.props}
     >
       {file && <DropHint over={drop.over} text={`Drop to upload it as v${file.latest.version + 1}`} />}
-      <button type="button" onClick={back} className="inline-flex min-h-11 items-center gap-1.5 self-start text-meta text-muted hover:text-ink">
+      <button type="button" onClick={back} className="panel-back inline-flex min-h-11 items-center gap-1.5 self-start text-meta text-muted hover:text-ink">
         <ArrowLeft className="size-4" aria-hidden />
         Work
       </button>
@@ -835,6 +856,33 @@ export function previewable(html: string): string {
   return `<!doctype html>${doc.documentElement.outerHTML}`;
 }
 
+/**
+ * HtmlFrame shows untrusted HTML, such as an agent's file or the board's brief, on its
+ * light page. Its preview must never make a request. Three layers, each enough for a
+ * different case:
+ * 1. previewable() removes every way the markup names a URL to go to or load from
+ *    (links, base, forms, meta refresh, frames, SVG hrefs, non-data images), since a
+ *    CSP inside the document constrains loads but not the frame's own navigation.
+ * 2. sandbox="" with no allow-* token: an opaque origin (no access to this page, its
+ *    cookies or the API), and no scripts, forms, popups or top navigation.
+ * 3. The board view's policy has frame-src 'none', so if a navigation slipped through,
+ *    the frame still couldn't load anything, the API included; the policy in the
+ *    preview's head blocks every subresource.
+ */
+export function HtmlFrame({ title, html, className }: { title: string; html: string; className?: string }) {
+  return (
+    <div className="file-page overflow-hidden rounded-box border border-rule">
+      <iframe
+        title={title}
+        sandbox=""
+        referrerPolicy="no-referrer"
+        srcDoc={previewable(html)}
+        className={cn("file-frame block h-[min(60vh,560px)] w-full border-0 bg-[var(--page)]", className)}
+      />
+    </div>
+  );
+}
+
 /** Preview shows a version on its light page: Markdown formatted, text as written, HTML in a sandbox, images drawn. */
 function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileVersion }) {
   const kind = kindOf(file.name, v.media_type);
@@ -870,29 +918,7 @@ function Preview({ board, file, v }: { board: string; file: FileDetail; v: FileV
   if (!text || text.key !== key) {
     return <div className="file-page h-32 rounded-box border border-rule motion-safe:animate-pulse" role="status" aria-label="Loading the preview" />;
   }
-  if (kind === "html") {
-    // An agent's HTML is untrusted, and its preview must never make a request. Three
-    // layers, each enough for a different case:
-    // 1. previewable() removes every way the markup names a URL to go to or load from
-    //    (links, base, forms, meta refresh, frames, SVG hrefs, non-data images), since a
-    //    CSP inside the document constrains loads but not the frame's own navigation.
-    // 2. sandbox="" with no allow-* token: an opaque origin (no access to this page, its
-    //    cookies or the API), and no scripts, forms, popups or top navigation.
-    // 3. The board view's policy has frame-src 'none', so if a navigation slipped
-    //    through, the frame still couldn't load anything, the API included; the policy
-    //    in the preview's head blocks every subresource.
-    return (
-      <div className="file-page overflow-hidden rounded-box border border-rule">
-        <iframe
-          title={`Preview of ${file.name}, v${v.version}`}
-          sandbox=""
-          referrerPolicy="no-referrer"
-          srcDoc={previewable(text.body)}
-          className="file-frame block h-[min(60vh,560px)] w-full border-0 bg-[var(--page)]"
-        />
-      </div>
-    );
-  }
+  if (kind === "html") return <HtmlFrame title={`Preview of ${file.name}, v${v.version}`} html={text.body} />;
   return (
     <div className="file-page file-preview quiet-scroll max-h-[min(60vh,560px)] overflow-y-auto rounded-box border border-rule px-4 py-3" tabIndex={0} aria-label={`Preview of ${file.name}, v${v.version}`}>
       {kind === "markdown" ? <Markdown text={text.body} /> : <pre className="text-meta whitespace-pre-wrap break-words">{text.body}</pre>}
@@ -938,7 +964,7 @@ function NewVersion({
     setProblem(null);
     setDone(null);
     try {
-      const f = await putFile(board, file.name, over, picked, file.id);
+      const f = await putFile(board, file.name, over, picked, file.id, undefined, { brief: isBriefName(file.name) });
       setDone(f.latest.version);
       onUploaded(f);
     } catch (err) {
@@ -985,7 +1011,7 @@ function NewVersion({
         <Paperclip className="size-4" strokeWidth={1.75} aria-hidden />
         {busy ? "Uploading…" : `Upload a new version (after v${file.latest.version})`}
       </button>
-      <p className="text-meta text-muted">Or drop a file on this panel.</p>
+      <p className="text-meta text-muted pointer-coarse:hidden">Or drop a file on this panel.</p>
       {done !== null && (
         <p role="status" className="text-meta text-muted">
           Uploaded v{done}.

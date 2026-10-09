@@ -51,6 +51,8 @@ export type Board = {
   can_delete?: boolean;
   task_prefix?: string | null;
   tasks_open?: number;
+  /** brief is the board's brief (its file brief.md or brief.html) and what happened since; null when it has none, absent on a server without files. */
+  brief?: BriefSummary | null;
   /** added is set while someone else's add of this person to the board is new to them: no agent of theirs has joined since and they haven't read past it. */
   added?: BoardAdded;
 };
@@ -84,7 +86,11 @@ export function changeLifecycle(board: string, action: "archive" | "restore" | "
 }
 
 /** Receipt is whether a message has reached one of its recipients; presence is an agent's now, null for a person. */
-export type Receipt = { member: MemberRef; state: "pending" | "received" | "read"; presence: Presence | null };
+export type Receipt = {
+  member: MemberRef; state: "pending" | "received" | "read"; presence: Presence | null;
+  /** queued says the recipient reported the message waiting for turn end; its state is unchanged. */
+  queued?: { boundary: "turn_end"; expires_at: string };
+};
 
 /** Receipts are a message's recipients, fixed when it was posted; a message to everyone has none. */
 export type Receipts = { board: string; seq: number; message_id: string; to: string[]; to_everyone: boolean; available: boolean; recipients: Receipt[] };
@@ -138,7 +144,17 @@ export type Member = MemberRef & {
   removed_by?: RemovedBy;
   /** can_remove says this person may remove the agent now; absent means no. */
   can_remove?: boolean;
+  /** state is the one word for what the agent is doing, worked out by the server; absent from servers without lines. */
+  state?: AgentState | null;
+  /** line is what the agent says it is on; absent from servers without lines. */
+  line?: AgentLine | null;
 };
+
+/** AgentState is the server's word for an agent now (AgentState in the spec). */
+export type AgentState = "working" | "paused" | "late" | "waiting" | "idle" | "disconnected";
+
+/** AgentLine is what an agent says it is working on, or is paused on until a time. */
+export type AgentLine = { kind: "working" | "paused"; text: string; until: string | null };
 
 /** RemovedBy is who ended an agent's seat: its person, a board owner, a server admin, or itself. */
 export type RemovedBy = "person" | "board_owner" | "admin" | "self";
@@ -160,6 +176,26 @@ export type DeliverySetting = { board: string; agent: string; mode: SettableMode
 /** setDelivery sets the delivery mode of one of the person's own agents. */
 export function setDelivery(board: string, agent: string, mode: SettableMode): Promise<DeliverySetting> {
   return put<DeliverySetting>(`/v1/boards/${encodeURIComponent(board)}/members/${encodeURIComponent(agent)}/delivery`, { mode });
+}
+
+/** MidturnPolicy is who may reach an agent at its next tool step (D221). */
+export type MidturnPolicy = "owner-only" | "my-agents";
+
+/** MidturnView is the person's default and their own agents' overrides (MidturnPolicyView). */
+export type MidturnView = {
+  policy: MidturnPolicy;
+  source: "person_default" | "agent_override";
+  overrides?: { member_id: string; policy: MidturnPolicy }[];
+};
+
+/** getMidturn reads the person's mid-turn policy and their own agents' overrides. */
+export function getMidturn(): Promise<MidturnView> {
+  return get<MidturnView>("/v1/me/midturn");
+}
+
+/** setMidturn sets the person's default, or one own agent's override; a null policy clears an override. */
+export function setMidturn(policy: MidturnPolicy | null, memberId?: string): Promise<MidturnView> {
+  return put<MidturnView>("/v1/me/midturn", memberId ? { member_id: memberId, policy } : { policy });
 }
 
 export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";
@@ -191,7 +227,12 @@ export type Message = {
   mentions: Mention[];
   ask?: MessageAsk;
   answer?: { ask_id: string; ask_seq: number; option: number | null; option_text?: string | null; withdrawn: boolean };
+  /** files are the file versions posted with the message; absent or empty when it has none. */
+  files?: FileRef[];
 };
+
+/** FileRef is one version of a board file a message carries: the file's id, its name, which version and that version's digest. */
+export type FileRef = { id: string; name: string; version: number; digest: string };
 
 export type MessageAsk = {
   to: MemberRef;
@@ -199,7 +240,8 @@ export type MessageAsk = {
   blocking: boolean;
   going_with: string | null;
   going_at: string | null;
-  task: string | null;
+  /** task is the task a blocking ask blocks, or a going-with ask is about. */
+  task: TaskRef | null;
   state: "open" | "answered" | "withdrawn" | "went_with";
   answer_seq: number | null;
   answer_option: number | null;
@@ -545,6 +587,9 @@ export type PresenceEvent = {
   presence_since: string | null;
   /** delivery is the mode the agent's delivery daemon reports applying. */
   delivery?: DeliveryMode | null;
+  /** line and state are the agent's now, as on the member; absent from servers without lines. */
+  line?: AgentLine | null;
+  state?: AgentState;
 };
 
 export type StreamHandlers = {
@@ -615,10 +660,28 @@ export function follow(on: StreamHandlers): () => void {
         stopped.signal.removeEventListener("abort", stop);
       }
       if (stopped.signal.aborted) return;
-      await new Promise((done) => setTimeout(done, wait));
+      await reconnectWait(stopped.signal, reconnectDelay(wait));
     }
   })();
   return () => stopped.abort();
+}
+
+/** Randomization spreads clients reconnecting after the same server restart. */
+export function reconnectDelay(base: number, random = Math.random()): number {
+  return base / 2 + base / 2 * random;
+}
+
+function reconnectWait(signal: AbortSignal, delay: number): Promise<void> {
+  return new Promise((done) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      done();
+    };
+    const timer = setTimeout(finish, delay);
+    signal.addEventListener("abort", finish, { once: true });
+    if (signal.aborted) finish();
+  });
 }
 
 // readEvents parses a server-sent event stream until it ends: "event:" and "data:"
@@ -695,6 +758,8 @@ export type FileDetail = BoardFile & {
   posted_in: { message_id: string; seq: number; version: number; thread_root_seq: number | null }[];
 };
 export type FileList = { board: string; files: BoardFile[]; more: boolean };
+/** BriefSummary is the board's brief: which file and version it is, who wrote that version and when, and what happened on the board since. */
+export type BriefSummary = { name?: "brief.md" | "brief.html"; file_id: string; version: number; by: MemberRef; at: string; freshness: Freshness };
 /** FileChanged is what a 409 file_exists or file_changed names: the file's current version, who wrote it and when. */
 export type FileChanged = { version: number; by: Pick<MemberRef, "name" | "kind">; at: string };
 
@@ -723,6 +788,18 @@ export async function fileText(board: string, file: string, version: number): Pr
 }
 
 /**
+ * PutOptions marks a write to the board's brief: brief is required for top-level
+ * brief.md and brief.html, and replaceFormat switches the brief from one of them to the
+ * other in one write, with fileId and base naming the brief being replaced.
+ */
+export type PutOptions = { brief?: boolean; replaceFormat?: boolean };
+
+/** isBriefName is true for the two paths that are only ever the board's brief. */
+export function isBriefName(name: string): boolean {
+  return name === "brief.md" || name === "brief.html";
+}
+
+/**
  * putFile uploads bytes as a new version of the file at name, as the person. base is the
  * version it replaces, 0 for a new file. The server refuses a base that isn't the file's
  * latest version (409 file_changed, or file_exists for a name already taken) and stores
@@ -730,9 +807,11 @@ export async function fileText(board: string, file: string, version: number): Pr
  * is the file the person saw: if it was removed, or replaced by another file at the same
  * path, the write is refused as file_changed too.
  */
-export async function putFile(board: string, name: string, base: number, body: Blob, fileId?: string, key: string = crypto.randomUUID()): Promise<BoardFile> {
+export async function putFile(board: string, name: string, base: number, body: Blob, fileId?: string, key: string = crypto.randomUUID(), opts: PutOptions = {}): Promise<BoardFile> {
   const qs = new URLSearchParams({ name, base: String(base) });
   if (fileId) qs.set("file_id", fileId);
+  if (opts.brief) qs.set("brief", "true");
+  if (opts.replaceFormat) qs.set("replace_format", "true");
   const resp = await fetch(`/v1/boards/${encodeURIComponent(board)}/files?${qs}`, {
     method: "POST",
     credentials: "same-origin",

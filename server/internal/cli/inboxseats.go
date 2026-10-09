@@ -15,7 +15,8 @@ import (
 // inboxSeatsOutput is aboard inbox in a session with several seats and no --board
 // (cli.yaml, InboxSeatsOutput): every seat's inbox, each read with its own token.
 type inboxSeatsOutput struct {
-	Seats []inboxSeat `json:"seats"`
+	Queued *delivery.QueuedMessages `json:"queued,omitempty"`
+	Seats  []inboxSeat              `json:"seats"`
 	// Unavailable counts the seats whose inbox couldn't be read; they acknowledged
 	// nothing and aren't named, since a refusal may come from a board they can't see.
 	Unavailable int `json:"unavailable"`
@@ -151,6 +152,7 @@ func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds c
 // waitAnySeat waits, up to wait seconds, until any seat has an unread message, and
 // returns the seats still readable; a seat whose wait is refused is counted unavailable.
 func (a *app) waitAnySeat(ctx context.Context, readers []seatReader, wait int, out *inboxSeatsOutput) []seatReader {
+	deadline := time.Now().Add(time.Duration(wait) * time.Second)
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(wait)*time.Second+requestTimeout)
 	defer cancel()
 	type result struct {
@@ -161,7 +163,7 @@ func (a *app) waitAnySeat(ctx context.Context, readers []seatReader, wait int, o
 	results := make(chan result, len(readers))
 	for i, r := range readers {
 		go func() {
-			r2, err := r.c.api.GetInboxWithResponse(ctx, &api.GetInboxParams{Wait: &wait, Limit: ptrTo(1)})
+			r2, err := r.c.waitInbox(ctx, deadline, api.GetInboxParams{Wait: &wait, Limit: ptrTo(1)})
 			switch {
 			case err != nil:
 				results <- result{i: i}

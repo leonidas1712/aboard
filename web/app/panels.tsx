@@ -78,7 +78,7 @@ export function SidePanel({ side, title, label, size, setSize, limits, children,
     <aside
       aria-labelledby={id}
       data-collapsed={size.collapsed || undefined}
-      className={cn("side-panel relative min-w-0 border-t border-rule bg-sidebar lg:min-h-0 lg:border-t-0", left ? "lg:border-r" : "lg:border-l", className)}
+      className={cn("side-panel relative min-w-0 border-t border-rule bg-sidebar [--mark-ring:var(--sidebar)] lg:min-h-0 lg:border-t-0", left ? "lg:border-r" : "lg:border-l", className)}
     >
       {/* The strip: only the button that shows the panel again, in the header row. */}
       <div className={cn(headerRow, "hidden justify-center", size.collapsed && "lg:flex")}>
@@ -93,7 +93,7 @@ export function SidePanel({ side, title, label, size, setSize, limits, children,
           <Open className="size-[18px]" strokeWidth={1.5} aria-hidden />
         </button>
       </div>
-      <div className={cn("quiet-scroll flex h-full flex-col px-4 pb-6 sm:px-6 lg:overflow-y-auto lg:px-5", size.collapsed && "lg:hidden")}>
+      <div className={cn("quiet-scroll flex h-full flex-col px-4 pb-24 sm:px-6 lg:overflow-y-auto lg:px-5", size.collapsed && "lg:hidden")}>
         {/* On a wide screen the header row stays in place while the panel scrolls, so its
             title and hide button are always in reach. */}
         <div className={cn(headerRow, "glass glass-sidebar justify-between gap-3 pt-2 lg:sticky lg:top-0 lg:z-10 lg:pt-0")}>
@@ -135,7 +135,7 @@ export function SidePanel({ side, title, label, size, setSize, limits, children,
             left ? "-right-1.5" : "-left-1.5",
           )}
         >
-          <span className="mx-auto block h-full w-0.5 bg-transparent transition-colors duration-[140ms] ease-out group-hover:bg-accent group-focus-visible:bg-accent" />
+          <span className="mx-auto block h-full w-0.5 bg-transparent transition-colors duration-[140ms] ease-out group-hover:bg-accent-strong group-focus-visible:bg-accent-strong" />
         </div>
       )}
     </aside>

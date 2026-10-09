@@ -26,13 +26,14 @@ const presenceNow: Record<Presence, string> = {
 /** stateOf says one recipient's state in words: "received", "read", "pending, busy now". */
 function stateOf(r: Receipt): string {
   if (r.state !== "pending") return r.state;
+  if (r.queued) return "queued, arrives at the end of its turn";
   return r.presence ? `pending, ${presenceNow[r.presence]}` : "pending";
 }
 
 /** summaryOf is the mark's own words: "Pending", "Received", "1 of 3", "Read by all 2". */
 function summaryOf(rs: Receipt[]): { text: string; done: boolean } {
   const done = rs.filter((r) => r.state !== "pending").length;
-  if (done === 0) return { text: "Pending", done: false };
+  if (done === 0) return { text: rs.some((r) => r.queued) ? "Queued" : "Pending", done: false };
   if (done < rs.length) return { text: `${done} of ${rs.length}`, done: false };
   if (rs.length === 1) return { text: rs[0].state === "read" ? "Read" : "Received", done: true };
   const people = rs.every((r) => r.member.kind === "human");
@@ -81,7 +82,7 @@ export function ReceiptMark({ board, seq, activity }: { board: string; seq: numb
             data-done={summary.done || undefined}
             aria-label={`${summary.text}. ${details.join("; ")}`}
           >
-            {summary.done || summary.text !== "Pending" ? (
+            {summary.done || (summary.text !== "Pending" && summary.text !== "Queued") ? (
               <Check className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
             ) : (
               <Clock3 className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden />

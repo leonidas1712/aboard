@@ -38,6 +38,8 @@ const DefaultLocalAddr = "127.0.0.1:7400"
 
 // Options configures a server.
 type Options struct {
+	// TestServer raises provisioning limits for an explicitly opted-in temporary server.
+	TestServer bool
 	// Addr is the address to listen on, such as 127.0.0.1:7400.
 	Addr string
 	// Listener, when set, is the listener to serve on in place of Addr. Run closes it.
@@ -167,9 +169,18 @@ func Run(ctx context.Context, o Options) error {
 	}
 	defer func() { _ = blobs.Close() }()
 	o.Log.Info("storage", "db", "sqlite", "files", "disk")
-	cfg := board.Config{Blobs: blobs, ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}
+	ln := o.Listener
+	if ln == nil {
+		ln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
+	}
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", o.Addr, err)
+	}
+	defer func() { _ = ln.Close() }()
+	o.Addr = ln.Addr().String()
+	cfg := board.Config{Blobs: blobs, ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr), IssuerURL: "http://" + o.Addr}
 	if o.Team != nil {
-		cfg.Mode, cfg.JoinHost = "team", o.Team.PublicURL.Host
+		cfg.Mode, cfg.JoinHost, cfg.IssuerURL = "team", o.Team.PublicURL.Host, o.Team.PublicURL.Origin
 	}
 	svc := board.New(st, notify.NewInProcess(), o.Clock, ids.New(o.Rand), key, cfg, o.Log)
 	if o.Team != nil {
@@ -191,19 +202,17 @@ func Run(ctx context.Context, o Options) error {
 	// waits for active requests, and a stream never finishes on its own.
 	shutdown, startShutdown := context.WithCancel(context.WithoutCancel(ctx))
 	defer startShutdown()
-	ln := o.Listener
-	if ln == nil {
-		ln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
-	}
-	if err != nil {
-		return fmt.Errorf("listen on %s: %w", o.Addr, err)
-	}
 	hosts, publicOrigin := api.LocalHosts(ln.Addr().String()), ""
 	if o.Team != nil {
 		hosts, publicOrigin = []string{o.Team.PublicURL.Host}, o.Team.PublicURL.Origin
 	}
+	joins, connects, serverConnects := 30, 10, 60
+	if o.TestServer {
+		joins, connects, serverConnects = 10_000, 10_000, 10_000
+		o.Log.Warn("test rate limits enabled", "joins_per_minute", joins, "connects_per_minute", connects, "connects_per_minute_server", serverConnects)
+	}
 	handler, err := api.NewHandler(api.Options{
-		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30, ConnectsPerMinute: 10, ConnectsPerMinuteServer: 60,
+		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: joins, ConnectsPerMinute: connects, ConnectsPerMinuteServer: serverConnects,
 		MachineRequests: api.Limits{PerAddr: 10, Server: 60}, MachineCodes: api.Limits{PerAddr: 10, PerPerson: 10, Server: 60},
 		MachineCollects: api.Limits{PerAddr: 60, Server: 600},
 		SignInFailures:  api.Limits{PerAddr: 20, Server: 100}, SignInAttempts: api.Limits{PerAddr: 120, Server: 600},

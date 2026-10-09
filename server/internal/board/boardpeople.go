@@ -158,32 +158,8 @@ func (s *Service) AddPerson(ctx context.Context, p Principal, boardName, handle 
 		case !errors.Is(err, ErrNotFound):
 			return err
 		}
-		m := Member{
-			BoardID: b.ID, Kind: "human", HumanID: target.ID, Access: rules.AccessMember, Status: StatusActive, JoinedAt: stamp(now),
-			Name: rules.AllocateName(target.Name, func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }),
-		}
-		if m.ID, err = s.gen.ID("mem", now); err != nil {
-			return err
-		}
-		if err := tx.InsertMember(m); err != nil {
-			return fmt.Errorf("insert member: %w", err)
-		}
-		actor := actorOf(me)
-		if !on {
-			actor = actorOf(m)
-		}
-		data := map[string]any{"member_id": m.ID, "person_id": target.ID, "name": m.Name, "access": m.Access, "rejoined": false}
-		for key, value := range addPersonProvenance(p) {
-			data[key] = value
-		}
-		if _, err := s.append(tx, &b, events.PersonAdded, actor, now, data); err != nil {
-			return err
-		}
-		if err := startReading(tx, b, m); err != nil {
-			return err
-		}
-		out = Person{Member: m, Person: target}
-		return nil
+		out, err = s.admitNewPerson(tx, &b, me, target, on, addPersonProvenance(p))
+		return err
 	})
 	if err != nil {
 		return Person{}, err
@@ -635,4 +611,36 @@ func (s *Service) UpdateServerSettings(ctx context.Context, p Principal, change 
 		return err
 	})
 	return out, err
+}
+
+// admitNewPerson appends the ordinary admission and read model together. Its caller
+// must check the issuing person's current authority in the same transaction.
+func (s *Service) admitNewPerson(tx Tx, b *Board, me Member, target Human, on bool, provenance map[string]any) (Person, error) {
+	now := s.clk.Now()
+	var err error
+	m := Member{
+		BoardID: b.ID, Kind: "human", HumanID: target.ID, Access: rules.AccessMember, Status: StatusActive, JoinedAt: stamp(now),
+		Name: rules.AllocateName(target.Name, func(n string) bool { _, err := tx.MemberByName(b.ID, n); return err == nil }),
+	}
+	if m.ID, err = s.gen.ID("mem", now); err != nil {
+		return Person{}, err
+	}
+	if err := tx.InsertMember(m); err != nil {
+		return Person{}, fmt.Errorf("insert member: %w", err)
+	}
+	actor := actorOf(me)
+	if !on {
+		actor = actorOf(m)
+	}
+	data := map[string]any{"member_id": m.ID, "person_id": target.ID, "name": m.Name, "access": m.Access, "rejoined": false}
+	for key, value := range provenance {
+		data[key] = value
+	}
+	if _, err := s.append(tx, b, events.PersonAdded, actor, now, data); err != nil {
+		return Person{}, err
+	}
+	if err := startReading(tx, *b, m); err != nil {
+		return Person{}, err
+	}
+	return Person{Member: m, Person: target}, nil
 }

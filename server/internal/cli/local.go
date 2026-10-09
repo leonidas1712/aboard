@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -138,6 +139,7 @@ func localPID(p paths) int {
 func runServe(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("serve")
 	team := fs.Bool("team", false, "run a team server")
+	testServer := fs.Bool("test-server", false, "raise provisioning limits on a temporary test server")
 	publicURL := fs.String("public-url", "", "the https address people use")
 	data := fs.String("data", "", "the folder for the database, files and backups")
 	listen := fs.String("listen", "", "the address to listen on")
@@ -146,8 +148,23 @@ func runServe(ctx context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, usageOf("serve"), 0, 0); err != nil {
 		return err
 	}
+	flagSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "test-server" {
+			flagSet = true
+		}
+	})
+	if !flagSet {
+		if value := a.env.Getenv("ABOARD_TEST_SERVER"); value != "" {
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return usageError("ABOARD_TEST_SERVER must be true or false. Use it only for an isolated test server.", usageOf("serve"))
+			}
+			*testServer = parsed
+		}
+	}
 	if *team {
-		return a.serveTeam(ctx, teamFlags{publicURL: *publicURL, data: *data, listen: *listen, admin: *admin, files: *files})
+		return a.serveTeam(ctx, teamFlags{publicURL: *publicURL, data: *data, listen: *listen, admin: *admin, files: *files, testServer: *testServer})
 	}
 	if *publicURL != "" || *data != "" || *listen != "" || *admin != "" {
 		return usageError("--public-url, --data, --listen and --admin are for a team server: add --team.", usageOf("serve"))
@@ -168,6 +185,7 @@ func runServe(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	err = server.Run(ctx, server.Options{
+		TestServer:     *testServer,
 		FilesDir:       filesDir,
 		Addr:           a.localAddr(),
 		DataDir:        p.data,
@@ -194,7 +212,10 @@ func runServe(ctx context.Context, a *app, args []string) error {
 }
 
 // teamFlags are aboard serve --team's flags as given; empty when not given.
-type teamFlags struct{ publicURL, data, listen, admin, files string }
+type teamFlags struct {
+	publicURL, data, listen, admin, files string
+	testServer                            bool
+}
 
 // defaultTeamListen is where a team server listens unless told otherwise: every
 // address, since its proxy reaches it from outside its container or machine.
@@ -245,8 +266,9 @@ func (a *app) serveTeam(ctx context.Context, f teamFlags) error {
 		return err
 	}
 	err = server.Run(ctx, server.Options{
-		FilesDir: filesDir,
-		Addr:     listen, DataDir: data, Version: b.Version, Commit: b.Commit, CommitTime: b.CommitTime,
+		TestServer: f.testServer,
+		FilesDir:   filesDir,
+		Addr:       listen, DataDir: data, Version: b.Version, Commit: b.Commit, CommitTime: b.CommitTime,
 		Log:  slog.New(slog.NewJSONHandler(a.env.Stderr, nil)),
 		Team: &server.Team{PublicURL: pub, AdminName: admin},
 	})

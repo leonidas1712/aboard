@@ -229,7 +229,7 @@ describe("combined handoffs", () => {
  test("negotiated handoffs deduplicate by handoff id and keep mixed traffic as follow-up", async () => {
   daemon.onHello=c=>c.send({v:1,event:"welcome",boot:"b",capabilities:["handoff-v1"]});
   const {omp,c,conn}=await started();
-  expect(conn.frames[0].capabilities).toEqual(["handoff-v1"]);
+  expect(conn.frames[0].capabilities).toEqual(["handoff-v1", "tool-boundary", "midturn-peer"]);
   omp.setIdle(false);await omp.emit("agent_start",{type:"agent_start"},c);
   const id="hnd_11111111111111111111111111111111";
   conn.send({v:1,event:"deliver",handoff_id:id,delivery_class:"mixed",bundle:'<aboard-message sender="owner">owner</aboard-message><aboard-message sender="other_agent">peer</aboard-message>'});
@@ -323,7 +323,7 @@ describe("delivery", () => {
 		let request: Record<string, unknown> | undefined;
 		daemon.onRequest = (conn, req) => {
 			request = req;
-			conn.send({ v: 1, bundle: "Aboard: while you were away, 1 other message arrived on docs." });
+			conn.send({ v: 1, nudge: "Aboard: refresh your brief.", bundle: "Aboard: while you were away, 1 other message arrived on docs." });
 		};
 		const result = (await omp.emit("before_agent_start", { type: "before_agent_start", prompt: "go", systemPrompt: [] }, c)) as
 			| { message?: Record<string, unknown> }
@@ -332,7 +332,7 @@ describe("delivery", () => {
 		expect(request?.boot).toMatch(/^[0-9a-f]{16}$/);
 		expect(result?.message).toMatchObject({
 			customType: "aboard",
-			content: "Aboard: while you were away, 1 other message arrived on docs.",
+			content: "Aboard: refresh your brief.\n\nAboard: while you were away, 1 other message arrived on docs.",
 			display: true,
 		});
 		expect(omp.sent).toHaveLength(0);
@@ -342,6 +342,26 @@ describe("delivery", () => {
 		expect(nothing).toBeUndefined();
 		const sub = await omp.emit("before_agent_start", { type: "before_agent_start", prompt: "go", systemPrompt: [] }, omp.ctx(ID, "sub"));
 		expect(sub).toBeUndefined();
+	});
+
+	test("peer boundary context needs live negotiation and confirms only after adding it", async () => {
+		daemon.onHello = conn => conn.send({ v: 1, event: "welcome", capabilities: ["handoff-v1", "tool-boundary", "midturn-peer"] });
+		const { omp, c } = await started();
+		const requests: Record<string, unknown>[] = [];
+		daemon.onRequest = (conn, req) => {
+			requests.push(req);
+			if (req.op === "boundary") {
+				conn.send({ v: 1, bundle: "urgent peer context", handoff_id: "hnd_33333333333333333333333333333333", boot: req.boot, turn_id: 9 });
+			} else {
+				expect(omp.sent).toHaveLength(1);
+				conn.send({ v: 1 });
+			}
+		};
+		await omp.emit("turn_end", { type: "turn_end", turnIndex: 1, message: {}, toolResults: [{}] }, c);
+		expect(requests).toHaveLength(2);
+		expect(requests[0].capabilities).toEqual(["tool-boundary", "midturn-peer"]);
+		expect(requests[1]).toMatchObject({ op: "received", session: ID, turn_id: 9, boot: requests[0].boot, handoff_id: "hnd_33333333333333333333333333333333" });
+		expect(omp.sent[0].options).toEqual({ deliverAs: "aside" });
 	});
 
 	test("a session that comes back is told which agent it is again", async () => {

@@ -66,14 +66,14 @@ func RunServer(t *testing.T, f ServerFixture) {
 		srv, to, set := f.WithModes(t)
 		_, _, mode, err := srv.Inbox(ctx, to)
 		must(t, err)
-		if mode == nil || *mode != (delivery.HeldMode{Mode: delivery.ModeFocused}) {
+		if mode == nil || mode.Mode != delivery.ModeFocused || mode.Revision != 0 {
 			t.Fatalf("an agent whose mode was never set: %+v, want focused at revision 0", mode)
 		}
 		first := set(delivery.ModeHumans)
 		second := set(delivery.ModeOff)
 		_, _, mode, err = srv.Inbox(ctx, to)
 		must(t, err)
-		if first <= 0 || second <= first || mode == nil || *mode != (delivery.HeldMode{Mode: delivery.ModeOff, Revision: int64(second)}) {
+		if first <= 0 || second <= first || mode == nil || mode.Mode != delivery.ModeOff || mode.Revision != int64(second) {
 			t.Fatalf("after setting humans (%d) then off (%d): %+v", first, second, mode)
 		}
 	})

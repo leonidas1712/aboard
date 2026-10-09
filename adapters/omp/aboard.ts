@@ -131,8 +131,10 @@ interface Frame {
 	delivery_class?: string;
 	capabilities?: string[];
 	bundle?: string;
+	nudge?: string;
 	notice?: string;
 	boot?: string;
+	turn_id?: number;
 	agents?: { server: string; board: string; name: string }[];
 	reopened?: boolean;
 	mode?: string;
@@ -181,6 +183,7 @@ class Link {
 	/** The session's connection was welcomed before, so a new one reconnects. */
 	#welcomed = false;
 	#handoffs = false;
+	#peerMidturn = false;
 	#connected = false;
 	/** The daemon said another connection serves the session, or the session ended. */
 	#stopped = false;
@@ -250,7 +253,7 @@ class Link {
 			log("turn start refused", { code: answer.error.code });
 			return undefined;
 		}
-		const text = (answer.bundle ?? "").trim();
+		const text = [answer.nudge, answer.bundle].filter(Boolean).join("\n\n").trim();
 		if (text === "") return undefined;
 		log("turn start", { session: this.#session, bytes: text.length });
 		return { customType: "aboard", content: text, display: true, attribution: "agent" };
@@ -265,6 +268,7 @@ class Link {
 			session: this.#session,
 			boot: BOOT,
 			started: new Date().toISOString(),
+			capabilities: this.#peerMidturn ? ["tool-boundary", "midturn-peer"] : [],
 		});
 		if (answer.error) {
 			log("tool boundary refused", { code: answer.error.code });
@@ -276,6 +280,11 @@ class Link {
 			{ customType: "aboard", content: text, display: true, attribution: "agent" },
 			{ deliverAs: "aside" },
 		);
+		if (answer.handoff_id) {
+			ADDED.add(answer.handoff_id);
+			const receipt = await ask({ op: "received", harness: HARNESS, session: this.#session, boot: answer.boot, turn_id: answer.turn_id, handoff_id: answer.handoff_id });
+			if (receipt.error) log("tool boundary receipt refused", { code: receipt.error.code });
+		}
 		log("tool boundary", { session: this.#session, bytes: text.length });
 	}
 
@@ -305,7 +314,7 @@ class Link {
 					cwd: ctx?.cwd,
 					harness_version: (this.#pi as { pi?: { VERSION?: string } }).pi?.VERSION,
 					extension_version: EXTENSION_VERSION,
-					capabilities: ["handoff-v1"],
+					capabilities: ["handoff-v1", "tool-boundary", "midturn-peer"],
 					// The launch ticket aboard swarm up started omp with, if any: the daemon
 					// binds the session to the agent it names. A ticket works once.
 					launch: process.env.ABOARD_LAUNCH || undefined,
@@ -358,6 +367,7 @@ class Link {
 			case "welcome":
 				this.#connected = true;
 				this.#handoffs = f.capabilities?.includes("handoff-v1") === true;
+				this.#peerMidturn = this.#handoffs && f.capabilities?.includes("tool-boundary") === true && f.capabilities?.includes("midturn-peer") === true;
 				this.#attempt = 0;
 				this.#mismatch = false;
 				log("connected", { session: this.#session, source: this.#source, resumed: this.#welcomed, reopened: !!f.reopened });
@@ -385,6 +395,7 @@ class Link {
 
 	/** Adds a bundle to the session once, and confirms it. */
 	#deliver(id: number | string, bundle: string, deliveryClass?: string): void {
+		if (deliveryClass === "midturn_peer" && !this.#peerMidturn) return;
 		if (!ADDED.has(id)) {
 			const message = { customType: "aboard", content: bundle, display: true, attribution: "agent" as const };
 			if (this.#idle()) {
@@ -392,7 +403,7 @@ class Link {
 			} else {
 				// A turn started as the bundle came: the owner's messages go in at the next step,
 				// anyone else's once the turn ends.
-				this.#pi.sendMessage(message, { deliverAs: deliveryClass === "owner_only" ? "aside" : "followUp" });
+				this.#pi.sendMessage(message, { deliverAs: deliveryClass === "owner_only" || deliveryClass === "midturn_peer" ? "aside" : "followUp" });
 			}
 			ADDED.add(id);
 			log("delivered", { session: this.#session, delivery: id, bytes: bundle.length });

@@ -80,6 +80,7 @@ the board.
 | `aboard boards` in the CLI; each board records its project (the git remote, else the folder name); `aboard pair` suggests a title from it; the board list labels and groups boards by project | later | D172 |
 | Agent status and audit use only the selected seat credential, including environment and session selection | in review (#158) | D27, D203 |
 | Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | in review: `aboard servers`, `servers use`, the default in server choice, `server_not_selected` with several and no default, and every person command naming its server; boards listed across servers and default-server status/watch/audit now have focused acceptance coverage | D172, D203 |
+| Named per-machine servers: connect labels, servers name/rename, names accepted as server targets and output explaining selection | building, #232 | D203 |
 | A person's inbox across boards | later | D102 |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
@@ -92,7 +93,8 @@ the board.
 | Deploying to a Kubernetes cluster: one replica, SQLite on a persistent volume backed by a block disk (never a network file system such as NFS), `deploy/kubernetes/aboard.yaml` | done (#118) | D156, D199 |
 | Postgres for team deployments that need replicas or a managed database: a store adapter, a `Notifier` on `LISTEN/NOTIFY` so a write on one replica wakes waiters on the others, and a recipe (local through Docker, or remote) | needs its own decision first; `ABOARD_DB=postgres://…` is reserved (D212) | |
 | An S3-compatible file store adapter and `aboard storage copy`, passing the blob-store contract suite; recipes per setup (single box, hosted volume, Kubernetes with Postgres and S3) | later, after files (slice 4); needs approval (VISION's "Later") | D212 |
-| Load test, `make load`: fake people and agents (no model calls) with real delivery daemons on many boards, measuring commit-to-stream, long-poll wake and daemon hand-over latency (p50, p95, p99), throughput, and correctness (nothing lost or duplicated, order kept, every chain verifies). Target: 50 people with 10 agents each across 20 boards, connecting, idling and posting, commit-to-stream p99 under 100 ms. The external proof reports conservative request-to-stream bounds; SQLite findings and tuning are separate PRs | in progress: external public-API/control load proof | D113 |
+| Load test, `make load`: fake people and agents (no model calls) with real delivery daemons on many boards, measuring commit-to-stream, long-poll wake and daemon hand-over latency (p50, p95, p99), throughput, and correctness (nothing lost or duplicated, order kept, every chain verifies). Target: 50 people with 10 agents each across 20 boards, connecting, idling and posting, commit-to-stream p99 under 100 ms. The external proof reports conservative request-to-stream bounds; SQLite findings and tuning are separate PRs | in progress: driver fixes (#233), bounded SQLite pools (#237), scoped reads and durable bookkeeping groups (#242), resource history/concurrent writers/soak (#239) landed. Local 500-seat correctness passes; latency target still missed. Fly 250-seat correctness completed; one round at 500 completed after bookkeeping write reduction (#259), but the next observer phase hit a TLS handshake timeout, so steady-state 500 remains unproven. Test-server setup (#250) and retry backoff (#255) follow; no more Fly 500 runs in this time-box. [Fly results](../lab/load/fly-scale-2026-10-09.md). [Baseline](../lab/load/results-2026-10-08.md), [pool investigation](../lab/load/scaling-2026-10-09.md), [stream work](../engineering/read-stampede.md), [local 500 seats](../lab/load/scaling-500-2026-10-09.md) | D113 |
+| SQLite and notification scaling: reduce repeated stream reads, then acknowledgement and presence work | bounded pools (#237), scoped stream reads and bookkeeping groups (#242), and reduced daemon response storage (#259) landed. Jittered retries and backoff for failed fresh reads (#265) landed, with three-harness live proof; test-server setup limits (#250) for fast load runs. [Scaling notes](../engineering/scaling.md). [Independent investigation and query plans](explorations/performance-2026-10.md). Batch API, volatile presence and durability changes remain proposals requiring review | D113, D117 |
 | The release job: GoReleaser on a version tag, signed checksums, an SBOM, notarized macOS binaries, the UI embedded. Moved up from launch because people on a team install releases, not source builds | done (#120): the job, signed checksums, SBOMs and the server image; macOS notarization skipped until there is an Apple Developer account (engineering/release.md) | D149 |
 | The install script and Homebrew | done (#120): the install script; the Homebrew cask is configured but off until the tap exists | D86, D127 |
 | `aboard upgrade`, and the update notice (at most once a day, never in agent sessions) | done (#120) | D149, D200 |
@@ -129,10 +131,15 @@ the board.
 | Slice 1, tasks and tagging: `aboard task list · show · new · start · join · note · done · drop`, server ids with a board prefix (`CHK-17`), messages about tasks (`about`, the current task by default), `read --task`, the Work panel, the first nudges | done, #170 | D206, D207, D210 |
 | Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | done, #180 | D208, D210 |
 | Slice 3, agent lines: `aboard working`, `aboard paused --until`, the state word (working, paused, late, idle, disconnected), Claude Code's todo list setting the line, late and stale reminders | later | D209, D210 |
-| Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | building (files slice; approvals follow asks #180) | D211, D212 |
-| Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | later | D213 |
+| Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | files API, disk storage and CLI done (#187), Files view done (#194); approvals and ABOARD_DB configuration remain pending | D211, D212 |
+| Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | done: contracts (#199), backend, CLI, keeper reminder and board-view UI (#200) | D213, D214 |
+| Attach existing board files with `say --file NAME[@vN]`, by path or immutable id, pinning the selected version | done (#226) | Maintainer-approved attachments follow-up |
 | Files, later: an automatic three-way merge for text files (a stale write whose changes don't overlap the newer version's is combined, using the version the writer read as the base, which each version already records; refused only on overlap), and edit claims with a lease ("editing status.html, ~10 min") shown in `file list` and the board view | later, after slice 4; needs approval | D211 |
 | Task ordering and dependencies, right after the slices: an order on tasks, and a task waiting on another (`task.linked`, `waits_on`), which shows it Blocked until that task is done; no scheduling | next after slice 5; needs its own design | D214 |
+| GitHub links and watches, a priority after launch: PR and issue references as links and cards with no setup, tasks linked to PRs with a prompt to close on merge, `aboard watch` for CI runs, PRs and commands (checked client-side, the watch stored and shown on the board), then a GitHub integration as an extension; Slack and Linear later | exploring: design/explorations/coordination-and-integrations.md | |
+| Coordination UX from dogfooding: a turn-start digest per agent, fewer and better nudges, a coordinator role with no single current task, delegation states, a one-time brief prompt, `task done <ref>` fix | exploring: design/explorations/coordination-and-integrations.md | |
+| Agent-driven team onboarding (#268, D222): allowances and approvals for agent admin (board view, CLI and API), one invite that carries the board and a pairing request, resumable `aboard setup`, pairing requests a person accepts in a chosen session, and a verified two-way handshake | contracts, allowance/approvals and pairing landed (#270, #274, #272); invite/setup in review (#276, GEN-36); required for 0.1.4 | D222 |
+| Agents from the board (v2, with My agents #221): start agents from the board view or by asking an agent, through an opt-in runner on the person's machine; assign them to boards; a session view per own agent with direct messages; one switch turns it all off | exploring: design/explorations/agents-from-the-board.md | |
 | Notes, verified when citing a board file by hash | retired: files and the brief cover them | D14, D214 |
 | A brief for agents when they join; showing the charter after joining | later; the brief (slice 5) is part of it | D40, D213 |
 | Template commands: `aboard template list`, `show`, `save`, `check`, `remove`; server-stored templates | later | D111 |
@@ -141,7 +148,7 @@ the board.
 
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
-| Board-view screens for each, moved from the UI lab: the Work panel, task panel and chips (slice 1); the Inbox and ask cards (slice 2); state dots and Work by agent (slice 3); Files (slice 4); the brief (slice 5) | slice 1 screens, plus Needs you and Blocked from slice 2, in review (Tasks view columns, harness marks, compact agent rows, task panel, Tell the team); Inbox keyboard triage, two-line asks and subtle depth in review; the Files view and file panel (versions, previews with a sandboxed HTML preview, downloads, conditional uploads by button or drop) in review, approvals to follow; the rest later | D123, D206–D213, D217 |
+| Board-view screens for each, moved from the UI lab: the Work panel, task panel and chips (slice 1); the Inbox and ask cards (slice 2); state dots and Work by agent (slice 3); Files (slice 4); the brief (slice 5) | done: slice 1 screens with Needs you and Blocked (#188); Inbox keyboard triage, two-line asks and subtle depth (#196); the Files view and file panel (#194); the brief (#200); state dots in five status colours and the board view on phones (#202); file attachments in the conversation (cards, file links in text, attaching from the message box) in review. Later: Work by agent, file approvals, slice 3 lines | D123, D206–D213, D217–D219 |
 | Per-recipient message status (the endpoint is specified; replies are done) | later | D37 |
 | Presence `waiting` from hooks: Claude Code and Codex `PermissionRequest` (and Codex asking the user a question) mark the agent waiting until a matching tool event, the next prompt or a stop; ships with the next Claude Code hook change, since each change asks the person to trust hooks again | later | D120 |
 | Presence that says how sure it is: unconfirmed after a daemon restart until a live event arrives, stale after a long silence; a short settle time before idle, so a pause between steps doesn't flicker | later | D120 |
@@ -170,6 +177,10 @@ the board.
 | --- | --- | --- |
 | The docs site (Mintlify): quickstart, how it works, concepts, one page per harness, guides, a CLI reference generated from `aboard help --json` and an API reference from the OpenAPI spec; `make docs-check` in `make check` and `make docs-links` in CI | done (#87, #89) | |
 | Docs for team mode, enough to deploy a team server and bring colleagues in from the docs alone: installing a release (the script, the signature, `aboard upgrade`, the update notice), the server in Kubernetes and Docker step by step, backups and upgrades, people, keys and browser sign-in, and agents on a team (`aboard join --board`, seats, delivery modes, archiving and deleting boards) | in review | |
+| The public website at comeaboard.dev: one static page in `site/` (Astro, on Vercel) with the scripted board, the three promises, the install line through a `/install` redirect to the release's script, and links to the docs at docs.comeaboard.dev | review | |
+| The docs at docs.comeaboard.dev take the brand (colours, backgrounds, Geist and Geist Mono, the wordmark), the README and docs give `curl -fsSL https://comeaboard.dev/install \| sh` as the install line, and the website, board view and docs share one fixed tab icon, the mark as it looks in dark on a near-black tile | review | D220 |
+| The README, quickstart and install guide show the direct GitHub install command as an alternative when comeaboard.dev is unavailable; the upgrade guide links to it | in review | |
+| The docs tell one story: Get started (a short introduction, then the quickstart), Work with your agents (with a new board view page), Your team (with Fly.io, Kubernetes and Docker pages under Deploy a team server), Harnesses (with Any CLI agent), Concepts (with Safety and governance listing what the server enforces), Reference and Build and contribute, in collapsible groups, with light and dark board view screenshots at the top of each feature page | in review | |
 | Comparison pages in the docs for products that look similar (full agent workspaces such as Buzz, agent supervisors such as Orca and herdr, harnesses' own multi-agent features), built from [positioning.md](positioning.md) | later | |
 | A launch demo: a multi-turn game (Twenty Questions to start) played by Claude Code, Codex and omp, run by a small game-master program on the public API, in `examples/` with an e2e test using fake players, plus a short recording. Later, a sealed-round sequel showing anchoring | later | D75 |
 | Profiles with the baseline only (the skill, no automatic delivery) for OpenCode, Pi, Antigravity and other CLI harnesses, checked by the conformance kit | later | D130 |
@@ -184,6 +195,7 @@ the board.
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
+| First-run guidance: `aboard skill` prints the instructions bundled with the installed binary without harness setup; guest invites distinguish the person from the agent name | done (#209; first-run follow-up #193) | |
 | The skill maps everyday phrases to commands ("send alice…", "check my messages", "who's here") | next | |
 | `llms.txt`, and the public API and stream presented as a platform for outside tools (viewers, boards, bridges) | next | D54 |
 | Docs: "Extending Aboard" (`docs/extending.mdx`), one page on every extension point (launchers, harnesses, monitors, bots and bridges, the API), each with its contract, its check and a minimal example | done (#67) | D54, D75, D79, D105, D155 |
@@ -268,7 +280,7 @@ that is already approved.
 | Remote runtimes: platforms that run agents in containers join through the public API. A trusted runtime registers a worker as a seat owned by the person who invoked it; the inbox marks each message as waking now, at the next turn or as an owner message mid-turn; the server or SDK gives the ready-made delivery text; the runtime reports presence over HTTP, including "asleep, wakes on a message" for runtimes that run one task at a time; each runtime declares what it can do (wake when idle, deliver at turn end, owner mid-turn), like a harness's support level; the MCP server is the tool surface for sandboxed agents | After team-ready; the planned "add aboard support" contract, over HTTP |
 | Rules on actions: a board's rules cover what agents do (commands, pushes, sends) through harness hooks and bridges; held actions ask the right person, approvals tied to the exact content; shown before joining, can be turned off, checked locally | Outside v0.1 (approval gates, monitors); deterministic in the server, model monitors as extensions answering within about a second; each harness declares what it can enforce |
 | From [field notes on building aboard on a board](explorations/field-notes-building-on-a-board.md): an idle signal (connected, not working, no open task); review records tied to a version that go stale on a new one; claims on named resources with a lease; presence `waiting` with a reason and a link; asks with an external link that a bridge can close | Evidence from real multi-agent work; sharpens the asks and tasks rows above. Each needs a scoped design and approval |
-| Colour schemes beyond light and dark, dark first | Harness glyphs are already planned (D133) |
+| Colour schemes beyond light and dark, dark first | In review (D220): Ember, Tide and High contrast in the account menu, with the brand pass; agents show their harness tile everywhere (GEN-14) |
 
 **Enhancements**
 
@@ -393,8 +405,25 @@ that is already approved.
 | Version-gate every hook event a profile installs, with only the safe set for an unknown or old version, and doctor naming what is missing (#42) | D171 |
 
 ### Testing
+
 | Feature | Decisions |
 | --- | --- |
+| Parallel server fixtures retain their listener or bind `:0`; cleanup avoids probing a reused port when the home has no server PID (done, #217; fixes #204) | |
 | The skill says only Aboard writes delivered message blocks, so agents don't invent messages; live tests run cheap models by default, with `make live-smoke` checking each model answers first (#40) | |
 | Every process a test starts stops when the test process dies, including on SIGKILL (`ABOARD_EXIT_WITH_PID`, a watchdog per live lab) (#41) | D170 |
 | Each live lab gets a home folder of its own; omp's live start-up keeps its title from tmux (#45) | |
+
+
+### Queued visibility and same-owner urgent tool boundaries
+
+In review (#240, GEN-32, D221): queued session metadata in inbox/status and receipts;
+person default and own-agent overrides; capability-gated urgent direct peer delivery
+at the next tool boundary. Exact shown reads suppress future local offers, and retry
+age framing survives restart. Independent security passes and focused acceptance
+pass. Bounded urgent-peer proofs pass on all three harnesses; Codex Stop continuation
+and owner tool-boundary proofs pass. The full live run covered 86 cases with four
+existing skips; its one Codex restart fixture failure passed after correcting the
+bounded-Stop versus idle-wait distinction. This is collective evidence from the full
+run and focused retry, not one clean full run. Protected configuration and auth were
+unchanged. Final CI remains pending; the board-view setting is separate PR #243.
+This feature is not yet shipped.

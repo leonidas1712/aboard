@@ -90,6 +90,9 @@ type deliveryOutput struct {
 // delivery daemon on whichever machine runs it. Changing it is a person's decision, so
 // it refuses where an agent runs it: inside a harness session, or with ABOARD_AGENT set.
 func runDelivery(ctx context.Context, a *app, args []string) error {
+	if len(args) > 0 && args[0] == "midturn" {
+		return runMidturnDelivery(ctx, a, args[1:])
+	}
 	use := usageOf("delivery")
 	fs := a.flags("delivery")
 	as := fs.String("as", "", "the agent whose delivery mode to show or change; any of your agents, on this machine or another")

@@ -16,8 +16,6 @@ import { Text } from "./experiments/text";
 import { Title, WorkPanel } from "./experiments/work";
 import { install } from "./fake-api";
 import "./lab.css";
-import "./themes.css";
-import { labThemes } from "./theme-list";
 import { HarnessMark } from "./experiments/harness-mark";
 import { Panel } from "./panel";
 import { current, labHref, scenario, startClock } from "./store";
@@ -81,5 +79,4 @@ export const lab: Lab | null = {
   ThreadMeta,
   Text,
   AgentMark: HarnessMark,
-  themes: labThemes,
 };

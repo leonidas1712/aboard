@@ -73,7 +73,7 @@ test("a numbered timeline option sends its words and option as a real reply", as
   await openBoard(page, board);
   const task = await api(seatToken(board), "POST", `/v1/boards/${board}/tasks`, { title: "Prepare the release", start: true });
   const ask = await makeAsk(board, "Ready to ship the change?");
-  await expect(page.getByRole("heading", { name: "Work · by task", exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Group the work" }).getByRole("button", { name: "by task", pressed: true })).toBeVisible();
   await expect.poll(async () => (await api(ownerToken(), "GET", `/v1/boards/${board}/tasks/${task.ref}`)).blocked).toBe(true);
   await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true }).click();
@@ -146,6 +146,8 @@ test("Inbox keeps options readable in both themes and on a narrow screen", async
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
+  // On a phone the list and the ask take turns (D219): reading one is a tap away.
+  await page.getByRole("group", { name: "Needs you asks" }).getByRole("button", { name: /A decision with enough words/ }).click();
   await expect(page.getByRole("button", { name: "Answer with option 1: Ship it", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("inbox-mobile.png"), fullPage: true, animations: "disabled" });
@@ -300,10 +302,93 @@ test("L snoozes an ask on this browser and ? lists the keys", async ({ page }) =
 
   await page.keyboard.press("?");
   const sheet = page.getByRole("dialog", { name: "Keys in the Inbox" });
+  await expect(sheet.getByText("Go to the Inbox.", { exact: true })).toHaveCount(0);
   await expect(sheet).toBeVisible();
   for (const sentence of ["Move to the next ask. The down arrow does the same.", "Answer with that option.", "Let the agent go ahead with what it proposed.", "Write your own answer.", "Send the answer you wrote.", "Leave the answer box without sending.", "Snooze the ask for an hour, on this browser only."]) await expect(sheet.getByText(sentence, { exact: true })).toBeVisible();
   await page.keyboard.press("j");
   await expect(sheet).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
+});
+
+const askRows = (page: Page) => page.getByRole("group", { name: "Needs you asks" }).locator("button[data-ask]");
+test("an ask opened on its board, answered there and left with I comes back to the next ask", async ({ page }) => {
+  const board = "inbox-roundtrip";
+  await openBoard(page, board);
+  const names = ["Roundtrip first", "Roundtrip second", "Roundtrip third"];
+  const asks: Record<string, unknown>[] = [];
+  for (const name of names) asks.push(await makeAsk(board, name));
+  await page.getByRole("link", { name: /^Inbox/ }).click();
+  const mine = askRows(page).filter({ hasText: board });
+  await expect(mine).toHaveCount(3);
+  // Whatever other boards have waiting, answering moves to the ask that takes its place.
+  const all = await askRows(page).evaluateAll((rows) => rows.map((r) => r.getAttribute("data-ask")));
+  const id = await mine.nth(1).getAttribute("data-ask");
+  const place = all.indexOf(id);
+  const next = all[place + 1] ?? all[place - 1];
+  const target = (await mine.nth(1).innerText()).match(/Roundtrip \w+/)![0];
+  await mine.nth(1).click();
+  await expect(selectedAsk(page)).toContainText(target);
+  // Enter opens the ask on its board, with the way back in plain sight.
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("link", { name: /^Back to Inbox/ })).toBeVisible();
+  await page.getByRole("listitem").filter({ hasText: target }).getByRole("button", { name: "Answer with option 1: Ship it", exact: true }).click();
+  await expect.poll(async () => (await currentAsk(asks[names.indexOf(target)].id)).state).toBe("answered");
+  await page.keyboard.press("i");
+  await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
+  // The answered ask is gone and the ask now at its place is selected.
+  await expect(mine).toHaveCount(2);
+  await expect(askRows(page).filter({ hasText: target })).toHaveCount(0);
+  await expect(selectedAsk(page)).toHaveAttribute("data-ask", next!);
+});
+test("Escape on a board opened from the Inbox returns with the same ask selected", async ({ page }) => {
+  const board = "inbox-escape";
+  await openBoard(page, board);
+  for (let i = 1; i <= 12; i++) await makeAsk(board, `Escape ask ${String(i).padStart(2, "0")}`);
+  await page.getByRole("link", { name: /^Inbox/ }).click();
+  const mine = askRows(page).filter({ hasText: board });
+  await expect(mine).toHaveCount(12);
+  await mine.last().click();
+  const picked = (await selectedAsk(page).getAttribute("data-ask"))!;
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("link", { name: /^Back to Inbox/ })).toBeVisible();
+  // Escape in a text field is the field's own.
+  await page.locator(".composer textarea").focus();
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/board=inbox-escape/);
+  await page.locator(".composer textarea").blur();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
+  await expect(selectedAsk(page)).toHaveAttribute("data-ask", picked);
+  await expect(selectedAsk(page)).toBeInViewport();
+  // The browser's own back gesture goes the same way.
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("link", { name: /^Back to Inbox/ })).toBeVisible();
+  await page.goBack();
+  await expect(selectedAsk(page)).toHaveAttribute("data-ask", picked);
+});
+test("a phone gets a Back to Inbox link on the board, and the board's keys list I", async ({ page }) => {
+  const board = "inbox-phone-back";
+  await openBoard(page, board);
+  await makeAsk(board, "Phone roundtrip");
+  await page.getByRole("link", { name: /^Inbox/ }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await askRows(page).filter({ hasText: board }).click();
+  await page.getByRole("link", { name: "Open on the board" }).click();
+  await page.getByRole("link", { name: /^Back to Inbox/ }).click();
+  await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
+  await expect(askRows(page).filter({ hasText: board })).toHaveCount(1);
+  // Without a way in from the Inbox, a board has no Back link, but I still goes there.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`${base()}/?board=${board}`);
+  await expect(page.getByRole("button", { name: "Board details", exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Back to Inbox/ })).toHaveCount(0);
+  await page.keyboard.press("?");
+  const sheet = page.getByRole("dialog", { name: "Keys on a board" });
+  await expect(sheet.getByText("Go to the Inbox.", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("Go back to the Inbox, when you opened this board from it.", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await page.keyboard.press("i");
+  await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
 });

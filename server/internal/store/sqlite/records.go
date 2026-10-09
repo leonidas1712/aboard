@@ -22,11 +22,11 @@ func (t *tx) InsertHuman(h board.Human) error {
 		h.ID, h.Name, h.DisplayName, h.Role, h.CreatedAt)
 }
 
-const humanColumns = "id, name, display_name, role, created_at, removed_at, removed_by"
+const humanColumns = "id, name, display_name, role, created_at, removed_at, removed_by, midturn_policy"
 
 func scanHuman(row interface{ Scan(...any) error }) (board.Human, error) {
 	var h board.Human
-	err := row.Scan(&h.ID, &h.Name, &h.DisplayName, &h.Role, &h.CreatedAt, &h.RemovedAt, &h.RemovedBy)
+	err := row.Scan(&h.ID, &h.Name, &h.DisplayName, &h.Role, &h.CreatedAt, &h.RemovedAt, &h.RemovedBy, &h.MidturnPolicy)
 	return h, notFound(err)
 }
 
@@ -136,20 +136,30 @@ func (t *tx) NameUnnamedKeys(name string) error {
 	return t.exec("UPDATE access_keys SET name = ? WHERE name = ''", name)
 }
 
-const serverInviteColumns = "id, digest, created_by, created_at, expires_at, used_at, used_by"
+const serverInviteColumns = "id, digest, created_by, created_at, expires_at, used_at, used_by, boards, parent_key_id, issuing_agent_id, authorization, revoked_at"
 
 // InsertServerInvite adds a server invite.
 func (t *tx) InsertServerInvite(i board.ServerInvite) error {
-	return t.exec("INSERT INTO server_invites ("+serverInviteColumns+") VALUES (?, ?, ?, ?, ?, ?, ?)",
-		i.ID, i.Digest, i.CreatedBy, i.CreatedAt, i.ExpiresAt, i.UsedAt, i.UsedBy)
+	boards, err := json.Marshal(i.Boards)
+	if err != nil {
+		return err
+	}
+	var authorization *string
+	if i.Authorization != nil {
+		raw, err := json.Marshal(i.Authorization)
+		if err != nil {
+			return err
+		}
+		value := string(raw)
+		authorization = &value
+	}
+	return t.exec("INSERT INTO server_invites ("+serverInviteColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?)",
+		i.ID, i.Digest, i.CreatedBy, i.CreatedAt, i.ExpiresAt, i.UsedAt, i.UsedBy, boards, i.ParentKeyID, i.IssuingAgentID, authorization, i.RevokedAt)
 }
 
 // ServerInviteByDigest finds a server invite by the digest of its secret.
 func (t *tx) ServerInviteByDigest(digest string) (board.ServerInvite, error) {
-	var i board.ServerInvite
-	err := t.queryRow("SELECT "+serverInviteColumns+" FROM server_invites WHERE digest = ?", digest).
-		Scan(&i.ID, &i.Digest, &i.CreatedBy, &i.CreatedAt, &i.ExpiresAt, &i.UsedAt, &i.UsedBy)
-	return i, notFound(err)
+	return scanServerInvite(t.queryRow("SELECT "+serverInviteColumns+" FROM server_invites WHERE digest = ?", digest))
 }
 
 // UseServerInvite marks an unused invite used, and reports whether it was unused.
@@ -358,7 +368,7 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at, session"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human')"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human'), midturn_policy"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
@@ -366,7 +376,7 @@ func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var taskID, taskRef, taskTitle sql.NullString
 	var access, presence, since, at, mode, setting sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName)
+		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName, &m.MidturnOverride)
 	if taskID.Valid {
 		m.CurrentTask = &board.TaskRef{ID: taskID.String, Ref: taskRef.String, Title: taskTitle.String}
 	}
@@ -440,6 +450,35 @@ func (t *tx) Members(boardID string) ([]board.Member, error) {
 	for rows.Next() {
 		m, err := scanMember(rows)
 		if err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+func (t *tx) StreamBoard(boardID string) (board.Board, error) {
+	var b board.Board
+	err := t.queryRow("SELECT id, name, head_seq, lifecycle FROM boards WHERE id = ?", boardID).
+		Scan(&b.ID, &b.Name, &b.HeadSeq, &b.Lifecycle)
+	return b, notFound(err)
+}
+
+func (t *tx) StreamMembers(boardID string) ([]board.Member, error) {
+	rows, err := t.tx.QueryContext(t.ctx, `SELECT id, board_id, name, kind, human_id,
+		status, cursor, COALESCE(presence, ''), COALESCE(presence_since, ''),
+		COALESCE(presence_at, ''), COALESCE(delivery, '')
+		FROM members WHERE board_id = ? ORDER BY rowid`, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []board.Member
+	for rows.Next() {
+		var m board.Member
+		if err := rows.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.HumanID,
+			&m.Status, &m.Cursor, &m.Presence.State, &m.Presence.Since,
+			&m.Presence.At, &m.Presence.Delivery); err != nil {
 			return nil, err
 		}
 		out = append(out, m)
@@ -688,4 +727,28 @@ func (t *tx) RenameHuman(id, name string) error {
 		return err
 	}
 	return t.exec("UPDATE members SET owner = ? WHERE human_id = ? AND kind = 'agent'", name, id)
+}
+
+func scanServerInvite(row interface{ Scan(...any) error }) (board.ServerInvite, error) {
+	var i board.ServerInvite
+	var boards string
+	var parent, agent, authorization *string
+	err := row.Scan(&i.ID, &i.Digest, &i.CreatedBy, &i.CreatedAt, &i.ExpiresAt, &i.UsedAt, &i.UsedBy, &boards, &parent, &agent, &authorization, &i.RevokedAt)
+	if err != nil {
+		return i, notFound(err)
+	}
+	err = json.Unmarshal([]byte(boards), &i.Boards)
+	if err != nil {
+		return i, err
+	}
+	if parent != nil {
+		i.ParentKeyID = *parent
+	}
+	if agent != nil {
+		i.IssuingAgentID = *agent
+	}
+	if authorization != nil {
+		err = json.Unmarshal([]byte(*authorization), &i.Authorization)
+	}
+	return i, err
 }

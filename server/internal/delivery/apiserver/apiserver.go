@@ -67,10 +67,20 @@ func New(url string, tokens Tokens, rand io.Reader) *Server {
 func noRedirects(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
 func (s *Server) client(token string) (*api.ClientWithResponses, error) {
+	return s.clientWithKey(token, true)
+}
+
+// Bookkeeping repeats a monotonic cursor or the session's serialized presence state;
+// it needs no saved response. Queue claims and updates keep their stable retry keys.
+func (s *Server) bookkeepingClient(token string) (*api.ClientWithResponses, error) {
+	return s.clientWithKey(token, false)
+}
+
+func (s *Server) clientWithKey(token string, keyed bool) (*api.ClientWithResponses, error) {
 	c, err := api.NewClientWithResponses(s.url, api.WithHTTPClient(s.http),
 		api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			req.Header.Set("Authorization", "Bearer "+token)
-			if req.Method != http.MethodGet {
+			if keyed && req.Method != http.MethodGet {
 				key, err := s.idempotencyKey()
 				if err != nil {
 					return err
@@ -155,12 +165,22 @@ func (s *Server) Inbox(ctx context.Context, agent delivery.AgentRef) (msgs []del
 	}
 	msgs = make([]delivery.Message, 0, len(in.Messages))
 	for _, m := range in.Messages {
-		msgs = append(msgs, TextMessage(m))
+		text := TextMessage(m)
+		if in.BoardId != nil {
+			text.BoardID = *in.BoardId
+		}
+		msgs = append(msgs, text)
 	}
 	if in.DeliveryMode != nil {
 		mode = &delivery.HeldMode{Mode: delivery.Mode(*in.DeliveryMode)}
+		if in.BoardId != nil {
+			mode.BoardID = *in.BoardId
+		}
 		if in.DeliveryRevision != nil {
 			mode.Revision = int64(*in.DeliveryRevision)
+		}
+		if in.MidturnPolicy != nil {
+			mode.MidturnPolicy = string(*in.MidturnPolicy)
 		}
 	}
 	return msgs, in.Cursor, mode, nil
@@ -177,6 +197,9 @@ func (s *Server) TaskWork(ctx context.Context, agent delivery.AgentRef) (*delive
 	}
 	w := in.Work
 	out := &deliverytext.TaskWork{OpenTasks: w.OpenTasks, PostsWithoutTask: w.PostsWithoutTask, Nudges: w.Nudges, AsksWaiting: w.AsksWaiting}
+	if b := w.Brief; b != nil && b.FileId != nil && b.Name != nil {
+		out.Brief = &deliverytext.BriefContext{FileID: *b.FileId, Name: string(*b.Name), Version: b.Version, At: b.At, MessagesSince: b.MessagesSince, TasksDoneSince: b.TasksDoneSince}
+	}
 	if w.AsksToIt != nil {
 		out.AsksToIt = *w.AsksToIt
 	}
@@ -201,7 +224,7 @@ func (s *Server) Ack(ctx context.Context, agent delivery.AgentRef, upTo int) err
 	if err != nil {
 		return err
 	}
-	c, err := s.client(token)
+	c, err := s.bookkeepingClient(token)
 	if err != nil {
 		return err
 	}
@@ -225,7 +248,7 @@ func (s *Server) SetPresence(ctx context.Context, agent delivery.AgentRef, p del
 	if err != nil {
 		return err
 	}
-	c, err := s.client(token)
+	c, err := s.bookkeepingClient(token)
 	if err != nil {
 		return err
 	}
@@ -344,8 +367,11 @@ func readEvents(r io.Reader, line func(), dispatch func(event, data string)) err
 // TextMessage turns an API message into what the delivery text shows of it.
 func TextMessage(m api.Message) deliverytext.Message {
 	t := deliverytext.Message{
-		Board: m.Board, FromName: m.From.Name, FromHuman: m.From.Kind == "human",
+		ID: m.Id, At: m.At, Board: m.Board, FromName: m.From.Name, FromHuman: m.From.Kind == "human",
 		Sender: string(m.Sender), Seq: m.Seq, Urgent: m.Urgent, ExpectsReply: m.ExpectsReply, Body: m.Body,
+	}
+	if m.MidturnPeerSenderId != nil {
+		t.MidturnPeerSenderID = *m.MidturnPeerSenderId
 	}
 	if m.Ask != nil {
 		t.Ask = &deliverytext.Ask{ToName: m.Ask.To.Name, Blocking: m.Ask.Blocking, Options: m.Ask.Options, GoingAt: m.Ask.GoingAt}
@@ -399,4 +425,38 @@ func TextMessage(m api.Message) deliverytext.Message {
 		t.Reactions = append(t.Reactions, deliverytext.Reaction{Emoji: string(r.Emoji), Count: r.Count})
 	}
 	return t
+}
+
+// QueuedMessage reads the exact message with this seat's token, even past its cursor.
+func (s *Server) QueuedMessage(ctx context.Context, agent delivery.AgentRef, id string, seq int) (delivery.Message, error) {
+	token, err := s.tokens.AgentToken(agent)
+	if err != nil {
+		return delivery.Message{}, err
+	}
+	c, err := s.client(token)
+	if err != nil {
+		return delivery.Message{}, err
+	}
+	after, limit := api.Seq(seq-1), 1
+	r, err := c.ListMessagesWithResponse(ctx, agent.Board, &api.ListMessagesParams{After: &after, Limit: &limit})
+	if err != nil {
+		return delivery.Message{}, err
+	}
+	if r.JSON200 == nil || len(r.JSON200.Messages) != 1 {
+		return delivery.Message{}, fmt.Errorf("queued message is no longer readable on this seat")
+	}
+	m := r.JSON200.Messages[0]
+	if m.Id != id || m.Seq != seq || m.Board != agent.Board {
+		return delivery.Message{}, fmt.Errorf("queued message identity changed")
+	}
+	b, err := c.GetBoardWithResponse(ctx, agent.Board)
+	if err != nil {
+		return delivery.Message{}, err
+	}
+	if b.JSON200 == nil {
+		return delivery.Message{}, fmt.Errorf("queued board is no longer readable on this seat")
+	}
+	text := TextMessage(m)
+	text.BoardID = b.JSON200.Id
+	return text, nil
 }

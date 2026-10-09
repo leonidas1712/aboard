@@ -93,7 +93,7 @@ sandbox:
 The page's `aboard` commands and their checks are **automated**, `TestInstallPageCommands`;
 removing Aboard is covered by the tests in `e2e/uninstall_test.go`.
 
-- [ ] On a clean macOS machine and a clean Linux machine (or container) without Go or Node, with cosign installed: the page's `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh` installs `aboard` and `aboard-launcher-herdr` into `~/.local/bin`, says the signature was checked, says `~/.local/bin` isn't on the `PATH` when it isn't, and `aboard version --json` shows the release's version. On macOS, `aboard` runs without a Gatekeeper prompt (`xattr ~/.local/bin/aboard` lists no `com.apple.quarantine`). Without cosign, the script prints the `cosign verify-blob` command, and running it in a folder with the release's `checksums.txt` and `checksums.txt.sigstore.json` prints `Verified OK`; with `--certificate-identity` changed to another tag, it fails. With `ABOARD_VERSION` set to the previous release, it installs that one. The script's refusals are **automated**, `e2e/installscript_test.go`, against a fake release server.
+- [ ] On a clean macOS machine and a clean Linux machine (or container) without Go or Node, with cosign installed: the page's `curl -fsSL https://comeaboard.dev/install | sh` (and the GitHub address it redirects to, `curl -fsSL https://github.com/leonidas1712/aboard/releases/latest/download/install.sh | sh`, which the install page gives as the alternative) installs `aboard` and `aboard-launcher-herdr` into `~/.local/bin`, says the signature was checked, says `~/.local/bin` isn't on the `PATH` when it isn't, and `aboard version --json` shows the release's version. On macOS, `aboard` runs without a Gatekeeper prompt (`xattr ~/.local/bin/aboard` lists no `com.apple.quarantine`). Without cosign, the script prints the `cosign verify-blob` command, and running it in a folder with the release's `checksums.txt` and `checksums.txt.sigstore.json` prints `Verified OK`; with `--certificate-identity` changed to another tag, it fails. With `ABOARD_VERSION` set to the previous release, it installs that one. The script's refusals are **automated**, `e2e/installscript_test.go`, against a fake release server.
 - [ ] `docker pull ghcr.io/leonidas1712/aboard:<version>` works on linux/amd64 and linux/arm64, `cosign verify ghcr.io/leonidas1712/aboard:<version> --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v<version> --certificate-oidc-issuer https://token.actions.githubusercontent.com` passes, and the container serves the board view.
 - [ ] On a clean machine with Go and Node, the page's "From source" steps (`git clone`, `make install`) install `aboard`, and `aboard version --json` shows the checkout's commit.
 - [ ] On a machine with real Claude Code and Codex set up by `aboard init --yes --allow-commands`, plus a hook and a permission of your own in `~/.claude/settings.json` and a hook of your own in `~/.codex/hooks.json`: `aboard uninstall` removes only Aboard's entries and files, both harnesses still start and run your own hooks, and neither asks about Aboard's hooks again. Then the printed `rm <path>` removes the binary, and an open session carries on without errors from the missing hooks.
@@ -111,6 +111,32 @@ session paired and idle (their stop hooks waiting):
 - [ ] A message sent while the Claude Code session was busy during the upgrade is delivered when its turn ends.
 - [ ] `scripts/upgrade-rehearsal <previous release tag>` passes: the steps of [docs/guides/upgrade-and-roll-back.mdx](../docs/guides/upgrade-and-roll-back.mdx), from the install script through signing in to a team server to going back to the old build and its backup, on an isolated machine with eight agents in fake Claude Code and Codex sessions. **Automated**, `TestUpgradeFromAnOlderBuild`, which runs only through the script.
 
+## Tasks, asks and files ([docs/guides/tasks.mdx](../docs/guides/tasks.mdx), [docs/guides/asks-and-inbox.mdx](../docs/guides/asks-and-inbox.mdx), [docs/guides/files.mdx](../docs/guides/files.mdx))
+
+The commands these pages show are covered by e2e tests: `TestAskCLIRecordsDecisionAndUnblocksCurrentTask` and
+`TestAskCLIListsWithdrawsAndDoesNotBlockGoingWith` (`ask`, `--option`, `--going-with`, `--at`, `--withdraw`, `--open`),
+`tasks_test.go` and `tasklist_active_test.go` (`task new`, `start`, `join`, `note --base`, `done`, `--cancelled`, `drop`,
+`list --mine --all`), and `TestFileCLIUpdatesTheVersionFetchedToALocalPath` (`file put`, `get`, `show`, `list`, `mv`, `rm`,
+`say --attach`). The Inbox keys, the Tasks columns, uploads, drag and drop and the HTML preview are covered by the board
+view's Playwright suite (`make web-e2e`: `web/e2e/asks.spec.ts`, `web/e2e/files.spec.ts` and the tasks tests in
+`web/e2e/board.spec.ts`). By hand, in a sandbox:
+
+- [ ] `aboard file put api.md --as a` as agent `a`, then `aboard file put api.md --as b` as agent `b` that never fetched it, is refused with `file_exists` and the hint to get the file first; after `a` puts a v2, `b`'s put of a stale `get` is refused with `file_changed`. Nothing is overwritten.
+- [ ] `aboard file get api.md --version 1` writes the first version; a local file changed since the last `get` is kept unless `--force` is passed. `file put --maintained`, `--media-type text/markdown` and `file list --mine` and `--task ID` behave as `aboard help file` says.
+- [ ] `aboard task new "…" --about "…" --no-start` opens a task nobody owns; `aboard task list --done` lists finished tasks after `task done`.
+- [ ] With a real Claude Code and a real Codex session on one board, a session told "ask me whether to proceed, with two options" runs `aboard ask` in two lines with options, ends its turn, and is woken by the answer from the Inbox (`aboard open`, then the `1` key); the task shows Blocked while the ask is open and clears after.
+
+## The brief ([docs/guides/brief.mdx](../docs/guides/brief.mdx))
+
+Covered by e2e: `TestBriefCLIUpdatesOnlyTheIdentityAndVersionFetched` (`brief`, `get`, `put`, the stale refusal),
+`TestBriefCLIFormatSwitchKeepsTheOldFileHistory` (`--replace-format`) and the board view's `web/e2e/brief.spec.ts`
+(`make web-e2e`: the box, writing and editing, the refused save that keeps the person's text, the HTML sandbox).
+By hand:
+
+- [ ] `aboard brief` on a board with no brief exits 1 with `file_not_found` and the `brief put` hint; after `aboard brief put status.md` it prints the freshness line.
+- [ ] `aboard file put brief.md` and `aboard file mv notes.md brief.md` are refused with `brief_path_reserved`.
+- [ ] A brief more than an hour old, on a board with 30 messages since, shows "may be out of date" in the board view.
+
 ## Web UI ([README.md](../README.md#quick-start), [docs/safety.mdx](../docs/safety.mdx))
 
 Run with a binary from `make install` (or a release).
@@ -123,7 +149,11 @@ Run with a binary from `make install` (or a release).
 - [ ] In a Claude Code session, asking "open the board in my browser" makes the agent run `aboard open`; the browser opens logged in, and the session's output shows no login link or code.
 - [ ] After `aboard down` and `aboard up`, reloading the UI still shows the board, logged in. After `aboard logout --browsers`, reloading it says the browser isn't logged in and to run `aboard open`.
 
-## Team server ([docs/team-server.mdx](../docs/team-server.mdx))
+## Team server ([docs/team-server.mdx](../docs/team-server.mdx), [docs/deploy/](../docs/deploy))
+
+The steps for each platform are on its own page: [Fly.io](../docs/deploy/fly.mdx),
+[Kubernetes](../docs/deploy/kubernetes.mdx) and [Docker](../docs/deploy/docker.mdx). "The
+page" in a step below is that platform's page; "Get the image" is on team-server.mdx.
 
 The server's side is covered by e2e: `aboard serve --team` behind an HTTPS proxy, the
 admin key file piped into `aboard login`, `aboard people --server`, `aboard invite
@@ -138,6 +168,8 @@ checked by hand, on a disposable cluster with an ingress that ends HTTPS:
 - [ ] `kubectl create namespace aboard` and `kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml` (host, image and storage class replaced) bring the pod to ready, the probes passing with the public Host.
 - [ ] `kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://<host> && kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key` signs in and then removes the file; with a wrong URL the login fails and the file stays; `aboard people --server https://<host>` lists the admin.
 - [ ] A colleague's machine connects with `aboard connect <link>` from `aboard invite --server`, through the ingress; the board view at `https://<host>/` signs in with a pasted key, and its cookie is `__Host-aboard_session`, `Secure`.
+- [ ] Bundled setup: an admin runs `aboard invite --server <host> --board <board>`, and the newcomer runs `aboard setup <invite-link> --handle <handle>` in their chosen harness session. Account and membership steps complete without printing a key or the invite link. With an inviting agent's `--pairing "Review the design"`, both exact sessions answer the delivery check before setup reports complete. Repeat after a lost response: the saved key recovers the same account. Real-binary coverage: `TestSetupBundledInviteKeepsOneAccountAndSavedKey` and `TestSetupRecoversACommittedInviteWithoutAnotherAccount`.
+- [ ] Own invite management: `aboard invite list --server <host>` shows metadata only, including invites made by your agents. `aboard invite revoke <invite-id> --server <host>` invalidates an unredeemed invite; repeating it changes nothing. A foreign invite returns the same not-found as an unknown ID. Revoking an invite or removing its issuing agent leaves already-created people and memberships intact.
 - [ ] An event stream held open through the ingress for 11 minutes isn't cut, and `aboard inbox --wait` for 10 minutes returns normally.
 - [ ] `kubectl set image -n aboard deploy/aboard aboard=<newer image>` replaces the pod (never two at once), and a newer schema leaves a copy in `/data/aboard/backups`; the restore steps on the page, which wait for the pod's deletion before starting the restore pod, bring the older image back with the copy's data.
 - [ ] The page's "Get the image": `cosign verify ghcr.io/leonidas1712/aboard:<version>` with the page's identity and issuer passes for the release.
@@ -145,6 +177,7 @@ checked by hand, on a disposable cluster with an ingress that ends HTTPS:
 - [ ] With the image copied to a private registry: the pod fails to pull it until `kubectl create secret docker-registry aboard-pull -n aboard --docker-server=<registry> --docker-username=<user> --docker-password=<token>` and `imagePullSecrets` uncommented in the recipe; then it starts.
 - [ ] The page's Docker steps: `docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 127.0.0.1:7400:7400 -e ABOARD_PUBLIC_URL=https://<host> ghcr.io/leonidas1712/aboard:<version>` starts; `curl -H 'Host: <host>' http://localhost:7400/v1/info` includes `"mode":"team"`, and port 7400 is not reachable from another machine; `docker exec aboard cat /data/aboard/admin-key | aboard login https://<host> && docker exec aboard rm /data/aboard/admin-key` signs in through a proxy that ends HTTPS and then removes the file. After `docker stop aboard && docker rm aboard`, the same `docker run` with a newer tag keeps every board. The page's Docker backup (a new `mkdir -m 700` folder, `docker stop aboard`, the `tar` copy under `umask 077` and `set -C`, `docker start aboard`) writes `aboard-data.tgz` with mode 600, owned by you, refuses when the file already exists, and the server comes back with its boards; the page's Docker restore (`docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh …`, the copy, then the older tag) brings the older image back with the copy's data.
 - [ ] The page's backup: `kubectl scale -n aboard deploy/aboard --replicas=0`, `kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s` returning only once the pod is gone, a snapshot of the `aboard-data` volume, and `kubectl scale -n aboard deploy/aboard --replicas=1` bring the server back with its boards; a volume restored from the snapshot holds the same boards.
+- [ ] The Fly.io page's steps, on a Fly.io account: `curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v<version>/deploy/fly/fly.toml` fetches the recipe; with `app`, both hostnames, `ABOARD_ADMIN` and `primary_region` filled in, `fly apps create <app>`, `fly volumes create aboard_data --app <app> --region <region> --size 10` and `fly deploy --ha=false` start one machine, its health check passes with the public Host, and `curl https://<app>.fly.dev/v1/info` includes `"mode":"team"`. `fly ssh console --app <app> --command "cat /data/aboard/admin-key" | aboard login https://<app>.fly.dev && fly ssh console --app <app> --command "rm /data/aboard/admin-key"` signs in (nothing but the key reaches `aboard login`'s input) and then removes the file. `fly certs add <domain> --app <app>`, with the hostnames changed and `fly deploy` again, serves the board view at the domain. The page's backup (`fly machine list`, `fly machine stop`, `fly volumes list`, `fly volumes snapshots create`, `fly machine start`) brings the server back with its boards; after an upgrade with a newer `[build] image` and `fly deploy --ha=false`, the page's go-back steps (`fly volumes snapshots list`, `fly volumes create aboard_data … --snapshot-id`, `fly machine destroy … --force`, `fly volumes destroy`, then `fly deploy --ha=false` with the older image) bring the older image back with the snapshot's data.
 
 ## Team mode on two machines ([docs/team-mode.mdx](../docs/team-mode.mdx), [docs/team-agents.mdx](../docs/team-agents.mdx))
 
@@ -188,6 +221,6 @@ reactions (`e2e/thread_test.go`, `e2e/reactions_test.go`), titles (`e2e/title_te
 delivery modes (`e2e/modes_test.go`) and the record (`TestQuickstartTwoTerminals`).
 
 - [ ] `make docs-links` passes: no broken links, and `mint validate` builds the site with the OpenAPI file.
-- [ ] `make docs-preview`: the quickstart, How it works and one CLI reference page read correctly at desktop and phone widths, in light and dark.
+- [ ] `make docs-preview`: the introduction, the quickstart, How it works, the board view and one CLI reference page read correctly, with each screenshot in the theme's own version, at desktop and phone widths, in light and dark.
 - [ ] The files How it works lists for `aboard init` match what `aboard init --yes --allow-commands` writes on a machine with Claude Code, Codex and omp (`aboard uninstall --dry-run` lists them).
 - [ ] After a deploy, the site's `/llms.txt` lists every page in the navigation.

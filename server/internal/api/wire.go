@@ -56,6 +56,7 @@ type wireMember struct {
 }
 
 type wireBoard struct {
+	Brief           any                   `json:"brief,omitempty"`
 	AsksToMe        *board.AskCounts      `json:"asks_to_me,omitempty"`
 	TaskPrefix      *string               `json:"task_prefix"`
 	TasksOpen       *int64                `json:"tasks_open,omitempty"`
@@ -99,32 +100,33 @@ type wireAdded struct {
 }
 
 type wireMessage struct {
-	Files         []board.FileRef   `json:"files,omitempty"`
-	Ask           any               `json:"ask,omitempty"`
-	Answer        any               `json:"answer,omitempty"`
-	About         []board.TaskTag   `json:"about"`
-	ID            string            `json:"id"`
-	Board         string            `json:"board"`
-	Seq           int64             `json:"seq"`
-	At            string            `json:"at"`
-	From          wireMemberRef     `json:"from"`
-	To            []string          `json:"to"`
-	Body          string            `json:"body"`
-	ReplyTo       *string           `json:"reply_to"`
-	ReplyToSeq    *int64            `json:"reply_to_seq"`
-	ReplyToFrom   *string           `json:"reply_to_from"`
-	ThreadRoot    *string           `json:"thread_root"`
-	ThreadRootSeq *int64            `json:"thread_root_seq"`
-	ReplyCount    int               `json:"reply_count"`
-	LastReplyAt   *string           `json:"last_reply_at"`
-	Urgent        bool              `json:"urgent"`
-	ExpectsReply  bool              `json:"expects_reply"`
-	Sender        string            `json:"sender"`
-	ShowOwner     bool              `json:"show_owner"`
-	Trust         string            `json:"trust"`
-	Redactions    []board.Redaction `json:"redactions"`
-	Reactions     []wireReaction    `json:"reactions"`
-	Mentions      []board.Mention   `json:"mentions"`
+	MidturnPeerSenderID *string           `json:"midturn_peer_sender_id,omitempty"`
+	Files               []board.FileRef   `json:"files,omitempty"`
+	Ask                 any               `json:"ask,omitempty"`
+	Answer              any               `json:"answer,omitempty"`
+	About               []board.TaskTag   `json:"about"`
+	ID                  string            `json:"id"`
+	Board               string            `json:"board"`
+	Seq                 int64             `json:"seq"`
+	At                  string            `json:"at"`
+	From                wireMemberRef     `json:"from"`
+	To                  []string          `json:"to"`
+	Body                string            `json:"body"`
+	ReplyTo             *string           `json:"reply_to"`
+	ReplyToSeq          *int64            `json:"reply_to_seq"`
+	ReplyToFrom         *string           `json:"reply_to_from"`
+	ThreadRoot          *string           `json:"thread_root"`
+	ThreadRootSeq       *int64            `json:"thread_root_seq"`
+	ReplyCount          int               `json:"reply_count"`
+	LastReplyAt         *string           `json:"last_reply_at"`
+	Urgent              bool              `json:"urgent"`
+	ExpectsReply        bool              `json:"expects_reply"`
+	Sender              string            `json:"sender"`
+	ShowOwner           bool              `json:"show_owner"`
+	Trust               string            `json:"trust"`
+	Redactions          []board.Redaction `json:"redactions"`
+	Reactions           []wireReaction    `json:"reactions"`
+	Mentions            []board.Mention   `json:"mentions"`
 }
 
 type wireReaction struct {
@@ -201,6 +203,7 @@ func boardOf(v board.View, p board.Principal) wireBoard {
 		AgentsAddPeople: b.AgentsAddPeople, Lifecycle: b.Lifecycle, CanArchive: v.CanArchive, CanRestore: v.CanRestore, CanDelete: v.CanDelete,
 	}
 	if v.OnBoard {
+		w.Brief = briefOf(v.Brief)
 		w.TasksOpen = &b.TasksOpen
 	}
 	if v.ShowsCounts(p) {
@@ -255,8 +258,8 @@ func messageOf(m board.Message, boardName string, reader board.Member) wireMessa
 		mentions = []board.Mention{}
 	}
 	return wireMessage{
-		Files: m.Files,
-		Ask:   askOf(m.Ask), Answer: answerOf(m.Answer),
+		MidturnPeerSenderID: m.MidturnPeerSenderID, Files: m.Files,
+		Ask: askOf(m.Ask), Answer: answerOf(m.Answer),
 		About: m.About,
 		ID:    m.ID, Board: boardName, Seq: m.Seq, At: m.At, Mentions: mentions,
 		From: wireMemberRef{Name: m.SenderName, Kind: m.SenderKind, Role: m.SenderRole, Owner: m.SenderOwner, Harness: m.SenderHarness},
@@ -280,4 +283,12 @@ func messagesOf(r board.Reading) []wireMessage {
 		out = append(out, messageOf(m, r.Board.Name, r.Reader))
 	}
 	return out
+}
+
+func briefOf(f *board.File) any {
+	if f == nil {
+		return nil
+	}
+	v := f.Versions[len(f.Versions)-1]
+	return map[string]any{"file_id": f.ID, "name": f.Name, "version": v.Version, "by": refOf(v.By), "at": v.At, "freshness": map[string]any{"messages_since": f.MessagesSince, "tasks_done_since": f.TasksDoneSince, "answers_since": f.AnswersSince}}
 }

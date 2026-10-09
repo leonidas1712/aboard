@@ -4,7 +4,7 @@ import "slices"
 
 // subagentCommands are the commands a subagent may run: they only read, so they can't
 // change its parent's state. inbox counts only with --peek, which doesn't acknowledge.
-var subagentCommands = []string{"read", "status", "inbox", "doctor", "audit", "help", "version", "hook"}
+var subagentCommands = []string{"read", "status", "inbox", "doctor", "audit", "help", "version", "skill", "hook"}
 
 // refuseInSubagent refuses a command that changes state when it runs in a subagent of
 // a harness session. The subagent inherits its parent's session, so the command would

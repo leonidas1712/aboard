@@ -144,7 +144,7 @@ function Work({ members }: { members: Member[] }) {
                     <span className="shrink-0 text-meta text-muted tabular-nums">{t.id}</span>
                     <span className="min-w-0 flex-1">
                       <span className="font-bold group-hover:underline">{t.title}</span>
-                      {needsYou(t, asks) && <span className="ml-1.5 inline-block rounded-[4px] bg-attention px-1.5 text-meta text-ink">needs you</span>}
+                      {needsYou(t, asks) && <span className="ml-1.5 inline-block rounded-[4px] bg-attention px-1.5 text-meta text-on-accent">needs you</span>}
                     </span>
                   </button>
                 </h3>
@@ -351,7 +351,7 @@ function WhereItStands({ task: t }: { task: ScenarioTask }) {
           </p>
           <p className="flex flex-wrap items-center gap-x-1.5 text-meta text-muted">
             {stale && <Clock className="size-3" strokeWidth={2} aria-label="Not updated in a while" />}
-            by {t.note.by === scenario.me ? "you" : t.note.by} · {ago(t.note.t, now)} · {count(messages, "message", "messages")} since
+            Updated by {t.note.by === scenario.me ? "you" : t.note.by} · {ago(t.note.t, now)} · {count(messages, "message", "messages")} since
             {owner && (
               <>
                 {" · "}
@@ -403,7 +403,7 @@ function TaskPanel({ id, members, pick }: { id: string; members: Member[]; pick:
         </p>
         <p className="flex items-center gap-1.5 text-meta">
           {needs ? (
-            <span className="rounded-[4px] bg-attention px-1.5 text-ink">{stateText}</span>
+            <span className="rounded-[4px] bg-attention px-1.5 text-on-accent">{stateText}</span>
           ) : (
             <>
               <span aria-hidden className={cn("size-2 rounded-full", t.state === "done" ? "bg-muted" : "border-2 border-accent")} />

@@ -148,6 +148,8 @@ type HookSpec struct {
 	// Since is the first version of the harness that runs the hook as written: it knows
 	// the event, and honors its options and the output the hook gives.
 	Since string `yaml:"since"`
+	// Until excludes this hook at and after its replacement version.
+	Until string `yaml:"until"`
 	// Fallback are the events that run the same command on a version older than Since.
 	Fallback []FallbackSpec `yaml:"fallback"`
 	// Without is what the person loses on a version that runs neither the hook nor a

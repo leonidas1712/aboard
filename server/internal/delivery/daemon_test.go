@@ -234,7 +234,11 @@ func awaitStill[T any](t *testing.T, c *clock.Fake, ch <-chan T, what string, st
 }
 
 // wait connects a stop hook for a Claude Code session.
-func (r *rig) wait(id, boot string, resumed bool) *hook {
+func (r *rig) wait(id, boot string, resumed bool, harnesses ...string) *hook {
+	harness := "claude-code"
+	if len(harnesses) > 0 {
+		harness = harnesses[0]
+	}
 	r.t.Helper()
 	c := r.dial()
 	h := &hook{t: r.t, clock: r.clock, conn: c, events: make(chan delivery.Response, 4)}
@@ -242,7 +246,7 @@ func (r *rig) wait(id, boot string, resumed bool) *hook {
 	r.t.Cleanup(func() { _ = c.Close() })
 	go func() {
 		_ = delivery.WriteFrame(c, delivery.Request{
-			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: "claude-code",
+			V: delivery.ProtocolVersion, Op: delivery.OpWait, Harness: harness,
 			Session: id, Boot: boot, Resumed: resumed,
 		})
 	}()
@@ -489,7 +493,8 @@ func TestHumansModeQueuesOnlyWhenAPersonWrites(t *testing.T) {
 
 // While a Codex turn runs (between its prompt and stop hooks), the owner's messages are
 // kept out of Codex's queue, where they would wait for the turn to end, and go to the
-// next tool hook instead. Other messages, urgent ones too, still go to the queue.
+// next tool hook instead. Other messages, urgent ones too, stay in the daemon until
+// turn end, so they can be checked and coalesced before queue admission.
 func TestOwnersMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
 	r := newRig(t)
 	codexReq := func(op string) delivery.Request {
@@ -501,14 +506,17 @@ func TestOwnersMessagesSkipTheQueueDuringACodexTurn(t *testing.T) {
 
 	r.post(reviewer, "ordinary note", true)
 	r.postFromOwner(reviewer, "stop: the build is broken")
-	r.eventually("the ordinary message in the queue", 500*time.Millisecond, func() bool { return len(r.codex.Handed("t1")) > 0 })
+	var ownerBundle string
+	r.eventually("the ordinary waiting notice", 0, func() bool {
+		got := r.ok(codexReq(delivery.OpBoundary))
+		ownerBundle += got.Bundle
+		return strings.Contains(got.Notice, "#1 ")
+	})
 	r.clock.Advance(time.Second)
-	for _, b := range r.codex.Handed("t1") {
-		if strings.Contains(b, "the build is broken") {
-			t.Fatalf("the owner's message went into the queue during a turn:\n%s", b)
-		}
+	if got := r.codex.Handed("t1"); len(got) != 0 {
+		t.Fatalf("messages went into the external queue during a turn: %q", got)
 	}
-	if b := r.ok(codexReq(delivery.OpBoundary)).Bundle; !strings.Contains(b, "the build is broken") {
+	if b := ownerBundle + r.ok(codexReq(delivery.OpBoundary)).Bundle; !strings.Contains(b, "the build is broken") {
 		t.Fatalf("the tool hook should get the owner's message, got %q", b)
 	}
 }
@@ -559,8 +567,8 @@ func TestFailuresBackOffAndStopForAttentionAfterFiveAttempts(t *testing.T) {
 	if n := r.codex.Attempts(); n != delivery.MaxAttempts {
 		t.Fatalf("%d attempts, want %d", n, delivery.MaxAttempts)
 	}
-	// 2 s gathering, then waits of 1, 2, 4 and 8 seconds.
-	if took := r.clock.Now().Sub(start); took < 17*time.Second {
+	// 2 s gathering, then jittered waits with ceilings of 1, 2, 4 and 8 seconds.
+	if took := r.clock.Now().Sub(start); took < delivery.QueueGather+7500*time.Millisecond {
 		t.Fatalf("five attempts took %s of clock time; the waits between them didn't back off", took)
 	}
 	r.clock.Advance(10 * time.Minute)

@@ -95,6 +95,7 @@ type Hook struct {
 	// Since is the first version of the harness that runs the hook as written, and
 	// Fallback the events it runs on instead on older versions.
 	Since    string     `yaml:"since"`
+	Until    string     `yaml:"until"`
 	Fallback []Fallback `yaml:"fallback"`
 }
 

@@ -132,7 +132,7 @@ export function FilterChips({ filter, setFilter, showEvents, setShowEvents, me }
         <li key={c.key}>
           <button
             type="button"
-            className="chip inline-flex min-h-9 items-center gap-1.5 rounded-control border border-rule bg-surface py-1 pr-2 pl-3 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
+            className="chip tap inline-flex min-h-9 items-center gap-1.5 rounded-control border border-rule bg-surface py-1 pr-2 pl-3 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
             aria-label={`Remove filter: ${c.label}`}
             title="Remove this filter"
             onClick={() => {
@@ -150,7 +150,7 @@ export function FilterChips({ filter, setFilter, showEvents, setShowEvents, me }
         <li>
           <button
             type="button"
-            className="min-h-9 rounded-control px-2 text-meta text-link hover:underline"
+            className="min-h-9 rounded-control px-2 text-meta text-link hover:underline pointer-coarse:min-h-11"
             onClick={() => {
               setFilter({});
               setShowEvents(true);

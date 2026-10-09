@@ -33,6 +33,7 @@ type Class string
 const (
 	ClassOwnerOnly      Class = "owner_only"
 	ClassMixed          Class = "mixed"
+	ClassMidturnPeer    Class = "midturn_peer"
 	CapabilityHandoffV1       = "handoff-v1"
 )
 
@@ -88,10 +89,20 @@ type Server interface {
 	SetPresence(ctx context.Context, agent AgentRef, p Presence, mode Mode) error
 }
 
+// QueuedMessageServer verifies exact queued messages, including ones past the cursor.
+type QueuedMessageServer interface {
+	QueuedMessage(context.Context, AgentRef, string, int) (Message, error)
+}
+
 // TaskWorkServer reads task context with the seat's inbox; older servers omit it.
 // It never acknowledges messages or changes task state.
 type TaskWorkServer interface {
 	TaskWork(ctx context.Context, agent AgentRef) (*deliverytext.TaskWork, error)
+}
+
+// QueuedAdmissionJournal retains admissions awaiting an observed turn start.
+type QueuedAdmissionJournal interface {
+	UnstartedDeliveries(context.Context) ([]Delivery, error)
 }
 
 // Journal records sessions, bindings and every delivery durably. It never stores

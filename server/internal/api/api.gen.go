@@ -66,6 +66,57 @@ func (e ActorKind) Valid() bool {
 	}
 }
 
+// Defines values for AddPeopleActionKind.
+const (
+	AddPeopleActionKindAddPeople AddPeopleActionKind = "add_people"
+)
+
+// Valid indicates whether the value is a known member of the AddPeopleActionKind enum.
+func (e AddPeopleActionKind) Valid() bool {
+	switch e {
+	case AddPeopleActionKindAddPeople:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminActionResultState.
+const (
+	AdminActionResultStateExecuted AdminActionResultState = "executed"
+	AdminActionResultStatePending  AdminActionResultState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the AdminActionResultState enum.
+func (e AdminActionResultState) Valid() bool {
+	switch e {
+	case AdminActionResultStateExecuted:
+		return true
+	case AdminActionResultStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminAuthorizationVia.
+const (
+	AdminAuthorizationViaAllowance AdminAuthorizationVia = "allowance"
+	AdminAuthorizationViaApproval  AdminAuthorizationVia = "approval"
+)
+
+// Valid indicates whether the value is a known member of the AdminAuthorizationVia enum.
+func (e AdminAuthorizationVia) Valid() bool {
+	switch e {
+	case AdminAuthorizationViaAllowance:
+		return true
+	case AdminAuthorizationViaApproval:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AgentDeliveryChangedEventType.
 const (
 	AgentDeliveryChanged AgentDeliveryChangedEventType = "agent.delivery_changed"
@@ -174,6 +225,66 @@ func (e AgentState) Valid() bool {
 	case AgentStateWaiting:
 		return true
 	case AgentStateWorking:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentWorkBriefName.
+const (
+	AgentWorkBriefNameBriefHtml AgentWorkBriefName = "brief.html"
+	AgentWorkBriefNameBriefMd   AgentWorkBriefName = "brief.md"
+)
+
+// Valid indicates whether the value is a known member of the AgentWorkBriefName enum.
+func (e AgentWorkBriefName) Valid() bool {
+	switch e {
+	case AgentWorkBriefNameBriefHtml:
+		return true
+	case AgentWorkBriefNameBriefMd:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AllowanceCategory.
+const (
+	AllowanceCategoryAddPeople    AllowanceCategory = "add-people"
+	AllowanceCategoryInvitePeople AllowanceCategory = "invite-people"
+)
+
+// Valid indicates whether the value is a known member of the AllowanceCategory enum.
+func (e AllowanceCategory) Valid() bool {
+	switch e {
+	case AllowanceCategoryAddPeople:
+		return true
+	case AllowanceCategoryInvitePeople:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApprovalState.
+const (
+	ApprovalStateDeclined ApprovalState = "declined"
+	ApprovalStateExecuted ApprovalState = "executed"
+	ApprovalStateExpired  ApprovalState = "expired"
+	ApprovalStatePending  ApprovalState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the ApprovalState enum.
+func (e ApprovalState) Valid() bool {
+	switch e {
+	case ApprovalStateDeclined:
+		return true
+	case ApprovalStateExecuted:
+		return true
+	case ApprovalStateExpired:
+		return true
+	case ApprovalStatePending:
 		return true
 	default:
 		return false
@@ -554,16 +665,16 @@ func (e BoardVisibilityChangedEventType) Valid() bool {
 
 // Defines values for BriefSummaryName.
 const (
-	BriefHtml BriefSummaryName = "brief.html"
-	BriefMd   BriefSummaryName = "brief.md"
+	BriefSummaryNameBriefHtml BriefSummaryName = "brief.html"
+	BriefSummaryNameBriefMd   BriefSummaryName = "brief.md"
 )
 
 // Valid indicates whether the value is a known member of the BriefSummaryName enum.
 func (e BriefSummaryName) Valid() bool {
 	switch e {
-	case BriefHtml:
+	case BriefSummaryNameBriefHtml:
 		return true
-	case BriefMd:
+	case BriefSummaryNameBriefMd:
 		return true
 	default:
 		return false
@@ -582,6 +693,45 @@ func (e BrowserSessionStart) Valid() bool {
 	case BrowserSessionStartAccessKey:
 		return true
 	case BrowserSessionStartLoginCode:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientKeyMetadataState.
+const (
+	ClientKeyMetadataStateExpired ClientKeyMetadataState = "expired"
+	ClientKeyMetadataStateRevoked ClientKeyMetadataState = "revoked"
+	ClientKeyMetadataStateWorking ClientKeyMetadataState = "working"
+)
+
+// Valid indicates whether the value is a known member of the ClientKeyMetadataState enum.
+func (e ClientKeyMetadataState) Valid() bool {
+	switch e {
+	case ClientKeyMetadataStateExpired:
+		return true
+	case ClientKeyMetadataStateRevoked:
+		return true
+	case ClientKeyMetadataStateWorking:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreatePairingCredentialSide.
+const (
+	CreatePairingCredentialSideInitiator CreatePairingCredentialSide = "initiator"
+	CreatePairingCredentialSideRecipient CreatePairingCredentialSide = "recipient"
+)
+
+// Valid indicates whether the value is a known member of the CreatePairingCredentialSide enum.
+func (e CreatePairingCredentialSide) Valid() bool {
+	switch e {
+	case CreatePairingCredentialSideInitiator:
+		return true
+	case CreatePairingCredentialSideRecipient:
 		return true
 	default:
 		return false
@@ -651,6 +801,8 @@ const (
 	ErrorErrorCodeAgentSessionRequired            ErrorErrorCode = "agent_session_required"
 	ErrorErrorCodeAgentTokenRequired              ErrorErrorCode = "agent_token_required"
 	ErrorErrorCodeAlreadyOnBoard                  ErrorErrorCode = "already_on_board"
+	ErrorErrorCodeApprovalClosed                  ErrorErrorCode = "approval_closed"
+	ErrorErrorCodeApprovalNotFound                ErrorErrorCode = "approval_not_found"
 	ErrorErrorCodeAskClosed                       ErrorErrorCode = "ask_closed"
 	ErrorErrorCodeAskInvalid                      ErrorErrorCode = "ask_invalid"
 	ErrorErrorCodeBoardArchived                   ErrorErrorCode = "board_archived"
@@ -685,6 +837,7 @@ const (
 	ErrorErrorCodeInvalidRequest                  ErrorErrorCode = "invalid_request"
 	ErrorErrorCodeInvalidTarget                   ErrorErrorCode = "invalid_target"
 	ErrorErrorCodeInviteInvalid                   ErrorErrorCode = "invite_invalid"
+	ErrorErrorCodeInviteNotFound                  ErrorErrorCode = "invite_not_found"
 	ErrorErrorCodeJoinCodeInvalid                 ErrorErrorCode = "join_code_invalid"
 	ErrorErrorCodeJoinCodeNotFound                ErrorErrorCode = "join_code_not_found"
 	ErrorErrorCodeJoinCodeNotYours                ErrorErrorCode = "join_code_not_yours"
@@ -707,9 +860,14 @@ const (
 	ErrorErrorCodeNotOnTask                       ErrorErrorCode = "not_on_task"
 	ErrorErrorCodeOriginNotAllowed                ErrorErrorCode = "origin_not_allowed"
 	ErrorErrorCodeOwnerRequired                   ErrorErrorCode = "owner_required"
+	ErrorErrorCodePairingAmbiguous                ErrorErrorCode = "pairing_ambiguous"
+	ErrorErrorCodePairingChanged                  ErrorErrorCode = "pairing_changed"
+	ErrorErrorCodePairingClosed                   ErrorErrorCode = "pairing_closed"
+	ErrorErrorCodePairingNotFound                 ErrorErrorCode = "pairing_not_found"
 	ErrorErrorCodePersonIsGuest                   ErrorErrorCode = "person_is_guest"
 	ErrorErrorCodePersonNotFound                  ErrorErrorCode = "person_not_found"
 	ErrorErrorCodePersonNotOnBoard                ErrorErrorCode = "person_not_on_board"
+	ErrorErrorCodeQueueReportConflict             ErrorErrorCode = "queue_report_conflict"
 	ErrorErrorCodeRateLimited                     ErrorErrorCode = "rate_limited"
 	ErrorErrorCodeReplyHasNoRecipients            ErrorErrorCode = "reply_has_no_recipients"
 	ErrorErrorCodeRoleNotFound                    ErrorErrorCode = "role_not_found"
@@ -750,6 +908,10 @@ func (e ErrorErrorCode) Valid() bool {
 	case ErrorErrorCodeAgentTokenRequired:
 		return true
 	case ErrorErrorCodeAlreadyOnBoard:
+		return true
+	case ErrorErrorCodeApprovalClosed:
+		return true
+	case ErrorErrorCodeApprovalNotFound:
 		return true
 	case ErrorErrorCodeAskClosed:
 		return true
@@ -819,6 +981,8 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case ErrorErrorCodeInviteInvalid:
 		return true
+	case ErrorErrorCodeInviteNotFound:
+		return true
 	case ErrorErrorCodeJoinCodeInvalid:
 		return true
 	case ErrorErrorCodeJoinCodeNotFound:
@@ -863,11 +1027,21 @@ func (e ErrorErrorCode) Valid() bool {
 		return true
 	case ErrorErrorCodeOwnerRequired:
 		return true
+	case ErrorErrorCodePairingAmbiguous:
+		return true
+	case ErrorErrorCodePairingChanged:
+		return true
+	case ErrorErrorCodePairingClosed:
+		return true
+	case ErrorErrorCodePairingNotFound:
+		return true
 	case ErrorErrorCodePersonIsGuest:
 		return true
 	case ErrorErrorCodePersonNotFound:
 		return true
 	case ErrorErrorCodePersonNotOnBoard:
+		return true
+	case ErrorErrorCodeQueueReportConflict:
 		return true
 	case ErrorErrorCodeRateLimited:
 		return true
@@ -996,6 +1170,21 @@ func (e FileVersionAddedEventType) Valid() bool {
 	}
 }
 
+// Defines values for HeldAdminActionResultState.
+const (
+	HeldAdminActionResultStatePending HeldAdminActionResultState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the HeldAdminActionResultState enum.
+func (e HeldAdminActionResultState) Valid() bool {
+	switch e {
+	case HeldAdminActionResultStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HiddenBoardLifecycle.
 const (
 	HiddenBoardLifecycleActive   HiddenBoardLifecycle = "active"
@@ -1023,6 +1212,21 @@ const (
 func (e HiddenBoardVisibility) Valid() bool {
 	switch e {
 	case HiddenBoardVisibilityPrivate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InvitePeopleActionKind.
+const (
+	InvitePeopleActionKindInvitePeople InvitePeopleActionKind = "invite_people"
+)
+
+// Valid indicates whether the value is a known member of the InvitePeopleActionKind enum.
+func (e InvitePeopleActionKind) Valid() bool {
+	switch e {
+	case InvitePeopleActionKindInvitePeople:
 		return true
 	default:
 		return false
@@ -1530,6 +1734,42 @@ func (e MessagePostedEventType) Valid() bool {
 	}
 }
 
+// Defines values for MidturnPolicy.
+const (
+	MidturnPolicyMyAgents  MidturnPolicy = "my-agents"
+	MidturnPolicyOwnerOnly MidturnPolicy = "owner-only"
+)
+
+// Valid indicates whether the value is a known member of the MidturnPolicy enum.
+func (e MidturnPolicy) Valid() bool {
+	switch e {
+	case MidturnPolicyMyAgents:
+		return true
+	case MidturnPolicyOwnerOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MidturnPolicyViewSource.
+const (
+	AgentOverride MidturnPolicyViewSource = "agent_override"
+	PersonDefault MidturnPolicyViewSource = "person_default"
+)
+
+// Valid indicates whether the value is a known member of the MidturnPolicyViewSource enum.
+func (e MidturnPolicyViewSource) Valid() bool {
+	switch e {
+	case AgentOverride:
+		return true
+	case PersonDefault:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NewAccessKeyState.
 const (
 	NewAccessKeyStateExpired NewAccessKeyState = "expired"
@@ -1545,6 +1785,390 @@ func (e NewAccessKeyState) Valid() bool {
 	case NewAccessKeyStateRevoked:
 		return true
 	case NewAccessKeyStateWorking:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingForbidden1ErrorCode.
+const (
+	OnboardingForbidden1ErrorCodeAccessKeyInvalid                OnboardingForbidden1ErrorCode = "access_key_invalid"
+	OnboardingForbidden1ErrorCodeAckOutOfRange                   OnboardingForbidden1ErrorCode = "ack_out_of_range"
+	OnboardingForbidden1ErrorCodeAddPeopleNotAllowed             OnboardingForbidden1ErrorCode = "add_people_not_allowed"
+	OnboardingForbidden1ErrorCodeAdminRequired                   OnboardingForbidden1ErrorCode = "admin_required"
+	OnboardingForbidden1ErrorCodeAgentNotFound                   OnboardingForbidden1ErrorCode = "agent_not_found"
+	OnboardingForbidden1ErrorCodeAgentOwnerRequired              OnboardingForbidden1ErrorCode = "agent_owner_required"
+	OnboardingForbidden1ErrorCodeAgentRemoved                    OnboardingForbidden1ErrorCode = "agent_removed"
+	OnboardingForbidden1ErrorCodeAgentSessionRequired            OnboardingForbidden1ErrorCode = "agent_session_required"
+	OnboardingForbidden1ErrorCodeAgentTokenRequired              OnboardingForbidden1ErrorCode = "agent_token_required"
+	OnboardingForbidden1ErrorCodeAlreadyOnBoard                  OnboardingForbidden1ErrorCode = "already_on_board"
+	OnboardingForbidden1ErrorCodeApprovalClosed                  OnboardingForbidden1ErrorCode = "approval_closed"
+	OnboardingForbidden1ErrorCodeApprovalNotFound                OnboardingForbidden1ErrorCode = "approval_not_found"
+	OnboardingForbidden1ErrorCodeAskClosed                       OnboardingForbidden1ErrorCode = "ask_closed"
+	OnboardingForbidden1ErrorCodeAskInvalid                      OnboardingForbidden1ErrorCode = "ask_invalid"
+	OnboardingForbidden1ErrorCodeBoardArchived                   OnboardingForbidden1ErrorCode = "board_archived"
+	OnboardingForbidden1ErrorCodeBoardCreationRestricted         OnboardingForbidden1ErrorCode = "board_creation_restricted"
+	OnboardingForbidden1ErrorCodeBoardCreatorRequired            OnboardingForbidden1ErrorCode = "board_creator_required"
+	OnboardingForbidden1ErrorCodeBoardNameTaken                  OnboardingForbidden1ErrorCode = "board_name_taken"
+	OnboardingForbidden1ErrorCodeBoardNotArchived                OnboardingForbidden1ErrorCode = "board_not_archived"
+	OnboardingForbidden1ErrorCodeBoardNotFound                   OnboardingForbidden1ErrorCode = "board_not_found"
+	OnboardingForbidden1ErrorCodeBriefExists                     OnboardingForbidden1ErrorCode = "brief_exists"
+	OnboardingForbidden1ErrorCodeBriefPathReserved               OnboardingForbidden1ErrorCode = "brief_path_reserved"
+	OnboardingForbidden1ErrorCodeBroadcastNotAllowed             OnboardingForbidden1ErrorCode = "broadcast_not_allowed"
+	OnboardingForbidden1ErrorCodeBrowserSessionNotFound          OnboardingForbidden1ErrorCode = "browser_session_not_found"
+	OnboardingForbidden1ErrorCodeBrowserSessionRequired          OnboardingForbidden1ErrorCode = "browser_session_required"
+	OnboardingForbidden1ErrorCodeBrowserSessionSwitchUnconfirmed OnboardingForbidden1ErrorCode = "browser_session_switch_unconfirmed"
+	OnboardingForbidden1ErrorCodeCsrfTokenInvalid                OnboardingForbidden1ErrorCode = "csrf_token_invalid"
+	OnboardingForbidden1ErrorCodeDelegationRevoked               OnboardingForbidden1ErrorCode = "delegation_revoked"
+	OnboardingForbidden1ErrorCodeFileChanged                     OnboardingForbidden1ErrorCode = "file_changed"
+	OnboardingForbidden1ErrorCodeFileExists                      OnboardingForbidden1ErrorCode = "file_exists"
+	OnboardingForbidden1ErrorCodeFileHasSecret                   OnboardingForbidden1ErrorCode = "file_has_secret"
+	OnboardingForbidden1ErrorCodeFileNameTaken                   OnboardingForbidden1ErrorCode = "file_name_taken"
+	OnboardingForbidden1ErrorCodeFileNotFound                    OnboardingForbidden1ErrorCode = "file_not_found"
+	OnboardingForbidden1ErrorCodeFileTooLarge                    OnboardingForbidden1ErrorCode = "file_too_large"
+	OnboardingForbidden1ErrorCodeForbidden                       OnboardingForbidden1ErrorCode = "forbidden"
+	OnboardingForbidden1ErrorCodeGuestCodeNotForMembers          OnboardingForbidden1ErrorCode = "guest_code_not_for_members"
+	OnboardingForbidden1ErrorCodeGuestNotAllowed                 OnboardingForbidden1ErrorCode = "guest_not_allowed"
+	OnboardingForbidden1ErrorCodeHandleInvalid                   OnboardingForbidden1ErrorCode = "handle_invalid"
+	OnboardingForbidden1ErrorCodeHandleTaken                     OnboardingForbidden1ErrorCode = "handle_taken"
+	OnboardingForbidden1ErrorCodeHostNotAllowed                  OnboardingForbidden1ErrorCode = "host_not_allowed"
+	OnboardingForbidden1ErrorCodeHumanTokenRequired              OnboardingForbidden1ErrorCode = "human_token_required"
+	OnboardingForbidden1ErrorCodeIdempotencyConflict             OnboardingForbidden1ErrorCode = "idempotency_conflict"
+	OnboardingForbidden1ErrorCodeInternal                        OnboardingForbidden1ErrorCode = "internal"
+	OnboardingForbidden1ErrorCodeInvalidRequest                  OnboardingForbidden1ErrorCode = "invalid_request"
+	OnboardingForbidden1ErrorCodeInvalidTarget                   OnboardingForbidden1ErrorCode = "invalid_target"
+	OnboardingForbidden1ErrorCodeInviteInvalid                   OnboardingForbidden1ErrorCode = "invite_invalid"
+	OnboardingForbidden1ErrorCodeInviteNotFound                  OnboardingForbidden1ErrorCode = "invite_not_found"
+	OnboardingForbidden1ErrorCodeJoinCodeInvalid                 OnboardingForbidden1ErrorCode = "join_code_invalid"
+	OnboardingForbidden1ErrorCodeJoinCodeNotFound                OnboardingForbidden1ErrorCode = "join_code_not_found"
+	OnboardingForbidden1ErrorCodeJoinCodeNotYours                OnboardingForbidden1ErrorCode = "join_code_not_yours"
+	OnboardingForbidden1ErrorCodeKeyNameTaken                    OnboardingForbidden1ErrorCode = "key_name_taken"
+	OnboardingForbidden1ErrorCodeKeyNotFound                     OnboardingForbidden1ErrorCode = "key_not_found"
+	OnboardingForbidden1ErrorCodeLastAdmin                       OnboardingForbidden1ErrorCode = "last_admin"
+	OnboardingForbidden1ErrorCodeLastOwner                       OnboardingForbidden1ErrorCode = "last_owner"
+	OnboardingForbidden1ErrorCodeLineUntilPast                   OnboardingForbidden1ErrorCode = "line_until_past"
+	OnboardingForbidden1ErrorCodeLoginCodeInvalid                OnboardingForbidden1ErrorCode = "login_code_invalid"
+	OnboardingForbidden1ErrorCodeMachineRequestInvalid           OnboardingForbidden1ErrorCode = "machine_request_invalid"
+	OnboardingForbidden1ErrorCodeMachineRequestRefused           OnboardingForbidden1ErrorCode = "machine_request_refused"
+	OnboardingForbidden1ErrorCodeMemberNotFound                  OnboardingForbidden1ErrorCode = "member_not_found"
+	OnboardingForbidden1ErrorCodeMessageNotFound                 OnboardingForbidden1ErrorCode = "message_not_found"
+	OnboardingForbidden1ErrorCodeMessageTooLarge                 OnboardingForbidden1ErrorCode = "message_too_large"
+	OnboardingForbidden1ErrorCodeNameTaken                       OnboardingForbidden1ErrorCode = "name_taken"
+	OnboardingForbidden1ErrorCodeNotAsked                        OnboardingForbidden1ErrorCode = "not_asked"
+	OnboardingForbidden1ErrorCodeNotFound                        OnboardingForbidden1ErrorCode = "not_found"
+	OnboardingForbidden1ErrorCodeNotImplemented                  OnboardingForbidden1ErrorCode = "not_implemented"
+	OnboardingForbidden1ErrorCodeNotOnBoard                      OnboardingForbidden1ErrorCode = "not_on_board"
+	OnboardingForbidden1ErrorCodeNotOnTask                       OnboardingForbidden1ErrorCode = "not_on_task"
+	OnboardingForbidden1ErrorCodeOriginNotAllowed                OnboardingForbidden1ErrorCode = "origin_not_allowed"
+	OnboardingForbidden1ErrorCodeOwnerRequired                   OnboardingForbidden1ErrorCode = "owner_required"
+	OnboardingForbidden1ErrorCodePairingAmbiguous                OnboardingForbidden1ErrorCode = "pairing_ambiguous"
+	OnboardingForbidden1ErrorCodePairingChanged                  OnboardingForbidden1ErrorCode = "pairing_changed"
+	OnboardingForbidden1ErrorCodePairingClosed                   OnboardingForbidden1ErrorCode = "pairing_closed"
+	OnboardingForbidden1ErrorCodePairingNotFound                 OnboardingForbidden1ErrorCode = "pairing_not_found"
+	OnboardingForbidden1ErrorCodePersonIsGuest                   OnboardingForbidden1ErrorCode = "person_is_guest"
+	OnboardingForbidden1ErrorCodePersonNotFound                  OnboardingForbidden1ErrorCode = "person_not_found"
+	OnboardingForbidden1ErrorCodePersonNotOnBoard                OnboardingForbidden1ErrorCode = "person_not_on_board"
+	OnboardingForbidden1ErrorCodeQueueReportConflict             OnboardingForbidden1ErrorCode = "queue_report_conflict"
+	OnboardingForbidden1ErrorCodeRateLimited                     OnboardingForbidden1ErrorCode = "rate_limited"
+	OnboardingForbidden1ErrorCodeReplyHasNoRecipients            OnboardingForbidden1ErrorCode = "reply_has_no_recipients"
+	OnboardingForbidden1ErrorCodeRoleNotFound                    OnboardingForbidden1ErrorCode = "role_not_found"
+	OnboardingForbidden1ErrorCodeSeatTokenReplaced               OnboardingForbidden1ErrorCode = "seat_token_replaced"
+	OnboardingForbidden1ErrorCodeServerAdminRequired             OnboardingForbidden1ErrorCode = "server_admin_required"
+	OnboardingForbidden1ErrorCodeStandsChanged                   OnboardingForbidden1ErrorCode = "stands_changed"
+	OnboardingForbidden1ErrorCodeTaskClosed                      OnboardingForbidden1ErrorCode = "task_closed"
+	OnboardingForbidden1ErrorCodeTaskNotFound                    OnboardingForbidden1ErrorCode = "task_not_found"
+	OnboardingForbidden1ErrorCodeTaskPrefixInvalid               OnboardingForbidden1ErrorCode = "task_prefix_invalid"
+	OnboardingForbidden1ErrorCodeTaskPrefixTaken                 OnboardingForbidden1ErrorCode = "task_prefix_taken"
+	OnboardingForbidden1ErrorCodeTaskTaken                       OnboardingForbidden1ErrorCode = "task_taken"
+	OnboardingForbidden1ErrorCodeTemplateNotFound                OnboardingForbidden1ErrorCode = "template_not_found"
+	OnboardingForbidden1ErrorCodeUnauthorized                    OnboardingForbidden1ErrorCode = "unauthorized"
+	OnboardingForbidden1ErrorCodeUnknownRecipient                OnboardingForbidden1ErrorCode = "unknown_recipient"
+	OnboardingForbidden1ErrorCodeUrgentNotAllowed                OnboardingForbidden1ErrorCode = "urgent_not_allowed"
+	OnboardingForbidden1ErrorCodeVersionNotFound                 OnboardingForbidden1ErrorCode = "version_not_found"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingForbidden1ErrorCode enum.
+func (e OnboardingForbidden1ErrorCode) Valid() bool {
+	switch e {
+	case OnboardingForbidden1ErrorCodeAccessKeyInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeAckOutOfRange:
+		return true
+	case OnboardingForbidden1ErrorCodeAddPeopleNotAllowed:
+		return true
+	case OnboardingForbidden1ErrorCodeAdminRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeAgentNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeAgentOwnerRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeAgentRemoved:
+		return true
+	case OnboardingForbidden1ErrorCodeAgentSessionRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeAgentTokenRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeAlreadyOnBoard:
+		return true
+	case OnboardingForbidden1ErrorCodeApprovalClosed:
+		return true
+	case OnboardingForbidden1ErrorCodeApprovalNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeAskClosed:
+		return true
+	case OnboardingForbidden1ErrorCodeAskInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeBoardArchived:
+		return true
+	case OnboardingForbidden1ErrorCodeBoardCreationRestricted:
+		return true
+	case OnboardingForbidden1ErrorCodeBoardCreatorRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeBoardNameTaken:
+		return true
+	case OnboardingForbidden1ErrorCodeBoardNotArchived:
+		return true
+	case OnboardingForbidden1ErrorCodeBoardNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeBriefExists:
+		return true
+	case OnboardingForbidden1ErrorCodeBriefPathReserved:
+		return true
+	case OnboardingForbidden1ErrorCodeBroadcastNotAllowed:
+		return true
+	case OnboardingForbidden1ErrorCodeBrowserSessionNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeBrowserSessionRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeBrowserSessionSwitchUnconfirmed:
+		return true
+	case OnboardingForbidden1ErrorCodeCsrfTokenInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeDelegationRevoked:
+		return true
+	case OnboardingForbidden1ErrorCodeFileChanged:
+		return true
+	case OnboardingForbidden1ErrorCodeFileExists:
+		return true
+	case OnboardingForbidden1ErrorCodeFileHasSecret:
+		return true
+	case OnboardingForbidden1ErrorCodeFileNameTaken:
+		return true
+	case OnboardingForbidden1ErrorCodeFileNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeFileTooLarge:
+		return true
+	case OnboardingForbidden1ErrorCodeForbidden:
+		return true
+	case OnboardingForbidden1ErrorCodeGuestCodeNotForMembers:
+		return true
+	case OnboardingForbidden1ErrorCodeGuestNotAllowed:
+		return true
+	case OnboardingForbidden1ErrorCodeHandleInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeHandleTaken:
+		return true
+	case OnboardingForbidden1ErrorCodeHostNotAllowed:
+		return true
+	case OnboardingForbidden1ErrorCodeHumanTokenRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeIdempotencyConflict:
+		return true
+	case OnboardingForbidden1ErrorCodeInternal:
+		return true
+	case OnboardingForbidden1ErrorCodeInvalidRequest:
+		return true
+	case OnboardingForbidden1ErrorCodeInvalidTarget:
+		return true
+	case OnboardingForbidden1ErrorCodeInviteInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeInviteNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeJoinCodeInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeJoinCodeNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeJoinCodeNotYours:
+		return true
+	case OnboardingForbidden1ErrorCodeKeyNameTaken:
+		return true
+	case OnboardingForbidden1ErrorCodeKeyNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeLastAdmin:
+		return true
+	case OnboardingForbidden1ErrorCodeLastOwner:
+		return true
+	case OnboardingForbidden1ErrorCodeLineUntilPast:
+		return true
+	case OnboardingForbidden1ErrorCodeLoginCodeInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeMachineRequestInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeMachineRequestRefused:
+		return true
+	case OnboardingForbidden1ErrorCodeMemberNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeMessageNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeMessageTooLarge:
+		return true
+	case OnboardingForbidden1ErrorCodeNameTaken:
+		return true
+	case OnboardingForbidden1ErrorCodeNotAsked:
+		return true
+	case OnboardingForbidden1ErrorCodeNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeNotImplemented:
+		return true
+	case OnboardingForbidden1ErrorCodeNotOnBoard:
+		return true
+	case OnboardingForbidden1ErrorCodeNotOnTask:
+		return true
+	case OnboardingForbidden1ErrorCodeOriginNotAllowed:
+		return true
+	case OnboardingForbidden1ErrorCodeOwnerRequired:
+		return true
+	case OnboardingForbidden1ErrorCodePairingAmbiguous:
+		return true
+	case OnboardingForbidden1ErrorCodePairingChanged:
+		return true
+	case OnboardingForbidden1ErrorCodePairingClosed:
+		return true
+	case OnboardingForbidden1ErrorCodePairingNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodePersonIsGuest:
+		return true
+	case OnboardingForbidden1ErrorCodePersonNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodePersonNotOnBoard:
+		return true
+	case OnboardingForbidden1ErrorCodeQueueReportConflict:
+		return true
+	case OnboardingForbidden1ErrorCodeRateLimited:
+		return true
+	case OnboardingForbidden1ErrorCodeReplyHasNoRecipients:
+		return true
+	case OnboardingForbidden1ErrorCodeRoleNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeSeatTokenReplaced:
+		return true
+	case OnboardingForbidden1ErrorCodeServerAdminRequired:
+		return true
+	case OnboardingForbidden1ErrorCodeStandsChanged:
+		return true
+	case OnboardingForbidden1ErrorCodeTaskClosed:
+		return true
+	case OnboardingForbidden1ErrorCodeTaskNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeTaskPrefixInvalid:
+		return true
+	case OnboardingForbidden1ErrorCodeTaskPrefixTaken:
+		return true
+	case OnboardingForbidden1ErrorCodeTaskTaken:
+		return true
+	case OnboardingForbidden1ErrorCodeTemplateNotFound:
+		return true
+	case OnboardingForbidden1ErrorCodeUnauthorized:
+		return true
+	case OnboardingForbidden1ErrorCodeUnknownRecipient:
+		return true
+	case OnboardingForbidden1ErrorCodeUrgentNotAllowed:
+		return true
+	case OnboardingForbidden1ErrorCodeVersionNotFound:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PairingCredentialSide.
+const (
+	PairingCredentialSideInitiator PairingCredentialSide = "initiator"
+	PairingCredentialSideRecipient PairingCredentialSide = "recipient"
+)
+
+// Valid indicates whether the value is a known member of the PairingCredentialSide enum.
+func (e PairingCredentialSide) Valid() bool {
+	switch e {
+	case PairingCredentialSideInitiator:
+		return true
+	case PairingCredentialSideRecipient:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PairingRequestAwaiting.
+const (
+	PairingRequestAwaitingBoth      PairingRequestAwaiting = "both"
+	PairingRequestAwaitingInitiator PairingRequestAwaiting = "initiator"
+	PairingRequestAwaitingRecipient PairingRequestAwaiting = "recipient"
+)
+
+// Valid indicates whether the value is a known member of the PairingRequestAwaiting enum.
+func (e PairingRequestAwaiting) Valid() bool {
+	switch e {
+	case PairingRequestAwaitingBoth:
+		return true
+	case PairingRequestAwaitingInitiator:
+		return true
+	case PairingRequestAwaitingRecipient:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PairingRoundTripDirection.
+const (
+	InitiatorToRecipient PairingRoundTripDirection = "initiator_to_recipient"
+	RecipientToInitiator PairingRoundTripDirection = "recipient_to_initiator"
+)
+
+// Valid indicates whether the value is a known member of the PairingRoundTripDirection enum.
+func (e PairingRoundTripDirection) Valid() bool {
+	switch e {
+	case InitiatorToRecipient:
+		return true
+	case RecipientToInitiator:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PairingState.
+const (
+	PairingStateAwaitingAccount  PairingState = "awaiting_account"
+	PairingStateAwaitingEndpoint PairingState = "awaiting_endpoint"
+	PairingStateAwaitingSession  PairingState = "awaiting_session"
+	PairingStateCancelled        PairingState = "cancelled"
+	PairingStateDeclined         PairingState = "declined"
+	PairingStateExpired          PairingState = "expired"
+	PairingStateReady            PairingState = "ready"
+	PairingStateVerifying        PairingState = "verifying"
+)
+
+// Valid indicates whether the value is a known member of the PairingState enum.
+func (e PairingState) Valid() bool {
+	switch e {
+	case PairingStateAwaitingAccount:
+		return true
+	case PairingStateAwaitingEndpoint:
+		return true
+	case PairingStateAwaitingSession:
+		return true
+	case PairingStateCancelled:
+		return true
+	case PairingStateDeclined:
+		return true
+	case PairingStateExpired:
+		return true
+	case PairingStateReady:
+		return true
+	case PairingStateVerifying:
 		return true
 	default:
 		return false
@@ -1707,6 +2331,21 @@ const (
 func (e PersonRenamedEventType) Valid() bool {
 	switch e {
 	case PersonRenamed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonRoleChangedEventType.
+const (
+	PersonRoleChanged PersonRoleChangedEventType = "person.role_changed"
+)
+
+// Valid indicates whether the value is a known member of the PersonRoleChangedEventType enum.
+func (e PersonRoleChangedEventType) Valid() bool {
+	switch e {
+	case PersonRoleChanged:
 		return true
 	default:
 		return false
@@ -1926,6 +2565,21 @@ func (e Presence) Valid() bool {
 	}
 }
 
+// Defines values for QueuedReceiptBoundary.
+const (
+	TurnEnd QueuedReceiptBoundary = "turn_end"
+)
+
+// Valid indicates whether the value is a known member of the QueuedReceiptBoundary enum.
+func (e QueuedReceiptBoundary) Valid() bool {
+	switch e {
+	case TurnEnd:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReactionAddedEventType.
 const (
 	ReactionAdded ReactionAddedEventType = "reaction.added"
@@ -2016,6 +2670,24 @@ func (e ReactionRemovedEventType) Valid() bool {
 	}
 }
 
+// Defines values for ReceiptMidturnHint.
+const (
+	ReceiptMidturnHintOwnerOnly       ReceiptMidturnHint = "owner_only"
+	ReceiptMidturnHintPeerIfSupported ReceiptMidturnHint = "peer_if_supported"
+)
+
+// Valid indicates whether the value is a known member of the ReceiptMidturnHint enum.
+func (e ReceiptMidturnHint) Valid() bool {
+	switch e {
+	case ReceiptMidturnHintOwnerOnly:
+		return true
+	case ReceiptMidturnHintPeerIfSupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReceiptState.
 const (
 	ReceiptStatePending  ReceiptState = "pending"
@@ -2058,6 +2730,21 @@ func (e RecipientStatusState) Valid() bool {
 	}
 }
 
+// Defines values for RemovePersonActionKind.
+const (
+	RemovePerson RemovePersonActionKind = "remove_person"
+)
+
+// Valid indicates whether the value is a known member of the RemovePersonActionKind enum.
+func (e RemovePersonActionKind) Valid() bool {
+	switch e {
+	case RemovePerson:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RemovedAgentStatus.
 const (
 	RemovedAgentStatusLeft    RemovedAgentStatus = "left"
@@ -2094,6 +2781,21 @@ func (e RemovedBy) Valid() bool {
 	case RemovedByPerson:
 		return true
 	case RemovedBySelf:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RevokeKeyActionKind.
+const (
+	RevokeKey RevokeKeyActionKind = "revoke_key"
+)
+
+// Valid indicates whether the value is a known member of the RevokeKeyActionKind enum.
+func (e RevokeKeyActionKind) Valid() bool {
+	switch e {
+	case RevokeKey:
 		return true
 	default:
 		return false
@@ -2148,6 +2850,45 @@ func (e ServerInviteServerRole) Valid() bool {
 	}
 }
 
+// Defines values for ServerInviteMetadataState.
+const (
+	ServerInviteMetadataStateActive   ServerInviteMetadataState = "active"
+	ServerInviteMetadataStateExpired  ServerInviteMetadataState = "expired"
+	ServerInviteMetadataStateRedeemed ServerInviteMetadataState = "redeemed"
+	ServerInviteMetadataStateRevoked  ServerInviteMetadataState = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the ServerInviteMetadataState enum.
+func (e ServerInviteMetadataState) Valid() bool {
+	switch e {
+	case ServerInviteMetadataStateActive:
+		return true
+	case ServerInviteMetadataStateExpired:
+		return true
+	case ServerInviteMetadataStateRedeemed:
+		return true
+	case ServerInviteMetadataStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServerInviteRevocationRevoked.
+const (
+	True ServerInviteRevocationRevoked = true
+)
+
+// Valid indicates whether the value is a known member of the ServerInviteRevocationRevoked enum.
+func (e ServerInviteRevocationRevoked) Valid() bool {
+	switch e {
+	case True:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ServerRole.
 const (
 	ServerRoleAdmin  ServerRole = "admin"
@@ -2187,6 +2928,36 @@ func (e ServerRoleChangeServerRole) Valid() bool {
 	}
 }
 
+// Defines values for SetBoardPolicyActionKind.
+const (
+	SetBoardPolicy SetBoardPolicyActionKind = "set_board_policy"
+)
+
+// Valid indicates whether the value is a known member of the SetBoardPolicyActionKind enum.
+func (e SetBoardPolicyActionKind) Valid() bool {
+	switch e {
+	case SetBoardPolicy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetBoardRoleActionKind.
+const (
+	SetBoardRole SetBoardRoleActionKind = "set_board_role"
+)
+
+// Valid indicates whether the value is a known member of the SetBoardRoleActionKind enum.
+func (e SetBoardRoleActionKind) Valid() bool {
+	switch e {
+	case SetBoardRole:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SetLineRequestKind.
 const (
 	SetLineRequestKindPaused  SetLineRequestKind = "paused"
@@ -2217,6 +2988,39 @@ func (e SetLineRequestSource) Valid() bool {
 	case SetLineRequestSourceCommand:
 		return true
 	case SetLineRequestSourcePlan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetServerRoleActionKind.
+const (
+	SetServerRole SetServerRoleActionKind = "set_server_role"
+)
+
+// Valid indicates whether the value is a known member of the SetServerRoleActionKind enum.
+func (e SetServerRoleActionKind) Valid() bool {
+	switch e {
+	case SetServerRole:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetServerRoleActionRole.
+const (
+	SetServerRoleActionRoleAdmin  SetServerRoleActionRole = "admin"
+	SetServerRoleActionRoleMember SetServerRoleActionRole = "member"
+)
+
+// Valid indicates whether the value is a known member of the SetServerRoleActionRole enum.
+func (e SetServerRoleActionRole) Valid() bool {
+	switch e {
+	case SetServerRoleActionRoleAdmin:
+		return true
+	case SetServerRoleActionRoleMember:
 		return true
 	default:
 		return false
@@ -2478,6 +3282,15 @@ func (e ListTasksParamsState) Valid() bool {
 	}
 }
 
+// AcceptPairingRequest agent_id and generation must equal the authenticated recipient endpoint
+// credential bindings. Conflicts return pairing_changed without mutation.
+// Repeat acceptance of that endpoint is idempotent. Selection/replacement
+// belongs only to createPairingCredential, never this operation.
+type AcceptPairingRequest struct {
+	AgentId    string `json:"agent_id"`
+	Generation int    `json:"generation"`
+}
+
 // AccessKey defines model for AccessKey.
 type AccessKey struct {
 	// AgentSeats Agents whose tokens came from this key; they stop working with it.
@@ -2542,12 +3355,77 @@ type Actor struct {
 // ActorKind defines model for Actor.Kind.
 type ActorKind string
 
+// AddPeopleAction Adds only an ordinary member. No role field is accepted.
+type AddPeopleAction struct {
+	BoardId  string              `json:"board_id"`
+	Kind     AddPeopleActionKind `json:"kind"`
+	PersonId string              `json:"person_id"`
+}
+
+// AddPeopleActionKind defines model for AddPeopleAction.Kind.
+type AddPeopleActionKind string
+
 // AddPersonRequest defines model for AddPersonRequest.
 type AddPersonRequest struct {
 	// Handle A person's name on the server, unique there. It is also their member name on boards.
 	//
 	// Example: maya
 	Handle Handle `json:"handle"`
+}
+
+// AdminAction Exact closed payload. Names/handles never bind authority; ids are resolved before submission. Only invite_people and add_people can be allowed automatically. Server validation rejects unknown kinds and any extra field, and rechecks existing operation-specific safety constraints.
+type AdminAction struct {
+	union json.RawMessage
+}
+
+// AdminActionResult 202 is pending with no side effect; 200/201 is executed. Invite secrets appear only on the authenticated execution response, never in stored approval, listings, next or idempotent responses. A repeated executed approval cannot issue another invite or retrieve the old secret.
+type AdminActionResult struct {
+	// Approval Server-derived immutable owner, requesting agent and parent key; issuer is the server handling the request. payload_hash is SHA-256 of canonical action JSON including all ids. No secret is stored in an approval. Expired requests never execute. A terminal request cannot be modified or executed again.
+	Approval Approval      `json:"approval"`
+	Invite   *ServerInvite `json:"invite,omitempty"`
+
+	// Next D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+	Next  *NextStep              `json:"next,omitempty"`
+	State AdminActionResultState `json:"state"`
+}
+
+// AdminActionResultState defines model for AdminActionResult.State.
+type AdminActionResultState string
+
+// AdminAuthorization Immutable authorization provenance written with the action, never supplied
+// as authority by a client. via=allowance requires allowance_id and its exact
+// revision; via=approval requires approval_id. Both bind the authorizing person,
+// requesting agent, parent key and canonical action hash. No secret appears here.
+type AdminAuthorization struct {
+	AgentId           string                `json:"agent_id"`
+	AllowanceId       *string               `json:"allowance_id,omitempty"`
+	AllowanceRevision *int                  `json:"allowance_revision,omitempty"`
+	ApprovalId        *string               `json:"approval_id,omitempty"`
+	ParentKeyId       string                `json:"parent_key_id"`
+	PayloadHash       Hash                  `json:"payload_hash"`
+	PersonId          string                `json:"person_id"`
+	Via               AdminAuthorizationVia `json:"via"`
+}
+
+// AdminAuthorizationVia defines model for AdminAuthorization.Via.
+type AdminAuthorizationVia string
+
+// AdminExecution Nonsecret immutable execution record, saved with the side effect and approval
+// in one transaction, for automatic allowance actions too. Cannot be overwritten
+// or removed by deciding/replaying an approval. Server-level actions without a
+// board event remain auditable through their terminal approval and execution;
+// listApprovals includes them subject to current owner/access checks. Actions
+// affecting boards also put this authorization in the existing event data,
+// covered by data_hash (the envelope and actor stay unchanged). This adds no new event type or server hash chain.
+type AdminExecution struct {
+	At Timestamp `json:"at"`
+
+	// Authorization Immutable authorization provenance written with the action, never supplied
+	// as authority by a client. via=allowance requires allowance_id and its exact
+	// revision; via=approval requires approval_id. Both bind the authorizing person,
+	// requesting agent, parent key and canonical action hash. No secret appears here.
+	Authorization AdminAuthorization `json:"authorization"`
+	InviteId      *string            `json:"invite_id,omitempty"`
 }
 
 // AgentDeliveryChangedEvent defines model for AgentDeliveryChangedEvent.
@@ -2711,10 +3589,16 @@ type AgentWork struct {
 
 	// Brief The board's brief, when the agent wrote its latest version; null otherwise.
 	Brief *struct {
-		At             Timestamp `json:"at"`
-		MessagesSince  int       `json:"messages_since"`
-		TasksDoneSince int       `json:"tasks_done_since"`
-		Version        int       `json:"version"`
+		At Timestamp `json:"at"`
+
+		// FileId Immutable file identity for keeper-nudge bookkeeping; replacement starts a new identity.
+		FileId        *string `json:"file_id,omitempty"`
+		MessagesSince int     `json:"messages_since"`
+
+		// Name The current brief format, for get and put hints.
+		Name           *AgentWorkBriefName `json:"name,omitempty"`
+		TasksDoneSince int                 `json:"tasks_done_since"`
+		Version        int                 `json:"version"`
 	} `json:"brief"`
 	CurrentTask *struct {
 		Id TaskID `json:"id"`
@@ -2744,6 +3628,27 @@ type AgentWork struct {
 	PostsWithoutTask int `json:"posts_without_task"`
 }
 
+// AgentWorkBriefName The current brief format, for get and put hints.
+type AgentWorkBriefName string
+
+// AllowApprovalRequest always is invalid_request for every category except invite_people/add_people, even if the person could do the action.
+type AllowApprovalRequest struct {
+	Always *bool `json:"always,omitempty"`
+}
+
+// Allowance Per-issuer person allowance, off by default (empty categories). Only ordinary-member admission. Existing D205 board creation remains unchanged. Every use rechecks current person and parent-key authority; turning off prevents future automatic execution, including replay.
+type Allowance struct {
+	Categories []AllowanceCategory `json:"categories"`
+	Id         string              `json:"id"`
+	PersonId   string              `json:"person_id"`
+
+	// Revision Increases on each effective change; execution records freeze the revision used.
+	Revision int `json:"revision"`
+}
+
+// AllowanceCategory defines model for AllowanceCategory.
+type AllowanceCategory string
+
 // AnswerRequest Marks a reply as the answer to the ask in `reply_to`, or its withdrawal.
 type AnswerRequest struct {
 	// Option The option picked, counting from 1.
@@ -2751,6 +3656,41 @@ type AnswerRequest struct {
 
 	// Withdrawn The asker no longer needs an answer.
 	Withdrawn *bool `json:"withdrawn,omitempty"`
+}
+
+// Approval Server-derived immutable owner, requesting agent and parent key; issuer is the server handling the request. payload_hash is SHA-256 of canonical action JSON including all ids. No secret is stored in an approval. Expired requests never execute. A terminal request cannot be modified or executed again.
+type Approval struct {
+	// Action Exact closed payload. Names/handles never bind authority; ids are resolved before submission. Only invite_people and add_people can be allowed automatically. Server validation rejects unknown kinds and any extra field, and rechecks existing operation-specific safety constraints.
+	Action    AdminAction `json:"action"`
+	AgentId   string      `json:"agent_id"`
+	CreatedAt Timestamp   `json:"created_at"`
+	DecidedAt *Timestamp  `json:"decided_at,omitempty"`
+
+	// Execution Nonsecret immutable execution record, saved with the side effect and approval
+	// in one transaction, for automatic allowance actions too. Cannot be overwritten
+	// or removed by deciding/replaying an approval. Server-level actions without a
+	// board event remain auditable through their terminal approval and execution;
+	// listApprovals includes them subject to current owner/access checks. Actions
+	// affecting boards also put this authorization in the existing event data,
+	// covered by data_hash (the envelope and actor stay unchanged). This adds no new event type or server hash chain.
+	Execution *AdminExecution `json:"execution,omitempty"`
+	ExpiresAt *Timestamp      `json:"expires_at,omitempty"`
+	Id        string          `json:"id"`
+
+	// Next D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+	Next        *NextStep     `json:"next,omitempty"`
+	ParentKeyId string        `json:"parent_key_id"`
+	PayloadHash Hash          `json:"payload_hash"`
+	PersonId    string        `json:"person_id"`
+	State       ApprovalState `json:"state"`
+}
+
+// ApprovalState defines model for Approval.State.
+type ApprovalState string
+
+// Approvals defines model for Approvals.
+type Approvals struct {
+	Approvals []Approval `json:"approvals"`
 }
 
 // ApproveFileRequest defines model for ApproveFileRequest.
@@ -3191,7 +4131,13 @@ type BoardPolicyChangedEvent struct {
 	At      Timestamp `json:"at"`
 	BoardId string    `json:"board_id"`
 	Data    *struct {
-		After         Policy                                    `json:"after"`
+		After Policy `json:"after"`
+
+		// Authorization Immutable authorization provenance written with the action, never supplied
+		// as authority by a client. via=allowance requires allowance_id and its exact
+		// revision; via=approval requires approval_id. Both bind the authorizing person,
+		// requesting agent, parent key and canonical action hash. No secret appears here.
+		Authorization *AdminAuthorization                       `json:"authorization,omitempty"`
 		Before        Policy                                    `json:"before"`
 		PresetApplied *BoardPolicyChangedEventDataPresetApplied `json:"preset_applied"`
 	} `json:"data,omitempty"`
@@ -3447,6 +4393,58 @@ type BrowserTokensEnded struct {
 	Ended int `json:"ended"`
 }
 
+// ClientConnected 200 response only when client_token was supplied. The key is metadata with no token. Legacy redemption without client_token retains its existing 201 Connected response, including its one-time server-generated token.
+type ClientConnected struct {
+	// Key Access-key metadata that must not contain a token property.
+	Key ClientKeyMetadata `json:"key"`
+
+	// Onboarding Nonsecret original redemption outcome bound to the authenticated client-generated key. Original handle is provenance, not a lookup/select-existing-account mechanism. Returned only after checking the key/person still work and current visibility of every board/request. A removed membership is never recreated by recovery; inaccessible entries are omitted.
+	Onboarding OnboardingReceipt `json:"onboarding"`
+	Person     Person            `json:"person"`
+	ServerId   string            `json:"server_id"`
+}
+
+// ClientKeyMetadata Access-key metadata that must not contain a token property.
+type ClientKeyMetadata struct {
+	// AgentSeats Agents whose tokens came from this key; they stop working with it.
+	AgentSeats *int `json:"agent_seats,omitempty"`
+
+	// BrowserSessions Browser sessions started from this key that haven't expired or been ended; `GET /v1/browser-sessions?key=` lists them.
+	BrowserSessions *int      `json:"browser_sessions,omitempty"`
+	CreatedAt       Timestamp `json:"created_at"`
+
+	// Delegations Machine delegations made with this key that still work; they stop working with it.
+	Delegations *int `json:"delegations,omitempty"`
+
+	// ExpiresAt When the key stops working. Null for a key that doesn't expire: only the local
+	// server's own key, which is kept beside its database.
+	ExpiresAt *time.Time `json:"expires_at"`
+	Id        string     `json:"id"`
+
+	// IdleExpirySeconds For a key that expires only once unused: each use moves `expires_at` this far
+	// ahead. Null for a key whose `expires_at` is fixed. A machine's key from
+	// `POST /v1/connect` has 7776000 (90 days).
+	IdleExpirySeconds *int `json:"idle_expiry_seconds,omitempty"`
+
+	// LastUsedAt When the key, or a browser login or agent token it started, was last used,
+	// accurate to a minute. Null before its first use.
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+
+	// Name What the key is for, usually the machine that keeps it.
+	//
+	// Example: maya-laptop
+	Name string `json:"name"`
+
+	// RevokedAt When the key was revoked; null while it isn't.
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+
+	// State Whether the key works now. Returned by `GET /v1/keys` and `DELETE /v1/keys/{key}`.
+	State *ClientKeyMetadataState `json:"state,omitempty"`
+}
+
+// ClientKeyMetadataState Whether the key works now. Returned by `GET /v1/keys` and `DELETE /v1/keys/{key}`.
+type ClientKeyMetadataState string
+
 // CollectMachineRequest defines model for CollectMachineRequest.
 type CollectMachineRequest struct {
 	// Secret The `secret` from `POST /v1/machine-requests`.
@@ -3455,6 +4453,13 @@ type CollectMachineRequest struct {
 
 // ConnectRequest defines model for ConnectRequest.
 type ConnectRequest struct {
+	// ClientToken Optional canonical base64url token containing exactly 256 random bits,
+	// generated and durably saved mode 0600 by the client before redemption.
+	// Bound locally to this issuer and invite. Send over HTTPS (loopback HTTP
+	// remains allowed locally); the server derives its HMAC verifier and never
+	// logs, caches or returns this token. No client digest acts as a bearer.
+	// Supplied token selects the additive 200 ClientConnected response.
+	ClientToken *string `json:"client_token,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
 
 	// Handle The handle to take: lowercase letters, digits and single dashes, at most 40 characters.
@@ -3552,6 +4557,15 @@ type CreateDelegationRequest struct {
 
 // CreateInviteRequest defines model for CreateInviteRequest.
 type CreateInviteRequest struct {
+	// Boards Optional ordinary-member admissions by immutable board id. invite-people alone never grants board admission: each board additionally requires add-people allowance or current per-board agent-add authority (otherwise exact approval), as well as the person’s current add-member permission. Issuer needs
+	// current add-member authority for each board at issue and redemption, in
+	// addition to invite authority. Hidden boards return only board_not_found;
+	// server admin alone grants no access to another private board.
+	Boards *[]string `json:"boards,omitempty"`
+
+	// Pairing Optional pairing proposal riding on an invite. The initiating agent belongs to the inviter and one bundled board; exactly one board must be named when pairing is supplied. Work is untrusted content, not authority.
+	Pairing *InvitePairing `json:"pairing,omitempty"`
+
 	// TtlSeconds How long the invite works. Default 604800 (7 days).
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
 }
@@ -3574,6 +4588,37 @@ type CreateKeyRequest struct {
 
 	// TtlSeconds How long the key works. Default 7776000 (90 days).
 	TtlSeconds *int `json:"ttl_seconds,omitempty"`
+}
+
+// CreatePairingCredential Trusted runtime supplies the selected exact harness binding, not a model claim.
+// It creates 256 random bits and saves this endpoint token privately before this
+// call. Only the endpoint person's issuer-bound parent access key can mint it;
+// never a seat, browser or D197 delegation token. Server checks that agent is a
+// live seat owned by that person on this request's board and person matches side.
+// generation is the last-read request generation. A competing selection conflicts
+// unless replace is explicit; replacing either side increments generation and
+// revokes both old credentials and all verification evidence, even for a reused
+// seat id. The other side must obtain a fresh credential before verification.
+// Repeating the exact same selection/token is idempotent, not a generation bump.
+type CreatePairingCredential struct {
+	AgentId        string                      `json:"agent_id"`
+	ClientToken    *string                     `json:"client_token,omitempty"`
+	Generation     int                         `json:"generation"`
+	Replace        *bool                       `json:"replace,omitempty"`
+	RequestId      string                      `json:"request_id"`
+	SessionBinding Hash                        `json:"session_binding"`
+	Side           CreatePairingCredentialSide `json:"side"`
+}
+
+// CreatePairingCredentialSide defines model for CreatePairingCredential.Side.
+type CreatePairingCredentialSide string
+
+// CreatePairingRequest Initiating agent must belong to the authenticated inviter. Same-person requests need no allowance; other-person membership admission needs current inviter add-member authority and allowance/exact approval, unless the recipient self-joins an open board. Proposal text grants no control over another person or agent.
+type CreatePairingRequest struct {
+	BoardId           string `json:"board_id"`
+	InitiatingAgentId string `json:"initiating_agent_id"`
+	RecipientId       string `json:"recipient_id"`
+	Work              string `json:"work"`
 }
 
 // CreateTaskRequest defines model for CreateTaskRequest.
@@ -3627,6 +4672,28 @@ type DeliveryMode string
 // DeliveryModeSetting A delivery mode a person sets for their agent (see `DeliveryMode`).
 type DeliveryModeSetting string
 
+// DeliveryQueueReport Either a claim (expected_epoch only) or an update (epoch, revision and
+// messages); session and boot are required in both forms. Mixing forms or
+// leaving an update field out is refused with invalid_request (422).
+type DeliveryQueueReport struct {
+	Boot          string                   `json:"boot"`
+	Epoch         *int64                   `json:"epoch,omitempty"`
+	ExpectedEpoch *int64                   `json:"expected_epoch,omitempty"`
+	Messages      *[]QueuedMessageIdentity `json:"messages,omitempty"`
+	Revision      *int64                   `json:"revision,omitempty"`
+	Session       string                   `json:"session"`
+}
+
+// DeliveryQueueView The own-agent reporter fence. No body or other agent's state. expires_at is
+// present only while a reported observation is unexpired; claims have none.
+type DeliveryQueueView struct {
+	BoardId   string     `json:"board_id"`
+	Epoch     int64      `json:"epoch"`
+	ExpiresAt *Timestamp `json:"expires_at,omitempty"`
+	MemberId  string     `json:"member_id"`
+	Revision  int64      `json:"revision"`
+}
+
 // DeliverySetting defines model for DeliverySetting.
 type DeliverySetting struct {
 	// Agent Unique per board. Agents get their harness's name (`claude`, `codex`), or their role's when no harness is given, then `-2`, `-3`… unless they set one.
@@ -3671,6 +4738,9 @@ type Error struct {
 
 		// Message What went wrong, in one sentence.
 		Message string `json:"message"`
+
+		// Next D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+		Next *NextStep `json:"next,omitempty"`
 	} `json:"error"`
 }
 
@@ -4079,6 +5149,20 @@ type Harness = string
 // Hash defines model for Hash.
 type Hash = string
 
+// HeldAdminActionResult No side effect; exact approval and runnable command handover are required.
+type HeldAdminActionResult struct {
+	// Approval Server-derived immutable owner, requesting agent and parent key; issuer is the server handling the request. payload_hash is SHA-256 of canonical action JSON including all ids. No secret is stored in an approval. Expired requests never execute. A terminal request cannot be modified or executed again.
+	Approval Approval      `json:"approval"`
+	Invite   *ServerInvite `json:"invite,omitempty"`
+
+	// Next D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+	Next  NextStep                   `json:"next"`
+	State HeldAdminActionResultState `json:"state"`
+}
+
+// HeldAdminActionResultState defines model for HeldAdminActionResult.State.
+type HeldAdminActionResultState string
+
 // HiddenBoard A private board a server admin isn't on, as they see it: that it exists, and
 // nothing of its name, title, people or content.
 type HiddenBoard struct {
@@ -4127,6 +5211,9 @@ type Inbox struct {
 	// Board Example: writer-reviewer
 	Board BoardName `json:"board"`
 
+	// BoardId The immutable board identity for this own-token inbox read; absent on older servers.
+	BoardId *string `json:"board_id,omitempty"`
+
 	// Cursor The agent's current read cursor (unchanged by this call).
 	Cursor int `json:"cursor"`
 
@@ -4144,6 +5231,13 @@ type Inbox struct {
 	MemberId *string   `json:"member_id,omitempty"`
 	Messages []Message `json:"messages"`
 
+	// MidturnPolicy The agent's effective own-person policy, read in the same transaction as
+	// these messages and current membership. Missing or a failed fresh inbox
+	// read never authorizes peer mid-turn delivery. The message's authoritative
+	// sender classification identifies same-owner agents using immutable ids;
+	// names and display owners grant no authority.
+	MidturnPolicy *MidturnPolicy `json:"midturn_policy,omitempty"`
+
 	// More True if `limit` cut the list short.
 	More bool `json:"more"`
 
@@ -4152,6 +5246,21 @@ type Inbox struct {
 	// Absent from servers without tasks.
 	Work *AgentWork `json:"work,omitempty"`
 }
+
+// InvitePairing Optional pairing proposal riding on an invite. The initiating agent belongs to the inviter and one bundled board; exactly one board must be named when pairing is supplied. Work is untrusted content, not authority.
+type InvitePairing struct {
+	InitiatingAgentId string `json:"initiating_agent_id"`
+	Work              string `json:"work"`
+}
+
+// InvitePeopleAction defines model for InvitePeopleAction.
+type InvitePeopleAction struct {
+	Invite CreateInviteRequest    `json:"invite"`
+	Kind   InvitePeopleActionKind `json:"kind"`
+}
+
+// InvitePeopleActionKind defines model for InvitePeopleAction.Kind.
+type InvitePeopleActionKind string
 
 // JoinCode defines model for JoinCode.
 type JoinCode struct {
@@ -4686,9 +5795,21 @@ type Message struct {
 	// posted before the server read mentions.
 	Mentions []Mention `json:"mentions"`
 
+	// MidturnPeerSenderId Fresh inbox-only eligibility for an urgent message explicitly addressed to
+	// this agent. Names the currently active sending agent's immutable member id
+	// only when both agents belong to the same current person. Absent otherwise.
+	// This does not authorize a handoff: the daemon also checks current policy,
+	// mode, turn cap and live harness capabilities. Handles and sender labels
+	// cannot substitute for this field. Older servers leave peer delivery queued.
+	MidturnPeerSenderId *string `json:"midturn_peer_sender_id,omitempty"`
+
 	// Reactions The reactions on the message, one entry per emoji anyone reacted with, in the
 	// fixed order of the set (👍 ✅ 👀 ❤️ 🎉 ❓). Empty when there are none.
-	Reactions  []Reaction  `json:"reactions"`
+	Reactions []Reaction `json:"reactions"`
+
+	// Redactions Secrets the server removed from `body`, by kind and count. Reserved for
+	// message redaction, which is planned: today the server does not scan message
+	// text, so this is always empty.
 	Redactions []Redaction `json:"redactions"`
 
 	// ReplyCount For a message that starts a thread, how many replies in the thread the reader
@@ -4884,6 +6005,35 @@ type MessageStatus struct {
 	Recipients []RecipientStatus `json:"recipients"`
 }
 
+// MidturnPolicy owner-only permits the recipient's person at tool boundaries. my-agents also
+// permits eligible same-owner urgent direct agent messages (D221). It changes
+// neither delivery mode nor access and never interrupts a running tool.
+type MidturnPolicy string
+
+// MidturnPolicyView defines model for MidturnPolicyView.
+type MidturnPolicyView struct {
+	Changed *bool `json:"changed,omitempty"`
+
+	// Overrides Own active agent overrides; absent for an agent token.
+	Overrides *[]struct {
+		MemberId string `json:"member_id"`
+
+		// Policy owner-only permits the recipient's person at tool boundaries. my-agents also
+		// permits eligible same-owner urgent direct agent messages (D221). It changes
+		// neither delivery mode nor access and never interrupts a running tool.
+		Policy MidturnPolicy `json:"policy"`
+	} `json:"overrides,omitempty"`
+
+	// Policy owner-only permits the recipient's person at tool boundaries. my-agents also
+	// permits eligible same-owner urgent direct agent messages (D221). It changes
+	// neither delivery mode nor access and never interrupts a running tool.
+	Policy MidturnPolicy           `json:"policy"`
+	Source MidturnPolicyViewSource `json:"source"`
+}
+
+// MidturnPolicyViewSource defines model for MidturnPolicyView.Source.
+type MidturnPolicyViewSource string
+
 // NewAccessKey defines model for NewAccessKey.
 type NewAccessKey struct {
 	// AgentSeats Agents whose tokens came from this key; they stop working with it.
@@ -4940,6 +6090,160 @@ type NewDelegation struct {
 	// Token Shown once. Send it as `Authorization: Bearer <token>` to `GET /v1/boards`, `POST /v1/join` and `POST /v1/delegations/boards`; nothing else accepts it.
 	Token string `json:"token"`
 }
+
+// NextStep D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+type NextStep struct {
+	// BoardView The location of the matching card in the board view; absent when no browser action exists.
+	BoardView *string `json:"board_view,omitempty"`
+
+	// Command An exact, shell-quoted command with actual immutable ids and issuer URL; no placeholders or secrets.
+	Command string `json:"command"`
+
+	// Resume The precise harness action or words to resume, and what completes after it.
+	Resume string `json:"resume"`
+}
+
+// OnboardingError Person-only onboarding refusal with a concrete safe command for the person's terminal.
+type OnboardingError struct {
+	Error struct {
+		// Next D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+		Next NextStep `json:"next"`
+	} `json:"error"`
+}
+
+// OnboardingForbidden A human_token_required refusal requires next.command. Existing authentication
+// and permission failures, including removed-seat agent_removed before dispatch,
+// retain the ordinary error shape and do not invent onboarding authority.
+type OnboardingForbidden struct {
+	union json.RawMessage
+}
+
+// OnboardingForbidden1 defines model for OnboardingForbidden.1.
+type OnboardingForbidden1 struct {
+	Error struct {
+		// Code Stable, machine-readable.
+		Code OnboardingForbidden1ErrorCode `json:"code"`
+
+		// Details Optional structured context, e.g. `{"choices":["writer","reviewer"]}`.
+		Details *map[string]interface{} `json:"details,omitempty"`
+
+		// Hint The next thing to do, ideally a command.
+		Hint string `json:"hint"`
+
+		// Message What went wrong, in one sentence.
+		Message string `json:"message"`
+
+		// Next D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+		Next *NextStep `json:"next,omitempty"`
+	} `json:"error"`
+}
+
+// OnboardingForbidden1ErrorCode Stable, machine-readable.
+type OnboardingForbidden1ErrorCode string
+
+// OnboardingReceipt Nonsecret original redemption outcome bound to the authenticated client-generated key. Original handle is provenance, not a lookup/select-existing-account mechanism. Returned only after checking the key/person still work and current visibility of every board/request. A removed membership is never recreated by recovery; inaccessible entries are omitted.
+type OnboardingReceipt struct {
+	Boards []string `json:"boards"`
+
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle           Handle  `json:"handle"`
+	InviteId         string  `json:"invite_id"`
+	KeyId            string  `json:"key_id"`
+	PairingRequestId *string `json:"pairing_request_id,omitempty"`
+	PersonId         string  `json:"person_id"`
+	ServerId         string  `json:"server_id"`
+}
+
+// PairingCredential Nonsecret metadata. The server stores only its keyed HMAC verifier; the secret
+// is never returned, logged, cached or placed on the control socket/hooks/model.
+// The daemon holds it for the selected runtime only. Bound to issuer, parent key,
+// person, request, side, seat, exact session binding and current generation.
+// It expires after 10 minutes or earlier with parent revocation/expiry, removal,
+// endpoint replacement or terminal request. While still verifying against an offline peer, the daemon re-mints its own short-lived credential for the same exact session and generation after fresh authority checks; renewal neither replaces endpoints nor resets generation/evidence. Parent revocation, expiry, removal and terminal states never renew. It grants only getPairingRequest,
+// acceptPairingRequest and verifyPairingRoundTrip for this one request; every
+// other operation refuses. It cannot invite, change allowances, add people or
+// post arbitrary messages. Its valid possession authenticates the runtime's
+// confirmation report, not a permanent seat token claiming a new generation.
+type PairingCredential struct {
+	// Endpoint Permanent board-seat identity and server-controlled endpoint generation. The daemon binds this to an exact harness session; recent activity never chooses it. Replacing the runtime session requires a new generation even if the seat id is reused.
+	Endpoint  PairingEndpoint `json:"endpoint"`
+	ExpiresAt Timestamp       `json:"expires_at"`
+	Id        string          `json:"id"`
+
+	// Request Before redemption invite_id identifies the invitation and state is awaiting_account. After redemption recipient_id identifies its new person. Views require current caller visibility and ownership/participation. No invite secret or token appears here. Ready means both current-generation round trips were verified, not merely that both endpoints were selected.
+	Request PairingRequest        `json:"request"`
+	Side    PairingCredentialSide `json:"side"`
+}
+
+// PairingCredentialSide defines model for PairingCredential.Side.
+type PairingCredentialSide string
+
+// PairingEndpoint Permanent board-seat identity and server-controlled endpoint generation. The daemon binds this to an exact harness session; recent activity never chooses it. Replacing the runtime session requires a new generation even if the seat id is reused.
+type PairingEndpoint struct {
+	AgentId    string `json:"agent_id"`
+	Generation int    `json:"generation"`
+	PersonId   string `json:"person_id"`
+
+	// SessionBinding Issuer-bound trusted-runtime binding to this exact harness conversation; not a process id or activity guess.
+	SessionBinding string `json:"session_binding"`
+}
+
+// PairingRequest Before redemption invite_id identifies the invitation and state is awaiting_account. After redemption recipient_id identifies its new person. Views require current caller visibility and ownership/participation. No invite secret or token appears here. Ready means both current-generation round trips were verified, not merely that both endpoints were selected.
+type PairingRequest struct {
+	Awaiting          *PairingRequestAwaiting `json:"awaiting,omitempty"`
+	BoardId           string                  `json:"board_id"`
+	CreatedAt         Timestamp               `json:"created_at"`
+	ExpiresAt         Timestamp               `json:"expires_at"`
+	Generation        int                     `json:"generation"`
+	Id                string                  `json:"id"`
+	InitiatingAgentId string                  `json:"initiating_agent_id"`
+
+	// Initiator Permanent board-seat identity and server-controlled endpoint generation. The daemon binds this to an exact harness session; recent activity never chooses it. Replacing the runtime session requires a new generation even if the seat id is reused.
+	Initiator *PairingEndpoint `json:"initiator,omitempty"`
+	InviteId  *string          `json:"invite_id,omitempty"`
+	InviterId string           `json:"inviter_id"`
+
+	// Next D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+	Next *NextStep `json:"next,omitempty"`
+
+	// Recipient Permanent board-seat identity and server-controlled endpoint generation. The daemon binds this to an exact harness session; recent activity never chooses it. Replacing the runtime session requires a new generation even if the seat id is reused.
+	Recipient   *PairingEndpoint `json:"recipient,omitempty"`
+	RecipientId *string          `json:"recipient_id,omitempty"`
+	ServerId    string           `json:"server_id"`
+	State       PairingState     `json:"state"`
+	Work        string           `json:"work"`
+}
+
+// PairingRequestAwaiting defines model for PairingRequest.Awaiting.
+type PairingRequestAwaiting string
+
+// PairingRequests defines model for PairingRequests.
+type PairingRequests struct {
+	Requests []PairingRequest `json:"requests"`
+}
+
+// PairingRoundTrip Evidence names actual immutable messages on this board. The server verifies sender, exact direct recipient, reply linkage, per-generation correlation and authenticated reporting endpoint. The trusted runtime vouches for this ping being sent by its exact selected session and this reply having a confirmed delivery handoff there; merely finding both sequences in history is not evidence. Both directions must verify under one current generation; no caller-provided ready flag is accepted.
+type PairingRoundTrip struct {
+	Direction  PairingRoundTripDirection `json:"direction"`
+	Generation int                       `json:"generation"`
+
+	// HandoffId Nonsecret journal handoff confirmed by the selected runtime for this received reply; bound to endpoint credential, generation and message id/seq.
+	HandoffId string `json:"handoff_id"`
+
+	// PingSeq Position in a board's event log. Messages share this numbering.
+	PingSeq Seq `json:"ping_seq"`
+
+	// ReplySeq Position in a board's event log. Messages share this numbering.
+	ReplySeq Seq `json:"reply_seq"`
+}
+
+// PairingRoundTripDirection defines model for PairingRoundTrip.Direction.
+type PairingRoundTripDirection string
+
+// PairingState defines model for PairingState.
+type PairingState string
 
 // Permission `add_people` permits adding ordinary server members when the server and board allow it; `invite` permits pairing codes. New boards' built-in member role and template roles grant `invite` and `add_people`; existing stored roles are unchanged and custom roles must grant them explicitly.
 type Permission string
@@ -5012,6 +6316,12 @@ type PersonEventData struct {
 	// agents ended this way.
 	Agents *[]string `json:"agents,omitempty"`
 
+	// Authorization Immutable authorization provenance written with the action, never supplied
+	// as authority by a client. via=allowance requires allowance_id and its exact
+	// revision; via=approval requires approval_id. Both bind the authorizing person,
+	// requesting agent, parent key and canonical action hash. No secret appears here.
+	Authorization *AdminAuthorization `json:"authorization,omitempty"`
+
 	// ByOwner In person.added by an agent only, the permanent person id of its owner. The event actor is the agent seat.
 	ByOwner *string `json:"by_owner,omitempty"`
 
@@ -5054,6 +6364,17 @@ type PersonEventDataReason string
 // because one of their sessions joined it through their machine's delegation
 // (`POST /v1/join`); the actor is the person. Absent otherwise.
 type PersonEventDataVia string
+
+// PersonIdentityLookup defines model for PersonIdentityLookup.
+type PersonIdentityLookup struct {
+	DisplayName *string `json:"display_name"`
+
+	// Handle A person's name on the server, unique there. It is also their member name on boards.
+	//
+	// Example: maya
+	Handle Handle `json:"handle"`
+	Id     string `json:"id"`
+}
 
 // PersonLeftEvent defines model for PersonLeftEvent.
 type PersonLeftEvent struct {
@@ -5205,6 +6526,48 @@ type PersonRenamedEvent struct {
 
 // PersonRenamedEventType defines model for PersonRenamedEvent.Type.
 type PersonRenamedEventType string
+
+// PersonRoleChangedEvent defines model for PersonRoleChangedEvent.
+type PersonRoleChangedEvent struct {
+	Actor   Actor     `json:"actor"`
+	At      Timestamp `json:"at"`
+	BoardId string    `json:"board_id"`
+	Data    *struct {
+		// After A person's role on a board. `owner`: the creator, and anyone an owner made one;
+		// owners remove people, make others owners, turn the board open or private, and
+		// change its charter, roles and policy (the `admin` access of `Member`). `member`:
+		// everyone else. Agents have no board role.
+		After BoardRole `json:"after"`
+
+		// Authorization Immutable authorization provenance written with the action, never supplied
+		// as authority by a client. via=allowance requires allowance_id and its exact
+		// revision; via=approval requires approval_id. Both bind the authorizing person,
+		// requesting agent, parent key and canonical action hash. No secret appears here.
+		Authorization AdminAuthorization `json:"authorization"`
+
+		// Before A person's role on a board. `owner`: the creator, and anyone an owner made one;
+		// owners remove people, make others owners, turn the board open or private, and
+		// change its charter, roles and policy (the `admin` access of `Member`). `member`:
+		// everyone else. Agents have no board role.
+		Before   BoardRole `json:"before"`
+		MemberId string    `json:"member_id"`
+		PersonId string    `json:"person_id"`
+	} `json:"data,omitempty"`
+	DataHash Hash `json:"data_hash"`
+
+	// DataWithheld True when `data` is omitted because the reader may not see it.
+	DataWithheld *bool  `json:"data_withheld,omitempty"`
+	Hash         Hash   `json:"hash"`
+	Id           string `json:"id"`
+	PrevHash     Hash   `json:"prev_hash"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq  Seq                        `json:"seq"`
+	Type PersonRoleChangedEventType `json:"type"`
+}
+
+// PersonRoleChangedEventType defines model for PersonRoleChangedEvent.Type.
+type PersonRoleChangedEventType string
 
 // Policy defines model for Policy.
 type Policy struct {
@@ -5362,6 +6725,25 @@ type PrunedAgent struct {
 	OwnerId string `json:"owner_id"`
 }
 
+// QueuedMessageIdentity defines model for QueuedMessageIdentity.
+type QueuedMessageIdentity struct {
+	MessageId string `json:"message_id"`
+
+	// Seq Position in a board's event log. Messages share this numbering.
+	Seq Seq `json:"seq"`
+}
+
+// QueuedReceipt A recipient-authenticated, unexpired queue observation. It says the message
+// is waiting for turn end, not that the model saw it. The receipt state stays
+// unchanged. No session id, boot label or message body is disclosed.
+type QueuedReceipt struct {
+	Boundary  QueuedReceiptBoundary `json:"boundary"`
+	ExpiresAt Timestamp             `json:"expires_at"`
+}
+
+// QueuedReceiptBoundary defines model for QueuedReceipt.Boundary.
+type QueuedReceiptBoundary string
+
 // Reaction defines model for Reaction.
 type Reaction struct {
 	// By The names of the members who reacted with it, earliest first.
@@ -5463,13 +6845,36 @@ type ReadPosition struct {
 type Receipt struct {
 	Member MemberRef `json:"member"`
 
+	// MidturnHint Sender-only guidance for an urgent explicit direct message from a current
+	// active agent to another active agent of the same current board member.
+	// peer_if_supported means the recipient's current preference permits this
+	// peer at a verified tool boundary, subject to its durable per-turn cap.
+	// It does not attest harness capability, queue admission or delivery.
+	// owner_only means the preference permits only the person's mid-turn input.
+	// Receipt state and a recipient-authenticated queued observation remain authoritative.
+	MidturnHint *ReceiptMidturnHint `json:"midturn_hint,omitempty"`
+
 	// Presence An agent's presence at the time of the request; null for a person.
 	Presence *Presence `json:"presence"`
+
+	// Queued A recipient-authenticated, unexpired queue observation. It says the message
+	// is waiting for turn end, not that the model saw it. The receipt state stays
+	// unchanged. No session id, boot label or message body is disclosed.
+	Queued *QueuedReceipt `json:"queued,omitempty"`
 
 	// State `pending`: not acknowledged yet. `received`: an agent's read position has passed
 	// the message. `read`: a person's read position has passed it.
 	State ReceiptState `json:"state"`
 }
+
+// ReceiptMidturnHint Sender-only guidance for an urgent explicit direct message from a current
+// active agent to another active agent of the same current board member.
+// peer_if_supported means the recipient's current preference permits this
+// peer at a verified tool boundary, subject to its durable per-turn cap.
+// It does not attest harness capability, queue admission or delivery.
+// owner_only means the preference permits only the person's mid-turn input.
+// Receipt state and a recipient-authenticated queued observation remain authoritative.
+type ReceiptMidturnHint string
 
 // ReceiptState `pending`: not acknowledged yet. `received`: an agent's read position has passed
 // the message. `read`: a person's read position has passed it.
@@ -5516,6 +6921,16 @@ type Redaction struct {
 	// Kind Example: github_token
 	Kind string `json:"kind"`
 }
+
+// RemovePersonAction Without board_id removes from the server; with it removes only that board membership. Always requires a one-action approval.
+type RemovePersonAction struct {
+	BoardId  *string                `json:"board_id,omitempty"`
+	Kind     RemovePersonActionKind `json:"kind"`
+	PersonId string                 `json:"person_id"`
+}
+
+// RemovePersonActionKind defines model for RemovePersonAction.Kind.
+type RemovePersonActionKind string
 
 // RemovedAgent An agent that left its board or was removed from it. `board` and `name` are null
 // when a server admin removed an agent on a private board they aren't on.
@@ -5573,6 +6988,15 @@ type Reveals struct {
 	Messages int `json:"messages"`
 }
 
+// RevokeKeyAction defines model for RevokeKeyAction.
+type RevokeKeyAction struct {
+	KeyId string              `json:"key_id"`
+	Kind  RevokeKeyActionKind `json:"kind"`
+}
+
+// RevokeKeyActionKind defines model for RevokeKeyAction.Kind.
+type RevokeKeyActionKind string
+
 // Role defines model for Role.
 type Role struct {
 	Can     []PermissionGrant `json:"can"`
@@ -5599,7 +7023,7 @@ type ServerInfo struct {
 
 	// Features What this server provides beyond the operations every server has, by name, so
 	// a client checks before using one and says `server_outdated` naming what is
-	// missing. Names are only added: `tasks`, `asks`, `lines`, `files`. Absent from
+	// missing. Names are only added: `tasks`, `asks`, `lines`, `files`, `onboarding`. Absent from
 	// servers that don't list features.
 	Features *[]string `json:"features,omitempty"`
 
@@ -5638,11 +7062,13 @@ type ServerInfoName string
 
 // ServerInvite defines model for ServerInvite.
 type ServerInvite struct {
+	Boards    *[]string `json:"boards,omitempty"`
 	ExpiresAt Timestamp `json:"expires_at"`
 	Id        string    `json:"id"`
 
 	// Invite The secret, shown once. Redeem it with `POST /v1/connect`.
-	Invite string `json:"invite"`
+	Invite           string  `json:"invite"`
+	PairingRequestId *string `json:"pairing_request_id,omitempty"`
 
 	// ServerRole The role the new person gets. Always `member`.
 	ServerRole ServerInviteServerRole `json:"server_role"`
@@ -5650,6 +7076,36 @@ type ServerInvite struct {
 
 // ServerInviteServerRole The role the new person gets. Always `member`.
 type ServerInviteServerRole string
+
+// ServerInviteMetadata defines model for ServerInviteMetadata.
+type ServerInviteMetadata struct {
+	Boards           []string                  `json:"boards"`
+	CreatedAt        Timestamp                 `json:"created_at"`
+	ExpiresAt        Timestamp                 `json:"expires_at"`
+	Id               string                    `json:"id"`
+	IssuingAgentId   *string                   `json:"issuing_agent_id,omitempty"`
+	PairingRequestId *string                   `json:"pairing_request_id,omitempty"`
+	ParentKeyId      *string                   `json:"parent_key_id,omitempty"`
+	State            ServerInviteMetadataState `json:"state"`
+}
+
+// ServerInviteMetadataState defines model for ServerInviteMetadata.State.
+type ServerInviteMetadataState string
+
+// ServerInviteRevocation defines model for ServerInviteRevocation.
+type ServerInviteRevocation struct {
+	Changed bool                          `json:"changed"`
+	Id      string                        `json:"id"`
+	Revoked ServerInviteRevocationRevoked `json:"revoked"`
+}
+
+// ServerInviteRevocationRevoked defines model for ServerInviteRevocation.Revoked.
+type ServerInviteRevocationRevoked bool
+
+// ServerInvites defines model for ServerInvites.
+type ServerInvites struct {
+	Invites []ServerInviteMetadata `json:"invites"`
+}
 
 // ServerPeople defines model for ServerPeople.
 type ServerPeople struct {
@@ -5696,6 +7152,37 @@ type ServerSettingsChange struct {
 	BoardCreation *BoardCreation `json:"board_creation,omitempty"`
 }
 
+// SetAllowanceRequest Replace the complete category set. No destructive or privilege-raising category is accepted.
+type SetAllowanceRequest struct {
+	Categories []AllowanceCategory `json:"categories"`
+}
+
+// SetBoardPolicyAction defines model for SetBoardPolicyAction.
+type SetBoardPolicyAction struct {
+	BoardId string                   `json:"board_id"`
+	Kind    SetBoardPolicyActionKind `json:"kind"`
+	Policy  PolicyChange             `json:"policy"`
+}
+
+// SetBoardPolicyActionKind defines model for SetBoardPolicyAction.Kind.
+type SetBoardPolicyActionKind string
+
+// SetBoardRoleAction defines model for SetBoardRoleAction.
+type SetBoardRoleAction struct {
+	BoardId  string                 `json:"board_id"`
+	Kind     SetBoardRoleActionKind `json:"kind"`
+	PersonId string                 `json:"person_id"`
+
+	// Role A person's role on a board. `owner`: the creator, and anyone an owner made one;
+	// owners remove people, make others owners, turn the board open or private, and
+	// change its charter, roles and policy (the `admin` access of `Member`). `member`:
+	// everyone else. Agents have no board role.
+	Role BoardRole `json:"role"`
+}
+
+// SetBoardRoleActionKind defines model for SetBoardRoleAction.Kind.
+type SetBoardRoleActionKind string
+
 // SetLineRequest defines model for SetLineRequest.
 type SetLineRequest struct {
 	Kind   SetLineRequestKind    `json:"kind"`
@@ -5714,6 +7201,19 @@ type SetLineRequestKind string
 
 // SetLineRequestSource defines model for SetLineRequest.Source.
 type SetLineRequestSource string
+
+// SetServerRoleAction defines model for SetServerRoleAction.
+type SetServerRoleAction struct {
+	Kind     SetServerRoleActionKind `json:"kind"`
+	PersonId string                  `json:"person_id"`
+	Role     SetServerRoleActionRole `json:"role"`
+}
+
+// SetServerRoleActionKind defines model for SetServerRoleAction.Kind.
+type SetServerRoleActionKind string
+
+// SetServerRoleActionRole defines model for SetServerRoleAction.Role.
+type SetServerRoleActionRole string
 
 // SetVisibilityRequest defines model for SetVisibilityRequest.
 type SetVisibilityRequest struct {
@@ -6549,6 +8049,11 @@ type CreateServerInviteParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// RevokeServerInviteParams defines parameters for RevokeServerInvite.
+type RevokeServerInviteParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // JoinParams defines parameters for Join.
 type JoinParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
@@ -6600,8 +8105,33 @@ type RefuseMachineRequestParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
+// RequestAdminActionParams defines parameters for RequestAdminAction.
+type RequestAdminActionParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// SetAllowanceParams defines parameters for SetAllowance.
+type SetAllowanceParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// AllowApprovalParams defines parameters for AllowApproval.
+type AllowApprovalParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeclineApprovalParams defines parameters for DeclineApproval.
+type DeclineApprovalParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
 // SignOutParams defines parameters for SignOut.
 type SignOutParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ReportDeliveryQueueParams defines parameters for ReportDeliveryQueue.
+type ReportDeliveryQueueParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -6638,6 +8168,17 @@ type ClearLineParams struct {
 
 // SetLineParams defines parameters for SetLine.
 type SetLineParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// SetMidturnPolicyJSONBody defines parameters for SetMidturnPolicy.
+type SetMidturnPolicyJSONBody struct {
+	MemberId *string        `json:"member_id,omitempty"`
+	Policy   *MidturnPolicy `json:"policy"`
+}
+
+// SetMidturnPolicyParams defines parameters for SetMidturnPolicy.
+type SetMidturnPolicyParams struct {
 	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
 }
 
@@ -6684,6 +8225,47 @@ type ListRepliesParams struct {
 
 	// Wait Seconds to wait for a reply when there is none yet.
 	Wait *int `form:"wait,omitempty" json:"wait,omitempty"`
+}
+
+// CreatePairingCredentialParams defines parameters for CreatePairingCredential.
+type CreatePairingCredentialParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CreatePairingRequestParams defines parameters for CreatePairingRequest.
+type CreatePairingRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// AcceptPairingRequestParams defines parameters for AcceptPairingRequest.
+type AcceptPairingRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// CancelPairingRequestParams defines parameters for CancelPairingRequest.
+type CancelPairingRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// DeclinePairingRequestParams defines parameters for DeclinePairingRequest.
+type DeclinePairingRequestParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// VerifyPairingRoundTripParams defines parameters for VerifyPairingRoundTrip.
+type VerifyPairingRoundTripParams struct {
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// ListServerPeopleParams defines parameters for ListServerPeople.
+type ListServerPeopleParams struct {
+	// Handle Exact current handle; enables the minimal identity lookup.
+	Handle *Handle `form:"handle,omitempty" json:"handle,omitempty"`
+}
+
+// ListServerPeople200JSONResponseBody defines parameters for ListServerPeople.
+type ListServerPeople200JSONResponseBody struct {
+	union json.RawMessage
 }
 
 // RemoveFromServerParams defines parameters for RemoveFromServer.
@@ -6806,14 +8388,41 @@ type LookupMachineRequestJSONRequestBody = MachineRequestCode
 // RefuseMachineRequestJSONRequestBody defines body for RefuseMachineRequest for application/json ContentType.
 type RefuseMachineRequestJSONRequestBody = MachineRequestCode
 
+// RequestAdminActionJSONRequestBody defines body for RequestAdminAction for application/json ContentType.
+type RequestAdminActionJSONRequestBody = AdminAction
+
+// SetAllowanceJSONRequestBody defines body for SetAllowance for application/json ContentType.
+type SetAllowanceJSONRequestBody = SetAllowanceRequest
+
+// AllowApprovalJSONRequestBody defines body for AllowApproval for application/json ContentType.
+type AllowApprovalJSONRequestBody = AllowApprovalRequest
+
+// ReportDeliveryQueueJSONRequestBody defines body for ReportDeliveryQueue for application/json ContentType.
+type ReportDeliveryQueueJSONRequestBody = DeliveryQueueReport
+
 // AckInboxJSONRequestBody defines body for AckInbox for application/json ContentType.
 type AckInboxJSONRequestBody AckInboxJSONBody
 
 // SetLineJSONRequestBody defines body for SetLine for application/json ContentType.
 type SetLineJSONRequestBody = SetLineRequest
 
+// SetMidturnPolicyJSONRequestBody defines body for SetMidturnPolicy for application/json ContentType.
+type SetMidturnPolicyJSONRequestBody SetMidturnPolicyJSONBody
+
 // SetPresenceJSONRequestBody defines body for SetPresence for application/json ContentType.
 type SetPresenceJSONRequestBody SetPresenceJSONBody
+
+// CreatePairingCredentialJSONRequestBody defines body for CreatePairingCredential for application/json ContentType.
+type CreatePairingCredentialJSONRequestBody = CreatePairingCredential
+
+// CreatePairingRequestJSONRequestBody defines body for CreatePairingRequest for application/json ContentType.
+type CreatePairingRequestJSONRequestBody = CreatePairingRequest
+
+// AcceptPairingRequestJSONRequestBody defines body for AcceptPairingRequest for application/json ContentType.
+type AcceptPairingRequestJSONRequestBody = AcceptPairingRequest
+
+// VerifyPairingRoundTripJSONRequestBody defines body for VerifyPairingRoundTrip for application/json ContentType.
+type VerifyPairingRoundTripJSONRequestBody = PairingRoundTrip
 
 // SetServerRoleJSONRequestBody defines body for SetServerRole for application/json ContentType.
 type SetServerRoleJSONRequestBody = ServerRoleChange
@@ -6823,6 +8432,198 @@ type RenamePersonJSONRequestBody = PersonRename
 
 // UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
 type UpdateSettingsJSONRequestBody = ServerSettingsChange
+
+// AsInvitePeopleAction returns the union data inside the AdminAction as a InvitePeopleAction
+func (t AdminAction) AsInvitePeopleAction() (InvitePeopleAction, error) {
+	var body InvitePeopleAction
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInvitePeopleAction overwrites any union data inside the AdminAction as the provided InvitePeopleAction
+func (t *AdminAction) FromInvitePeopleAction(v InvitePeopleAction) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInvitePeopleAction performs a merge with any union data inside the AdminAction, using the provided InvitePeopleAction
+func (t *AdminAction) MergeInvitePeopleAction(v InvitePeopleAction) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAddPeopleAction returns the union data inside the AdminAction as a AddPeopleAction
+func (t AdminAction) AsAddPeopleAction() (AddPeopleAction, error) {
+	var body AddPeopleAction
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAddPeopleAction overwrites any union data inside the AdminAction as the provided AddPeopleAction
+func (t *AdminAction) FromAddPeopleAction(v AddPeopleAction) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAddPeopleAction performs a merge with any union data inside the AdminAction, using the provided AddPeopleAction
+func (t *AdminAction) MergeAddPeopleAction(v AddPeopleAction) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSetServerRoleAction returns the union data inside the AdminAction as a SetServerRoleAction
+func (t AdminAction) AsSetServerRoleAction() (SetServerRoleAction, error) {
+	var body SetServerRoleAction
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSetServerRoleAction overwrites any union data inside the AdminAction as the provided SetServerRoleAction
+func (t *AdminAction) FromSetServerRoleAction(v SetServerRoleAction) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSetServerRoleAction performs a merge with any union data inside the AdminAction, using the provided SetServerRoleAction
+func (t *AdminAction) MergeSetServerRoleAction(v SetServerRoleAction) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSetBoardRoleAction returns the union data inside the AdminAction as a SetBoardRoleAction
+func (t AdminAction) AsSetBoardRoleAction() (SetBoardRoleAction, error) {
+	var body SetBoardRoleAction
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSetBoardRoleAction overwrites any union data inside the AdminAction as the provided SetBoardRoleAction
+func (t *AdminAction) FromSetBoardRoleAction(v SetBoardRoleAction) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSetBoardRoleAction performs a merge with any union data inside the AdminAction, using the provided SetBoardRoleAction
+func (t *AdminAction) MergeSetBoardRoleAction(v SetBoardRoleAction) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRemovePersonAction returns the union data inside the AdminAction as a RemovePersonAction
+func (t AdminAction) AsRemovePersonAction() (RemovePersonAction, error) {
+	var body RemovePersonAction
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRemovePersonAction overwrites any union data inside the AdminAction as the provided RemovePersonAction
+func (t *AdminAction) FromRemovePersonAction(v RemovePersonAction) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRemovePersonAction performs a merge with any union data inside the AdminAction, using the provided RemovePersonAction
+func (t *AdminAction) MergeRemovePersonAction(v RemovePersonAction) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRevokeKeyAction returns the union data inside the AdminAction as a RevokeKeyAction
+func (t AdminAction) AsRevokeKeyAction() (RevokeKeyAction, error) {
+	var body RevokeKeyAction
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRevokeKeyAction overwrites any union data inside the AdminAction as the provided RevokeKeyAction
+func (t *AdminAction) FromRevokeKeyAction(v RevokeKeyAction) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRevokeKeyAction performs a merge with any union data inside the AdminAction, using the provided RevokeKeyAction
+func (t *AdminAction) MergeRevokeKeyAction(v RevokeKeyAction) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSetBoardPolicyAction returns the union data inside the AdminAction as a SetBoardPolicyAction
+func (t AdminAction) AsSetBoardPolicyAction() (SetBoardPolicyAction, error) {
+	var body SetBoardPolicyAction
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSetBoardPolicyAction overwrites any union data inside the AdminAction as the provided SetBoardPolicyAction
+func (t *AdminAction) FromSetBoardPolicyAction(v SetBoardPolicyAction) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSetBoardPolicyAction performs a merge with any union data inside the AdminAction, using the provided SetBoardPolicyAction
+func (t *AdminAction) MergeSetBoardPolicyAction(v SetBoardPolicyAction) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t AdminAction) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *AdminAction) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsBoardCreatedEvent returns the union data inside the Event as a BoardCreatedEvent
 func (t Event) AsBoardCreatedEvent() (BoardCreatedEvent, error) {
@@ -7325,6 +9126,40 @@ func (t *Event) MergePersonMadeOwnerEvent(v PersonMadeOwnerEvent) error {
 		return err
 	}
 	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.made_owner"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonRoleChangedEvent returns the union data inside the Event as a PersonRoleChangedEvent
+func (t Event) AsPersonRoleChangedEvent() (PersonRoleChangedEvent, error) {
+	var body PersonRoleChangedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonRoleChangedEvent overwrites any union data inside the Event as the provided PersonRoleChangedEvent
+func (t *Event) FromPersonRoleChangedEvent(v PersonRoleChangedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.role_changed"}`))
+	t.union = b
+	return err
+}
+
+// MergePersonRoleChangedEvent performs a merge with any union data inside the Event, using the provided PersonRoleChangedEvent
+func (t *Event) MergePersonRoleChangedEvent(v PersonRoleChangedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"person.role_changed"}`))
 	if err != nil {
 		return err
 	}
@@ -8082,6 +9917,8 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return t.AsPersonRemovedEvent()
 	case "person.renamed":
 		return t.AsPersonRenamedEvent()
+	case "person.role_changed":
+		return t.AsPersonRoleChangedEvent()
 	case "reaction.added":
 		return t.AsReactionAddedEvent()
 	case "reaction.removed":
@@ -8109,6 +9946,68 @@ func (t Event) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Event) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsOnboardingError returns the union data inside the OnboardingForbidden as a OnboardingError
+func (t OnboardingForbidden) AsOnboardingError() (OnboardingError, error) {
+	var body OnboardingError
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOnboardingError overwrites any union data inside the OnboardingForbidden as the provided OnboardingError
+func (t *OnboardingForbidden) FromOnboardingError(v OnboardingError) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOnboardingError performs a merge with any union data inside the OnboardingForbidden, using the provided OnboardingError
+func (t *OnboardingForbidden) MergeOnboardingError(v OnboardingError) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsOnboardingForbidden1 returns the union data inside the OnboardingForbidden as a OnboardingForbidden1
+func (t OnboardingForbidden) AsOnboardingForbidden1() (OnboardingForbidden1, error) {
+	var body OnboardingForbidden1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromOnboardingForbidden1 overwrites any union data inside the OnboardingForbidden as the provided OnboardingForbidden1
+func (t *OnboardingForbidden) FromOnboardingForbidden1(v OnboardingForbidden1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeOnboardingForbidden1 performs a merge with any union data inside the OnboardingForbidden, using the provided OnboardingForbidden1
+func (t *OnboardingForbidden) MergeOnboardingForbidden1(v OnboardingForbidden1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t OnboardingForbidden) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *OnboardingForbidden) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -8171,6 +10070,68 @@ func (t PermissionGrant) MarshalJSON() ([]byte, error) {
 }
 
 func (t *PermissionGrant) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsServerPeople returns the union data inside the ListServerPeople200JSONResponseBody as a ServerPeople
+func (t ListServerPeople200JSONResponseBody) AsServerPeople() (ServerPeople, error) {
+	var body ServerPeople
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromServerPeople overwrites any union data inside the ListServerPeople200JSONResponseBody as the provided ServerPeople
+func (t *ListServerPeople200JSONResponseBody) FromServerPeople(v ServerPeople) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeServerPeople performs a merge with any union data inside the ListServerPeople200JSONResponseBody, using the provided ServerPeople
+func (t *ListServerPeople200JSONResponseBody) MergeServerPeople(v ServerPeople) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPersonIdentityLookup returns the union data inside the ListServerPeople200JSONResponseBody as a PersonIdentityLookup
+func (t ListServerPeople200JSONResponseBody) AsPersonIdentityLookup() (PersonIdentityLookup, error) {
+	var body PersonIdentityLookup
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPersonIdentityLookup overwrites any union data inside the ListServerPeople200JSONResponseBody as the provided PersonIdentityLookup
+func (t *ListServerPeople200JSONResponseBody) FromPersonIdentityLookup(v PersonIdentityLookup) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePersonIdentityLookup performs a merge with any union data inside the ListServerPeople200JSONResponseBody, using the provided PersonIdentityLookup
+func (t *ListServerPeople200JSONResponseBody) MergePersonIdentityLookup(v PersonIdentityLookup) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ListServerPeople200JSONResponseBody) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ListServerPeople200JSONResponseBody) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -8616,7 +10577,41 @@ type ClientInterface interface {
 	// `file_too_large`; a text file that contains a credential is 422
 	// `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
 	// reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
-	// brief. The version is readable by
+	// brief. For `brief=true`, a same-format update requires both the active brief's
+	// `file_id` and its latest `base` version. Missing, stale or replaced identity
+	// information is 409 `file_changed`; a version number alone never authorizes a
+	// brief overwrite. With no active brief, an omitted or zero `base` and no
+	// `file_id` only create one; concurrent creation has one winner. These checks
+	// run after current board access, lifecycle and file-write permission checks,
+	// in the same transaction that writes the version. Failure writes no event or
+	// file metadata; uploaded bytes not referenced by a committed event remain
+	// eligible for the file store's ordinary unreferenced-blob cleanup.
+	//
+	// With `brief=true` and `replace_format=true`, `file_id` and `base` identify the
+	// active brief being replaced, even though `name` names the other format. Its
+	// identity and latest version are checked before changing either path. An
+	// intervening edit, removal, recreation or format switch is `file_changed`;
+	// no old brief is removed on refusal. Success appends `file.removed` for the old
+	// brief followed by `file.version_added` for the new file in one transaction.
+	// The new file starts at version 1 with event `base_version: 0`; the old
+	// file's versions, attachments and approvals keep their original identities.
+	// Nothing copies an old approval onto the new file. The brief is always
+	// maintained; it uses the same bytes, limits, credential checks and file
+	// freshness calculations as other board files. Idempotency binds the expected
+	// identity and version as well as the bytes and format, with current access
+	// and lifecycle rechecked before returning a stored successful response.
+	//
+	// Read the brief by obtaining `Board.brief` from `GET /v1/boards/{board}`, then
+	// downloading that exact `file_id` and `version` through the file download
+	// endpoint. A null brief means there is none. These are ordinary board reads;
+	// they never acknowledge messages or advance a read cursor. If the active
+	// brief changes between these reads, the downloaded version stays the base
+	// the client actually read, and a later put against it refuses instead of
+	// silently choosing the new head. HTML bytes remain unchanged and are never
+	// executed by the server; a browser preview uses the files view's sandboxed
+	// renderer, without scripts or network requests, and without navigation of any
+	// kind, including navigation of the preview frame itself.
+	// The version is readable by
 	// everyone on the board at once. An agent needs `upload_files`. Writes
 	// `file.version_added`.
 	//
@@ -8969,7 +10964,8 @@ type ClientInterface interface {
 	// no active agents is a valid empty target. Guests may use owner targets only
 	// within their own board, under the same post and visibility rules. Posting to `all` needs the
 	// `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-	// post. Secrets in `body` are redacted before the event is written. Returns as soon
+	// post. The server does not scan or redact `body` yet: message redaction is planned,
+	// and `redactions` is always empty until it ships. Returns as soon
 	// as the message is stored; delivery happens separately.
 	//
 	// An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -9042,7 +11038,8 @@ type ClientInterface interface {
 	// no active agents is a valid empty target. Guests may use owner targets only
 	// within their own board, under the same post and visibility rules. Posting to `all` needs the
 	// `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-	// post. Secrets in `body` are redacted before the event is written. Returns as soon
+	// post. The server does not scan or redact `body` yet: message redaction is planned,
+	// and `redactions` is always empty until it ships. Returns as soon
 	// as the message is stored; delivery happens separately.
 	//
 	// An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -9715,6 +11712,15 @@ type ClientInterface interface {
 	// Attempts are limited per client address and across the server; over the limit
 	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 	// repeats, since it holds a key.
+	// With client_token, consume the invite, create the person/key, all bundled
+	// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+	// outcome atomically. Recheck inviter authority on every board before consumption;
+	// a failure creates nothing. Never select an existing account. The original 201
+	// secret-returning flow is unchanged when client_token is absent. Recovery uses
+	// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+	// stay uncertain, never authorize a replacement account/key. Older servers
+	// that do not support client_token answer 501 before consuming the invite or
+	// creating any resource.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -9738,6 +11744,15 @@ type ClientInterface interface {
 	// Attempts are limited per client address and across the server; over the limit
 	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 	// repeats, since it holds a key.
+	// With client_token, consume the invite, create the person/key, all bundled
+	// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+	// outcome atomically. Recheck inviter authority on every board before consumption;
+	// a failure creates nothing. Never select an existing account. The original 201
+	// secret-returning flow is unchanged when client_token is absent. Recovery uses
+	// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+	// stay uncertain, never authorize a replacement account/key. Older servers
+	// that do not support client_token answer 501 before consuming the invite or
+	// creating any resource.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -9934,6 +11949,18 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/info (the `GetInfo` operationId).
 	GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListServerInvites List your outstanding invitations
+	//
+	// Person access key only. Lists invitations issued by this person or their
+	// agents, including expired and revoked ones, without any invite secret.
+	// Agents and browsers get human_token_required with next.command. Losing
+	// admin authority does not prevent inspecting or revoking your own invites.
+	// Board ids are included only while currently visible; private names never
+	// appear. Issuing agent and parent key are immutable provenance, not authority.
+	//
+	// Corresponds with GET /v1/invites (the `ListServerInvites` operationId).
+	ListServerInvites(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateServerInviteWithBody Invite a person to the server
 	//
 	// Server admins only, with their own access key. Returns a server invite: a long
@@ -9948,6 +11975,16 @@ type ClientInterface interface {
 	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 	// or a browser token gets 403 `human_token_required`; a person who isn't a server
 	// admin gets 403 `server_admin_required`.
+	// Optional boards and pairing bundle ordinary memberships and proposed work.
+	// All authority checks are atomic; a refused bundle issues no partial invite.
+	// Existing ordinary invites retain their behavior.
+	// Turning an allowance off stops new issuance only. An issued agent invite
+	// ends when its issuing seat, parent key or person is removed/revoked; retain
+	// their immutable bindings and recheck them at redemption. Only unredeemed
+	// invitations are cancelled: people and memberships already created remain,
+	// and removing the issuing agent never removes those people or memberships.
+	// Inviter admin and
+	// each board's add-member authority are also current at redemption.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -9968,11 +12005,34 @@ type ClientInterface interface {
 	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 	// or a browser token gets 403 `human_token_required`; a person who isn't a server
 	// admin gets 403 `server_admin_required`.
+	// Optional boards and pairing bundle ordinary memberships and proposed work.
+	// All authority checks are atomic; a refused bundle issues no partial invite.
+	// Existing ordinary invites retain their behavior.
+	// Turning an allowance off stops new issuance only. An issued agent invite
+	// ends when its issuing seat, parent key or person is removed/revoked; retain
+	// their immutable bindings and recheck them at redemption. Only unredeemed
+	// invitations are cancelled: people and memberships already created remain,
+	// and removing the issuing agent never removes those people or memberships.
+	// Inviter admin and
+	// each board's add-member authority are also current at redemption.
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
 	CreateServerInvite(ctx context.Context, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RevokeServerInvite Revoke your invitation
+	//
+	// Person access key only; agents and browsers get human_token_required with
+	// next.command. Revoke only an invitation issued by this person or their
+	// agents, in one transaction. Missing and another person's id are the same
+	// invite_not_found. Revocation is idempotent, contains no secret, and prevents
+	// redemption immediately. It does not remove an already connected account.
+	// Recheck current ownership on idempotent replay. Admin role is not required
+	// to reduce your own outstanding invitation authority.
+	//
+	// Corresponds with DELETE /v1/invites/{invite} (the `RevokeServerInvite` operationId).
+	RevokeServerInvite(ctx context.Context, invite string, params *RevokeServerInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// JoinWithBody Create a new agent identity on a board
 	//
@@ -10514,6 +12574,117 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/me (the `GetMe` operationId).
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RequestAdminActionWithBody Request an exact administrative action
+	//
+	// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+	RequestAdminActionWithBody(ctx context.Context, params *RequestAdminActionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RequestAdminAction Request an exact administrative action
+	//
+	// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+	RequestAdminAction(ctx context.Context, params *RequestAdminActionParams, body RequestAdminActionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAllowance Read the person allowance
+	//
+	// Person key/browser only. Agents receive 403 human_token_required; reading never changes authority.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Corresponds with GET /v1/me/allowance (the `GetAllowance` operationId).
+	GetAllowance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetAllowanceWithBody Replace the person allowance
+	//
+	// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+	SetAllowanceWithBody(ctx context.Context, params *SetAllowanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetAllowance Replace the person allowance
+	//
+	// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+	SetAllowance(ctx context.Context, params *SetAllowanceParams, body SetAllowanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListApprovals List administrative approvals
+	//
+	// Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. No private board or payload is shown after access ends.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Corresponds with GET /v1/me/approvals (the `ListApprovals` operationId).
+	ListApprovals(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AllowApprovalWithBody Allow and execute an exact approval
+	//
+	// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+	AllowApprovalWithBody(ctx context.Context, approval string, params *AllowApprovalParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AllowApproval Allow and execute an exact approval
+	//
+	// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+	AllowApproval(ctx context.Context, approval string, params *AllowApprovalParams, body AllowApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeclineApproval Decline a pending approval
+	//
+	// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. Declining a pending request is idempotent. An executed approval cannot be declined.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Corresponds with POST /v1/me/approvals/{approval}/decline (the `DeclineApproval` operationId).
+	DeclineApproval(ctx context.Context, approval string, params *DeclineApprovalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SignOut Sign this browser out
 	//
 	// With a browser session only: ends this one session and clears its cookie. The
@@ -10534,6 +12705,90 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /v1/me/browser-session (the `GetBrowserSession` operationId).
 	GetBrowserSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeliveryQueue Read this agent's queue reporter fence
+	//
+	// Own active agent token only, with its owner still on the board. Returns the
+	// current reporter epoch even after an observation expires. This read changes
+	// no cursor, receipt or delivery. Session and boot labels are observations,
+	// not proof that a harness is running. Person and browser tokens are refused.
+	//
+	// Corresponds with GET /v1/me/delivery-queue (the `GetDeliveryQueue` operationId).
+	GetDeliveryQueue(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReportDeliveryQueueWithBody Report this agent's queued message identities
+	//
+	// Own active agent token only, with its owner still on the board. Bookkeeping,
+	// never an event or acknowledgement. No body, sender claim or receipt state is
+	// accepted. An empty messages list clears the observation without resetting its
+	// fence. Archived boards permit this bookkeeping; deleted boards do not.
+	//
+	// A reporter first reads the current epoch and claims with expected_epoch,
+	// session and boot. A successful compare-and-set increments the server epoch,
+	// binds those labels, starts revision 0 and clears any previous observation.
+	// A claim contains no epoch, revision or messages. A claim replay returns the
+	// same epoch, never increments it again, and rechecks current access and lease.
+	//
+	// Updates contain epoch, revision and messages, without expected_epoch. The
+	// epoch and labels must match the current claim and revision must strictly
+	// increase. A retained replay never reapplies or renews the observation.
+	// A retained claim or update replay returns queue_report_conflict when its
+	// epoch, session or boot is no longer current. Every update verifies exact
+	// message id and seq on this seat's board with
+	// current read permission, including queued admissions behind its read cursor.
+	// Duplicate identities are refused. Updates expire after 45 seconds on the
+	// server clock. Expiry hides the observation but never resets the epoch.
+	//
+	// A mismatched claim, label, epoch or revision returns queue_report_conflict
+	// (409) without changing anything. A daemon persists its epoch and revision;
+	// it never automatically reclaims after a conflict. Thus a delayed old daemon
+	// cannot overwrite a newer reporter. Token possession authorizes a report,
+	// not a claim that its labels establish global harness liveness. Removal,
+	// credential rotation immediately hides the observation while keeping its epoch:
+	// the claim binds the current credential digest, never its secret. Observed
+	// session end sends an empty update; a missing reporter clears by expiry.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+	ReportDeliveryQueueWithBody(ctx context.Context, params *ReportDeliveryQueueParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReportDeliveryQueue Report this agent's queued message identities
+	//
+	// Own active agent token only, with its owner still on the board. Bookkeeping,
+	// never an event or acknowledgement. No body, sender claim or receipt state is
+	// accepted. An empty messages list clears the observation without resetting its
+	// fence. Archived boards permit this bookkeeping; deleted boards do not.
+	//
+	// A reporter first reads the current epoch and claims with expected_epoch,
+	// session and boot. A successful compare-and-set increments the server epoch,
+	// binds those labels, starts revision 0 and clears any previous observation.
+	// A claim contains no epoch, revision or messages. A claim replay returns the
+	// same epoch, never increments it again, and rechecks current access and lease.
+	//
+	// Updates contain epoch, revision and messages, without expected_epoch. The
+	// epoch and labels must match the current claim and revision must strictly
+	// increase. A retained replay never reapplies or renews the observation.
+	// A retained claim or update replay returns queue_report_conflict when its
+	// epoch, session or boot is no longer current. Every update verifies exact
+	// message id and seq on this seat's board with
+	// current read permission, including queued admissions behind its read cursor.
+	// Duplicate identities are refused. Updates expire after 45 seconds on the
+	// server clock. Expiry hides the observation but never resets the epoch.
+	//
+	// A mismatched claim, label, epoch or revision returns queue_report_conflict
+	// (409) without changing anything. A daemon persists its epoch and revision;
+	// it never automatically reclaims after a conflict. Thus a delayed old daemon
+	// cannot overwrite a newer reporter. Token possession authorizes a report,
+	// not a claim that its labels establish global harness liveness. Removal,
+	// credential rotation immediately hides the observation while keeping its epoch:
+	// the claim binds the current credential digest, never its secret. Observed
+	// session end sends an empty update; a missing reporter clears by expiry.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+	ReportDeliveryQueue(ctx context.Context, params *ReportDeliveryQueueParams, body ReportDeliveryQueueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetInbox Unread messages addressed to this agent
 	//
@@ -10628,6 +12883,62 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
 	SetLine(ctx context.Context, params *SetLineParams, body SetLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMidturnPolicy Read your mid-turn delivery policy
+	//
+	// A person reads their issuer-bound default and their own agent overrides.
+	// An agent reads only its effective policy; it cannot enumerate another seat or
+	// person. Ownership uses immutable person/member ids, never handle matching.
+	// Reading this setting grants no message or board access. Unset defaults read
+	// my-agents; older clients which cannot read it retain owner-only behavior.
+	//
+	// Corresponds with GET /v1/me/midturn (the `GetMidturnPolicy` operationId).
+	GetMidturnPolicy(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetMidturnPolicyWithBody Set your default or an own-agent mid-turn override
+	//
+	// Person tokens only, including the person's browser with ordinary CSRF checks.
+	// With no member_id, policy sets the person's default. With member_id it sets an
+	// override for that person's active agent; null policy clears that override.
+	// Null policy without member_id is 422 invalid_request. A person never sets
+	// another person's policy, even as admin or board owner. Hidden/missing/removed
+	// member targets return 404 member_not_found before readable foreign targets
+	// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+	// Recheck current ownership and membership in the write transaction and on
+	// idempotent replay. This is preference bookkeeping, not a board event.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+	SetMidturnPolicyWithBody(ctx context.Context, params *SetMidturnPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetMidturnPolicy Set your default or an own-agent mid-turn override
+	//
+	// Person tokens only, including the person's browser with ordinary CSRF checks.
+	// With no member_id, policy sets the person's default. With member_id it sets an
+	// override for that person's active agent; null policy clears that override.
+	// Null policy without member_id is 422 invalid_request. A person never sets
+	// another person's policy, even as admin or board owner. Hidden/missing/removed
+	// member targets return 404 member_not_found before readable foreign targets
+	// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+	// Recheck current ownership and membership in the write transaction and on
+	// idempotent replay. This is preference bookkeeping, not a board event.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+	SetMidturnPolicy(ctx context.Context, params *SetMidturnPolicyParams, body SetMidturnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOnboardingReceipt Read this key’s onboarding outcome
+	//
+	// Only the client-generated person access key used in the original redemption, not a browser/agent/delegation credential. A positive authenticated response proves the original account step; failures never prove the invite unused. No redirect, key replacement, invite replay or existing-person selection is authorized. Missing receipt returns 404 not_found.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Corresponds with GET /v1/me/onboarding (the `GetOnboardingReceipt` operationId).
+	GetOnboardingReceipt(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetPresenceWithBody Report what this agent's session is doing
 	//
@@ -10756,14 +13067,151 @@ type ClientInterface interface {
 	// Corresponds with GET /v1/messages/{message}/replies (the `ListReplies` operationId).
 	ListReplies(ctx context.Context, message MessageParam, params *ListRepliesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreatePairingCredentialWithBody Bind a pairing endpoint to an exact trusted-runtime session
+	//
+	// Parent person access key only, in the trusted runtime; never a humanClient
+	// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+	// Select/replace either own endpoint with current-generation CAS and current
+	// access/ownership checks. The inviter cannot select the recipient's endpoint.
+	// All lifecycle checks and idempotent replays occur in the same transaction.
+	// Old runtime credentials cannot report evidence for a new session/generation.
+	// The key is never read or returned by a model-facing hook/socket path.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+	CreatePairingCredentialWithBody(ctx context.Context, params *CreatePairingCredentialParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePairingCredential Bind a pairing endpoint to an exact trusted-runtime session
+	//
+	// Parent person access key only, in the trusted runtime; never a humanClient
+	// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+	// Select/replace either own endpoint with current-generation CAS and current
+	// access/ownership checks. The inviter cannot select the recipient's endpoint.
+	// All lifecycle checks and idempotent replays occur in the same transaction.
+	// Old runtime credentials cannot report evidence for a new session/generation.
+	// The key is never read or returned by a model-facing hook/socket path.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+	CreatePairingCredential(ctx context.Context, params *CreatePairingCredentialParams, body CreatePairingCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPairingRequests List visible pairing requests
+	//
+	// For a fresh zero-seat session the trusted daemon uses its issuer-bound parent key to return only nonsecret own-person pairing progress; the CLI never opens the person client or receives the key. Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
+	ListPairingRequests(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePairingRequestWithBody Request a pairing with a person
+	//
+	// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+	CreatePairingRequestWithBody(ctx context.Context, params *CreatePairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreatePairingRequest Request a pairing with a person
+	//
+	// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+	CreatePairingRequest(ctx context.Context, params *CreatePairingRequestParams, body CreatePairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPairingRequest Read a pairing request
+	//
+	// The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Corresponds with GET /v1/pairing-requests/{pairing} (the `GetPairingRequest` operationId).
+	GetPairingRequest(ctx context.Context, pairing string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptPairingRequestWithBody AcceptPairingRequest
+	//
+	// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+	AcceptPairingRequestWithBody(ctx context.Context, pairing string, params *AcceptPairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptPairingRequest AcceptPairingRequest
+	//
+	// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+	AcceptPairingRequest(ctx context.Context, pairing string, params *AcceptPairingRequestParams, body AcceptPairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelPairingRequest CancelPairingRequest
+	//
+	// Only the inviter may cancel. Repeat cancellation is idempotent; ready/declined/expired transitions conflict.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
+	CancelPairingRequest(ctx context.Context, pairing string, params *CancelPairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeclinePairingRequest DeclinePairingRequest
+	//
+	// Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/decline (the `DeclinePairingRequest` operationId).
+	DeclinePairingRequest(ctx context.Context, pairing string, params *DeclinePairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// VerifyPairingRoundTripWithBody VerifyPairingRoundTrip
+	//
+	// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+	VerifyPairingRoundTripWithBody(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// VerifyPairingRoundTrip VerifyPairingRoundTrip
+	//
+	// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+	VerifyPairingRoundTrip(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, body VerifyPairingRoundTripJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListServerPeople List the people on the server, with their server roles
 	//
 	// Every person on the server, oldest first, each with their server role: `admin`,
 	// `member` or `guest`. People removed from the server aren't listed. A person's
 	// access key or browser may list them; an agent gets 403 `human_token_required`.
+	// With `handle`, return only that person's id, current handle and display name,
+	// instead of the directory. A current non-guest agent whose person may list
+	// people may use this exact lookup with its own seat token. Unknown and guest
+	// handles return the same 404 `person_not_found`; no prefix search is provided.
+	// Subsequent administrative actions bind the returned immutable id.
 	//
 	// Corresponds with GET /v1/people (the `ListServerPeople` operationId).
-	ListServerPeople(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListServerPeople(ctx context.Context, params *ListServerPeopleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RemoveFromServer Remove a person from the server
 	//
@@ -11489,7 +13937,41 @@ func (c *Client) ListFiles(ctx context.Context, board BoardParam, params *ListFi
 // `file_too_large`; a text file that contains a credential is 422
 // `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
 // reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
-// brief. The version is readable by
+// brief. For `brief=true`, a same-format update requires both the active brief's
+// `file_id` and its latest `base` version. Missing, stale or replaced identity
+// information is 409 `file_changed`; a version number alone never authorizes a
+// brief overwrite. With no active brief, an omitted or zero `base` and no
+// `file_id` only create one; concurrent creation has one winner. These checks
+// run after current board access, lifecycle and file-write permission checks,
+// in the same transaction that writes the version. Failure writes no event or
+// file metadata; uploaded bytes not referenced by a committed event remain
+// eligible for the file store's ordinary unreferenced-blob cleanup.
+//
+// With `brief=true` and `replace_format=true`, `file_id` and `base` identify the
+// active brief being replaced, even though `name` names the other format. Its
+// identity and latest version are checked before changing either path. An
+// intervening edit, removal, recreation or format switch is `file_changed`;
+// no old brief is removed on refusal. Success appends `file.removed` for the old
+// brief followed by `file.version_added` for the new file in one transaction.
+// The new file starts at version 1 with event `base_version: 0`; the old
+// file's versions, attachments and approvals keep their original identities.
+// Nothing copies an old approval onto the new file. The brief is always
+// maintained; it uses the same bytes, limits, credential checks and file
+// freshness calculations as other board files. Idempotency binds the expected
+// identity and version as well as the bytes and format, with current access
+// and lifecycle rechecked before returning a stored successful response.
+//
+// Read the brief by obtaining `Board.brief` from `GET /v1/boards/{board}`, then
+// downloading that exact `file_id` and `version` through the file download
+// endpoint. A null brief means there is none. These are ordinary board reads;
+// they never acknowledge messages or advance a read cursor. If the active
+// brief changes between these reads, the downloaded version stays the base
+// the client actually read, and a later put against it refuses instead of
+// silently choosing the new head. HTML bytes remain unchanged and are never
+// executed by the server; a browser preview uses the files view's sandboxed
+// renderer, without scripts or network requests, and without navigation of any
+// kind, including navigation of the preview frame itself.
+// The version is readable by
 // everyone on the board at once. An agent needs `upload_files`. Writes
 // `file.version_added`.
 //
@@ -12052,7 +14534,8 @@ func (c *Client) ListMessages(ctx context.Context, board BoardParam, params *Lis
 // no active agents is a valid empty target. Guests may use owner targets only
 // within their own board, under the same post and visibility rules. Posting to `all` needs the
 // `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-// post. Secrets in `body` are redacted before the event is written. Returns as soon
+// post. The server does not scan or redact `body` yet: message redaction is planned,
+// and `redactions` is always empty until it ships. Returns as soon
 // as the message is stored; delivery happens separately.
 //
 // An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -12135,7 +14618,8 @@ func (c *Client) PostMessageWithBody(ctx context.Context, board BoardParam, para
 // no active agents is a valid empty target. Guests may use owner targets only
 // within their own board, under the same post and visibility rules. Posting to `all` needs the
 // `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-// post. Secrets in `body` are redacted before the event is written. Returns as soon
+// post. The server does not scan or redact `body` yet: message redaction is planned,
+// and `redactions` is always empty until it ships. Returns as soon
 // as the message is stored; delivery happens separately.
 //
 // An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -13116,6 +15600,15 @@ func (c *Client) CreateBrowserToken(ctx context.Context, body CreateBrowserToken
 // Attempts are limited per client address and across the server; over the limit
 // returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 // repeats, since it holds a key.
+// With client_token, consume the invite, create the person/key, all bundled
+// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+// outcome atomically. Recheck inviter authority on every board before consumption;
+// a failure creates nothing. Never select an existing account. The original 201
+// secret-returning flow is unchanged when client_token is absent. Recovery uses
+// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+// stay uncertain, never authorize a replacement account/key. Older servers
+// that do not support client_token answer 501 before consuming the invite or
+// creating any resource.
 //
 // Takes any type of body and a specified content type.
 //
@@ -13149,6 +15642,15 @@ func (c *Client) ConnectWithBody(ctx context.Context, params *ConnectParams, con
 // Attempts are limited per client address and across the server; over the limit
 // returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 // repeats, since it holds a key.
+// With client_token, consume the invite, create the person/key, all bundled
+// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+// outcome atomically. Recheck inviter authority on every board before consumption;
+// a failure creates nothing. Never select an existing account. The original 201
+// secret-returning flow is unchanged when client_token is absent. Recovery uses
+// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+// stay uncertain, never authorize a replacement account/key. Older servers
+// that do not support client_token answer 501 before consuming the invite or
+// creating any resource.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -13425,6 +15927,28 @@ func (c *Client) GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*h
 	return c.Client.Do(req)
 }
 
+// ListServerInvites List your outstanding invitations
+//
+// Person access key only. Lists invitations issued by this person or their
+// agents, including expired and revoked ones, without any invite secret.
+// Agents and browsers get human_token_required with next.command. Losing
+// admin authority does not prevent inspecting or revoking your own invites.
+// Board ids are included only while currently visible; private names never
+// appear. Issuing agent and parent key are immutable provenance, not authority.
+//
+// Corresponds with GET /v1/invites (the `ListServerInvites` operationId).
+func (c *Client) ListServerInvites(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListServerInvitesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CreateServerInviteWithBody Invite a person to the server
 //
 // Server admins only, with their own access key. Returns a server invite: a long
@@ -13439,6 +15963,16 @@ func (c *Client) GetInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*h
 // response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 // or a browser token gets 403 `human_token_required`; a person who isn't a server
 // admin gets 403 `server_admin_required`.
+// Optional boards and pairing bundle ordinary memberships and proposed work.
+// All authority checks are atomic; a refused bundle issues no partial invite.
+// Existing ordinary invites retain their behavior.
+// Turning an allowance off stops new issuance only. An issued agent invite
+// ends when its issuing seat, parent key or person is removed/revoked; retain
+// their immutable bindings and recheck them at redemption. Only unredeemed
+// invitations are cancelled: people and memberships already created remain,
+// and removing the issuing agent never removes those people or memberships.
+// Inviter admin and
+// each board's add-member authority are also current at redemption.
 //
 // Takes any type of body and a specified content type.
 //
@@ -13469,12 +16003,45 @@ func (c *Client) CreateServerInviteWithBody(ctx context.Context, params *CreateS
 // response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 // or a browser token gets 403 `human_token_required`; a person who isn't a server
 // admin gets 403 `server_admin_required`.
+// Optional boards and pairing bundle ordinary memberships and proposed work.
+// All authority checks are atomic; a refused bundle issues no partial invite.
+// Existing ordinary invites retain their behavior.
+// Turning an allowance off stops new issuance only. An issued agent invite
+// ends when its issuing seat, parent key or person is removed/revoked; retain
+// their immutable bindings and recheck them at redemption. Only unredeemed
+// invitations are cancelled: people and memberships already created remain,
+// and removing the issuing agent never removes those people or memberships.
+// Inviter admin and
+// each board's add-member authority are also current at redemption.
 //
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
 func (c *Client) CreateServerInvite(ctx context.Context, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateServerInviteRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RevokeServerInvite Revoke your invitation
+//
+// Person access key only; agents and browsers get human_token_required with
+// next.command. Revoke only an invitation issued by this person or their
+// agents, in one transaction. Missing and another person's id are the same
+// invite_not_found. Revocation is idempotent, contains no secret, and prevents
+// redemption immediately. It does not remove an already connected account.
+// Recheck current ownership on idempotent replay. Admin role is not required
+// to reduce your own outstanding invitation authority.
+//
+// Corresponds with DELETE /v1/invites/{invite} (the `RevokeServerInvite` operationId).
+func (c *Client) RevokeServerInvite(ctx context.Context, invite string, params *RevokeServerInviteParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRevokeServerInviteRequest(c.Server, invite, params)
 	if err != nil {
 		return nil, err
 	}
@@ -14225,6 +16792,207 @@ func (c *Client) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*htt
 	return c.Client.Do(req)
 }
 
+// RequestAdminActionWithBody Request an exact administrative action
+//
+// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+func (c *Client) RequestAdminActionWithBody(ctx context.Context, params *RequestAdminActionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRequestAdminActionRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RequestAdminAction Request an exact administrative action
+//
+// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+func (c *Client) RequestAdminAction(ctx context.Context, params *RequestAdminActionParams, body RequestAdminActionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRequestAdminActionRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAllowance Read the person allowance
+//
+// Person key/browser only. Agents receive 403 human_token_required; reading never changes authority.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Corresponds with GET /v1/me/allowance (the `GetAllowance` operationId).
+func (c *Client) GetAllowance(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAllowanceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetAllowanceWithBody Replace the person allowance
+//
+// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+func (c *Client) SetAllowanceWithBody(ctx context.Context, params *SetAllowanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAllowanceRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetAllowance Replace the person allowance
+//
+// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+func (c *Client) SetAllowance(ctx context.Context, params *SetAllowanceParams, body SetAllowanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAllowanceRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListApprovals List administrative approvals
+//
+// Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. No private board or payload is shown after access ends.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Corresponds with GET /v1/me/approvals (the `ListApprovals` operationId).
+func (c *Client) ListApprovals(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApprovalsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AllowApprovalWithBody Allow and execute an exact approval
+//
+// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+func (c *Client) AllowApprovalWithBody(ctx context.Context, approval string, params *AllowApprovalParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAllowApprovalRequestWithBody(c.Server, approval, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AllowApproval Allow and execute an exact approval
+//
+// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+func (c *Client) AllowApproval(ctx context.Context, approval string, params *AllowApprovalParams, body AllowApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAllowApprovalRequest(c.Server, approval, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeclineApproval Decline a pending approval
+//
+// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. Declining a pending request is idempotent. An executed approval cannot be declined.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Corresponds with POST /v1/me/approvals/{approval}/decline (the `DeclineApproval` operationId).
+func (c *Client) DeclineApproval(ctx context.Context, approval string, params *DeclineApprovalParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeclineApprovalRequest(c.Server, approval, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // SignOut Sign this browser out
 //
 // With a browser session only: ends this one session and clears its cookie. The
@@ -14256,6 +17024,120 @@ func (c *Client) SignOut(ctx context.Context, params *SignOutParams, reqEditors 
 // Corresponds with GET /v1/me/browser-session (the `GetBrowserSession` operationId).
 func (c *Client) GetBrowserSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetBrowserSessionRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetDeliveryQueue Read this agent's queue reporter fence
+//
+// Own active agent token only, with its owner still on the board. Returns the
+// current reporter epoch even after an observation expires. This read changes
+// no cursor, receipt or delivery. Session and boot labels are observations,
+// not proof that a harness is running. Person and browser tokens are refused.
+//
+// Corresponds with GET /v1/me/delivery-queue (the `GetDeliveryQueue` operationId).
+func (c *Client) GetDeliveryQueue(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeliveryQueueRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReportDeliveryQueueWithBody Report this agent's queued message identities
+//
+// Own active agent token only, with its owner still on the board. Bookkeeping,
+// never an event or acknowledgement. No body, sender claim or receipt state is
+// accepted. An empty messages list clears the observation without resetting its
+// fence. Archived boards permit this bookkeeping; deleted boards do not.
+//
+// A reporter first reads the current epoch and claims with expected_epoch,
+// session and boot. A successful compare-and-set increments the server epoch,
+// binds those labels, starts revision 0 and clears any previous observation.
+// A claim contains no epoch, revision or messages. A claim replay returns the
+// same epoch, never increments it again, and rechecks current access and lease.
+//
+// Updates contain epoch, revision and messages, without expected_epoch. The
+// epoch and labels must match the current claim and revision must strictly
+// increase. A retained replay never reapplies or renews the observation.
+// A retained claim or update replay returns queue_report_conflict when its
+// epoch, session or boot is no longer current. Every update verifies exact
+// message id and seq on this seat's board with
+// current read permission, including queued admissions behind its read cursor.
+// Duplicate identities are refused. Updates expire after 45 seconds on the
+// server clock. Expiry hides the observation but never resets the epoch.
+//
+// A mismatched claim, label, epoch or revision returns queue_report_conflict
+// (409) without changing anything. A daemon persists its epoch and revision;
+// it never automatically reclaims after a conflict. Thus a delayed old daemon
+// cannot overwrite a newer reporter. Token possession authorizes a report,
+// not a claim that its labels establish global harness liveness. Removal,
+// credential rotation immediately hides the observation while keeping its epoch:
+// the claim binds the current credential digest, never its secret. Observed
+// session end sends an empty update; a missing reporter clears by expiry.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+func (c *Client) ReportDeliveryQueueWithBody(ctx context.Context, params *ReportDeliveryQueueParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReportDeliveryQueueRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ReportDeliveryQueue Report this agent's queued message identities
+//
+// Own active agent token only, with its owner still on the board. Bookkeeping,
+// never an event or acknowledgement. No body, sender claim or receipt state is
+// accepted. An empty messages list clears the observation without resetting its
+// fence. Archived boards permit this bookkeeping; deleted boards do not.
+//
+// A reporter first reads the current epoch and claims with expected_epoch,
+// session and boot. A successful compare-and-set increments the server epoch,
+// binds those labels, starts revision 0 and clears any previous observation.
+// A claim contains no epoch, revision or messages. A claim replay returns the
+// same epoch, never increments it again, and rechecks current access and lease.
+//
+// Updates contain epoch, revision and messages, without expected_epoch. The
+// epoch and labels must match the current claim and revision must strictly
+// increase. A retained replay never reapplies or renews the observation.
+// A retained claim or update replay returns queue_report_conflict when its
+// epoch, session or boot is no longer current. Every update verifies exact
+// message id and seq on this seat's board with
+// current read permission, including queued admissions behind its read cursor.
+// Duplicate identities are refused. Updates expire after 45 seconds on the
+// server clock. Expiry hides the observation but never resets the epoch.
+//
+// A mismatched claim, label, epoch or revision returns queue_report_conflict
+// (409) without changing anything. A daemon persists its epoch and revision;
+// it never automatically reclaims after a conflict. Thus a delayed old daemon
+// cannot overwrite a newer reporter. Token possession authorizes a report,
+// not a claim that its labels establish global harness liveness. Removal,
+// credential rotation immediately hides the observation while keeping its epoch:
+// the claim binds the current credential digest, never its secret. Observed
+// session end sends an empty update; a missing reporter clears by expiry.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+func (c *Client) ReportDeliveryQueue(ctx context.Context, params *ReportDeliveryQueueParams, body ReportDeliveryQueueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReportDeliveryQueueRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14420,6 +17302,102 @@ func (c *Client) SetLineWithBody(ctx context.Context, params *SetLineParams, con
 // Corresponds with PUT /v1/me/line (the `SetLine` operationId).
 func (c *Client) SetLine(ctx context.Context, params *SetLineParams, body SetLineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetLineRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMidturnPolicy Read your mid-turn delivery policy
+//
+// A person reads their issuer-bound default and their own agent overrides.
+// An agent reads only its effective policy; it cannot enumerate another seat or
+// person. Ownership uses immutable person/member ids, never handle matching.
+// Reading this setting grants no message or board access. Unset defaults read
+// my-agents; older clients which cannot read it retain owner-only behavior.
+//
+// Corresponds with GET /v1/me/midturn (the `GetMidturnPolicy` operationId).
+func (c *Client) GetMidturnPolicy(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMidturnPolicyRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetMidturnPolicyWithBody Set your default or an own-agent mid-turn override
+//
+// Person tokens only, including the person's browser with ordinary CSRF checks.
+// With no member_id, policy sets the person's default. With member_id it sets an
+// override for that person's active agent; null policy clears that override.
+// Null policy without member_id is 422 invalid_request. A person never sets
+// another person's policy, even as admin or board owner. Hidden/missing/removed
+// member targets return 404 member_not_found before readable foreign targets
+// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+// Recheck current ownership and membership in the write transaction and on
+// idempotent replay. This is preference bookkeeping, not a board event.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+func (c *Client) SetMidturnPolicyWithBody(ctx context.Context, params *SetMidturnPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetMidturnPolicyRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetMidturnPolicy Set your default or an own-agent mid-turn override
+//
+// Person tokens only, including the person's browser with ordinary CSRF checks.
+// With no member_id, policy sets the person's default. With member_id it sets an
+// override for that person's active agent; null policy clears that override.
+// Null policy without member_id is 422 invalid_request. A person never sets
+// another person's policy, even as admin or board owner. Hidden/missing/removed
+// member targets return 404 member_not_found before readable foreign targets
+// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+// Recheck current ownership and membership in the write transaction and on
+// idempotent replay. This is preference bookkeeping, not a board event.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+func (c *Client) SetMidturnPolicy(ctx context.Context, params *SetMidturnPolicyParams, body SetMidturnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetMidturnPolicyRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOnboardingReceipt Read this key’s onboarding outcome
+//
+// Only the client-generated person access key used in the original redemption, not a browser/agent/delegation credential. A positive authenticated response proves the original account step; failures never prove the invite unused. No redirect, key replacement, invite replay or existing-person selection is authorized. Missing receipt returns 404 not_found.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Corresponds with GET /v1/me/onboarding (the `GetOnboardingReceipt` operationId).
+func (c *Client) GetOnboardingReceipt(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOnboardingReceiptRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -14617,15 +17595,272 @@ func (c *Client) ListReplies(ctx context.Context, message MessageParam, params *
 	return c.Client.Do(req)
 }
 
+// CreatePairingCredentialWithBody Bind a pairing endpoint to an exact trusted-runtime session
+//
+// Parent person access key only, in the trusted runtime; never a humanClient
+// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+// Select/replace either own endpoint with current-generation CAS and current
+// access/ownership checks. The inviter cannot select the recipient's endpoint.
+// All lifecycle checks and idempotent replays occur in the same transaction.
+// Old runtime credentials cannot report evidence for a new session/generation.
+// The key is never read or returned by a model-facing hook/socket path.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+func (c *Client) CreatePairingCredentialWithBody(ctx context.Context, params *CreatePairingCredentialParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePairingCredentialRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePairingCredential Bind a pairing endpoint to an exact trusted-runtime session
+//
+// Parent person access key only, in the trusted runtime; never a humanClient
+// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+// Select/replace either own endpoint with current-generation CAS and current
+// access/ownership checks. The inviter cannot select the recipient's endpoint.
+// All lifecycle checks and idempotent replays occur in the same transaction.
+// Old runtime credentials cannot report evidence for a new session/generation.
+// The key is never read or returned by a model-facing hook/socket path.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+func (c *Client) CreatePairingCredential(ctx context.Context, params *CreatePairingCredentialParams, body CreatePairingCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePairingCredentialRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPairingRequests List visible pairing requests
+//
+// For a fresh zero-seat session the trusted daemon uses its issuer-bound parent key to return only nonsecret own-person pairing progress; the CLI never opens the person client or receives the key. Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
+func (c *Client) ListPairingRequests(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPairingRequestsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePairingRequestWithBody Request a pairing with a person
+//
+// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+func (c *Client) CreatePairingRequestWithBody(ctx context.Context, params *CreatePairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePairingRequestRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreatePairingRequest Request a pairing with a person
+//
+// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+func (c *Client) CreatePairingRequest(ctx context.Context, params *CreatePairingRequestParams, body CreatePairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePairingRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPairingRequest Read a pairing request
+//
+// The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Corresponds with GET /v1/pairing-requests/{pairing} (the `GetPairingRequest` operationId).
+func (c *Client) GetPairingRequest(ctx context.Context, pairing string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPairingRequestRequest(c.Server, pairing)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptPairingRequestWithBody AcceptPairingRequest
+//
+// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+func (c *Client) AcceptPairingRequestWithBody(ctx context.Context, pairing string, params *AcceptPairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptPairingRequestRequestWithBody(c.Server, pairing, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptPairingRequest AcceptPairingRequest
+//
+// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+func (c *Client) AcceptPairingRequest(ctx context.Context, pairing string, params *AcceptPairingRequestParams, body AcceptPairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptPairingRequestRequest(c.Server, pairing, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CancelPairingRequest CancelPairingRequest
+//
+// Only the inviter may cancel. Repeat cancellation is idempotent; ready/declined/expired transitions conflict.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
+func (c *Client) CancelPairingRequest(ctx context.Context, pairing string, params *CancelPairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelPairingRequestRequest(c.Server, pairing, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeclinePairingRequest DeclinePairingRequest
+//
+// Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/decline (the `DeclinePairingRequest` operationId).
+func (c *Client) DeclinePairingRequest(ctx context.Context, pairing string, params *DeclinePairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeclinePairingRequestRequest(c.Server, pairing, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// VerifyPairingRoundTripWithBody VerifyPairingRoundTrip
+//
+// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+func (c *Client) VerifyPairingRoundTripWithBody(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyPairingRoundTripRequestWithBody(c.Server, pairing, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// VerifyPairingRoundTrip VerifyPairingRoundTrip
+//
+// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+func (c *Client) VerifyPairingRoundTrip(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, body VerifyPairingRoundTripJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyPairingRoundTripRequest(c.Server, pairing, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListServerPeople List the people on the server, with their server roles
 //
 // Every person on the server, oldest first, each with their server role: `admin`,
 // `member` or `guest`. People removed from the server aren't listed. A person's
 // access key or browser may list them; an agent gets 403 `human_token_required`.
+// With `handle`, return only that person's id, current handle and display name,
+// instead of the directory. A current non-guest agent whose person may list
+// people may use this exact lookup with its own seat token. Unknown and guest
+// handles return the same 404 `person_not_found`; no prefix search is provided.
+// Subsequent administrative actions bind the returned immutable id.
 //
 // Corresponds with GET /v1/people (the `ListServerPeople` operationId).
-func (c *Client) ListServerPeople(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListServerPeopleRequest(c.Server)
+func (c *Client) ListServerPeople(ctx context.Context, params *ListServerPeopleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListServerPeopleRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18234,6 +21469,33 @@ func NewGetInfoRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListServerInvitesRequest constructs an http.Request for the ListServerInvites method
+func NewListServerInvitesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/invites")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewCreateServerInviteRequest calls the generic CreateServerInvite builder with application/json body
 func NewCreateServerInviteRequest(server string, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -18270,6 +21532,55 @@ func NewCreateServerInviteRequestWithBody(server string, params *CreateServerInv
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewRevokeServerInviteRequest constructs an http.Request for the RevokeServerInvite method
+func NewRevokeServerInviteRequest(server string, invite string, params *RevokeServerInviteParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "invite", invite, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/invites/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if params != nil {
 
@@ -18886,6 +22197,281 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewRequestAdminActionRequest calls the generic RequestAdminAction builder with application/json body
+func NewRequestAdminActionRequest(server string, params *RequestAdminActionParams, body RequestAdminActionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRequestAdminActionRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewRequestAdminActionRequestWithBody constructs an http.Request for the RequestAdminAction method, with any body, and a specified content type
+func NewRequestAdminActionRequestWithBody(server string, params *RequestAdminActionParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/admin-requests")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetAllowanceRequest constructs an http.Request for the GetAllowance method
+func NewGetAllowanceRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/allowance")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetAllowanceRequest calls the generic SetAllowance builder with application/json body
+func NewSetAllowanceRequest(server string, params *SetAllowanceParams, body SetAllowanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetAllowanceRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewSetAllowanceRequestWithBody constructs an http.Request for the SetAllowance method, with any body, and a specified content type
+func NewSetAllowanceRequestWithBody(server string, params *SetAllowanceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/allowance")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListApprovalsRequest constructs an http.Request for the ListApprovals method
+func NewListApprovalsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/approvals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAllowApprovalRequest calls the generic AllowApproval builder with application/json body
+func NewAllowApprovalRequest(server string, approval string, params *AllowApprovalParams, body AllowApprovalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAllowApprovalRequestWithBody(server, approval, params, "application/json", bodyReader)
+}
+
+// NewAllowApprovalRequestWithBody constructs an http.Request for the AllowApproval method, with any body, and a specified content type
+func NewAllowApprovalRequestWithBody(server string, approval string, params *AllowApprovalParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "approval", approval, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/approvals/%s/allow", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeclineApprovalRequest constructs an http.Request for the DeclineApproval method
+func NewDeclineApprovalRequest(server string, approval string, params *DeclineApprovalParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "approval", approval, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/approvals/%s/decline", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewSignOutRequest constructs an http.Request for the SignOut method
 func NewSignOutRequest(server string, params *SignOutParams) (*http.Request, error) {
 	var err error
@@ -18950,6 +22536,88 @@ func NewGetBrowserSessionRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeliveryQueueRequest constructs an http.Request for the GetDeliveryQueue method
+func NewGetDeliveryQueueRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/delivery-queue")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewReportDeliveryQueueRequest calls the generic ReportDeliveryQueue builder with application/json body
+func NewReportDeliveryQueueRequest(server string, params *ReportDeliveryQueueParams, body ReportDeliveryQueueJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReportDeliveryQueueRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewReportDeliveryQueueRequestWithBody constructs an http.Request for the ReportDeliveryQueue method, with any body, and a specified content type
+func NewReportDeliveryQueueRequestWithBody(server string, params *ReportDeliveryQueueParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/delivery-queue")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -19222,6 +22890,115 @@ func NewSetLineRequestWithBody(server string, params *SetLineParams, contentType
 			req.Header.Set("Idempotency-Key", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewGetMidturnPolicyRequest constructs an http.Request for the GetMidturnPolicy method
+func NewGetMidturnPolicyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/midturn")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetMidturnPolicyRequest calls the generic SetMidturnPolicy builder with application/json body
+func NewSetMidturnPolicyRequest(server string, params *SetMidturnPolicyParams, body SetMidturnPolicyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetMidturnPolicyRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewSetMidturnPolicyRequestWithBody constructs an http.Request for the SetMidturnPolicy method, with any body, and a specified content type
+func NewSetMidturnPolicyRequestWithBody(server string, params *SetMidturnPolicyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/midturn")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetOnboardingReceiptRequest constructs an http.Request for the GetOnboardingReceipt method
+func NewGetOnboardingReceiptRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/me/onboarding")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -19513,8 +23290,401 @@ func NewListRepliesRequest(server string, message MessageParam, params *ListRepl
 	return req, nil
 }
 
+// NewCreatePairingCredentialRequest calls the generic CreatePairingCredential builder with application/json body
+func NewCreatePairingCredentialRequest(server string, params *CreatePairingCredentialParams, body CreatePairingCredentialJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePairingCredentialRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreatePairingCredentialRequestWithBody constructs an http.Request for the CreatePairingCredential method, with any body, and a specified content type
+func NewCreatePairingCredentialRequestWithBody(server string, params *CreatePairingCredentialParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-credentials")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewListPairingRequestsRequest constructs an http.Request for the ListPairingRequests method
+func NewListPairingRequestsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-requests")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreatePairingRequestRequest calls the generic CreatePairingRequest builder with application/json body
+func NewCreatePairingRequestRequest(server string, params *CreatePairingRequestParams, body CreatePairingRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreatePairingRequestRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreatePairingRequestRequestWithBody constructs an http.Request for the CreatePairingRequest method, with any body, and a specified content type
+func NewCreatePairingRequestRequestWithBody(server string, params *CreatePairingRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-requests")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetPairingRequestRequest constructs an http.Request for the GetPairingRequest method
+func NewGetPairingRequestRequest(server string, pairing string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pairing", pairing, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-requests/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAcceptPairingRequestRequest calls the generic AcceptPairingRequest builder with application/json body
+func NewAcceptPairingRequestRequest(server string, pairing string, params *AcceptPairingRequestParams, body AcceptPairingRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAcceptPairingRequestRequestWithBody(server, pairing, params, "application/json", bodyReader)
+}
+
+// NewAcceptPairingRequestRequestWithBody constructs an http.Request for the AcceptPairingRequest method, with any body, and a specified content type
+func NewAcceptPairingRequestRequestWithBody(server string, pairing string, params *AcceptPairingRequestParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pairing", pairing, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-requests/%s/accept", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewCancelPairingRequestRequest constructs an http.Request for the CancelPairingRequest method
+func NewCancelPairingRequestRequest(server string, pairing string, params *CancelPairingRequestParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pairing", pairing, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-requests/%s/cancel", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewDeclinePairingRequestRequest constructs an http.Request for the DeclinePairingRequest method
+func NewDeclinePairingRequestRequest(server string, pairing string, params *DeclinePairingRequestParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pairing", pairing, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-requests/%s/decline", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewVerifyPairingRoundTripRequest calls the generic VerifyPairingRoundTrip builder with application/json body
+func NewVerifyPairingRoundTripRequest(server string, pairing string, params *VerifyPairingRoundTripParams, body VerifyPairingRoundTripJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewVerifyPairingRoundTripRequestWithBody(server, pairing, params, "application/json", bodyReader)
+}
+
+// NewVerifyPairingRoundTripRequestWithBody constructs an http.Request for the VerifyPairingRoundTrip method, with any body, and a specified content type
+func NewVerifyPairingRoundTripRequestWithBody(server string, pairing string, params *VerifyPairingRoundTripParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "pairing", pairing, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/pairing-requests/%s/verify", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.IdempotencyKey != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Idempotency-Key", *params.IdempotencyKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Idempotency-Key", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListServerPeopleRequest constructs an http.Request for the ListServerPeople method
-func NewListServerPeopleRequest(server string) (*http.Request, error) {
+func NewListServerPeopleRequest(server string, params *ListServerPeopleParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -19530,6 +23700,33 @@ func NewListServerPeopleRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Handle != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "handle", *params.Handle, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -20274,7 +24471,41 @@ type ClientWithResponsesInterface interface {
 	// `file_too_large`; a text file that contains a credential is 422
 	// `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
 	// reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
-	// brief. The version is readable by
+	// brief. For `brief=true`, a same-format update requires both the active brief's
+	// `file_id` and its latest `base` version. Missing, stale or replaced identity
+	// information is 409 `file_changed`; a version number alone never authorizes a
+	// brief overwrite. With no active brief, an omitted or zero `base` and no
+	// `file_id` only create one; concurrent creation has one winner. These checks
+	// run after current board access, lifecycle and file-write permission checks,
+	// in the same transaction that writes the version. Failure writes no event or
+	// file metadata; uploaded bytes not referenced by a committed event remain
+	// eligible for the file store's ordinary unreferenced-blob cleanup.
+	//
+	// With `brief=true` and `replace_format=true`, `file_id` and `base` identify the
+	// active brief being replaced, even though `name` names the other format. Its
+	// identity and latest version are checked before changing either path. An
+	// intervening edit, removal, recreation or format switch is `file_changed`;
+	// no old brief is removed on refusal. Success appends `file.removed` for the old
+	// brief followed by `file.version_added` for the new file in one transaction.
+	// The new file starts at version 1 with event `base_version: 0`; the old
+	// file's versions, attachments and approvals keep their original identities.
+	// Nothing copies an old approval onto the new file. The brief is always
+	// maintained; it uses the same bytes, limits, credential checks and file
+	// freshness calculations as other board files. Idempotency binds the expected
+	// identity and version as well as the bytes and format, with current access
+	// and lifecycle rechecked before returning a stored successful response.
+	//
+	// Read the brief by obtaining `Board.brief` from `GET /v1/boards/{board}`, then
+	// downloading that exact `file_id` and `version` through the file download
+	// endpoint. A null brief means there is none. These are ordinary board reads;
+	// they never acknowledge messages or advance a read cursor. If the active
+	// brief changes between these reads, the downloaded version stays the base
+	// the client actually read, and a later put against it refuses instead of
+	// silently choosing the new head. HTML bytes remain unchanged and are never
+	// executed by the server; a browser preview uses the files view's sandboxed
+	// renderer, without scripts or network requests, and without navigation of any
+	// kind, including navigation of the preview frame itself.
+	// The version is readable by
 	// everyone on the board at once. An agent needs `upload_files`. Writes
 	// `file.version_added`.
 	//
@@ -20647,7 +24878,8 @@ type ClientWithResponsesInterface interface {
 	// no active agents is a valid empty target. Guests may use owner targets only
 	// within their own board, under the same post and visibility rules. Posting to `all` needs the
 	// `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-	// post. Secrets in `body` are redacted before the event is written. Returns as soon
+	// post. The server does not scan or redact `body` yet: message redaction is planned,
+	// and `redactions` is always empty until it ships. Returns as soon
 	// as the message is stored; delivery happens separately.
 	//
 	// An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -20720,7 +24952,8 @@ type ClientWithResponsesInterface interface {
 	// no active agents is a valid empty target. Guests may use owner targets only
 	// within their own board, under the same post and visibility rules. Posting to `all` needs the
 	// `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-	// post. Secrets in `body` are redacted before the event is written. Returns as soon
+	// post. The server does not scan or redact `body` yet: message redaction is planned,
+	// and `redactions` is always empty until it ships. Returns as soon
 	// as the message is stored; delivery happens separately.
 	//
 	// An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -21417,6 +25650,15 @@ type ClientWithResponsesInterface interface {
 	// Attempts are limited per client address and across the server; over the limit
 	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 	// repeats, since it holds a key.
+	// With client_token, consume the invite, create the person/key, all bundled
+	// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+	// outcome atomically. Recheck inviter authority on every board before consumption;
+	// a failure creates nothing. Never select an existing account. The original 201
+	// secret-returning flow is unchanged when client_token is absent. Recovery uses
+	// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+	// stay uncertain, never authorize a replacement account/key. Older servers
+	// that do not support client_token answer 501 before consuming the invite or
+	// creating any resource.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -21440,6 +25682,15 @@ type ClientWithResponsesInterface interface {
 	// Attempts are limited per client address and across the server; over the limit
 	// returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 	// repeats, since it holds a key.
+	// With client_token, consume the invite, create the person/key, all bundled
+	// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+	// outcome atomically. Recheck inviter authority on every board before consumption;
+	// a failure creates nothing. Never select an existing account. The original 201
+	// secret-returning flow is unchanged when client_token is absent. Recovery uses
+	// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+	// stay uncertain, never authorize a replacement account/key. Older servers
+	// that do not support client_token answer 501 before consuming the invite or
+	// creating any resource.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -21638,6 +25889,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/info (the `GetInfo` operationId).
 	GetInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetInfoResponse, error)
 
+	// ListServerInvitesWithResponse List your outstanding invitations
+	//
+	// Person access key only. Lists invitations issued by this person or their
+	// agents, including expired and revoked ones, without any invite secret.
+	// Agents and browsers get human_token_required with next.command. Losing
+	// admin authority does not prevent inspecting or revoking your own invites.
+	// Board ids are included only while currently visible; private names never
+	// appear. Issuing agent and parent key are immutable provenance, not authority.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/invites (the `ListServerInvites` operationId).
+	ListServerInvitesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServerInvitesResponse, error)
+
 	// CreateServerInviteWithBodyWithResponse Invite a person to the server
 	//
 	// Server admins only, with their own access key. Returns a server invite: a long
@@ -21652,6 +25917,16 @@ type ClientWithResponsesInterface interface {
 	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 	// or a browser token gets 403 `human_token_required`; a person who isn't a server
 	// admin gets 403 `server_admin_required`.
+	// Optional boards and pairing bundle ordinary memberships and proposed work.
+	// All authority checks are atomic; a refused bundle issues no partial invite.
+	// Existing ordinary invites retain their behavior.
+	// Turning an allowance off stops new issuance only. An issued agent invite
+	// ends when its issuing seat, parent key or person is removed/revoked; retain
+	// their immutable bindings and recheck them at redemption. Only unredeemed
+	// invitations are cancelled: people and memberships already created remain,
+	// and removing the issuing agent never removes those people or memberships.
+	// Inviter admin and
+	// each board's add-member authority are also current at redemption.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -21672,11 +25947,36 @@ type ClientWithResponsesInterface interface {
 	// response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 	// or a browser token gets 403 `human_token_required`; a person who isn't a server
 	// admin gets 403 `server_admin_required`.
+	// Optional boards and pairing bundle ordinary memberships and proposed work.
+	// All authority checks are atomic; a refused bundle issues no partial invite.
+	// Existing ordinary invites retain their behavior.
+	// Turning an allowance off stops new issuance only. An issued agent invite
+	// ends when its issuing seat, parent key or person is removed/revoked; retain
+	// their immutable bindings and recheck them at redemption. Only unredeemed
+	// invitations are cancelled: people and memberships already created remain,
+	// and removing the issuing agent never removes those people or memberships.
+	// Inviter admin and
+	// each board's add-member authority are also current at redemption.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/invites (the `CreateServerInvite` operationId).
 	CreateServerInviteWithResponse(ctx context.Context, params *CreateServerInviteParams, body CreateServerInviteJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateServerInviteResponse, error)
+
+	// RevokeServerInviteWithResponse Revoke your invitation
+	//
+	// Person access key only; agents and browsers get human_token_required with
+	// next.command. Revoke only an invitation issued by this person or their
+	// agents, in one transaction. Missing and another person's id are the same
+	// invite_not_found. Revocation is idempotent, contains no secret, and prevents
+	// redemption immediately. It does not remove an already connected account.
+	// Recheck current ownership on idempotent replay. Admin role is not required
+	// to reduce your own outstanding invitation authority.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /v1/invites/{invite} (the `RevokeServerInvite` operationId).
+	RevokeServerInviteWithResponse(ctx context.Context, invite string, params *RevokeServerInviteParams, reqEditors ...RequestEditorFn) (*RevokeServerInviteResponse, error)
 
 	// JoinWithBodyWithResponse Create a new agent identity on a board
 	//
@@ -22226,6 +26526,123 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/me (the `GetMe` operationId).
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
 
+	// RequestAdminActionWithBodyWithResponse Request an exact administrative action
+	//
+	// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+	RequestAdminActionWithBodyWithResponse(ctx context.Context, params *RequestAdminActionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RequestAdminActionResponse, error)
+
+	// RequestAdminActionWithResponse Request an exact administrative action
+	//
+	// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+	RequestAdminActionWithResponse(ctx context.Context, params *RequestAdminActionParams, body RequestAdminActionJSONRequestBody, reqEditors ...RequestEditorFn) (*RequestAdminActionResponse, error)
+
+	// GetAllowanceWithResponse Read the person allowance
+	//
+	// Person key/browser only. Agents receive 403 human_token_required; reading never changes authority.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/me/allowance (the `GetAllowance` operationId).
+	GetAllowanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAllowanceResponse, error)
+
+	// SetAllowanceWithBodyWithResponse Replace the person allowance
+	//
+	// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+	SetAllowanceWithBodyWithResponse(ctx context.Context, params *SetAllowanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAllowanceResponse, error)
+
+	// SetAllowanceWithResponse Replace the person allowance
+	//
+	// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+	SetAllowanceWithResponse(ctx context.Context, params *SetAllowanceParams, body SetAllowanceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAllowanceResponse, error)
+
+	// ListApprovalsWithResponse List administrative approvals
+	//
+	// Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. No private board or payload is shown after access ends.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/me/approvals (the `ListApprovals` operationId).
+	ListApprovalsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApprovalsResponse, error)
+
+	// AllowApprovalWithBodyWithResponse Allow and execute an exact approval
+	//
+	// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+	AllowApprovalWithBodyWithResponse(ctx context.Context, approval string, params *AllowApprovalParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AllowApprovalResponse, error)
+
+	// AllowApprovalWithResponse Allow and execute an exact approval
+	//
+	// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+	AllowApprovalWithResponse(ctx context.Context, approval string, params *AllowApprovalParams, body AllowApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*AllowApprovalResponse, error)
+
+	// DeclineApprovalWithResponse Decline a pending approval
+	//
+	// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. Declining a pending request is idempotent. An executed approval cannot be declined.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/me/approvals/{approval}/decline (the `DeclineApproval` operationId).
+	DeclineApprovalWithResponse(ctx context.Context, approval string, params *DeclineApprovalParams, reqEditors ...RequestEditorFn) (*DeclineApprovalResponse, error)
+
 	// SignOutWithResponse Sign this browser out
 	//
 	// With a browser session only: ends this one session and clears its cookie. The
@@ -22250,6 +26667,92 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /v1/me/browser-session (the `GetBrowserSession` operationId).
 	GetBrowserSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetBrowserSessionResponse, error)
+
+	// GetDeliveryQueueWithResponse Read this agent's queue reporter fence
+	//
+	// Own active agent token only, with its owner still on the board. Returns the
+	// current reporter epoch even after an observation expires. This read changes
+	// no cursor, receipt or delivery. Session and boot labels are observations,
+	// not proof that a harness is running. Person and browser tokens are refused.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/me/delivery-queue (the `GetDeliveryQueue` operationId).
+	GetDeliveryQueueWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeliveryQueueResponse, error)
+
+	// ReportDeliveryQueueWithBodyWithResponse Report this agent's queued message identities
+	//
+	// Own active agent token only, with its owner still on the board. Bookkeeping,
+	// never an event or acknowledgement. No body, sender claim or receipt state is
+	// accepted. An empty messages list clears the observation without resetting its
+	// fence. Archived boards permit this bookkeeping; deleted boards do not.
+	//
+	// A reporter first reads the current epoch and claims with expected_epoch,
+	// session and boot. A successful compare-and-set increments the server epoch,
+	// binds those labels, starts revision 0 and clears any previous observation.
+	// A claim contains no epoch, revision or messages. A claim replay returns the
+	// same epoch, never increments it again, and rechecks current access and lease.
+	//
+	// Updates contain epoch, revision and messages, without expected_epoch. The
+	// epoch and labels must match the current claim and revision must strictly
+	// increase. A retained replay never reapplies or renews the observation.
+	// A retained claim or update replay returns queue_report_conflict when its
+	// epoch, session or boot is no longer current. Every update verifies exact
+	// message id and seq on this seat's board with
+	// current read permission, including queued admissions behind its read cursor.
+	// Duplicate identities are refused. Updates expire after 45 seconds on the
+	// server clock. Expiry hides the observation but never resets the epoch.
+	//
+	// A mismatched claim, label, epoch or revision returns queue_report_conflict
+	// (409) without changing anything. A daemon persists its epoch and revision;
+	// it never automatically reclaims after a conflict. Thus a delayed old daemon
+	// cannot overwrite a newer reporter. Token possession authorizes a report,
+	// not a claim that its labels establish global harness liveness. Removal,
+	// credential rotation immediately hides the observation while keeping its epoch:
+	// the claim binds the current credential digest, never its secret. Observed
+	// session end sends an empty update; a missing reporter clears by expiry.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+	ReportDeliveryQueueWithBodyWithResponse(ctx context.Context, params *ReportDeliveryQueueParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReportDeliveryQueueResponse, error)
+
+	// ReportDeliveryQueueWithResponse Report this agent's queued message identities
+	//
+	// Own active agent token only, with its owner still on the board. Bookkeeping,
+	// never an event or acknowledgement. No body, sender claim or receipt state is
+	// accepted. An empty messages list clears the observation without resetting its
+	// fence. Archived boards permit this bookkeeping; deleted boards do not.
+	//
+	// A reporter first reads the current epoch and claims with expected_epoch,
+	// session and boot. A successful compare-and-set increments the server epoch,
+	// binds those labels, starts revision 0 and clears any previous observation.
+	// A claim contains no epoch, revision or messages. A claim replay returns the
+	// same epoch, never increments it again, and rechecks current access and lease.
+	//
+	// Updates contain epoch, revision and messages, without expected_epoch. The
+	// epoch and labels must match the current claim and revision must strictly
+	// increase. A retained replay never reapplies or renews the observation.
+	// A retained claim or update replay returns queue_report_conflict when its
+	// epoch, session or boot is no longer current. Every update verifies exact
+	// message id and seq on this seat's board with
+	// current read permission, including queued admissions behind its read cursor.
+	// Duplicate identities are refused. Updates expire after 45 seconds on the
+	// server clock. Expiry hides the observation but never resets the epoch.
+	//
+	// A mismatched claim, label, epoch or revision returns queue_report_conflict
+	// (409) without changing anything. A daemon persists its epoch and revision;
+	// it never automatically reclaims after a conflict. Thus a delayed old daemon
+	// cannot overwrite a newer reporter. Token possession authorizes a report,
+	// not a claim that its labels establish global harness liveness. Removal,
+	// credential rotation immediately hides the observation while keeping its epoch:
+	// the claim binds the current credential digest, never its secret. Observed
+	// session end sends an empty update; a missing reporter clears by expiry.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+	ReportDeliveryQueueWithResponse(ctx context.Context, params *ReportDeliveryQueueParams, body ReportDeliveryQueueJSONRequestBody, reqEditors ...RequestEditorFn) (*ReportDeliveryQueueResponse, error)
 
 	// GetInboxWithResponse Unread messages addressed to this agent
 	//
@@ -22350,6 +26853,66 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /v1/me/line (the `SetLine` operationId).
 	SetLineWithResponse(ctx context.Context, params *SetLineParams, body SetLineJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLineResponse, error)
+
+	// GetMidturnPolicyWithResponse Read your mid-turn delivery policy
+	//
+	// A person reads their issuer-bound default and their own agent overrides.
+	// An agent reads only its effective policy; it cannot enumerate another seat or
+	// person. Ownership uses immutable person/member ids, never handle matching.
+	// Reading this setting grants no message or board access. Unset defaults read
+	// my-agents; older clients which cannot read it retain owner-only behavior.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/me/midturn (the `GetMidturnPolicy` operationId).
+	GetMidturnPolicyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMidturnPolicyResponse, error)
+
+	// SetMidturnPolicyWithBodyWithResponse Set your default or an own-agent mid-turn override
+	//
+	// Person tokens only, including the person's browser with ordinary CSRF checks.
+	// With no member_id, policy sets the person's default. With member_id it sets an
+	// override for that person's active agent; null policy clears that override.
+	// Null policy without member_id is 422 invalid_request. A person never sets
+	// another person's policy, even as admin or board owner. Hidden/missing/removed
+	// member targets return 404 member_not_found before readable foreign targets
+	// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+	// Recheck current ownership and membership in the write transaction and on
+	// idempotent replay. This is preference bookkeeping, not a board event.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+	SetMidturnPolicyWithBodyWithResponse(ctx context.Context, params *SetMidturnPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetMidturnPolicyResponse, error)
+
+	// SetMidturnPolicyWithResponse Set your default or an own-agent mid-turn override
+	//
+	// Person tokens only, including the person's browser with ordinary CSRF checks.
+	// With no member_id, policy sets the person's default. With member_id it sets an
+	// override for that person's active agent; null policy clears that override.
+	// Null policy without member_id is 422 invalid_request. A person never sets
+	// another person's policy, even as admin or board owner. Hidden/missing/removed
+	// member targets return 404 member_not_found before readable foreign targets
+	// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+	// Recheck current ownership and membership in the write transaction and on
+	// idempotent replay. This is preference bookkeeping, not a board event.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+	SetMidturnPolicyWithResponse(ctx context.Context, params *SetMidturnPolicyParams, body SetMidturnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*SetMidturnPolicyResponse, error)
+
+	// GetOnboardingReceiptWithResponse Read this key’s onboarding outcome
+	//
+	// Only the client-generated person access key used in the original redemption, not a browser/agent/delegation credential. A positive authenticated response proves the original account step; failures never prove the invite unused. No redirect, key replacement, invite replay or existing-person selection is authorized. Missing receipt returns 404 not_found.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/me/onboarding (the `GetOnboardingReceipt` operationId).
+	GetOnboardingReceiptWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOnboardingReceiptResponse, error)
 
 	// SetPresenceWithBodyWithResponse Report what this agent's session is doing
 	//
@@ -22486,16 +27049,161 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /v1/messages/{message}/replies (the `ListReplies` operationId).
 	ListRepliesWithResponse(ctx context.Context, message MessageParam, params *ListRepliesParams, reqEditors ...RequestEditorFn) (*ListRepliesResponse, error)
 
+	// CreatePairingCredentialWithBodyWithResponse Bind a pairing endpoint to an exact trusted-runtime session
+	//
+	// Parent person access key only, in the trusted runtime; never a humanClient
+	// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+	// Select/replace either own endpoint with current-generation CAS and current
+	// access/ownership checks. The inviter cannot select the recipient's endpoint.
+	// All lifecycle checks and idempotent replays occur in the same transaction.
+	// Old runtime credentials cannot report evidence for a new session/generation.
+	// The key is never read or returned by a model-facing hook/socket path.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+	CreatePairingCredentialWithBodyWithResponse(ctx context.Context, params *CreatePairingCredentialParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePairingCredentialResponse, error)
+
+	// CreatePairingCredentialWithResponse Bind a pairing endpoint to an exact trusted-runtime session
+	//
+	// Parent person access key only, in the trusted runtime; never a humanClient
+	// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+	// Select/replace either own endpoint with current-generation CAS and current
+	// access/ownership checks. The inviter cannot select the recipient's endpoint.
+	// All lifecycle checks and idempotent replays occur in the same transaction.
+	// Old runtime credentials cannot report evidence for a new session/generation.
+	// The key is never read or returned by a model-facing hook/socket path.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+	CreatePairingCredentialWithResponse(ctx context.Context, params *CreatePairingCredentialParams, body CreatePairingCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePairingCredentialResponse, error)
+
+	// ListPairingRequestsWithResponse List visible pairing requests
+	//
+	// For a fresh zero-seat session the trusted daemon uses its issuer-bound parent key to return only nonsecret own-person pairing progress; the CLI never opens the person client or receives the key. Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
+	ListPairingRequestsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPairingRequestsResponse, error)
+
+	// CreatePairingRequestWithBodyWithResponse Request a pairing with a person
+	//
+	// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+	CreatePairingRequestWithBodyWithResponse(ctx context.Context, params *CreatePairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePairingRequestResponse, error)
+
+	// CreatePairingRequestWithResponse Request a pairing with a person
+	//
+	// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+	CreatePairingRequestWithResponse(ctx context.Context, params *CreatePairingRequestParams, body CreatePairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePairingRequestResponse, error)
+
+	// GetPairingRequestWithResponse Read a pairing request
+	//
+	// The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /v1/pairing-requests/{pairing} (the `GetPairingRequest` operationId).
+	GetPairingRequestWithResponse(ctx context.Context, pairing string, reqEditors ...RequestEditorFn) (*GetPairingRequestResponse, error)
+
+	// AcceptPairingRequestWithBodyWithResponse AcceptPairingRequest
+	//
+	// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+	AcceptPairingRequestWithBodyWithResponse(ctx context.Context, pairing string, params *AcceptPairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptPairingRequestResponse, error)
+
+	// AcceptPairingRequestWithResponse AcceptPairingRequest
+	//
+	// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+	AcceptPairingRequestWithResponse(ctx context.Context, pairing string, params *AcceptPairingRequestParams, body AcceptPairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptPairingRequestResponse, error)
+
+	// CancelPairingRequestWithResponse CancelPairingRequest
+	//
+	// Only the inviter may cancel. Repeat cancellation is idempotent; ready/declined/expired transitions conflict.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
+	CancelPairingRequestWithResponse(ctx context.Context, pairing string, params *CancelPairingRequestParams, reqEditors ...RequestEditorFn) (*CancelPairingRequestResponse, error)
+
+	// DeclinePairingRequestWithResponse DeclinePairingRequest
+	//
+	// Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/decline (the `DeclinePairingRequest` operationId).
+	DeclinePairingRequestWithResponse(ctx context.Context, pairing string, params *DeclinePairingRequestParams, reqEditors ...RequestEditorFn) (*DeclinePairingRequestResponse, error)
+
+	// VerifyPairingRoundTripWithBodyWithResponse VerifyPairingRoundTrip
+	//
+	// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+	VerifyPairingRoundTripWithBodyWithResponse(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyPairingRoundTripResponse, error)
+
+	// VerifyPairingRoundTripWithResponse VerifyPairingRoundTrip
+	//
+	// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+	//
+	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+	VerifyPairingRoundTripWithResponse(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, body VerifyPairingRoundTripJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyPairingRoundTripResponse, error)
+
 	// ListServerPeopleWithResponse List the people on the server, with their server roles
 	//
 	// Every person on the server, oldest first, each with their server role: `admin`,
 	// `member` or `guest`. People removed from the server aren't listed. A person's
 	// access key or browser may list them; an agent gets 403 `human_token_required`.
+	// With `handle`, return only that person's id, current handle and display name,
+	// instead of the directory. A current non-guest agent whose person may list
+	// people may use this exact lookup with its own seat token. Unknown and guest
+	// handles return the same 404 `person_not_found`; no prefix search is provided.
+	// Subsequent administrative actions bind the returned immutable id.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/people (the `ListServerPeople` operationId).
-	ListServerPeopleWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServerPeopleResponse, error)
+	ListServerPeopleWithResponse(ctx context.Context, params *ListServerPeopleParams, reqEditors ...RequestEditorFn) (*ListServerPeopleResponse, error)
 
 	// RemoveFromServerWithResponse Remove a person from the server
 	//
@@ -26159,6 +30867,8 @@ type ConnectResponse429Headers struct {
 type ConnectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ClientConnected
 	// JSON201 the response for an HTTP 201 `application/json` response
 	JSON201 *Connected
 	// JSON400 the response for an HTTP 400 `application/json` response
@@ -26171,8 +30881,15 @@ type ConnectResponse struct {
 	JSON422 *Error
 	// JSON429 the response for an HTTP 429 `application/json` response
 	JSON429 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
 	// Headers429 the parsed response headers for an HTTP 429 response
 	Headers429 *ConnectResponse429Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ConnectResponse) GetJSON200() *ClientConnected {
+	return r.JSON200
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
@@ -26203,6 +30920,11 @@ func (r ConnectResponse) GetJSON422() *Error {
 // GetJSON429 returns the response for an HTTP 429 `application/json` response
 func (r ConnectResponse) GetJSON429() *Error {
 	return r.JSON429
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r ConnectResponse) GetJSON501() *Error {
+	return r.JSON501
 }
 
 // GetBody returns the raw response body bytes
@@ -26539,6 +31261,68 @@ func (r GetInfoResponse) ContentType() string {
 	return ""
 }
 
+type ListServerInvitesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerInvites
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *OnboardingForbidden
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListServerInvitesResponse) GetJSON200() *ServerInvites {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListServerInvitesResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListServerInvitesResponse) GetJSON403() *OnboardingForbidden {
+	return r.JSON403
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r ListServerInvitesResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r ListServerInvitesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListServerInvitesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListServerInvitesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListServerInvitesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CreateServerInviteResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -26550,6 +31334,10 @@ type CreateServerInviteResponse struct {
 	JSON401 *Error
 	// JSON403 the response for an HTTP 403 `application/json` response
 	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
 }
 
 // GetJSON201 returns the response for an HTTP 201 `application/json` response
@@ -26570,6 +31358,16 @@ func (r CreateServerInviteResponse) GetJSON401() *Error {
 // GetJSON403 returns the response for an HTTP 403 `application/json` response
 func (r CreateServerInviteResponse) GetJSON403() *Error {
 	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreateServerInviteResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r CreateServerInviteResponse) GetJSON501() *Error {
+	return r.JSON501
 }
 
 // GetBody returns the raw response body bytes
@@ -26595,6 +31393,75 @@ func (r CreateServerInviteResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CreateServerInviteResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RevokeServerInviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServerInviteRevocation
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *OnboardingForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RevokeServerInviteResponse) GetJSON200() *ServerInviteRevocation {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RevokeServerInviteResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RevokeServerInviteResponse) GetJSON403() *OnboardingForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RevokeServerInviteResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r RevokeServerInviteResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r RevokeServerInviteResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RevokeServerInviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RevokeServerInviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RevokeServerInviteResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -27506,6 +32373,518 @@ func (r GetMeResponse) ContentType() string {
 	return ""
 }
 
+type RequestAdminActionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AdminActionResult
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *AdminActionResult
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *HeldAdminActionResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RequestAdminActionResponse) GetJSON200() *AdminActionResult {
+	return r.JSON200
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r RequestAdminActionResponse) GetJSON201() *AdminActionResult {
+	return r.JSON201
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r RequestAdminActionResponse) GetJSON202() *HeldAdminActionResult {
+	return r.JSON202
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r RequestAdminActionResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r RequestAdminActionResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r RequestAdminActionResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r RequestAdminActionResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RequestAdminActionResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r RequestAdminActionResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r RequestAdminActionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RequestAdminActionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RequestAdminActionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RequestAdminActionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAllowanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Allowance
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *OnboardingForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAllowanceResponse) GetJSON200() *Allowance {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r GetAllowanceResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetAllowanceResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetAllowanceResponse) GetJSON403() *OnboardingForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetAllowanceResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r GetAllowanceResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r GetAllowanceResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAllowanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAllowanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAllowanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAllowanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetAllowanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Allowance
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *OnboardingForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetAllowanceResponse) GetJSON200() *Allowance {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetAllowanceResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SetAllowanceResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetAllowanceResponse) GetJSON403() *OnboardingForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r SetAllowanceResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r SetAllowanceResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r SetAllowanceResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r SetAllowanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetAllowanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetAllowanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetAllowanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListApprovalsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Approvals
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListApprovalsResponse) GetJSON200() *Approvals {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ListApprovalsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListApprovalsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListApprovalsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListApprovalsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ListApprovalsResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r ListApprovalsResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r ListApprovalsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListApprovalsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListApprovalsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListApprovalsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AllowApprovalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AdminActionResult
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *OnboardingForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AllowApprovalResponse) GetJSON200() *AdminActionResult {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r AllowApprovalResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AllowApprovalResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AllowApprovalResponse) GetJSON403() *OnboardingForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AllowApprovalResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r AllowApprovalResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r AllowApprovalResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r AllowApprovalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AllowApprovalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AllowApprovalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AllowApprovalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeclineApprovalResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Approval
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *OnboardingForbidden
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeclineApprovalResponse) GetJSON200() *Approval {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DeclineApprovalResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r DeclineApprovalResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DeclineApprovalResponse) GetJSON403() *OnboardingForbidden {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeclineApprovalResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r DeclineApprovalResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r DeclineApprovalResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r DeclineApprovalResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeclineApprovalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeclineApprovalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeclineApprovalResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // SignOutResponse200Headers the declared response headers of an HTTP 200 response for SignOut
 type SignOutResponse200Headers struct {
 	SetCookie *string
@@ -27617,6 +32996,151 @@ func (r GetBrowserSessionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetBrowserSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetDeliveryQueueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeliveryQueueView
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetDeliveryQueueResponse) GetJSON200() *DeliveryQueueView {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetDeliveryQueueResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetDeliveryQueueResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetDeliveryQueueResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetBody returns the raw response body bytes
+func (r GetDeliveryQueueResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeliveryQueueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeliveryQueueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetDeliveryQueueResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ReportDeliveryQueueResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DeliveryQueueView
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReportDeliveryQueueResponse) GetJSON200() *DeliveryQueueView {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ReportDeliveryQueueResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ReportDeliveryQueueResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ReportDeliveryQueueResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ReportDeliveryQueueResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ReportDeliveryQueueResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r ReportDeliveryQueueResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r ReportDeliveryQueueResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ReportDeliveryQueueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReportDeliveryQueueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ReportDeliveryQueueResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -27932,6 +33456,220 @@ func (r SetLineResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SetLineResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMidturnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MidturnPolicyView
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMidturnPolicyResponse) GetJSON200() *MidturnPolicyView {
+	return r.JSON200
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetMidturnPolicyResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetMidturnPolicyResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMidturnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMidturnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMidturnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMidturnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetMidturnPolicyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MidturnPolicyView
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetMidturnPolicyResponse) GetJSON200() *MidturnPolicyView {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r SetMidturnPolicyResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r SetMidturnPolicyResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r SetMidturnPolicyResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r SetMidturnPolicyResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r SetMidturnPolicyResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetBody returns the raw response body bytes
+func (r SetMidturnPolicyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetMidturnPolicyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetMidturnPolicyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetMidturnPolicyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOnboardingReceiptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *OnboardingReceipt
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOnboardingReceiptResponse) GetJSON200() *OnboardingReceipt {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r GetOnboardingReceiptResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetOnboardingReceiptResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetOnboardingReceiptResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetOnboardingReceiptResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r GetOnboardingReceiptResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r GetOnboardingReceiptResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOnboardingReceiptResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOnboardingReceiptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOnboardingReceiptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOnboardingReceiptResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -28332,19 +34070,741 @@ func (r ListRepliesResponse) ContentType() string {
 	return ""
 }
 
-type ListServerPeopleResponse struct {
+type CreatePairingCredentialResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *ServerPeople
+	JSON200 *PairingCredential
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
 	// JSON401 the response for an HTTP 401 `application/json` response
 	JSON401 *Error
 	// JSON403 the response for an HTTP 403 `application/json` response
 	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r ListServerPeopleResponse) GetJSON200() *ServerPeople {
+func (r CreatePairingCredentialResponse) GetJSON200() *PairingCredential {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r CreatePairingCredentialResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePairingCredentialResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePairingCredentialResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreatePairingCredentialResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPairingRequestsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PairingRequests
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON200() *PairingRequests {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPairingRequestsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPairingRequestsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPairingRequestsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPairingRequestsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreatePairingRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *PairingRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON201() *PairingRequest {
+	return r.JSON201
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r CreatePairingRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreatePairingRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreatePairingRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreatePairingRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPairingRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PairingRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPairingRequestResponse) GetJSON200() *PairingRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r GetPairingRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r GetPairingRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r GetPairingRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r GetPairingRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r GetPairingRequestResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r GetPairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r GetPairingRequestResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPairingRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPairingRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPairingRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPairingRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AcceptPairingRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PairingRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON200() *PairingRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r AcceptPairingRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AcceptPairingRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcceptPairingRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AcceptPairingRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CancelPairingRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PairingRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON200() *PairingRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r CancelPairingRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelPairingRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelPairingRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CancelPairingRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeclinePairingRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PairingRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON200() *PairingRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r DeclinePairingRequestResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeclinePairingRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeclinePairingRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeclinePairingRequestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type VerifyPairingRoundTripResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PairingRequest
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *Error
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
+	// JSON501 the response for an HTTP 501 `application/json` response
+	JSON501 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON200() *PairingRequest {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON400() *Error {
+	return r.JSON400
+}
+
+// GetJSON401 returns the response for an HTTP 401 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON401() *Error {
+	return r.JSON401
+}
+
+// GetJSON403 returns the response for an HTTP 403 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON403() *Error {
+	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON404() *Error {
+	return r.JSON404
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON409() *Error {
+	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON422() *Error {
+	return r.JSON422
+}
+
+// GetJSON501 returns the response for an HTTP 501 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON501() *Error {
+	return r.JSON501
+}
+
+// GetBody returns the raw response body bytes
+func (r VerifyPairingRoundTripResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r VerifyPairingRoundTripResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r VerifyPairingRoundTripResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r VerifyPairingRoundTripResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListServerPeopleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ListServerPeople200JSONResponseBody
+	// JSON401 the response for an HTTP 401 `application/json` response
+	JSON401 *Error
+	// JSON403 the response for an HTTP 403 `application/json` response
+	JSON403 *Error
+	// JSON404 the response for an HTTP 404 `application/json` response
+	JSON404 *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListServerPeopleResponse) GetJSON200() *ListServerPeople200JSONResponseBody {
 	return r.JSON200
 }
 
@@ -28356,6 +34816,11 @@ func (r ListServerPeopleResponse) GetJSON401() *Error {
 // GetJSON403 returns the response for an HTTP 403 `application/json` response
 func (r ListServerPeopleResponse) GetJSON403() *Error {
 	return r.JSON403
+}
+
+// GetJSON404 returns the response for an HTTP 404 `application/json` response
+func (r ListServerPeopleResponse) GetJSON404() *Error {
+	return r.JSON404
 }
 
 // GetBody returns the raw response body bytes
@@ -29258,7 +35723,41 @@ func (c *ClientWithResponses) ListFilesWithResponse(ctx context.Context, board B
 // `file_too_large`; a text file that contains a credential is 422
 // `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
 // reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
-// brief. The version is readable by
+// brief. For `brief=true`, a same-format update requires both the active brief's
+// `file_id` and its latest `base` version. Missing, stale or replaced identity
+// information is 409 `file_changed`; a version number alone never authorizes a
+// brief overwrite. With no active brief, an omitted or zero `base` and no
+// `file_id` only create one; concurrent creation has one winner. These checks
+// run after current board access, lifecycle and file-write permission checks,
+// in the same transaction that writes the version. Failure writes no event or
+// file metadata; uploaded bytes not referenced by a committed event remain
+// eligible for the file store's ordinary unreferenced-blob cleanup.
+//
+// With `brief=true` and `replace_format=true`, `file_id` and `base` identify the
+// active brief being replaced, even though `name` names the other format. Its
+// identity and latest version are checked before changing either path. An
+// intervening edit, removal, recreation or format switch is `file_changed`;
+// no old brief is removed on refusal. Success appends `file.removed` for the old
+// brief followed by `file.version_added` for the new file in one transaction.
+// The new file starts at version 1 with event `base_version: 0`; the old
+// file's versions, attachments and approvals keep their original identities.
+// Nothing copies an old approval onto the new file. The brief is always
+// maintained; it uses the same bytes, limits, credential checks and file
+// freshness calculations as other board files. Idempotency binds the expected
+// identity and version as well as the bytes and format, with current access
+// and lifecycle rechecked before returning a stored successful response.
+//
+// Read the brief by obtaining `Board.brief` from `GET /v1/boards/{board}`, then
+// downloading that exact `file_id` and `version` through the file download
+// endpoint. A null brief means there is none. These are ordinary board reads;
+// they never acknowledge messages or advance a read cursor. If the active
+// brief changes between these reads, the downloaded version stays the base
+// the client actually read, and a later put against it refuses instead of
+// silently choosing the new head. HTML bytes remain unchanged and are never
+// executed by the server; a browser preview uses the files view's sandboxed
+// renderer, without scripts or network requests, and without navigation of any
+// kind, including navigation of the preview frame itself.
+// The version is readable by
 // everyone on the board at once. An agent needs `upload_files`. Writes
 // `file.version_added`.
 //
@@ -29757,7 +36256,8 @@ func (c *ClientWithResponses) ListMessagesWithResponse(ctx context.Context, boar
 // no active agents is a valid empty target. Guests may use owner targets only
 // within their own board, under the same post and visibility rules. Posting to `all` needs the
 // `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-// post. Secrets in `body` are redacted before the event is written. Returns as soon
+// post. The server does not scan or redact `body` yet: message redaction is planned,
+// and `redactions` is always empty until it ships. Returns as soon
 // as the message is stored; delivery happens separately.
 //
 // An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -29836,7 +36336,8 @@ func (c *ClientWithResponses) PostMessageWithBodyWithResponse(ctx context.Contex
 // no active agents is a valid empty target. Guests may use owner targets only
 // within their own board, under the same post and visibility rules. Posting to `all` needs the
 // `broadcast` permission, or board policy `broadcast: everyone`. Humans can always
-// post. Secrets in `body` are redacted before the event is written. Returns as soon
+// post. The server does not scan or redact `body` yet: message redaction is planned,
+// and `redactions` is always empty until it ships. Returns as soon
 // as the message is stored; delivery happens separately.
 //
 // An `urgent` message goes first in each recipient's next delivery, ahead of
@@ -30718,6 +37219,15 @@ func (c *ClientWithResponses) CreateBrowserTokenWithResponse(ctx context.Context
 // Attempts are limited per client address and across the server; over the limit
 // returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 // repeats, since it holds a key.
+// With client_token, consume the invite, create the person/key, all bundled
+// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+// outcome atomically. Recheck inviter authority on every board before consumption;
+// a failure creates nothing. Never select an existing account. The original 201
+// secret-returning flow is unchanged when client_token is absent. Recovery uses
+// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+// stay uncertain, never authorize a replacement account/key. Older servers
+// that do not support client_token answer 501 before consuming the invite or
+// creating any resource.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -30747,6 +37257,15 @@ func (c *ClientWithResponses) ConnectWithBodyWithResponse(ctx context.Context, p
 // Attempts are limited per client address and across the server; over the limit
 // returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
 // repeats, since it holds a key.
+// With client_token, consume the invite, create the person/key, all bundled
+// ordinary memberships and pairing recipient, and save the nonsecret onboarding
+// outcome atomically. Recheck inviter authority on every board before consumption;
+// a failure creates nothing. Never select an existing account. The original 201
+// secret-returning flow is unchanged when client_token is absent. Recovery uses
+// GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+// stay uncertain, never authorize a replacement account/key. Older servers
+// that do not support client_token answer 501 before consuming the invite or
+// creating any resource.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -30993,6 +37512,26 @@ func (c *ClientWithResponses) GetInfoWithResponse(ctx context.Context, reqEditor
 	return ParseGetInfoResponse(rsp)
 }
 
+// ListServerInvitesWithResponse List your outstanding invitations
+//
+// Person access key only. Lists invitations issued by this person or their
+// agents, including expired and revoked ones, without any invite secret.
+// Agents and browsers get human_token_required with next.command. Losing
+// admin authority does not prevent inspecting or revoking your own invites.
+// Board ids are included only while currently visible; private names never
+// appear. Issuing agent and parent key are immutable provenance, not authority.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/invites (the `ListServerInvites` operationId).
+func (c *ClientWithResponses) ListServerInvitesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServerInvitesResponse, error) {
+	rsp, err := c.ListServerInvites(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListServerInvitesResponse(rsp)
+}
+
 // CreateServerInviteWithBodyWithResponse Invite a person to the server
 //
 // Server admins only, with their own access key. Returns a server invite: a long
@@ -31007,6 +37546,16 @@ func (c *ClientWithResponses) GetInfoWithResponse(ctx context.Context, reqEditor
 // response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 // or a browser token gets 403 `human_token_required`; a person who isn't a server
 // admin gets 403 `server_admin_required`.
+// Optional boards and pairing bundle ordinary memberships and proposed work.
+// All authority checks are atomic; a refused bundle issues no partial invite.
+// Existing ordinary invites retain their behavior.
+// Turning an allowance off stops new issuance only. An issued agent invite
+// ends when its issuing seat, parent key or person is removed/revoked; retain
+// their immutable bindings and recheck them at redemption. Only unredeemed
+// invitations are cancelled: people and memberships already created remain,
+// and removing the issuing agent never removes those people or memberships.
+// Inviter admin and
+// each board's add-member authority are also current at redemption.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -31033,6 +37582,16 @@ func (c *ClientWithResponses) CreateServerInviteWithBodyWithResponse(ctx context
 // response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
 // or a browser token gets 403 `human_token_required`; a person who isn't a server
 // admin gets 403 `server_admin_required`.
+// Optional boards and pairing bundle ordinary memberships and proposed work.
+// All authority checks are atomic; a refused bundle issues no partial invite.
+// Existing ordinary invites retain their behavior.
+// Turning an allowance off stops new issuance only. An issued agent invite
+// ends when its issuing seat, parent key or person is removed/revoked; retain
+// their immutable bindings and recheck them at redemption. Only unredeemed
+// invitations are cancelled: people and memberships already created remain,
+// and removing the issuing agent never removes those people or memberships.
+// Inviter admin and
+// each board's add-member authority are also current at redemption.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -31043,6 +37602,27 @@ func (c *ClientWithResponses) CreateServerInviteWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseCreateServerInviteResponse(rsp)
+}
+
+// RevokeServerInviteWithResponse Revoke your invitation
+//
+// Person access key only; agents and browsers get human_token_required with
+// next.command. Revoke only an invitation issued by this person or their
+// agents, in one transaction. Missing and another person's id are the same
+// invite_not_found. Revocation is idempotent, contains no secret, and prevents
+// redemption immediately. It does not remove an already connected account.
+// Recheck current ownership on idempotent replay. Admin role is not required
+// to reduce your own outstanding invitation authority.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /v1/invites/{invite} (the `RevokeServerInvite` operationId).
+func (c *ClientWithResponses) RevokeServerInviteWithResponse(ctx context.Context, invite string, params *RevokeServerInviteParams, reqEditors ...RequestEditorFn) (*RevokeServerInviteResponse, error) {
+	rsp, err := c.RevokeServerInvite(ctx, invite, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRevokeServerInviteResponse(rsp)
 }
 
 // JoinWithBodyWithResponse Create a new agent identity on a board
@@ -31713,6 +38293,177 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 	return ParseGetMeResponse(rsp)
 }
 
+// RequestAdminActionWithBodyWithResponse Request an exact administrative action
+//
+// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+func (c *ClientWithResponses) RequestAdminActionWithBodyWithResponse(ctx context.Context, params *RequestAdminActionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RequestAdminActionResponse, error) {
+	rsp, err := c.RequestAdminActionWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRequestAdminActionResponse(rsp)
+}
+
+// RequestAdminActionWithResponse Request an exact administrative action
+//
+// Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/me/admin-requests (the `RequestAdminAction` operationId).
+func (c *ClientWithResponses) RequestAdminActionWithResponse(ctx context.Context, params *RequestAdminActionParams, body RequestAdminActionJSONRequestBody, reqEditors ...RequestEditorFn) (*RequestAdminActionResponse, error) {
+	rsp, err := c.RequestAdminAction(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRequestAdminActionResponse(rsp)
+}
+
+// GetAllowanceWithResponse Read the person allowance
+//
+// Person key/browser only. Agents receive 403 human_token_required; reading never changes authority.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/me/allowance (the `GetAllowance` operationId).
+func (c *ClientWithResponses) GetAllowanceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAllowanceResponse, error) {
+	rsp, err := c.GetAllowance(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAllowanceResponse(rsp)
+}
+
+// SetAllowanceWithBodyWithResponse Replace the person allowance
+//
+// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+func (c *ClientWithResponses) SetAllowanceWithBodyWithResponse(ctx context.Context, params *SetAllowanceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAllowanceResponse, error) {
+	rsp, err := c.SetAllowanceWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAllowanceResponse(rsp)
+}
+
+// SetAllowanceWithResponse Replace the person allowance
+//
+// Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/allowance (the `SetAllowance` operationId).
+func (c *ClientWithResponses) SetAllowanceWithResponse(ctx context.Context, params *SetAllowanceParams, body SetAllowanceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAllowanceResponse, error) {
+	rsp, err := c.SetAllowance(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAllowanceResponse(rsp)
+}
+
+// ListApprovalsWithResponse List administrative approvals
+//
+// Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. No private board or payload is shown after access ends.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/me/approvals (the `ListApprovals` operationId).
+func (c *ClientWithResponses) ListApprovalsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListApprovalsResponse, error) {
+	rsp, err := c.ListApprovals(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListApprovalsResponse(rsp)
+}
+
+// AllowApprovalWithBodyWithResponse Allow and execute an exact approval
+//
+// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+func (c *ClientWithResponses) AllowApprovalWithBodyWithResponse(ctx context.Context, approval string, params *AllowApprovalParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AllowApprovalResponse, error) {
+	rsp, err := c.AllowApprovalWithBody(ctx, approval, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAllowApprovalResponse(rsp)
+}
+
+// AllowApprovalWithResponse Allow and execute an exact approval
+//
+// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/me/approvals/{approval}/allow (the `AllowApproval` operationId).
+func (c *ClientWithResponses) AllowApprovalWithResponse(ctx context.Context, approval string, params *AllowApprovalParams, body AllowApprovalJSONRequestBody, reqEditors ...RequestEditorFn) (*AllowApprovalResponse, error) {
+	rsp, err := c.AllowApproval(ctx, approval, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAllowApprovalResponse(rsp)
+}
+
+// DeclineApprovalWithResponse Decline a pending approval
+//
+// Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. Declining a pending request is idempotent. An executed approval cannot be declined.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/me/approvals/{approval}/decline (the `DeclineApproval` operationId).
+func (c *ClientWithResponses) DeclineApprovalWithResponse(ctx context.Context, approval string, params *DeclineApprovalParams, reqEditors ...RequestEditorFn) (*DeclineApprovalResponse, error) {
+	rsp, err := c.DeclineApproval(ctx, approval, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeclineApprovalResponse(rsp)
+}
+
 // SignOutWithResponse Sign this browser out
 //
 // With a browser session only: ends this one session and clears its cookie. The
@@ -31748,6 +38499,110 @@ func (c *ClientWithResponses) GetBrowserSessionWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetBrowserSessionResponse(rsp)
+}
+
+// GetDeliveryQueueWithResponse Read this agent's queue reporter fence
+//
+// Own active agent token only, with its owner still on the board. Returns the
+// current reporter epoch even after an observation expires. This read changes
+// no cursor, receipt or delivery. Session and boot labels are observations,
+// not proof that a harness is running. Person and browser tokens are refused.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/me/delivery-queue (the `GetDeliveryQueue` operationId).
+func (c *ClientWithResponses) GetDeliveryQueueWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDeliveryQueueResponse, error) {
+	rsp, err := c.GetDeliveryQueue(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeliveryQueueResponse(rsp)
+}
+
+// ReportDeliveryQueueWithBodyWithResponse Report this agent's queued message identities
+//
+// Own active agent token only, with its owner still on the board. Bookkeeping,
+// never an event or acknowledgement. No body, sender claim or receipt state is
+// accepted. An empty messages list clears the observation without resetting its
+// fence. Archived boards permit this bookkeeping; deleted boards do not.
+//
+// A reporter first reads the current epoch and claims with expected_epoch,
+// session and boot. A successful compare-and-set increments the server epoch,
+// binds those labels, starts revision 0 and clears any previous observation.
+// A claim contains no epoch, revision or messages. A claim replay returns the
+// same epoch, never increments it again, and rechecks current access and lease.
+//
+// Updates contain epoch, revision and messages, without expected_epoch. The
+// epoch and labels must match the current claim and revision must strictly
+// increase. A retained replay never reapplies or renews the observation.
+// A retained claim or update replay returns queue_report_conflict when its
+// epoch, session or boot is no longer current. Every update verifies exact
+// message id and seq on this seat's board with
+// current read permission, including queued admissions behind its read cursor.
+// Duplicate identities are refused. Updates expire after 45 seconds on the
+// server clock. Expiry hides the observation but never resets the epoch.
+//
+// A mismatched claim, label, epoch or revision returns queue_report_conflict
+// (409) without changing anything. A daemon persists its epoch and revision;
+// it never automatically reclaims after a conflict. Thus a delayed old daemon
+// cannot overwrite a newer reporter. Token possession authorizes a report,
+// not a claim that its labels establish global harness liveness. Removal,
+// credential rotation immediately hides the observation while keeping its epoch:
+// the claim binds the current credential digest, never its secret. Observed
+// session end sends an empty update; a missing reporter clears by expiry.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+func (c *ClientWithResponses) ReportDeliveryQueueWithBodyWithResponse(ctx context.Context, params *ReportDeliveryQueueParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReportDeliveryQueueResponse, error) {
+	rsp, err := c.ReportDeliveryQueueWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReportDeliveryQueueResponse(rsp)
+}
+
+// ReportDeliveryQueueWithResponse Report this agent's queued message identities
+//
+// Own active agent token only, with its owner still on the board. Bookkeeping,
+// never an event or acknowledgement. No body, sender claim or receipt state is
+// accepted. An empty messages list clears the observation without resetting its
+// fence. Archived boards permit this bookkeeping; deleted boards do not.
+//
+// A reporter first reads the current epoch and claims with expected_epoch,
+// session and boot. A successful compare-and-set increments the server epoch,
+// binds those labels, starts revision 0 and clears any previous observation.
+// A claim contains no epoch, revision or messages. A claim replay returns the
+// same epoch, never increments it again, and rechecks current access and lease.
+//
+// Updates contain epoch, revision and messages, without expected_epoch. The
+// epoch and labels must match the current claim and revision must strictly
+// increase. A retained replay never reapplies or renews the observation.
+// A retained claim or update replay returns queue_report_conflict when its
+// epoch, session or boot is no longer current. Every update verifies exact
+// message id and seq on this seat's board with
+// current read permission, including queued admissions behind its read cursor.
+// Duplicate identities are refused. Updates expire after 45 seconds on the
+// server clock. Expiry hides the observation but never resets the epoch.
+//
+// A mismatched claim, label, epoch or revision returns queue_report_conflict
+// (409) without changing anything. A daemon persists its epoch and revision;
+// it never automatically reclaims after a conflict. Thus a delayed old daemon
+// cannot overwrite a newer reporter. Token possession authorizes a report,
+// not a claim that its labels establish global harness liveness. Removal,
+// credential rotation immediately hides the observation while keeping its epoch:
+// the claim binds the current credential digest, never its secret. Observed
+// session end sends an empty update; a missing reporter clears by expiry.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/delivery-queue (the `ReportDeliveryQueue` operationId).
+func (c *ClientWithResponses) ReportDeliveryQueueWithResponse(ctx context.Context, params *ReportDeliveryQueueParams, body ReportDeliveryQueueJSONRequestBody, reqEditors ...RequestEditorFn) (*ReportDeliveryQueueResponse, error) {
+	rsp, err := c.ReportDeliveryQueue(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReportDeliveryQueueResponse(rsp)
 }
 
 // GetInboxWithResponse Unread messages addressed to this agent
@@ -31890,6 +38745,90 @@ func (c *ClientWithResponses) SetLineWithResponse(ctx context.Context, params *S
 		return nil, err
 	}
 	return ParseSetLineResponse(rsp)
+}
+
+// GetMidturnPolicyWithResponse Read your mid-turn delivery policy
+//
+// A person reads their issuer-bound default and their own agent overrides.
+// An agent reads only its effective policy; it cannot enumerate another seat or
+// person. Ownership uses immutable person/member ids, never handle matching.
+// Reading this setting grants no message or board access. Unset defaults read
+// my-agents; older clients which cannot read it retain owner-only behavior.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/me/midturn (the `GetMidturnPolicy` operationId).
+func (c *ClientWithResponses) GetMidturnPolicyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMidturnPolicyResponse, error) {
+	rsp, err := c.GetMidturnPolicy(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMidturnPolicyResponse(rsp)
+}
+
+// SetMidturnPolicyWithBodyWithResponse Set your default or an own-agent mid-turn override
+//
+// Person tokens only, including the person's browser with ordinary CSRF checks.
+// With no member_id, policy sets the person's default. With member_id it sets an
+// override for that person's active agent; null policy clears that override.
+// Null policy without member_id is 422 invalid_request. A person never sets
+// another person's policy, even as admin or board owner. Hidden/missing/removed
+// member targets return 404 member_not_found before readable foreign targets
+// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+// Recheck current ownership and membership in the write transaction and on
+// idempotent replay. This is preference bookkeeping, not a board event.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+func (c *ClientWithResponses) SetMidturnPolicyWithBodyWithResponse(ctx context.Context, params *SetMidturnPolicyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetMidturnPolicyResponse, error) {
+	rsp, err := c.SetMidturnPolicyWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetMidturnPolicyResponse(rsp)
+}
+
+// SetMidturnPolicyWithResponse Set your default or an own-agent mid-turn override
+//
+// Person tokens only, including the person's browser with ordinary CSRF checks.
+// With no member_id, policy sets the person's default. With member_id it sets an
+// override for that person's active agent; null policy clears that override.
+// Null policy without member_id is 422 invalid_request. A person never sets
+// another person's policy, even as admin or board owner. Hidden/missing/removed
+// member targets return 404 member_not_found before readable foreign targets
+// return 403 agent_owner_required. Agent tokens return 403 human_token_required.
+// Recheck current ownership and membership in the write transaction and on
+// idempotent replay. This is preference bookkeeping, not a board event.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /v1/me/midturn (the `SetMidturnPolicy` operationId).
+func (c *ClientWithResponses) SetMidturnPolicyWithResponse(ctx context.Context, params *SetMidturnPolicyParams, body SetMidturnPolicyJSONRequestBody, reqEditors ...RequestEditorFn) (*SetMidturnPolicyResponse, error) {
+	rsp, err := c.SetMidturnPolicy(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetMidturnPolicyResponse(rsp)
+}
+
+// GetOnboardingReceiptWithResponse Read this key’s onboarding outcome
+//
+// Only the client-generated person access key used in the original redemption, not a browser/agent/delegation credential. A positive authenticated response proves the original account step; failures never prove the invite unused. No redirect, key replacement, invite replay or existing-person selection is authorized. Missing receipt returns 404 not_found.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/me/onboarding (the `GetOnboardingReceipt` operationId).
+func (c *ClientWithResponses) GetOnboardingReceiptWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOnboardingReceiptResponse, error) {
+	rsp, err := c.GetOnboardingReceipt(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOnboardingReceiptResponse(rsp)
 }
 
 // SetPresenceWithBodyWithResponse Report what this agent's session is doing
@@ -32063,17 +39002,234 @@ func (c *ClientWithResponses) ListRepliesWithResponse(ctx context.Context, messa
 	return ParseListRepliesResponse(rsp)
 }
 
+// CreatePairingCredentialWithBodyWithResponse Bind a pairing endpoint to an exact trusted-runtime session
+//
+// Parent person access key only, in the trusted runtime; never a humanClient
+// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+// Select/replace either own endpoint with current-generation CAS and current
+// access/ownership checks. The inviter cannot select the recipient's endpoint.
+// All lifecycle checks and idempotent replays occur in the same transaction.
+// Old runtime credentials cannot report evidence for a new session/generation.
+// The key is never read or returned by a model-facing hook/socket path.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+func (c *ClientWithResponses) CreatePairingCredentialWithBodyWithResponse(ctx context.Context, params *CreatePairingCredentialParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePairingCredentialResponse, error) {
+	rsp, err := c.CreatePairingCredentialWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePairingCredentialResponse(rsp)
+}
+
+// CreatePairingCredentialWithResponse Bind a pairing endpoint to an exact trusted-runtime session
+//
+// Parent person access key only, in the trusted runtime; never a humanClient
+// fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+// Select/replace either own endpoint with current-generation CAS and current
+// access/ownership checks. The inviter cannot select the recipient's endpoint.
+// All lifecycle checks and idempotent replays occur in the same transaction.
+// Old runtime credentials cannot report evidence for a new session/generation.
+// The key is never read or returned by a model-facing hook/socket path.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-credentials (the `CreatePairingCredential` operationId).
+func (c *ClientWithResponses) CreatePairingCredentialWithResponse(ctx context.Context, params *CreatePairingCredentialParams, body CreatePairingCredentialJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePairingCredentialResponse, error) {
+	rsp, err := c.CreatePairingCredential(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePairingCredentialResponse(rsp)
+}
+
+// ListPairingRequestsWithResponse List visible pairing requests
+//
+// For a fresh zero-seat session the trusted daemon uses its issuer-bound parent key to return only nonsecret own-person pairing progress; the CLI never opens the person client or receives the key. Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
+func (c *ClientWithResponses) ListPairingRequestsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPairingRequestsResponse, error) {
+	rsp, err := c.ListPairingRequests(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPairingRequestsResponse(rsp)
+}
+
+// CreatePairingRequestWithBodyWithResponse Request a pairing with a person
+//
+// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+func (c *ClientWithResponses) CreatePairingRequestWithBodyWithResponse(ctx context.Context, params *CreatePairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePairingRequestResponse, error) {
+	rsp, err := c.CreatePairingRequestWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePairingRequestResponse(rsp)
+}
+
+// CreatePairingRequestWithResponse Request a pairing with a person
+//
+// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
+func (c *ClientWithResponses) CreatePairingRequestWithResponse(ctx context.Context, params *CreatePairingRequestParams, body CreatePairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePairingRequestResponse, error) {
+	rsp, err := c.CreatePairingRequest(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreatePairingRequestResponse(rsp)
+}
+
+// GetPairingRequestWithResponse Read a pairing request
+//
+// The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /v1/pairing-requests/{pairing} (the `GetPairingRequest` operationId).
+func (c *ClientWithResponses) GetPairingRequestWithResponse(ctx context.Context, pairing string, reqEditors ...RequestEditorFn) (*GetPairingRequestResponse, error) {
+	rsp, err := c.GetPairingRequest(ctx, pairing, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPairingRequestResponse(rsp)
+}
+
+// AcceptPairingRequestWithBodyWithResponse AcceptPairingRequest
+//
+// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+func (c *ClientWithResponses) AcceptPairingRequestWithBodyWithResponse(ctx context.Context, pairing string, params *AcceptPairingRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptPairingRequestResponse, error) {
+	rsp, err := c.AcceptPairingRequestWithBody(ctx, pairing, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptPairingRequestResponse(rsp)
+}
+
+// AcceptPairingRequestWithResponse AcceptPairingRequest
+//
+// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
+func (c *ClientWithResponses) AcceptPairingRequestWithResponse(ctx context.Context, pairing string, params *AcceptPairingRequestParams, body AcceptPairingRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptPairingRequestResponse, error) {
+	rsp, err := c.AcceptPairingRequest(ctx, pairing, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptPairingRequestResponse(rsp)
+}
+
+// CancelPairingRequestWithResponse CancelPairingRequest
+//
+// Only the inviter may cancel. Repeat cancellation is idempotent; ready/declined/expired transitions conflict.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
+func (c *ClientWithResponses) CancelPairingRequestWithResponse(ctx context.Context, pairing string, params *CancelPairingRequestParams, reqEditors ...RequestEditorFn) (*CancelPairingRequestResponse, error) {
+	rsp, err := c.CancelPairingRequest(ctx, pairing, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelPairingRequestResponse(rsp)
+}
+
+// DeclinePairingRequestWithResponse DeclinePairingRequest
+//
+// Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/decline (the `DeclinePairingRequest` operationId).
+func (c *ClientWithResponses) DeclinePairingRequestWithResponse(ctx context.Context, pairing string, params *DeclinePairingRequestParams, reqEditors ...RequestEditorFn) (*DeclinePairingRequestResponse, error) {
+	rsp, err := c.DeclinePairingRequest(ctx, pairing, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeclinePairingRequestResponse(rsp)
+}
+
+// VerifyPairingRoundTripWithBodyWithResponse VerifyPairingRoundTrip
+//
+// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+func (c *ClientWithResponses) VerifyPairingRoundTripWithBodyWithResponse(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyPairingRoundTripResponse, error) {
+	rsp, err := c.VerifyPairingRoundTripWithBody(ctx, pairing, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyPairingRoundTripResponse(rsp)
+}
+
+// VerifyPairingRoundTripWithResponse VerifyPairingRoundTrip
+//
+// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+//
+// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
+func (c *ClientWithResponses) VerifyPairingRoundTripWithResponse(ctx context.Context, pairing string, params *VerifyPairingRoundTripParams, body VerifyPairingRoundTripJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyPairingRoundTripResponse, error) {
+	rsp, err := c.VerifyPairingRoundTrip(ctx, pairing, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyPairingRoundTripResponse(rsp)
+}
+
 // ListServerPeopleWithResponse List the people on the server, with their server roles
 //
 // Every person on the server, oldest first, each with their server role: `admin`,
 // `member` or `guest`. People removed from the server aren't listed. A person's
 // access key or browser may list them; an agent gets 403 `human_token_required`.
+// With `handle`, return only that person's id, current handle and display name,
+// instead of the directory. A current non-guest agent whose person may list
+// people may use this exact lookup with its own seat token. Unknown and guest
+// handles return the same 404 `person_not_found`; no prefix search is provided.
+// Subsequent administrative actions bind the returned immutable id.
 //
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /v1/people (the `ListServerPeople` operationId).
-func (c *ClientWithResponses) ListServerPeopleWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListServerPeopleResponse, error) {
-	rsp, err := c.ListServerPeople(ctx, reqEditors...)
+func (c *ClientWithResponses) ListServerPeopleWithResponse(ctx context.Context, params *ListServerPeopleParams, reqEditors ...RequestEditorFn) (*ListServerPeopleResponse, error) {
+	rsp, err := c.ListServerPeople(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -35072,6 +42228,13 @@ func ParseConnectResponse(rsp *http.Response) (*ConnectResponse, error) {
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClientConnected
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
 		var dest Connected
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -35113,6 +42276,13 @@ func ParseConnectResponse(rsp *http.Response) (*ConnectResponse, error) {
 			return nil, err
 		}
 		response.JSON429 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
@@ -35401,6 +42571,53 @@ func ParseGetInfoResponse(rsp *http.Response) (*GetInfoResponse, error) {
 	return response, nil
 }
 
+// ParseListServerInvitesResponse parses an HTTP response from a ListServerInvitesWithResponse call
+func ParseListServerInvitesResponse(rsp *http.Response) (*ListServerInvitesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListServerInvitesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerInvites
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OnboardingForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateServerInviteResponse parses an HTTP response from a CreateServerInviteWithResponse call
 func ParseCreateServerInviteResponse(rsp *http.Response) (*CreateServerInviteResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -35442,6 +42659,74 @@ func ParseCreateServerInviteResponse(rsp *http.Response) (*CreateServerInviteRes
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRevokeServerInviteResponse parses an HTTP response from a RevokeServerInviteWithResponse call
+func ParseRevokeServerInviteResponse(rsp *http.Response) (*RevokeServerInviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RevokeServerInviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServerInviteRevocation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OnboardingForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
@@ -36215,6 +43500,428 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	return response, nil
 }
 
+// ParseRequestAdminActionResponse parses an HTTP response from a RequestAdminActionWithResponse call
+func ParseRequestAdminActionResponse(rsp *http.Response) (*RequestAdminActionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RequestAdminActionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminActionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest AdminActionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest HeldAdminActionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAllowanceResponse parses an HTTP response from a GetAllowanceWithResponse call
+func ParseGetAllowanceResponse(rsp *http.Response) (*GetAllowanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAllowanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Allowance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OnboardingForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetAllowanceResponse parses an HTTP response from a SetAllowanceWithResponse call
+func ParseSetAllowanceResponse(rsp *http.Response) (*SetAllowanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetAllowanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Allowance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OnboardingForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListApprovalsResponse parses an HTTP response from a ListApprovalsWithResponse call
+func ParseListApprovalsResponse(rsp *http.Response) (*ListApprovalsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListApprovalsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Approvals
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAllowApprovalResponse parses an HTTP response from a AllowApprovalWithResponse call
+func ParseAllowApprovalResponse(rsp *http.Response) (*AllowApprovalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AllowApprovalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminActionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OnboardingForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeclineApprovalResponse parses an HTTP response from a DeclineApprovalWithResponse call
+func ParseDeclineApprovalResponse(rsp *http.Response) (*DeclineApprovalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeclineApprovalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OnboardingForbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseSignOutResponse parses an HTTP response from a SignOutWithResponse call
 func ParseSignOutResponse(rsp *http.Response) (*SignOutResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -36302,6 +44009,121 @@ func ParseGetBrowserSessionResponse(rsp *http.Response) (*GetBrowserSessionRespo
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeliveryQueueResponse parses an HTTP response from a GetDeliveryQueueWithResponse call
+func ParseGetDeliveryQueueResponse(rsp *http.Response) (*GetDeliveryQueueResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeliveryQueueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeliveryQueueView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReportDeliveryQueueResponse parses an HTTP response from a ReportDeliveryQueueWithResponse call
+func ParseReportDeliveryQueueResponse(rsp *http.Response) (*ReportDeliveryQueueResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReportDeliveryQueueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeliveryQueueView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	}
 
@@ -36536,6 +44358,175 @@ func ParseSetLineResponse(rsp *http.Response) (*SetLineResponse, error) {
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMidturnPolicyResponse parses an HTTP response from a GetMidturnPolicyWithResponse call
+func ParseGetMidturnPolicyResponse(rsp *http.Response) (*GetMidturnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMidturnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MidturnPolicyView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetMidturnPolicyResponse parses an HTTP response from a SetMidturnPolicyWithResponse call
+func ParseSetMidturnPolicyResponse(rsp *http.Response) (*SetMidturnPolicyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetMidturnPolicyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MidturnPolicyView
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOnboardingReceiptResponse parses an HTTP response from a GetOnboardingReceiptWithResponse call
+func ParseGetOnboardingReceiptResponse(rsp *http.Response) (*GetOnboardingReceiptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOnboardingReceiptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OnboardingReceipt
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
@@ -36847,6 +44838,606 @@ func ParseListRepliesResponse(rsp *http.Response) (*ListRepliesResponse, error) 
 	return response, nil
 }
 
+// ParseCreatePairingCredentialResponse parses an HTTP response from a CreatePairingCredentialWithResponse call
+func ParseCreatePairingCredentialResponse(rsp *http.Response) (*CreatePairingCredentialResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePairingCredentialResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PairingCredential
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPairingRequestsResponse parses an HTTP response from a ListPairingRequestsWithResponse call
+func ParseListPairingRequestsResponse(rsp *http.Response) (*ListPairingRequestsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPairingRequestsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PairingRequests
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreatePairingRequestResponse parses an HTTP response from a CreatePairingRequestWithResponse call
+func ParseCreatePairingRequestResponse(rsp *http.Response) (*CreatePairingRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreatePairingRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest PairingRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPairingRequestResponse parses an HTTP response from a GetPairingRequestWithResponse call
+func ParseGetPairingRequestResponse(rsp *http.Response) (*GetPairingRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPairingRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PairingRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAcceptPairingRequestResponse parses an HTTP response from a AcceptPairingRequestWithResponse call
+func ParseAcceptPairingRequestResponse(rsp *http.Response) (*AcceptPairingRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcceptPairingRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PairingRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelPairingRequestResponse parses an HTTP response from a CancelPairingRequestWithResponse call
+func ParseCancelPairingRequestResponse(rsp *http.Response) (*CancelPairingRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelPairingRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PairingRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeclinePairingRequestResponse parses an HTTP response from a DeclinePairingRequestWithResponse call
+func ParseDeclinePairingRequestResponse(rsp *http.Response) (*DeclinePairingRequestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeclinePairingRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PairingRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseVerifyPairingRoundTripResponse parses an HTTP response from a VerifyPairingRoundTripWithResponse call
+func ParseVerifyPairingRoundTripResponse(rsp *http.Response) (*VerifyPairingRoundTripResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &VerifyPairingRoundTripResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PairingRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListServerPeopleResponse parses an HTTP response from a ListServerPeopleWithResponse call
 func ParseListServerPeopleResponse(rsp *http.Response) (*ListServerPeopleResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -36862,7 +45453,7 @@ func ParseListServerPeopleResponse(rsp *http.Response) (*ListServerPeopleRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ServerPeople
+		var dest ListServerPeople200JSONResponseBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36881,6 +45472,13 @@ func ParseListServerPeopleResponse(rsp *http.Response) (*ListServerPeopleRespons
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -37363,9 +45961,15 @@ type ServerInterface interface {
 	// GetInfo Identify the server
 	// (GET /v1/info)
 	GetInfo(w http.ResponseWriter, r *http.Request)
+	// ListServerInvites List your outstanding invitations
+	// (GET /v1/invites)
+	ListServerInvites(w http.ResponseWriter, r *http.Request)
 	// CreateServerInvite Invite a person to the server
 	// (POST /v1/invites)
 	CreateServerInvite(w http.ResponseWriter, r *http.Request, params CreateServerInviteParams)
+	// RevokeServerInvite Revoke your invitation
+	// (DELETE /v1/invites/{invite})
+	RevokeServerInvite(w http.ResponseWriter, r *http.Request, invite string, params RevokeServerInviteParams)
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(w http.ResponseWriter, r *http.Request, params JoinParams)
@@ -37402,12 +46006,36 @@ type ServerInterface interface {
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// RequestAdminAction Request an exact administrative action
+	// (POST /v1/me/admin-requests)
+	RequestAdminAction(w http.ResponseWriter, r *http.Request, params RequestAdminActionParams)
+	// GetAllowance Read the person allowance
+	// (GET /v1/me/allowance)
+	GetAllowance(w http.ResponseWriter, r *http.Request)
+	// SetAllowance Replace the person allowance
+	// (PUT /v1/me/allowance)
+	SetAllowance(w http.ResponseWriter, r *http.Request, params SetAllowanceParams)
+	// ListApprovals List administrative approvals
+	// (GET /v1/me/approvals)
+	ListApprovals(w http.ResponseWriter, r *http.Request)
+	// AllowApproval Allow and execute an exact approval
+	// (POST /v1/me/approvals/{approval}/allow)
+	AllowApproval(w http.ResponseWriter, r *http.Request, approval string, params AllowApprovalParams)
+	// DeclineApproval Decline a pending approval
+	// (POST /v1/me/approvals/{approval}/decline)
+	DeclineApproval(w http.ResponseWriter, r *http.Request, approval string, params DeclineApprovalParams)
 	// SignOut Sign this browser out
 	// (DELETE /v1/me/browser-session)
 	SignOut(w http.ResponseWriter, r *http.Request, params SignOutParams)
 	// GetBrowserSession This browser's session
 	// (GET /v1/me/browser-session)
 	GetBrowserSession(w http.ResponseWriter, r *http.Request)
+	// GetDeliveryQueue Read this agent's queue reporter fence
+	// (GET /v1/me/delivery-queue)
+	GetDeliveryQueue(w http.ResponseWriter, r *http.Request)
+	// ReportDeliveryQueue Report this agent's queued message identities
+	// (PUT /v1/me/delivery-queue)
+	ReportDeliveryQueue(w http.ResponseWriter, r *http.Request, params ReportDeliveryQueueParams)
 	// GetInbox Unread messages addressed to this agent
 	// (GET /v1/me/inbox)
 	GetInbox(w http.ResponseWriter, r *http.Request, params GetInboxParams)
@@ -37423,6 +46051,15 @@ type ServerInterface interface {
 	// SetLine Say what this agent is on
 	// (PUT /v1/me/line)
 	SetLine(w http.ResponseWriter, r *http.Request, params SetLineParams)
+	// GetMidturnPolicy Read your mid-turn delivery policy
+	// (GET /v1/me/midturn)
+	GetMidturnPolicy(w http.ResponseWriter, r *http.Request)
+	// SetMidturnPolicy Set your default or an own-agent mid-turn override
+	// (PUT /v1/me/midturn)
+	SetMidturnPolicy(w http.ResponseWriter, r *http.Request, params SetMidturnPolicyParams)
+	// GetOnboardingReceipt Read this key’s onboarding outcome
+	// (GET /v1/me/onboarding)
+	GetOnboardingReceipt(w http.ResponseWriter, r *http.Request)
 	// SetPresence Report what this agent's session is doing
 	// (PUT /v1/me/presence)
 	SetPresence(w http.ResponseWriter, r *http.Request, params SetPresenceParams)
@@ -37438,9 +46075,33 @@ type ServerInterface interface {
 	// ListReplies Read or wait for a message's thread
 	// (GET /v1/messages/{message}/replies)
 	ListReplies(w http.ResponseWriter, r *http.Request, message MessageParam, params ListRepliesParams)
+	// CreatePairingCredential Bind a pairing endpoint to an exact trusted-runtime session
+	// (POST /v1/pairing-credentials)
+	CreatePairingCredential(w http.ResponseWriter, r *http.Request, params CreatePairingCredentialParams)
+	// ListPairingRequests List visible pairing requests
+	// (GET /v1/pairing-requests)
+	ListPairingRequests(w http.ResponseWriter, r *http.Request)
+	// CreatePairingRequest Request a pairing with a person
+	// (POST /v1/pairing-requests)
+	CreatePairingRequest(w http.ResponseWriter, r *http.Request, params CreatePairingRequestParams)
+	// GetPairingRequest Read a pairing request
+	// (GET /v1/pairing-requests/{pairing})
+	GetPairingRequest(w http.ResponseWriter, r *http.Request, pairing string)
+	// AcceptPairingRequest AcceptPairingRequest
+	// (POST /v1/pairing-requests/{pairing}/accept)
+	AcceptPairingRequest(w http.ResponseWriter, r *http.Request, pairing string, params AcceptPairingRequestParams)
+	// CancelPairingRequest CancelPairingRequest
+	// (POST /v1/pairing-requests/{pairing}/cancel)
+	CancelPairingRequest(w http.ResponseWriter, r *http.Request, pairing string, params CancelPairingRequestParams)
+	// DeclinePairingRequest DeclinePairingRequest
+	// (POST /v1/pairing-requests/{pairing}/decline)
+	DeclinePairingRequest(w http.ResponseWriter, r *http.Request, pairing string, params DeclinePairingRequestParams)
+	// VerifyPairingRoundTrip VerifyPairingRoundTrip
+	// (POST /v1/pairing-requests/{pairing}/verify)
+	VerifyPairingRoundTrip(w http.ResponseWriter, r *http.Request, pairing string, params VerifyPairingRoundTripParams)
 	// ListServerPeople List the people on the server, with their server roles
 	// (GET /v1/people)
-	ListServerPeople(w http.ResponseWriter, r *http.Request)
+	ListServerPeople(w http.ResponseWriter, r *http.Request, params ListServerPeopleParams)
 	// RemoveFromServer Remove a person from the server
 	// (DELETE /v1/people/{handle})
 	RemoveFromServer(w http.ResponseWriter, r *http.Request, handle Handle, params RemoveFromServerParams)
@@ -40291,6 +48952,20 @@ func (siw *ServerInterfaceWrapper) GetInfo(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// ListServerInvites operation middleware
+func (siw *ServerInterfaceWrapper) ListServerInvites(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListServerInvites(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateServerInvite operation middleware
 func (siw *ServerInterfaceWrapper) CreateServerInvite(w http.ResponseWriter, r *http.Request) {
 
@@ -40323,6 +48998,56 @@ func (siw *ServerInterfaceWrapper) CreateServerInvite(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateServerInvite(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeServerInvite operation middleware
+func (siw *ServerInterfaceWrapper) RevokeServerInvite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "invite" -------------
+	var invite string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invite", r.PathValue("invite"), &invite, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invite", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeServerInviteParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeServerInvite(w, r, invite, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -40771,6 +49496,216 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 	handler.ServeHTTP(w, r)
 }
 
+// RequestAdminAction operation middleware
+func (siw *ServerInterfaceWrapper) RequestAdminAction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RequestAdminActionParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestAdminAction(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAllowance operation middleware
+func (siw *ServerInterfaceWrapper) GetAllowance(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAllowance(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAllowance operation middleware
+func (siw *ServerInterfaceWrapper) SetAllowance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetAllowanceParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAllowance(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListApprovals operation middleware
+func (siw *ServerInterfaceWrapper) ListApprovals(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListApprovals(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AllowApproval operation middleware
+func (siw *ServerInterfaceWrapper) AllowApproval(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "approval" -------------
+	var approval string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "approval", r.PathValue("approval"), &approval, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "approval", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AllowApprovalParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AllowApproval(w, r, approval, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeclineApproval operation middleware
+func (siw *ServerInterfaceWrapper) DeclineApproval(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "approval" -------------
+	var approval string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "approval", r.PathValue("approval"), &approval, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "approval", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeclineApprovalParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeclineApproval(w, r, approval, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SignOut operation middleware
 func (siw *ServerInterfaceWrapper) SignOut(w http.ResponseWriter, r *http.Request) {
 
@@ -40817,6 +49752,61 @@ func (siw *ServerInterfaceWrapper) GetBrowserSession(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetBrowserSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDeliveryQueue operation middleware
+func (siw *ServerInterfaceWrapper) GetDeliveryQueue(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDeliveryQueue(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReportDeliveryQueue operation middleware
+func (siw *ServerInterfaceWrapper) ReportDeliveryQueue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReportDeliveryQueueParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportDeliveryQueue(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -41040,6 +50030,75 @@ func (siw *ServerInterfaceWrapper) SetLine(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetLine(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMidturnPolicy operation middleware
+func (siw *ServerInterfaceWrapper) GetMidturnPolicy(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMidturnPolicy(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetMidturnPolicy operation middleware
+func (siw *ServerInterfaceWrapper) SetMidturnPolicy(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetMidturnPolicyParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetMidturnPolicy(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOnboardingReceipt operation middleware
+func (siw *ServerInterfaceWrapper) GetOnboardingReceipt(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOnboardingReceipt(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -41302,11 +50361,352 @@ func (siw *ServerInterfaceWrapper) ListReplies(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// CreatePairingCredential operation middleware
+func (siw *ServerInterfaceWrapper) CreatePairingCredential(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePairingCredentialParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePairingCredential(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPairingRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListPairingRequests(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPairingRequests(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePairingRequest operation middleware
+func (siw *ServerInterfaceWrapper) CreatePairingRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePairingRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePairingRequest(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPairingRequest operation middleware
+func (siw *ServerInterfaceWrapper) GetPairingRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pairing" -------------
+	var pairing string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pairing", r.PathValue("pairing"), &pairing, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pairing", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPairingRequest(w, r, pairing)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptPairingRequest operation middleware
+func (siw *ServerInterfaceWrapper) AcceptPairingRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pairing" -------------
+	var pairing string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pairing", r.PathValue("pairing"), &pairing, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pairing", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params AcceptPairingRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptPairingRequest(w, r, pairing, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelPairingRequest operation middleware
+func (siw *ServerInterfaceWrapper) CancelPairingRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pairing" -------------
+	var pairing string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pairing", r.PathValue("pairing"), &pairing, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pairing", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CancelPairingRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelPairingRequest(w, r, pairing, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeclinePairingRequest operation middleware
+func (siw *ServerInterfaceWrapper) DeclinePairingRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pairing" -------------
+	var pairing string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pairing", r.PathValue("pairing"), &pairing, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pairing", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeclinePairingRequestParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeclinePairingRequest(w, r, pairing, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyPairingRoundTrip operation middleware
+func (siw *ServerInterfaceWrapper) VerifyPairingRoundTrip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pairing" -------------
+	var pairing string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pairing", r.PathValue("pairing"), &pairing, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pairing", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params VerifyPairingRoundTripParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyPairingRoundTrip(w, r, pairing, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListServerPeople operation middleware
 func (siw *ServerInterfaceWrapper) ListServerPeople(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListServerPeopleParams
+
+	// ------------- Optional query parameter "handle" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "handle", r.URL.Query(), &params.Handle, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "handle"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListServerPeople(w, r)
+		siw.Handler.ListServerPeople(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -41678,7 +51078,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/browser-sessions/{session}", wrapper.EndBrowserSession)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me/browser-session", wrapper.SignOut)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/browser-session", wrapper.GetBrowserSession)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/invites", wrapper.ListServerInvites)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/invites", wrapper.CreateServerInvite)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/invites/{invite}", wrapper.RevokeServerInvite)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/keys", wrapper.ListKeys)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/keys", wrapper.CreateKey)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/keys/{key}", wrapper.RevokeKey)
@@ -41723,6 +51125,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/inbox", wrapper.GetInbox)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/inbox/ack", wrapper.AckInbox)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/midturn", wrapper.GetMidturnPolicy)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/midturn", wrapper.SetMidturnPolicy)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/delivery-queue", wrapper.GetDeliveryQueue)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/delivery-queue", wrapper.ReportDeliveryQueue)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/presence", wrapper.SetPresence)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/leave", wrapper.LeaveAsAgent)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/agents/prune", wrapper.PruneAgents)
@@ -41754,6 +51160,21 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/boards/{board}/files/{file}/approval", wrapper.ApproveFile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/stream", wrapper.Stream)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/boards/{board}/events", wrapper.ListEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/allowance", wrapper.GetAllowance)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/allowance", wrapper.SetAllowance)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/approvals", wrapper.ListApprovals)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/admin-requests", wrapper.RequestAdminAction)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/approvals/{approval}/allow", wrapper.AllowApproval)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/approvals/{approval}/decline", wrapper.DeclineApproval)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/onboarding", wrapper.GetOnboardingReceipt)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/pairing-requests", wrapper.ListPairingRequests)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/pairing-requests", wrapper.CreatePairingRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/pairing-requests/{pairing}/accept", wrapper.AcceptPairingRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/pairing-requests/{pairing}/decline", wrapper.DeclinePairingRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/pairing-requests/{pairing}/cancel", wrapper.CancelPairingRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/pairing-requests/{pairing}/verify", wrapper.VerifyPairingRoundTrip)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/pairing-requests/{pairing}", wrapper.GetPairingRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/pairing-credentials", wrapper.CreatePairingCredential)
 
 	return m
 }
@@ -45761,6 +55182,20 @@ type ConnectResponseObject interface {
 	VisitConnectResponse(w http.ResponseWriter) error
 }
 
+type Connect200JSONResponse ClientConnected
+
+func (response Connect200JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type Connect201JSONResponse Connected
 
 func (response Connect201JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
@@ -45851,6 +55286,20 @@ func (response Connect429JSONResponse) VisitConnectResponse(w http.ResponseWrite
 		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
 	}
 	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Connect501JSONResponse Error
+
+func (response Connect501JSONResponse) VisitConnectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -46217,6 +55666,77 @@ func (response GetInfo200JSONResponse) VisitGetInfoResponse(w http.ResponseWrite
 	return err
 }
 
+type ListServerInvitesRequestObject struct {
+}
+
+type ListServerInvitesResponseObject interface {
+	VisitListServerInvitesResponse(w http.ResponseWriter) error
+}
+
+type ListServerInvites200JSONResponse ServerInvites
+
+func (response ListServerInvites200JSONResponse) VisitListServerInvitesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerInvites401JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListServerInvites401JSONResponse) VisitListServerInvitesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerInvites403JSONResponse OnboardingForbidden
+
+func (t ListServerInvites403JSONResponse) MarshalJSON() ([]byte, error) {
+	return OnboardingForbidden(t).MarshalJSON()
+}
+
+func (t *ListServerInvites403JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*OnboardingForbidden)(t).UnmarshalJSON(b)
+}
+
+func (response ListServerInvites403JSONResponse) VisitListServerInvitesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerInvites501JSONResponse Error
+
+func (response ListServerInvites501JSONResponse) VisitListServerInvitesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateServerInviteRequestObject struct {
 	Params CreateServerInviteParams
 	Body   *CreateServerInviteJSONRequestBody
@@ -46278,6 +55798,121 @@ func (response CreateServerInvite403JSONResponse) VisitCreateServerInviteRespons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateServerInvite404JSONResponse Error
+
+func (response CreateServerInvite404JSONResponse) VisitCreateServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateServerInvite501JSONResponse Error
+
+func (response CreateServerInvite501JSONResponse) VisitCreateServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeServerInviteRequestObject struct {
+	Invite string `json:"invite"`
+	Params RevokeServerInviteParams
+}
+
+type RevokeServerInviteResponseObject interface {
+	VisitRevokeServerInviteResponse(w http.ResponseWriter) error
+}
+
+type RevokeServerInvite200JSONResponse ServerInviteRevocation
+
+func (response RevokeServerInvite200JSONResponse) VisitRevokeServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeServerInvite401JSONResponse struct{ ErrorJSONResponse }
+
+func (response RevokeServerInvite401JSONResponse) VisitRevokeServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeServerInvite403JSONResponse OnboardingForbidden
+
+func (t RevokeServerInvite403JSONResponse) MarshalJSON() ([]byte, error) {
+	return OnboardingForbidden(t).MarshalJSON()
+}
+
+func (t *RevokeServerInvite403JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*OnboardingForbidden)(t).UnmarshalJSON(b)
+}
+
+func (response RevokeServerInvite403JSONResponse) VisitRevokeServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeServerInvite404JSONResponse Error
+
+func (response RevokeServerInvite404JSONResponse) VisitRevokeServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeServerInvite501JSONResponse Error
+
+func (response RevokeServerInvite501JSONResponse) VisitRevokeServerInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -47347,6 +56982,705 @@ func (response GetMe403JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	return err
 }
 
+type RequestAdminActionRequestObject struct {
+	Params RequestAdminActionParams
+	Body   *RequestAdminActionJSONRequestBody
+}
+
+type RequestAdminActionResponseObject interface {
+	VisitRequestAdminActionResponse(w http.ResponseWriter) error
+}
+
+type RequestAdminAction200JSONResponse AdminActionResult
+
+func (response RequestAdminAction200JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction201JSONResponse AdminActionResult
+
+func (response RequestAdminAction201JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction202JSONResponse HeldAdminActionResult
+
+func (response RequestAdminAction202JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction400JSONResponse struct{ ErrorJSONResponse }
+
+func (response RequestAdminAction400JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction401JSONResponse Error
+
+func (response RequestAdminAction401JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction403JSONResponse Error
+
+func (response RequestAdminAction403JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction404JSONResponse Error
+
+func (response RequestAdminAction404JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction409JSONResponse Error
+
+func (response RequestAdminAction409JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAdminAction501JSONResponse Error
+
+func (response RequestAdminAction501JSONResponse) VisitRequestAdminActionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowanceRequestObject struct {
+}
+
+type GetAllowanceResponseObject interface {
+	VisitGetAllowanceResponse(w http.ResponseWriter) error
+}
+
+type GetAllowance200JSONResponse Allowance
+
+func (response GetAllowance200JSONResponse) VisitGetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowance400JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetAllowance400JSONResponse) VisitGetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowance401JSONResponse Error
+
+func (response GetAllowance401JSONResponse) VisitGetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowance403JSONResponse OnboardingForbidden
+
+func (t GetAllowance403JSONResponse) MarshalJSON() ([]byte, error) {
+	return OnboardingForbidden(t).MarshalJSON()
+}
+
+func (t *GetAllowance403JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*OnboardingForbidden)(t).UnmarshalJSON(b)
+}
+
+func (response GetAllowance403JSONResponse) VisitGetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowance404JSONResponse Error
+
+func (response GetAllowance404JSONResponse) VisitGetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowance409JSONResponse Error
+
+func (response GetAllowance409JSONResponse) VisitGetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAllowance501JSONResponse Error
+
+func (response GetAllowance501JSONResponse) VisitGetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAllowanceRequestObject struct {
+	Params SetAllowanceParams
+	Body   *SetAllowanceJSONRequestBody
+}
+
+type SetAllowanceResponseObject interface {
+	VisitSetAllowanceResponse(w http.ResponseWriter) error
+}
+
+type SetAllowance200JSONResponse Allowance
+
+func (response SetAllowance200JSONResponse) VisitSetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAllowance400JSONResponse struct{ ErrorJSONResponse }
+
+func (response SetAllowance400JSONResponse) VisitSetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAllowance401JSONResponse Error
+
+func (response SetAllowance401JSONResponse) VisitSetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAllowance403JSONResponse OnboardingForbidden
+
+func (t SetAllowance403JSONResponse) MarshalJSON() ([]byte, error) {
+	return OnboardingForbidden(t).MarshalJSON()
+}
+
+func (t *SetAllowance403JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*OnboardingForbidden)(t).UnmarshalJSON(b)
+}
+
+func (response SetAllowance403JSONResponse) VisitSetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAllowance404JSONResponse Error
+
+func (response SetAllowance404JSONResponse) VisitSetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAllowance409JSONResponse Error
+
+func (response SetAllowance409JSONResponse) VisitSetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAllowance501JSONResponse Error
+
+func (response SetAllowance501JSONResponse) VisitSetAllowanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovalsRequestObject struct {
+}
+
+type ListApprovalsResponseObject interface {
+	VisitListApprovalsResponse(w http.ResponseWriter) error
+}
+
+type ListApprovals200JSONResponse Approvals
+
+func (response ListApprovals200JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListApprovals400JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals401JSONResponse Error
+
+func (response ListApprovals401JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals403JSONResponse Error
+
+func (response ListApprovals403JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals404JSONResponse Error
+
+func (response ListApprovals404JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals409JSONResponse Error
+
+func (response ListApprovals409JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApprovals501JSONResponse Error
+
+func (response ListApprovals501JSONResponse) VisitListApprovalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AllowApprovalRequestObject struct {
+	Approval string `json:"approval"`
+	Params   AllowApprovalParams
+	Body     *AllowApprovalJSONRequestBody
+}
+
+type AllowApprovalResponseObject interface {
+	VisitAllowApprovalResponse(w http.ResponseWriter) error
+}
+
+type AllowApproval200JSONResponse AdminActionResult
+
+func (response AllowApproval200JSONResponse) VisitAllowApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AllowApproval400JSONResponse struct{ ErrorJSONResponse }
+
+func (response AllowApproval400JSONResponse) VisitAllowApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AllowApproval401JSONResponse Error
+
+func (response AllowApproval401JSONResponse) VisitAllowApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AllowApproval403JSONResponse OnboardingForbidden
+
+func (t AllowApproval403JSONResponse) MarshalJSON() ([]byte, error) {
+	return OnboardingForbidden(t).MarshalJSON()
+}
+
+func (t *AllowApproval403JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*OnboardingForbidden)(t).UnmarshalJSON(b)
+}
+
+func (response AllowApproval403JSONResponse) VisitAllowApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AllowApproval404JSONResponse Error
+
+func (response AllowApproval404JSONResponse) VisitAllowApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AllowApproval409JSONResponse Error
+
+func (response AllowApproval409JSONResponse) VisitAllowApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AllowApproval501JSONResponse Error
+
+func (response AllowApproval501JSONResponse) VisitAllowApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclineApprovalRequestObject struct {
+	Approval string `json:"approval"`
+	Params   DeclineApprovalParams
+}
+
+type DeclineApprovalResponseObject interface {
+	VisitDeclineApprovalResponse(w http.ResponseWriter) error
+}
+
+type DeclineApproval200JSONResponse Approval
+
+func (response DeclineApproval200JSONResponse) VisitDeclineApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclineApproval400JSONResponse struct{ ErrorJSONResponse }
+
+func (response DeclineApproval400JSONResponse) VisitDeclineApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclineApproval401JSONResponse Error
+
+func (response DeclineApproval401JSONResponse) VisitDeclineApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclineApproval403JSONResponse OnboardingForbidden
+
+func (t DeclineApproval403JSONResponse) MarshalJSON() ([]byte, error) {
+	return OnboardingForbidden(t).MarshalJSON()
+}
+
+func (t *DeclineApproval403JSONResponse) UnmarshalJSON(b []byte) error {
+	return (*OnboardingForbidden)(t).UnmarshalJSON(b)
+}
+
+func (response DeclineApproval403JSONResponse) VisitDeclineApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclineApproval404JSONResponse Error
+
+func (response DeclineApproval404JSONResponse) VisitDeclineApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclineApproval409JSONResponse Error
+
+func (response DeclineApproval409JSONResponse) VisitDeclineApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclineApproval501JSONResponse Error
+
+func (response DeclineApproval501JSONResponse) VisitDeclineApprovalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SignOutRequestObject struct {
 	Params SignOutParams
 }
@@ -47452,6 +57786,176 @@ func (response GetBrowserSession403JSONResponse) VisitGetBrowserSessionResponse(
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDeliveryQueueRequestObject struct {
+}
+
+type GetDeliveryQueueResponseObject interface {
+	VisitGetDeliveryQueueResponse(w http.ResponseWriter) error
+}
+
+type GetDeliveryQueue200JSONResponse DeliveryQueueView
+
+func (response GetDeliveryQueue200JSONResponse) VisitGetDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDeliveryQueue401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetDeliveryQueue401JSONResponse) VisitGetDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDeliveryQueue403JSONResponse Error
+
+func (response GetDeliveryQueue403JSONResponse) VisitGetDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetDeliveryQueue404JSONResponse Error
+
+func (response GetDeliveryQueue404JSONResponse) VisitGetDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReportDeliveryQueueRequestObject struct {
+	Params ReportDeliveryQueueParams
+	Body   *ReportDeliveryQueueJSONRequestBody
+}
+
+type ReportDeliveryQueueResponseObject interface {
+	VisitReportDeliveryQueueResponse(w http.ResponseWriter) error
+}
+
+type ReportDeliveryQueue200JSONResponse DeliveryQueueView
+
+func (response ReportDeliveryQueue200JSONResponse) VisitReportDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReportDeliveryQueue400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ReportDeliveryQueue400JSONResponse) VisitReportDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReportDeliveryQueue401JSONResponse Error
+
+func (response ReportDeliveryQueue401JSONResponse) VisitReportDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReportDeliveryQueue403JSONResponse Error
+
+func (response ReportDeliveryQueue403JSONResponse) VisitReportDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReportDeliveryQueue404JSONResponse Error
+
+func (response ReportDeliveryQueue404JSONResponse) VisitReportDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReportDeliveryQueue409JSONResponse Error
+
+func (response ReportDeliveryQueue409JSONResponse) VisitReportDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReportDeliveryQueue422JSONResponse Error
+
+func (response ReportDeliveryQueue422JSONResponse) VisitReportDeliveryQueueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -47766,6 +58270,253 @@ func (response SetLine422JSONResponse) VisitSetLineResponse(w http.ResponseWrite
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMidturnPolicyRequestObject struct {
+}
+
+type GetMidturnPolicyResponseObject interface {
+	VisitGetMidturnPolicyResponse(w http.ResponseWriter) error
+}
+
+type GetMidturnPolicy200JSONResponse MidturnPolicyView
+
+func (response GetMidturnPolicy200JSONResponse) VisitGetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMidturnPolicy401JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetMidturnPolicy401JSONResponse) VisitGetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMidturnPolicy403JSONResponse Error
+
+func (response GetMidturnPolicy403JSONResponse) VisitGetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMidturnPolicyRequestObject struct {
+	Params SetMidturnPolicyParams
+	Body   *SetMidturnPolicyJSONRequestBody
+}
+
+type SetMidturnPolicyResponseObject interface {
+	VisitSetMidturnPolicyResponse(w http.ResponseWriter) error
+}
+
+type SetMidturnPolicy200JSONResponse MidturnPolicyView
+
+func (response SetMidturnPolicy200JSONResponse) VisitSetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMidturnPolicy400JSONResponse struct{ ErrorJSONResponse }
+
+func (response SetMidturnPolicy400JSONResponse) VisitSetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMidturnPolicy401JSONResponse Error
+
+func (response SetMidturnPolicy401JSONResponse) VisitSetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMidturnPolicy403JSONResponse Error
+
+func (response SetMidturnPolicy403JSONResponse) VisitSetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMidturnPolicy404JSONResponse Error
+
+func (response SetMidturnPolicy404JSONResponse) VisitSetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetMidturnPolicy422JSONResponse Error
+
+func (response SetMidturnPolicy422JSONResponse) VisitSetMidturnPolicyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReceiptRequestObject struct {
+}
+
+type GetOnboardingReceiptResponseObject interface {
+	VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error
+}
+
+type GetOnboardingReceipt200JSONResponse OnboardingReceipt
+
+func (response GetOnboardingReceipt200JSONResponse) VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReceipt400JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetOnboardingReceipt400JSONResponse) VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReceipt401JSONResponse Error
+
+func (response GetOnboardingReceipt401JSONResponse) VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReceipt403JSONResponse Error
+
+func (response GetOnboardingReceipt403JSONResponse) VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReceipt404JSONResponse Error
+
+func (response GetOnboardingReceipt404JSONResponse) VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReceipt409JSONResponse Error
+
+func (response GetOnboardingReceipt409JSONResponse) VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReceipt501JSONResponse Error
+
+func (response GetOnboardingReceipt501JSONResponse) VisitGetOnboardingReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -48222,19 +58973,987 @@ func (response ListReplies501JSONResponse) VisitListRepliesResponse(w http.Respo
 	return err
 }
 
+type CreatePairingCredentialRequestObject struct {
+	Params CreatePairingCredentialParams
+	Body   *CreatePairingCredentialJSONRequestBody
+}
+
+type CreatePairingCredentialResponseObject interface {
+	VisitCreatePairingCredentialResponse(w http.ResponseWriter) error
+}
+
+type CreatePairingCredential200JSONResponse PairingCredential
+
+func (response CreatePairingCredential200JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingCredential400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreatePairingCredential400JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingCredential401JSONResponse Error
+
+func (response CreatePairingCredential401JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingCredential403JSONResponse Error
+
+func (response CreatePairingCredential403JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingCredential404JSONResponse Error
+
+func (response CreatePairingCredential404JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingCredential409JSONResponse Error
+
+func (response CreatePairingCredential409JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingCredential422JSONResponse Error
+
+func (response CreatePairingCredential422JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingCredential501JSONResponse Error
+
+func (response CreatePairingCredential501JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequestsRequestObject struct {
+}
+
+type ListPairingRequestsResponseObject interface {
+	VisitListPairingRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListPairingRequests200JSONResponse PairingRequests
+
+func (response ListPairingRequests200JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ListPairingRequests400JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests401JSONResponse Error
+
+func (response ListPairingRequests401JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests403JSONResponse Error
+
+func (response ListPairingRequests403JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests404JSONResponse Error
+
+func (response ListPairingRequests404JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests409JSONResponse Error
+
+func (response ListPairingRequests409JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests422JSONResponse Error
+
+func (response ListPairingRequests422JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests501JSONResponse Error
+
+func (response ListPairingRequests501JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequestRequestObject struct {
+	Params CreatePairingRequestParams
+	Body   *CreatePairingRequestJSONRequestBody
+}
+
+type CreatePairingRequestResponseObject interface {
+	VisitCreatePairingRequestResponse(w http.ResponseWriter) error
+}
+
+type CreatePairingRequest201JSONResponse PairingRequest
+
+func (response CreatePairingRequest201JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CreatePairingRequest400JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequest401JSONResponse Error
+
+func (response CreatePairingRequest401JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequest403JSONResponse Error
+
+func (response CreatePairingRequest403JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequest404JSONResponse Error
+
+func (response CreatePairingRequest404JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequest409JSONResponse Error
+
+func (response CreatePairingRequest409JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequest422JSONResponse Error
+
+func (response CreatePairingRequest422JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePairingRequest501JSONResponse Error
+
+func (response CreatePairingRequest501JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequestRequestObject struct {
+	Pairing string `json:"pairing"`
+}
+
+type GetPairingRequestResponseObject interface {
+	VisitGetPairingRequestResponse(w http.ResponseWriter) error
+}
+
+type GetPairingRequest200JSONResponse PairingRequest
+
+func (response GetPairingRequest200JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetPairingRequest400JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest401JSONResponse Error
+
+func (response GetPairingRequest401JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest403JSONResponse Error
+
+func (response GetPairingRequest403JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest404JSONResponse Error
+
+func (response GetPairingRequest404JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest409JSONResponse Error
+
+func (response GetPairingRequest409JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest422JSONResponse Error
+
+func (response GetPairingRequest422JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest501JSONResponse Error
+
+func (response GetPairingRequest501JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequestRequestObject struct {
+	Pairing string `json:"pairing"`
+	Params  AcceptPairingRequestParams
+	Body    *AcceptPairingRequestJSONRequestBody
+}
+
+type AcceptPairingRequestResponseObject interface {
+	VisitAcceptPairingRequestResponse(w http.ResponseWriter) error
+}
+
+type AcceptPairingRequest200JSONResponse PairingRequest
+
+func (response AcceptPairingRequest200JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response AcceptPairingRequest400JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequest401JSONResponse Error
+
+func (response AcceptPairingRequest401JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequest403JSONResponse Error
+
+func (response AcceptPairingRequest403JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequest404JSONResponse Error
+
+func (response AcceptPairingRequest404JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequest409JSONResponse Error
+
+func (response AcceptPairingRequest409JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequest422JSONResponse Error
+
+func (response AcceptPairingRequest422JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptPairingRequest501JSONResponse Error
+
+func (response AcceptPairingRequest501JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequestRequestObject struct {
+	Pairing string `json:"pairing"`
+	Params  CancelPairingRequestParams
+}
+
+type CancelPairingRequestResponseObject interface {
+	VisitCancelPairingRequestResponse(w http.ResponseWriter) error
+}
+
+type CancelPairingRequest200JSONResponse PairingRequest
+
+func (response CancelPairingRequest200JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response CancelPairingRequest400JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest401JSONResponse Error
+
+func (response CancelPairingRequest401JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest403JSONResponse Error
+
+func (response CancelPairingRequest403JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest404JSONResponse Error
+
+func (response CancelPairingRequest404JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest409JSONResponse Error
+
+func (response CancelPairingRequest409JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest422JSONResponse Error
+
+func (response CancelPairingRequest422JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest501JSONResponse Error
+
+func (response CancelPairingRequest501JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequestRequestObject struct {
+	Pairing string `json:"pairing"`
+	Params  DeclinePairingRequestParams
+}
+
+type DeclinePairingRequestResponseObject interface {
+	VisitDeclinePairingRequestResponse(w http.ResponseWriter) error
+}
+
+type DeclinePairingRequest200JSONResponse PairingRequest
+
+func (response DeclinePairingRequest200JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequest400JSONResponse struct{ ErrorJSONResponse }
+
+func (response DeclinePairingRequest400JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequest401JSONResponse Error
+
+func (response DeclinePairingRequest401JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequest403JSONResponse Error
+
+func (response DeclinePairingRequest403JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequest404JSONResponse Error
+
+func (response DeclinePairingRequest404JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequest409JSONResponse Error
+
+func (response DeclinePairingRequest409JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequest422JSONResponse Error
+
+func (response DeclinePairingRequest422JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclinePairingRequest501JSONResponse Error
+
+func (response DeclinePairingRequest501JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTripRequestObject struct {
+	Pairing string `json:"pairing"`
+	Params  VerifyPairingRoundTripParams
+	Body    *VerifyPairingRoundTripJSONRequestBody
+}
+
+type VerifyPairingRoundTripResponseObject interface {
+	VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error
+}
+
+type VerifyPairingRoundTrip200JSONResponse PairingRequest
+
+func (response VerifyPairingRoundTrip200JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip400JSONResponse struct{ ErrorJSONResponse }
+
+func (response VerifyPairingRoundTrip400JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip401JSONResponse Error
+
+func (response VerifyPairingRoundTrip401JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip403JSONResponse Error
+
+func (response VerifyPairingRoundTrip403JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip404JSONResponse Error
+
+func (response VerifyPairingRoundTrip404JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip409JSONResponse Error
+
+func (response VerifyPairingRoundTrip409JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip422JSONResponse Error
+
+func (response VerifyPairingRoundTrip422JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip501JSONResponse Error
+
+func (response VerifyPairingRoundTrip501JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(501)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListServerPeopleRequestObject struct {
+	Params ListServerPeopleParams
 }
 
 type ListServerPeopleResponseObject interface {
 	VisitListServerPeopleResponse(w http.ResponseWriter) error
 }
 
-type ListServerPeople200JSONResponse ServerPeople
+type ListServerPeople200JSONResponse = ListServerPeople200JSONResponseBody
 
 func (response ListServerPeople200JSONResponse) VisitListServerPeopleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+	if err := json.NewEncoder(&buf).Encode(response.union); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -48267,6 +59986,20 @@ func (response ListServerPeople403JSONResponse) VisitListServerPeopleResponse(w 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListServerPeople404JSONResponse Error
+
+func (response ListServerPeople404JSONResponse) VisitListServerPeopleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -48924,9 +60657,15 @@ type StrictServerInterface interface {
 	// GetInfo Identify the server
 	// (GET /v1/info)
 	GetInfo(ctx context.Context, request GetInfoRequestObject) (GetInfoResponseObject, error)
+	// ListServerInvites List your outstanding invitations
+	// (GET /v1/invites)
+	ListServerInvites(ctx context.Context, request ListServerInvitesRequestObject) (ListServerInvitesResponseObject, error)
 	// CreateServerInvite Invite a person to the server
 	// (POST /v1/invites)
 	CreateServerInvite(ctx context.Context, request CreateServerInviteRequestObject) (CreateServerInviteResponseObject, error)
+	// RevokeServerInvite Revoke your invitation
+	// (DELETE /v1/invites/{invite})
+	RevokeServerInvite(ctx context.Context, request RevokeServerInviteRequestObject) (RevokeServerInviteResponseObject, error)
 	// Join Create a new agent identity on a board
 	// (POST /v1/join)
 	Join(ctx context.Context, request JoinRequestObject) (JoinResponseObject, error)
@@ -48963,12 +60702,36 @@ type StrictServerInterface interface {
 	// GetMe Who this token acts as
 	// (GET /v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// RequestAdminAction Request an exact administrative action
+	// (POST /v1/me/admin-requests)
+	RequestAdminAction(ctx context.Context, request RequestAdminActionRequestObject) (RequestAdminActionResponseObject, error)
+	// GetAllowance Read the person allowance
+	// (GET /v1/me/allowance)
+	GetAllowance(ctx context.Context, request GetAllowanceRequestObject) (GetAllowanceResponseObject, error)
+	// SetAllowance Replace the person allowance
+	// (PUT /v1/me/allowance)
+	SetAllowance(ctx context.Context, request SetAllowanceRequestObject) (SetAllowanceResponseObject, error)
+	// ListApprovals List administrative approvals
+	// (GET /v1/me/approvals)
+	ListApprovals(ctx context.Context, request ListApprovalsRequestObject) (ListApprovalsResponseObject, error)
+	// AllowApproval Allow and execute an exact approval
+	// (POST /v1/me/approvals/{approval}/allow)
+	AllowApproval(ctx context.Context, request AllowApprovalRequestObject) (AllowApprovalResponseObject, error)
+	// DeclineApproval Decline a pending approval
+	// (POST /v1/me/approvals/{approval}/decline)
+	DeclineApproval(ctx context.Context, request DeclineApprovalRequestObject) (DeclineApprovalResponseObject, error)
 	// SignOut Sign this browser out
 	// (DELETE /v1/me/browser-session)
 	SignOut(ctx context.Context, request SignOutRequestObject) (SignOutResponseObject, error)
 	// GetBrowserSession This browser's session
 	// (GET /v1/me/browser-session)
 	GetBrowserSession(ctx context.Context, request GetBrowserSessionRequestObject) (GetBrowserSessionResponseObject, error)
+	// GetDeliveryQueue Read this agent's queue reporter fence
+	// (GET /v1/me/delivery-queue)
+	GetDeliveryQueue(ctx context.Context, request GetDeliveryQueueRequestObject) (GetDeliveryQueueResponseObject, error)
+	// ReportDeliveryQueue Report this agent's queued message identities
+	// (PUT /v1/me/delivery-queue)
+	ReportDeliveryQueue(ctx context.Context, request ReportDeliveryQueueRequestObject) (ReportDeliveryQueueResponseObject, error)
 	// GetInbox Unread messages addressed to this agent
 	// (GET /v1/me/inbox)
 	GetInbox(ctx context.Context, request GetInboxRequestObject) (GetInboxResponseObject, error)
@@ -48984,6 +60747,15 @@ type StrictServerInterface interface {
 	// SetLine Say what this agent is on
 	// (PUT /v1/me/line)
 	SetLine(ctx context.Context, request SetLineRequestObject) (SetLineResponseObject, error)
+	// GetMidturnPolicy Read your mid-turn delivery policy
+	// (GET /v1/me/midturn)
+	GetMidturnPolicy(ctx context.Context, request GetMidturnPolicyRequestObject) (GetMidturnPolicyResponseObject, error)
+	// SetMidturnPolicy Set your default or an own-agent mid-turn override
+	// (PUT /v1/me/midturn)
+	SetMidturnPolicy(ctx context.Context, request SetMidturnPolicyRequestObject) (SetMidturnPolicyResponseObject, error)
+	// GetOnboardingReceipt Read this key’s onboarding outcome
+	// (GET /v1/me/onboarding)
+	GetOnboardingReceipt(ctx context.Context, request GetOnboardingReceiptRequestObject) (GetOnboardingReceiptResponseObject, error)
 	// SetPresence Report what this agent's session is doing
 	// (PUT /v1/me/presence)
 	SetPresence(ctx context.Context, request SetPresenceRequestObject) (SetPresenceResponseObject, error)
@@ -48999,6 +60771,30 @@ type StrictServerInterface interface {
 	// ListReplies Read or wait for a message's thread
 	// (GET /v1/messages/{message}/replies)
 	ListReplies(ctx context.Context, request ListRepliesRequestObject) (ListRepliesResponseObject, error)
+	// CreatePairingCredential Bind a pairing endpoint to an exact trusted-runtime session
+	// (POST /v1/pairing-credentials)
+	CreatePairingCredential(ctx context.Context, request CreatePairingCredentialRequestObject) (CreatePairingCredentialResponseObject, error)
+	// ListPairingRequests List visible pairing requests
+	// (GET /v1/pairing-requests)
+	ListPairingRequests(ctx context.Context, request ListPairingRequestsRequestObject) (ListPairingRequestsResponseObject, error)
+	// CreatePairingRequest Request a pairing with a person
+	// (POST /v1/pairing-requests)
+	CreatePairingRequest(ctx context.Context, request CreatePairingRequestRequestObject) (CreatePairingRequestResponseObject, error)
+	// GetPairingRequest Read a pairing request
+	// (GET /v1/pairing-requests/{pairing})
+	GetPairingRequest(ctx context.Context, request GetPairingRequestRequestObject) (GetPairingRequestResponseObject, error)
+	// AcceptPairingRequest AcceptPairingRequest
+	// (POST /v1/pairing-requests/{pairing}/accept)
+	AcceptPairingRequest(ctx context.Context, request AcceptPairingRequestRequestObject) (AcceptPairingRequestResponseObject, error)
+	// CancelPairingRequest CancelPairingRequest
+	// (POST /v1/pairing-requests/{pairing}/cancel)
+	CancelPairingRequest(ctx context.Context, request CancelPairingRequestRequestObject) (CancelPairingRequestResponseObject, error)
+	// DeclinePairingRequest DeclinePairingRequest
+	// (POST /v1/pairing-requests/{pairing}/decline)
+	DeclinePairingRequest(ctx context.Context, request DeclinePairingRequestRequestObject) (DeclinePairingRequestResponseObject, error)
+	// VerifyPairingRoundTrip VerifyPairingRoundTrip
+	// (POST /v1/pairing-requests/{pairing}/verify)
+	VerifyPairingRoundTrip(ctx context.Context, request VerifyPairingRoundTripRequestObject) (VerifyPairingRoundTripResponseObject, error)
 	// ListServerPeople List the people on the server, with their server roles
 	// (GET /v1/people)
 	ListServerPeople(ctx context.Context, request ListServerPeopleRequestObject) (ListServerPeopleResponseObject, error)
@@ -50680,6 +62476,30 @@ func (sh *strictHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ListServerInvites operation middleware
+func (sh *strictHandler) ListServerInvites(w http.ResponseWriter, r *http.Request) {
+	var request ListServerInvitesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListServerInvites(ctx, request.(ListServerInvitesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListServerInvites")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListServerInvitesResponseObject); ok {
+		if err := validResponse.VisitListServerInvitesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateServerInvite operation middleware
 func (sh *strictHandler) CreateServerInvite(w http.ResponseWriter, r *http.Request, params CreateServerInviteParams) {
 	var request CreateServerInviteRequestObject
@@ -50709,6 +62529,33 @@ func (sh *strictHandler) CreateServerInvite(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateServerInviteResponseObject); ok {
 		if err := validResponse.VisitCreateServerInviteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeServerInvite operation middleware
+func (sh *strictHandler) RevokeServerInvite(w http.ResponseWriter, r *http.Request, invite string, params RevokeServerInviteParams) {
+	var request RevokeServerInviteRequestObject
+
+	request.Invite = invite
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeServerInvite(ctx, request.(RevokeServerInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeServerInvite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeServerInviteResponseObject); ok {
+		if err := validResponse.VisitRevokeServerInviteResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -51081,6 +62928,181 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RequestAdminAction operation middleware
+func (sh *strictHandler) RequestAdminAction(w http.ResponseWriter, r *http.Request, params RequestAdminActionParams) {
+	var request RequestAdminActionRequestObject
+
+	request.Params = params
+
+	var body RequestAdminActionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestAdminAction(ctx, request.(RequestAdminActionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestAdminAction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestAdminActionResponseObject); ok {
+		if err := validResponse.VisitRequestAdminActionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAllowance operation middleware
+func (sh *strictHandler) GetAllowance(w http.ResponseWriter, r *http.Request) {
+	var request GetAllowanceRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAllowance(ctx, request.(GetAllowanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAllowance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAllowanceResponseObject); ok {
+		if err := validResponse.VisitGetAllowanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetAllowance operation middleware
+func (sh *strictHandler) SetAllowance(w http.ResponseWriter, r *http.Request, params SetAllowanceParams) {
+	var request SetAllowanceRequestObject
+
+	request.Params = params
+
+	var body SetAllowanceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetAllowance(ctx, request.(SetAllowanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetAllowance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetAllowanceResponseObject); ok {
+		if err := validResponse.VisitSetAllowanceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListApprovals operation middleware
+func (sh *strictHandler) ListApprovals(w http.ResponseWriter, r *http.Request) {
+	var request ListApprovalsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListApprovals(ctx, request.(ListApprovalsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListApprovals")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListApprovalsResponseObject); ok {
+		if err := validResponse.VisitListApprovalsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AllowApproval operation middleware
+func (sh *strictHandler) AllowApproval(w http.ResponseWriter, r *http.Request, approval string, params AllowApprovalParams) {
+	var request AllowApprovalRequestObject
+
+	request.Approval = approval
+	request.Params = params
+
+	var body AllowApprovalJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AllowApproval(ctx, request.(AllowApprovalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AllowApproval")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AllowApprovalResponseObject); ok {
+		if err := validResponse.VisitAllowApprovalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeclineApproval operation middleware
+func (sh *strictHandler) DeclineApproval(w http.ResponseWriter, r *http.Request, approval string, params DeclineApprovalParams) {
+	var request DeclineApprovalRequestObject
+
+	request.Approval = approval
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeclineApproval(ctx, request.(DeclineApprovalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeclineApproval")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeclineApprovalResponseObject); ok {
+		if err := validResponse.VisitDeclineApprovalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SignOut operation middleware
 func (sh *strictHandler) SignOut(w http.ResponseWriter, r *http.Request, params SignOutParams) {
 	var request SignOutRequestObject
@@ -51124,6 +63146,63 @@ func (sh *strictHandler) GetBrowserSession(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetBrowserSessionResponseObject); ok {
 		if err := validResponse.VisitGetBrowserSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDeliveryQueue operation middleware
+func (sh *strictHandler) GetDeliveryQueue(w http.ResponseWriter, r *http.Request) {
+	var request GetDeliveryQueueRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDeliveryQueue(ctx, request.(GetDeliveryQueueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDeliveryQueue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDeliveryQueueResponseObject); ok {
+		if err := validResponse.VisitGetDeliveryQueueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReportDeliveryQueue operation middleware
+func (sh *strictHandler) ReportDeliveryQueue(w http.ResponseWriter, r *http.Request, params ReportDeliveryQueueParams) {
+	var request ReportDeliveryQueueRequestObject
+
+	request.Params = params
+
+	var body ReportDeliveryQueueJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReportDeliveryQueue(ctx, request.(ReportDeliveryQueueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReportDeliveryQueue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReportDeliveryQueueResponseObject); ok {
+		if err := validResponse.VisitReportDeliveryQueueResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -51275,6 +63354,87 @@ func (sh *strictHandler) SetLine(w http.ResponseWriter, r *http.Request, params 
 	}
 }
 
+// GetMidturnPolicy operation middleware
+func (sh *strictHandler) GetMidturnPolicy(w http.ResponseWriter, r *http.Request) {
+	var request GetMidturnPolicyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMidturnPolicy(ctx, request.(GetMidturnPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMidturnPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMidturnPolicyResponseObject); ok {
+		if err := validResponse.VisitGetMidturnPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetMidturnPolicy operation middleware
+func (sh *strictHandler) SetMidturnPolicy(w http.ResponseWriter, r *http.Request, params SetMidturnPolicyParams) {
+	var request SetMidturnPolicyRequestObject
+
+	request.Params = params
+
+	var body SetMidturnPolicyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetMidturnPolicy(ctx, request.(SetMidturnPolicyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetMidturnPolicy")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetMidturnPolicyResponseObject); ok {
+		if err := validResponse.VisitSetMidturnPolicyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOnboardingReceipt operation middleware
+func (sh *strictHandler) GetOnboardingReceipt(w http.ResponseWriter, r *http.Request) {
+	var request GetOnboardingReceiptRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOnboardingReceipt(ctx, request.(GetOnboardingReceiptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOnboardingReceipt")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOnboardingReceiptResponseObject); ok {
+		if err := validResponse.VisitGetOnboardingReceiptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SetPresence operation middleware
 func (sh *strictHandler) SetPresence(w http.ResponseWriter, r *http.Request, params SetPresenceParams) {
 	var request SetPresenceRequestObject
@@ -51417,9 +63577,249 @@ func (sh *strictHandler) ListReplies(w http.ResponseWriter, r *http.Request, mes
 	}
 }
 
+// CreatePairingCredential operation middleware
+func (sh *strictHandler) CreatePairingCredential(w http.ResponseWriter, r *http.Request, params CreatePairingCredentialParams) {
+	var request CreatePairingCredentialRequestObject
+
+	request.Params = params
+
+	var body CreatePairingCredentialJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePairingCredential(ctx, request.(CreatePairingCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePairingCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePairingCredentialResponseObject); ok {
+		if err := validResponse.VisitCreatePairingCredentialResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPairingRequests operation middleware
+func (sh *strictHandler) ListPairingRequests(w http.ResponseWriter, r *http.Request) {
+	var request ListPairingRequestsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPairingRequests(ctx, request.(ListPairingRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPairingRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPairingRequestsResponseObject); ok {
+		if err := validResponse.VisitListPairingRequestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePairingRequest operation middleware
+func (sh *strictHandler) CreatePairingRequest(w http.ResponseWriter, r *http.Request, params CreatePairingRequestParams) {
+	var request CreatePairingRequestRequestObject
+
+	request.Params = params
+
+	var body CreatePairingRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePairingRequest(ctx, request.(CreatePairingRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePairingRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePairingRequestResponseObject); ok {
+		if err := validResponse.VisitCreatePairingRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPairingRequest operation middleware
+func (sh *strictHandler) GetPairingRequest(w http.ResponseWriter, r *http.Request, pairing string) {
+	var request GetPairingRequestRequestObject
+
+	request.Pairing = pairing
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPairingRequest(ctx, request.(GetPairingRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPairingRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPairingRequestResponseObject); ok {
+		if err := validResponse.VisitGetPairingRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptPairingRequest operation middleware
+func (sh *strictHandler) AcceptPairingRequest(w http.ResponseWriter, r *http.Request, pairing string, params AcceptPairingRequestParams) {
+	var request AcceptPairingRequestRequestObject
+
+	request.Pairing = pairing
+	request.Params = params
+
+	var body AcceptPairingRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptPairingRequest(ctx, request.(AcceptPairingRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptPairingRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AcceptPairingRequestResponseObject); ok {
+		if err := validResponse.VisitAcceptPairingRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelPairingRequest operation middleware
+func (sh *strictHandler) CancelPairingRequest(w http.ResponseWriter, r *http.Request, pairing string, params CancelPairingRequestParams) {
+	var request CancelPairingRequestRequestObject
+
+	request.Pairing = pairing
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelPairingRequest(ctx, request.(CancelPairingRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelPairingRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelPairingRequestResponseObject); ok {
+		if err := validResponse.VisitCancelPairingRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeclinePairingRequest operation middleware
+func (sh *strictHandler) DeclinePairingRequest(w http.ResponseWriter, r *http.Request, pairing string, params DeclinePairingRequestParams) {
+	var request DeclinePairingRequestRequestObject
+
+	request.Pairing = pairing
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeclinePairingRequest(ctx, request.(DeclinePairingRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeclinePairingRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeclinePairingRequestResponseObject); ok {
+		if err := validResponse.VisitDeclinePairingRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// VerifyPairingRoundTrip operation middleware
+func (sh *strictHandler) VerifyPairingRoundTrip(w http.ResponseWriter, r *http.Request, pairing string, params VerifyPairingRoundTripParams) {
+	var request VerifyPairingRoundTripRequestObject
+
+	request.Pairing = pairing
+	request.Params = params
+
+	var body VerifyPairingRoundTripJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifyPairingRoundTrip(ctx, request.(VerifyPairingRoundTripRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifyPairingRoundTrip")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(VerifyPairingRoundTripResponseObject); ok {
+		if err := validResponse.VisitVerifyPairingRoundTripResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListServerPeople operation middleware
-func (sh *strictHandler) ListServerPeople(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListServerPeople(w http.ResponseWriter, r *http.Request, params ListServerPeopleParams) {
 	var request ListServerPeopleRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListServerPeople(ctx, request.(ListServerPeopleRequestObject))
@@ -51622,1072 +64022,1304 @@ func (sh *strictHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

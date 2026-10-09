@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -38,10 +39,15 @@ type teamServer struct {
 // environment, as a container gets it.
 func startTeamServer(t *testing.T) *teamServer {
 	t.Helper()
-	listen := freeAddr(t)
-	backend := &url.URL{Scheme: "http", Host: listen}
+	return startTeamServerOptions(t, nil, nil)
+}
+
+func startTeamServerOptions(t *testing.T, extraEnv, extraArgs []string) *teamServer {
+	t.Helper()
+	listen := "127.0.0.1:0"
+	var backend atomic.Pointer[url.URL]
 	proxy := httptest.NewUnstartedServer(&httputil.ReverseProxy{Rewrite: func(r *httputil.ProxyRequest) {
-		r.SetURL(backend)
+		r.SetURL(backend.Load())
 		r.Out.Host = r.In.Host // an ingress keeps the Host the browser sent
 		r.SetXForwarded()      // and adds forwarded headers, which the server must ignore
 	}, FlushInterval: -1})
@@ -58,12 +64,13 @@ func startTeamServer(t *testing.T) *teamServer {
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command(binary, "serve", "--team")
+	cmd := exec.Command(binary, append([]string{"serve", "--team"}, extraArgs...)...)
 	cmd.Env = []string{
 		"HOME=" + home, "PATH=" + os.Getenv("PATH"),
 		"ABOARD_PUBLIC_URL=" + s.url, "ABOARD_DATA=" + s.data, "ABOARD_LISTEN=" + listen, "ABOARD_ADMIN=alex",
 		exitWithVar + "=" + strconv.Itoa(os.Getpid()),
 	}
+	cmd.Env = append(cmd.Env, extraEnv...)
 	cmd.Stdout, cmd.Stderr = s.log, s.log
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -84,6 +91,19 @@ func startTeamServer(t *testing.T) *teamServer {
 		case <-exited:
 			t.Fatalf("aboard serve --team exited:\n%s", s.log)
 		default:
+		}
+		if backend.Load() == nil {
+			// Read only this process's serving record, after it has bound its port.
+			for _, line := range strings.Split(s.log.String(), "\n") {
+				var record struct{ Msg, Addr string }
+				if json.Unmarshal([]byte(line), &record) == nil && record.Msg == "serving" && record.Addr != "" {
+					backend.Store(&url.URL{Scheme: "http", Host: record.Addr})
+					break
+				}
+			}
+			if backend.Load() == nil {
+				return false
+			}
 		}
 		req, err := http.NewRequestWithContext(context.Background(), "GET", s.url+"/v1/info", http.NoBody)
 		if err != nil {
@@ -302,7 +322,7 @@ func TestATeamServerBehindAnHTTPSProxy(t *testing.T) {
 		t.Fatal(err)
 	}
 	people := alex.run("people", "--server", s.url)
-	if !strings.Contains(people.stdout, "alex  admin") {
+	if !strings.Contains(people.stdout, "@alex   admin") {
 		t.Fatalf("aboard people:\n%s", people)
 	}
 

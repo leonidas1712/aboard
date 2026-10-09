@@ -3,7 +3,8 @@
 // The message box: one field that posts as the person. Who a message goes to is the
 // recipients picked outside the text (a reply's default ones, or the "To" menu's) plus
 // everyone the text mentions with "@"; with neither, it goes to everyone. Typing "@"
-// offers the board's agents, people and roles.
+// offers the board's agents, people and roles. The paperclip, a drop or a paste attaches
+// files: board files at a version, or local ones put on the board first.
 
 import { ChevronDown, X } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -17,9 +18,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { ApiError, type Member, type MemberRef, type Message, post } from "./api";
+import { ApiError, type BoardFile, type Member, type MemberRef, type Message, post } from "./api";
+import { AttachButton, DraftChips, useDrafts } from "./attachments";
+import { DropHint, useDrop } from "./files";
 import { type Candidate, type Query, candidates, knownTargets, mentionsIn, queryAt, segments, toSummary, toWords } from "./mentions";
-import { SenderMark } from "./timeline";
+import { SenderMark } from "./agent-mark";
 import { harnessName, recipient } from "./words";
 
 type Props = {
@@ -38,9 +41,16 @@ type Props = {
   /** onPosted runs with the message as stored. */
   onPosted: (m: Message) => void;
   onError: (e: unknown) => void;
+  /** files are the board's files; null on a server without files, which offers no attachments. */
+  files?: BoardFile[] | null;
+  /** onFilesChanged runs after the message box puts a file on the board. */
+  onFilesChanged?: () => void;
 };
 
-export function Composer({ board, members, roles, me, replyTo, replyDefault, identity, onCancelReply, onPosted, onError }: Props) {
+const noFiles: BoardFile[] = [];
+const nothing = () => {};
+
+export function Composer({ board, members, roles, me, replyTo, replyDefault, identity, onCancelReply, onPosted, onError, files = null, onFilesChanged = nothing }: Props) {
   // picked are the recipients chosen outside the text: a reply's default ones and the
   // "To" menu's. Each shows as a chip that removes it.
   const [picked, setPicked] = useState<string[]>([]);
@@ -60,6 +70,13 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
   // One key per message being written, so a retried post after a dropped response
   // never posts twice.
   const key = useRef<string>("");
+  const drafts = useDrafts(board, files ?? noFiles, me, onFilesChanged);
+  const drop = useDrop(files !== null, (_f, _n, all) => drafts.upload(all));
+  // Another file set makes another message.
+  const draftKey = drafts.selectors.map((x) => `${x.file}@${x.version}`).join();
+  useEffect(() => {
+    key.current = "";
+  }, [draftKey]);
 
   const known = useMemo(() => knownTargets(members, roles), [members, roles]);
   const mentioned = useMemo(() => mentionsIn(body, known), [body, known]);
@@ -135,7 +152,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
   const send = async (e?: FormEvent) => {
     e?.preventDefault();
     const text = body.trim();
-    if (!text || busy) return;
+    if (!text || busy || !drafts.ready) return;
     if (!key.current) key.current = crypto.randomUUID();
     setBusy(true);
     setProblem(null);
@@ -146,12 +163,14 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           body: text,
           to: to.length > 0 ? to : ["all"],
           ...(replyTo ? { reply_to: replyTo.id } : {}),
+          ...(drafts.selectors.length > 0 ? { files: drafts.selectors } : {}),
         },
         key.current,
       );
       key.current = "";
       setBody("");
       setPicked([]);
+      drafts.clear();
       setDismissed(null);
       onCancelReply();
       onPosted(posted);
@@ -228,7 +247,14 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
   const optionId = (i: number) => `${ids}-mention-${i}`;
 
   return (
-    <form onSubmit={send} className="composer relative border-t border-rule pt-3 pb-4" aria-label="Post a message">
+    <form
+      onSubmit={send}
+      className="composer relative border-t border-rule pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      aria-label="Post a message"
+      data-drop={drop.over ? "over" : undefined}
+      {...drop.props}
+    >
+      <DropHint over={drop.over} text="Drop to attach to your message" />
       {replyTo && (
         <div className="mb-2 flex items-center gap-2 text-meta text-muted">
           <p className="min-w-0 flex-1 truncate">
@@ -238,7 +264,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           <button
             type="button"
             onClick={onCancelReply}
-            className="inline-flex size-8 items-center justify-center rounded-[6px] text-ink hover:bg-hover"
+            className="tap inline-flex size-8 items-center justify-center rounded-[6px] text-ink hover:bg-hover"
             aria-label="Cancel the reply"
             title="Cancel the reply"
           >
@@ -254,7 +280,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
                 type="button"
                 data-target={t}
                 onClick={() => unpick(t)}
-                className="recipient-chip inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface pr-1.5 pl-2.5 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
+                className="recipient-chip tap inline-flex h-8 items-center gap-1.5 rounded-control border border-rule bg-surface pr-1.5 pl-2.5 text-meta text-ink transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover"
                 aria-label={`Remove ${recipient(t)} from the recipients`}
               >
                 {recipient(t)}
@@ -265,6 +291,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           {replyTo && <li className="text-meta text-muted">Type @ to add someone</li>}
         </ul>
       )}
+      <DraftChips board={board} d={drafts} bodyEmpty={body.trim() === ""} />
       {showList && (
         <ul
           id={listId}
@@ -292,7 +319,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
               )}
             >
               {c.member ? (
-                <SenderMark name={c.member.name} kind={c.member.kind} identity={identity(c.member)} className="size-6 rounded-[6px] text-[11px]" />
+                <SenderMark name={c.member.name} kind={c.member.kind} harness={c.member.harness} identity={identity(c.member)} className="size-6 rounded-[6px] text-[11px]" />
               ) : (
                 <span aria-hidden className="flex size-6 shrink-0 items-center justify-center rounded-[6px] border border-rule text-meta text-muted">
                   @
@@ -307,10 +334,13 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {announce}
       </p>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {drafts.note}
+      </p>
       {/* One field holds the recipients, the text and Post. Focus changes the field
           once, softly; only a control reached by keyboard gets its own ring. */}
       <div
-        className="composer-field flex min-w-0 flex-wrap items-end gap-1 sm:flex-nowrap rounded-box border border-field-border bg-surface p-1 transition-[border-color,box-shadow] duration-[140ms] ease-out data-[focused]:border-[var(--field-focus)] data-[focused]:shadow-[0_0_0_3px_var(--focus-glow)]"
+        className="composer-field flex min-w-0 flex-wrap items-end gap-1 sm:flex-nowrap rounded-box border border-field-border bg-surface p-1 transition-[border-color,box-shadow] duration-[140ms] ease-out data-[focused]:border-[var(--field-focus)] data-[focused]:shadow-[0_0_0_4px_var(--focus-glow)]"
         data-focused={focused || undefined}
         onFocusCapture={() => setFocused(true)}
         onBlurCapture={(e) => {
@@ -319,7 +349,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
       >
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="to-label inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent sm:max-w-[16rem]"
+            className="to-label tap inline-flex h-11 max-w-full shrink-0 items-center max-sm:h-9 max-sm:basis-full max-sm:justify-start gap-1 rounded-control px-2.5 text-meta text-ink outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent-strong sm:max-w-[16rem]"
             aria-label={`Recipients: ${toWords(to)}. Change`}
           >
             <span className="truncate">To {summary}</span>
@@ -370,7 +400,7 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
           <div
             ref={backdrop}
             aria-hidden
-            className="mention-backdrop pointer-events-none absolute inset-0 overflow-hidden px-2.5 py-[10px] text-body break-words whitespace-pre-wrap text-transparent"
+            className="mention-backdrop pointer-events-none absolute inset-0 overflow-hidden px-2.5 py-[10px] text-body break-words whitespace-pre-wrap text-transparent pointer-coarse:text-[16px]"
           >
             {segments(body, known).map((s, i) =>
               s.target ? (
@@ -404,17 +434,24 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
             onSelect={track}
             onClick={track}
             onKeyDown={onKeyDown}
+            onPaste={(e) => {
+              const pasted = Array.from(e.clipboardData.files);
+              if (files === null || pasted.length === 0) return;
+              e.preventDefault();
+              drafts.upload(pasted);
+            }}
             onScroll={(e) => {
               if (backdrop.current) backdrop.current.scrollTop = e.currentTarget.scrollTop;
             }}
             placeholder={label}
-            className="relative block min-h-11 w-full resize-none bg-transparent px-2.5 py-[10px] text-body text-ink outline-none placeholder:text-muted"
+            className="relative block min-h-11 w-full resize-none bg-transparent px-2.5 py-[10px] text-body text-ink outline-none placeholder:text-muted pointer-coarse:text-[16px]"
           />
           <span id={`${ids}-hint`} className="sr-only">
             Type @ to mention an agent, a person or a role; each one you mention receives the message.
           </span>
         </div>
-        <Button type="submit" disabled={busy || body.trim() === ""} className="focus-visible:outline-offset-0">
+        {files !== null && <AttachButton files={files} d={drafts} />}
+        <Button type="submit" disabled={busy || body.trim() === "" || !drafts.ready} className="focus-visible:outline-offset-0">
           {busy ? "Posting…" : "Post"}
         </Button>
       </div>

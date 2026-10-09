@@ -256,7 +256,7 @@ func (p *pane) submit(text string) {
 	p.l.t.Helper()
 	if p.harness == "codex" && p.codexHooksLogged() {
 		// The turn counts as open from now: Codex runs the prompt hook a moment later.
-		_, p.codexStopsAtSubmit = p.l.codexHookCounts(p.dir)
+		p.codexStopsAtSubmit = p.l.codexStopCount(p.dir)
 		p.codexSubmitted = true
 	}
 	p.typeInto(text)
@@ -460,6 +460,9 @@ func detectCodex() codexSetup {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	env := append(cleanEnv(), "PATH="+os.Getenv("PATH"))
+	if home := os.Getenv("CODEX_HOME"); home != "" {
+		env = append(env, "CODEX_HOME="+home)
+	}
 	login := command(ctx, "codex", "login", "status")
 	login.Env = env
 	if err := login.Run(); err != nil {
@@ -583,11 +586,27 @@ func (l *lab) scopeCodexHooks(dir string, env []string) {
 		}
 	}
 	// "<bin> hook codex <event>" becomes
-	// env <vars> sh -c 'echo "$1 <parent> <grandparent>" >> <log>; exec "$0" hook codex "$1"' <bin> <event>
+	// env <vars> sh -c <wrapper> <bin> <event>. Stop output is forwarded unchanged,
+	// with a separate completion marker after the command succeeds.
 	// The two processes above the hook show which Codex process ran it (codexHookRunners).
 	// at=<tag> says which project's session ran the hook (codexHookTag).
-	script := fmt.Sprintf(`echo "$1 $PPID $(ps -o ppid= -p $PPID) at=%s" >> %s; exec "$0" hook codex "$1"`, codexHookTag(dir), l.codexHookLog())
-	words = append(words, "sh", "-c", "'"+script+"'", l.bin)
+	script := fmt.Sprintf(`echo "$1 $PPID $(ps -o ppid= -p $PPID) at=%s" >> %s
+if [ "$1" != stop-continue ]; then exec "$0" hook codex "$1"; fi
+out=$(mktemp %s)
+trap 'rm -f "$out"' EXIT
+"$0" hook codex "$1" > "$out"
+result=$?
+if [ "$result" -eq 0 ]; then
+  python3 -c "import json,sys; raw=sys.stdin.read(); sys.exit(0 if raw and json.loads(raw).get('decision') == 'block' else 3)" < "$out"
+  case "$?" in
+    0) echo "stop-block at=%s" >> %s ;;
+    3) echo "stop-complete at=%s" >> %s ;;
+    *) echo "stop-invalid at=%s" >> %s ;;
+  esac
+fi
+cat "$out"
+exit "$result"`, codexHookTag(dir), shellQuote(l.codexHookLog()), shellQuote(filepath.Join(l.dir, "hook-output.XXXXXX")), codexHookTag(dir), shellQuote(l.codexHookLog()), codexHookTag(dir), shellQuote(l.codexHookLog()), codexHookTag(dir), shellQuote(l.codexHookLog()))
+	words = append(words, "sh", "-c", shellQuote(script), l.bin)
 	quoted, err := json.Marshal(strings.Join(words, " ") + " ")
 	if err != nil {
 		l.t.Fatal(err)
@@ -632,9 +651,8 @@ func (l *lab) codexHookRunners(event string) []int {
 // can be told apart from the others' in the same lab.
 func codexHookTag(dir string) string { return fmt.Sprintf("%08x", crc32.ChecksumIEEE([]byte(dir))) }
 
-// codexHookCounts counts the prompt and stop events the hooks of the project in dir
-// logged.
-func (l *lab) codexHookCounts(dir string) (prompts, stops int) {
+// codexStopCount counts completed Stop hooks for this project.
+func (l *lab) codexStopCount(dir string) (stops int) {
 	raw, _ := os.ReadFile(l.codexHookLog())
 	at := "at=" + codexHookTag(dir)
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -643,13 +661,11 @@ func (l *lab) codexHookCounts(dir string) (prompts, stops int) {
 			continue
 		}
 		switch f[0] {
-		case "prompt":
-			prompts++
-		case "stop":
+		case "stop", "stop-complete":
 			stops++
 		}
 	}
-	return prompts, stops
+	return stops
 }
 
 // codexHooksLogged reports whether the pane's project has hooks that log their events
@@ -660,18 +676,32 @@ func (p *pane) codexHooksLogged() bool {
 	return err == nil && strings.Contains(string(raw), "at="+codexHookTag(p.dir))
 }
 
-// codexTurnOpen reports whether the pane's Codex session has a turn that started and
-// hasn't ended: a prompt the driver submitted with no stop event since, which covers the
-// moment before Codex runs the prompt hook, or more prompt events than stop events.
+// codexTurnOpen keeps submitted prompts and blocking Stop continuations busy until a
+// completed empty Stop. Continuations need not have one prompt hook per Stop hook.
 func (p *pane) codexTurnOpen() bool {
-	prompts, stops := p.l.codexHookCounts(p.dir)
+	stops := p.l.codexStopCount(p.dir)
 	if p.codexSubmitted {
 		if stops <= p.codexStopsAtSubmit {
 			return true
 		}
 		p.codexSubmitted = false
 	}
-	return prompts > stops
+	raw, _ := os.ReadFile(p.l.codexHookLog())
+	at := "at=" + codexHookTag(p.dir)
+	open := false
+	for _, line := range strings.Split(string(raw), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || !slices.Contains(fields, at) {
+			continue
+		}
+		switch fields[0] {
+		case "prompt", "stop-block":
+			open = true
+		case "stop", "stop-complete":
+			open = false
+		}
+	}
+	return open
 }
 
 // codexHooksRan reports whether each event's hook has run at least once.
@@ -679,7 +709,18 @@ func (l *lab) codexHooksRan(events ...string) bool {
 	raw, _ := os.ReadFile(l.codexHookLog())
 	ran := strings.Fields(string(raw))
 	for _, e := range events {
-		if !slices.Contains(ran, e) {
+		aliases := []string{e}
+		switch e {
+		case "stop":
+			aliases = append(aliases, "stop-continue")
+		case "tool":
+			aliases = append(aliases, "post-tool")
+		}
+		found := false
+		for _, alias := range aliases {
+			found = found || slices.Contains(ran, alias)
+		}
+		if !found {
 			return false
 		}
 	}

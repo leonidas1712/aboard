@@ -41,7 +41,7 @@ func TestServerPeopleAndRolesFromTheCLI(t *testing.T) {
 	if field(t, out, "people.0.server_role") != "admin" || field(t, out, "people.1.handle") != "maya" || field(t, out, "people.1.server_role") != "member" {
 		t.Fatalf("people: %v", out)
 	}
-	expectLines(t, maya.run("people", "--server", tm.url()), "People on "+tm.url()+":", "  alex  admin", "  maya  member", "  sam   member")
+	expectLines(t, maya.run("people", "--server", tm.url()), "People on "+tm.url()+":", "  HANDLE  SERVER ROLE  NAME", "  @alex   admin", "  @maya   member", "  @sam    member")
 
 	r := tm.admin.runExit("people", "role", "@alex", "member", "--json")
 	if r.code != 1 || errorCode(t, r.json(t)) != "last_admin" {
@@ -56,11 +56,11 @@ func TestServerPeopleAndRolesFromTheCLI(t *testing.T) {
 	if role["changed"] != true || field(t, role, "person.server_role") != "admin" {
 		t.Fatalf("maya made an admin: %v", role)
 	}
-	expectLines(t, tm.admin.run("people", "role", "maya", "admin"), "maya is already an admin of "+tm.url()+".")
+	expectLines(t, tm.admin.run("people", "role", "maya", "admin"), "@maya is already an admin of "+tm.url()+".")
 	if status, v := tm.call("PATCH", "/v1/people/maya", tm.admin.browserLogin(), map[string]any{"server_role": "member"}); status != http.StatusForbidden || errorCode(t, v) != "human_token_required" {
 		t.Fatalf("an admin's browser changing a role: %d %v", status, v)
 	}
-	expectLines(t, maya.run("people", "role", "@alex", "member", "--server", tm.url()), "alex is now a member of "+tm.url()+".")
+	expectLines(t, maya.run("people", "role", "@alex", "member", "--server", tm.url()), "@alex is now a member of "+tm.url()+".")
 	if r := tm.admin.runExit("people", "role", "@sam", "admin", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "server_admin_required" {
 		t.Fatalf("alex, no longer an admin, changing a role:\n%s", r)
 	}
@@ -106,7 +106,7 @@ func TestRemovingAPersonFromTheServerFromTheCLI(t *testing.T) {
 		t.Fatalf("maya's CLI after removal:\n%s", r)
 	}
 	expectLines(t, sam.run("board", "people"), board+" · private · 1 person", "  sam (owner)")
-	expectLines(t, tm.admin.run("people"), "People on "+tm.url()+":", "  alex  admin", "  sam   member")
+	expectLines(t, tm.admin.run("people"), "People on "+tm.url()+":", "  HANDLE  SERVER ROLE  NAME", "  @alex   admin", "  @sam    member")
 
 	// The handle is free: a new maya is a new person, who sees nothing of the old one's.
 	again := tm.person("maya")
@@ -156,7 +156,7 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 		t.Fatalf("the guest invite: %v", inv)
 	}
 	text := maya.run("invite", "--guest", "@lee")
-	if !strings.HasPrefix(text.stdout, "Created a guest code for board "+board+" on "+tm.url()+": lee joins it as a guest from outside the server, once, within 24 hours. "+
+	if !strings.HasPrefix(text.stdout, "Created a guest code for board "+board+" on "+tm.url()+": guest lee's agent joins it from outside the server, once, within 24 hours. The guest handle is the person, not the agent name; join without --name to choose an agent name. "+
 		"Anyone with the code can use it, so give it only to lee.\n\nGive this to lee, to paste into their agent's session:\n\nJoin Aboard board "+board) ||
 		!strings.HasSuffix(text.stdout, "\n"+invitePrompt+"\n") {
 		t.Fatalf("the guest invite's text:\n%s", text)
@@ -200,7 +200,7 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 	if got := field(t, maya.run("board", "people", "--json").json(t), "people.1.server_role"); got != "guest" {
 		t.Fatalf("the guest's server role: %v", got)
 	}
-	expectLines(t, tm.admin.run("people"), "People on "+tm.url()+":", "  alex  admin", "  maya  member", "  sam   guest")
+	expectLines(t, tm.admin.run("people"), "People on "+tm.url()+":", "  HANDLE  SERVER ROLE  NAME", "  @alex   admin", "  @maya   member", "  @sam    guest")
 
 	// The guest's agent reaches its board and nothing else.
 	if r := s.e.exec(s.vars, "", "board", "title", "Mine now", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "guest_not_allowed" {

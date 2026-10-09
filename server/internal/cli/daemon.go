@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -108,10 +109,21 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 			adapters = append(adapters, ad)
 		}
 	}
+	var pairingMu sync.Mutex
+	pairings := map[string]delivery.PairingRuntime{}
 	err = delivery.Run(ctx, delivery.Config{
-		Journal:      journal,
-		ResolveAgent: (daemonTokens{a: a}).ResolveAgent,
-		Adapters:     adapters,
+		PairingFor: func(server string) delivery.PairingRuntime {
+			pairingMu.Lock()
+			defer pairingMu.Unlock()
+			if pairings[server] == nil {
+				pairings[server] = apiserver.NewPairing(server, daemonTokens{a: a}, filepath.Join(p.state, "pairing-endpoints"))
+			}
+			return pairings[server]
+		},
+		AllowBriefNudge: a.allowBriefNudge,
+		Journal:         journal,
+		ResolveAgent:    (daemonTokens{a: a}).ResolveAgent,
+		Adapters:        adapters,
 		Connect: func(url string) delivery.Server {
 			return apiserver.New(url, daemonTokens{a: a}, a.env.Rand)
 		},
