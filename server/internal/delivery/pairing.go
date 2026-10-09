@@ -112,6 +112,9 @@ func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 		if err != nil {
 			return seatsError(req.Server, err)
 		}
+		if got.State == "awaiting_endpoint" {
+			return Response{V: 1, Server: req.Server, PairingBoard: selected.Board, Pairing: &got}
+		}
 		binding, err := d.pairingBinding(ctx, req.Key(), selected)
 		if err != nil {
 			return seatsError(req.Server, err)
