@@ -162,7 +162,8 @@
                   "cli/upgrade",
                   "cli/skill",
                   "cli/version",
-                  "cli/help"
+                  "cli/help",
+                  "cli/agents"
                 ]
               },
               {

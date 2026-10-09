@@ -11,10 +11,19 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Added
 
+- Find your own agents with `aboard agents`: last reported machine, harness, folder,
+  conversation and activity, with copyable reopen and saved-seat pickup commands.
+  Other people, including admins, cannot see your session locations.
+
 - Name known servers on this machine, connect with --server-name, and use those names
   in --server or aboard open. Person-command output explains which server it chose.
 
 ### Contract changes
+
+- Add owner-only GET /v1/me/agents, own-seat PUT /v1/me/location and optional
+  Member.location; add AgentsOutput and optional resume --server issuer selection.
+  Additive for API/CLI clients and delivery daemons. Locations are descriptive
+  bookkeeping, never record events or authority; existing clients can omit reports.
 
 - Define D222 onboarding contracts: person allowances, exact-payload approvals,
   bundled invite boards/pairing, client-generated connect tokens and nonsecret

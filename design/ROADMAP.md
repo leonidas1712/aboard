@@ -430,6 +430,7 @@ run and focused retry, not one clean full run. Protected configuration and auth 
 unchanged. Final CI remains pending; the board-view setting is separate PR #243.
 This feature is not yet shipped.
 
+| Find your agent (#275): owner-only session location and profile-derived resume commands, `aboard agents` | API/CLI in review (#277, GEN-42); source pass and three-harness location/restart proof pass; board view owned separately | bookkeeping only |
 ### D222 invitation safety (GEN-45)
 
 Building: explicit invite opt-in and warning, own-person Inbox notices, and a 24-hour

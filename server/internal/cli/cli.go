@@ -150,6 +150,7 @@ func commands() []command {
 		{"delivery", runDelivery},
 		{"board", runBoard},
 		{"agent", runAgent},
+		{"agents", runAgents},
 		{"leave", runLeave},
 		{"boards", runBoards},
 		{"audit", runAudit},

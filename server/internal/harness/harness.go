@@ -222,6 +222,7 @@ const SubagentEnv = "ABOARD_SUBAGENT"
 
 // HookInput is the part of a harness's hook input the hooks read.
 type HookInput struct {
+	Cwd       string `json:"cwd"`
 	SessionID string `json:"session_id"`
 	Source    string `json:"source"`
 	// AgentID is set when a hook fires inside a subagent.

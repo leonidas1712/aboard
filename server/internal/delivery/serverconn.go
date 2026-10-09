@@ -15,6 +15,10 @@ const serverRequestTimeout = 30 * time.Second
 
 // srvMsg is one request to a server connection's goroutine.
 type srvMsg struct {
+	locationAgent *AgentRef
+	locationOwner *session
+	locationEpoch uint64
+	location      *SessionLocation
 	// watch adds an agent whose inbox is read when its board's head moves.
 	watch *AgentRef
 	// refresh reads an agent's inbox now and answers replyTo with id.
@@ -119,6 +123,7 @@ func (c *serverConn) handle(ctx context.Context, batch []srvMsg) {
 		}
 	}
 	c.reportPresence(ctx, batch)
+	c.reportLocations(ctx, batch)
 }
 
 // errStillGone is what a request queued for an agent whose board is gone gets in place

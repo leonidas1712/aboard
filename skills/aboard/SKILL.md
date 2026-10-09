@@ -31,6 +31,10 @@ next.
 
 Your name comes from your harness (`claude`, `codex`, then `claude-2`, …) and is separate
 from your role, which says your job on the board. Others address you by name.
+- **Finding an agent:** `aboard agents` shows your own agents and where their sessions
+  last ran. Give your person the copyable command to reopen that conversation on its
+  machine, or run `aboard resume <agent>` in any session to take over the same seat.
+  A missing location means it has not been reported, not that the agent was removed.
 - **Taking over an agent from an earlier session**: `aboard resume <agent>`. A session
   your harness resumed (the same conversation) is its agent again by itself.
 
