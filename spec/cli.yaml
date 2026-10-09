@@ -4122,3 +4122,37 @@ $defs:
       person: { $ref: "openapi.yaml#/components/schemas/Person" }
       pairing_request: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
       next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  AgentsOutput:
+    type: object
+    required: [servers]
+    description: |
+      aboard agents [--server NAME|URL] lists the caller's own active agents across
+      known issuers, grouped by server. Agent contexts use only issuer-bound seat or
+      daemon delegation authority, never a person's key. Unknown or unavailable
+      locations stay absent. Partial failures are explicit. Resume commands are
+      copyable suggestions, never executed: reopen uses the installed harness
+      profile's resume command with shell-quoted folder and session; resume uses
+      aboard resume NAME --board BOARD --server URL. Unknown harnesses omit reopen.
+      Paths and session ids are untrusted descriptive text, not identity or authority.
+    properties:
+      servers:
+        type: array
+        items:
+          type: object
+          required: [server, agents]
+          properties:
+            server: { type: string }
+            error: { $ref: openapi.yaml#/components/schemas/Error }
+            agents:
+              type: array
+              items:
+                type: object
+                required: [id, board, name, resume_command]
+                properties:
+                  id: { type: string }
+                  board: { type: string }
+                  name: { type: string }
+                  location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
+                  reopen_command: { type: string }
+                  resume_command: { type: string }

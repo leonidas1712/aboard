@@ -427,3 +427,5 @@ bounded-Stop versus idle-wait distinction. This is collective evidence from the 
 run and focused retry, not one clean full run. Protected configuration and auth were
 unchanged. Final CI remains pending; the board-view setting is separate PR #243.
 This feature is not yet shipped.
+
+| Find your agent (#275): owner-only session location and profile-derived resume commands, `aboard agents` | in progress (GEN-42); contract first, API/CLI; board view owned separately | bookkeeping only |
