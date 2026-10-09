@@ -1679,3 +1679,38 @@ current policy eligibility only: verified transport capability and the logical-t
 cap still apply. It never says the message has been delivered. `owner_only` explains
 why that peer waits for turn end. No hint is inferred from owner names or harness
 labels, and no private preference for unrelated recipients is disclosed.
+
+## Pairing handshake (D222; planned)
+
+A pairing request selects two exact sessions, each represented by its permanent
+board seat and a server-controlled endpoint generation. Recent activity does not
+select a session. The inviter cannot select an endpoint owned by another person.
+Accepting proposed work grants no control over that person's harness or commands.
+
+Both sides send an ordinary directly addressed ping and reply through the public
+message API and real harness delivery. Each ping names the request's immutable id,
+current generation and direction. A reply must link the exact ping and return that
+correlation. No handshake text overrides the sender's trust or the board's rules.
+The daemon reports the actual board message sequences through the verification API;
+the server checks both current endpoint identities, exact direct recipients, reply
+linkage, generation and delivery receipt evidence under current access. It derives
+ready only after both round trips, never from a client-provided success flag.
+
+Replacement of either runtime session is explicit, even if it reuses a permanent
+seat. It increments the request generation and invalidates all older evidence.
+Delayed replies, confirmations and reports from an old generation cannot mark the
+new request ready. A removed seat, revoked parent key, lost ownership, membership
+or access ends its authority; recovery never resurrects it or bypasses admission.
+
+An offline endpoint leaves the request verifying with the awaited side identified.
+A bounded timeout remains recoverable and supplies next with the precise step and
+resume words. Retrying under the same generation reuses its existing messages and
+evidence; it does not claim that a hook return alone proves a real round trip.
+This flow neither starts agents nor runs commands on the server, nor moves a read
+cursor without the existing confirmed-prefix delivery acknowledgement.
+
+The CLI receives only nonsecret progress and handovers from the trusted daemon.
+Onboarding/allowance authority is issuer- and parent-key-bound and separate from
+D197. No token, invitation secret or person login enters hook/socket/model output.
+These are contract requirements for the later pairing slice, not a live-proof
+claim or a change to the current delivery adapter.
