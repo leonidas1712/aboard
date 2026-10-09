@@ -53,15 +53,17 @@ type (
 		observer *http.Client
 	}
 	fixture struct {
-		root, binary, url string
-		admin             *machine
-		people            []*machine
-		boards            []*board
-		client            *http.Client
-		ctx               context.Context
-		workers           sync.WaitGroup
-		throttles         atomic.Int64
-		monitor           *resourceMonitor
+		root, binary, url                               string
+		admin                                           *machine
+		people                                          []*machine
+		boards                                          []*board
+		client                                          *http.Client
+		ctx                                             context.Context
+		workers                                         sync.WaitGroup
+		throttles                                       atomic.Int64
+		joinThrottles, connectThrottles, otherThrottles atomic.Int64
+		setupThrottles                                  atomic.Int64
+		monitor                                         *resourceMonitor
 	}
 	headLog struct {
 		mu      sync.Mutex
@@ -142,6 +144,7 @@ func run(ctx context.Context, o options) (r report, err error) {
 		return r, err
 	}
 	r.Setup = time.Since(start).Seconds()
+	f.setupThrottles.Store(f.throttles.Load())
 	r.Daemons = len(f.people)
 	r.ConfiguredStreams = 2 * len(f.people)
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
@@ -319,6 +322,14 @@ func (f *fixture) apiWithClient(ctx context.Context, client *http.Client, method
 		_ = resp.Body.Close()
 		if resp.StatusCode == 429 {
 			f.throttles.Add(1)
+			switch {
+			case method == http.MethodPost && path == "/v1/join":
+				f.joinThrottles.Add(1)
+			case method == http.MethodPost && path == "/v1/connect":
+				f.connectThrottles.Add(1)
+			default:
+				f.otherThrottles.Add(1)
+			}
 			seconds, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
 			if seconds < 1 {
 				seconds = 60
@@ -850,7 +861,7 @@ func (f *fixture) setupLocalServer() error {
 	if err != nil {
 		return err
 	}
-	if err := f.process(f.admin, "serve"); err != nil {
+	if err := f.process(f.admin, "serve", "--test-server"); err != nil {
 		return err
 	}
 	f.monitor = startResources(f.ctx, f.admin.cmd.Process.Pid)

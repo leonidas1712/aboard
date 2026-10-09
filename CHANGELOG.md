@@ -16,6 +16,9 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- Add optional serve --test-server and ABOARD_TEST_SERVER for temporary load-test
+  operators. Additive CLI settings; production defaults and API authority stay unchanged.
+
 - Clarify bounded jittered admission-read and harness retry scheduling in the delivery
   contract. Delivery daemons share failed-read backoff across hooks; wire shapes and
   the five-attempt harness attention limit remain unchanged. Additive.
