@@ -42,3 +42,11 @@ func (h *handlers) RemoveFileApproval(context.Context, RemoveFileApprovalRequest
 func (h *handlers) GetOnboardingReceipt(context.Context, GetOnboardingReceiptRequestObject) (GetOnboardingReceiptResponseObject, error) {
 	return nil, notProvided("onboarding")
 }
+
+func (h *handlers) ListOwnAgents(context.Context, ListOwnAgentsRequestObject) (ListOwnAgentsResponseObject, error) {
+	return nil, notProvided("agent locations")
+}
+
+func (h *handlers) SetAgentLocation(context.Context, SetAgentLocationRequestObject) (SetAgentLocationResponseObject, error) {
+	return nil, notProvided("agent locations")
+}
