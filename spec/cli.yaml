@@ -4151,8 +4151,10 @@ $defs:
       HTTPS except this machine's loopback server; never follow redirects or use
       another issuer. client_token chooses the nonsecret 200 response. After a lost
       response, only authenticated GET /v1/me/onboarding with the same saved token
-      and matching result completes the account step. Every failed check, including
-      consumed invite, remains uncertain: preserve pending state, do not generate a
+      and matching result completes the account step. A definite refusal of the first
+      redemption, such as invite_invalid, returns that error with next and exit 1.
+      A lost response or failed recovery check with an existing attempted proof,
+      including consumed invite, remains uncertain: preserve pending state, do not generate a
       replacement key/account or interpret unauthorized as unused. Interrupted or
       revoked-key recovery needs the person's action named in next.
       Report all six steps, without claiming completion from process startup alone:
@@ -4161,7 +4163,8 @@ $defs:
       A rerun reuses completed memberships/seats and rechecks current authority;
       removed access is never recreated. Text names completed steps, first pending
       step, and next. JSON progress goes to stderr, one result to stdout.
-      Exit 0 for complete or waiting on a stated person/harness step, 1 for errors,
+      Exit 0 for complete or waiting on a stated person/harness step, 1 for errors
+      and uncertain account recovery (with SetupOutput retained),
       2 for usage. Planned GEN-36/37; does not claim implementation in this slice.
     type: object
     required: [server, state, steps]
