@@ -1714,3 +1714,22 @@ Onboarding/allowance authority is issuer- and parent-key-bound and separate from
 D197. No token, invitation secret or person login enters hook/socket/model output.
 These are contract requirements for the later pairing slice, not a live-proof
 claim or a change to the current delivery adapter.
+
+The trusted runtime obtains a separate pairing credential using its issuer-bound
+parent key, after vouching for its own exact selected harness session. This does not
+extend a D197 delegation. The runtime alone saves the client-generated endpoint
+secret and sends it to the server over HTTPS; the server returns only metadata.
+For a fresh zero-seat session, own-person pending request lookup and the existing
+D197 join remain trusted-daemon operations; the agent CLI receives only progress.
+There is no agent CLI person-client fallback and no parent secret on its socket.
+
+Each endpoint credential is bound to one side, exact session and generation. The
+server rejects permanent seat/person/browser credentials as verification authority.
+A confirmed handoff report names the received message sequence and journal handoff
+id. The runtime submits it only after that exact selected harness confirmed delivery;
+its endpoint credential authenticates the evidence. Both directions require the
+reply linkage and this receipt evidence. A stale runtime that retains a permanent
+seat token cannot acquire or impersonate the replacement runtime's private proof.
+Selection/replacement of either side uses createPairingCredential with last-read
+CAS; only that side's person can authorize it. Replacement revokes both credentials
+and both directions' old evidence, requiring fresh proofs under the new generation.

@@ -4040,6 +4040,10 @@ $defs:
       refuse with pairing_ambiguous (details.requests contains only visible ids).
       Never guess from activity. --replace is explicit endpoint replacement using
       the current generation; a different endpoint without it gets pairing_changed.
+      The trusted daemon mints the selected endpoint credential privately with its
+      issuer-bound parent key after checking the exact session; no key reaches the CLI.
+      For a fresh zero-seat session, own-person request lookup is a trusted daemon
+      read, followed by existing D197 join and scoped endpoint selection.
       Same endpoint repeat is idempotent. Missing trusted session gets agent_session_required.
       aboard pairing decline ID declines as the recipient; cancel ID as the inviter.
       Acceptance reuses a board seat or joins through the existing authorized path;

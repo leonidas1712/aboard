@@ -9,6 +9,9 @@ import (
 
 // CreateServerInvite makes a server invite, for an admin's own access key.
 func (h *handlers) CreateServerInvite(ctx context.Context, req CreateServerInviteRequestObject) (CreateServerInviteResponseObject, error) {
+	if req.Body != nil && (req.Body.Boards != nil || req.Body.Pairing != nil) {
+		return nil, notProvided("bundled onboarding invites")
+	}
 	var ttl time.Duration
 	if req.Body != nil && req.Body.TtlSeconds != nil {
 		ttl = time.Duration(*req.Body.TtlSeconds) * time.Second
@@ -24,6 +27,9 @@ func (h *handlers) CreateServerInvite(ctx context.Context, req CreateServerInvit
 
 // Connect redeems a server invite. It needs no token: the invite is the proof.
 func (h *handlers) Connect(ctx context.Context, req ConnectRequestObject) (ConnectResponseObject, error) {
+	if req.Body.ClientToken != nil {
+		return nil, notProvided("client-generated onboarding keys")
+	}
 	in := board.ConnectInput{Invite: req.Body.Invite, Handle: req.Body.Handle, KeyName: req.Body.KeyName}
 	if req.Body.DisplayName != nil {
 		in.DisplayName = *req.Body.DisplayName

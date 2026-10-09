@@ -4111,7 +4111,7 @@ paths:
       operationId: "listPairingRequests"
       summary: "List visible pairing requests"
       description: |
-        Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
+        For a fresh zero-seat session the trusted daemon uses its issuer-bound parent key to return only nonsecret own-person pairing progress; the CLI never opens the person client or receives the key. Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
         
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
         
@@ -4172,19 +4172,19 @@ paths:
           $ref: "#/components/responses/Error"
         501:
           $ref: "#/components/responses/Error"
-  /v1/pairing-requests/{request}/accept:
+  /v1/pairing-requests/{pairing}/accept:
     post:
       tags: ["onboarding"]
       operationId: "acceptPairingRequest"
       summary: "AcceptPairingRequest"
       description: |
-        Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+        Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
         
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
         
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
-        - name: "request"
+        - name: "pairing"
           in: "path"
           required: true
           schema:
@@ -4216,7 +4216,7 @@ paths:
           $ref: "#/components/responses/Error"
         501:
           $ref: "#/components/responses/Error"
-  /v1/pairing-requests/{request}/decline:
+  /v1/pairing-requests/{pairing}/decline:
     post:
       tags: ["onboarding"]
       operationId: "declinePairingRequest"
@@ -4228,7 +4228,7 @@ paths:
         
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
-        - name: "request"
+        - name: "pairing"
           in: "path"
           required: true
           schema:
@@ -4254,7 +4254,7 @@ paths:
           $ref: "#/components/responses/Error"
         501:
           $ref: "#/components/responses/Error"
-  /v1/pairing-requests/{request}/cancel:
+  /v1/pairing-requests/{pairing}/cancel:
     post:
       tags: ["onboarding"]
       operationId: "cancelPairingRequest"
@@ -4266,7 +4266,7 @@ paths:
         
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
-        - name: "request"
+        - name: "pairing"
           in: "path"
           required: true
           schema:
@@ -4292,19 +4292,19 @@ paths:
           $ref: "#/components/responses/Error"
         501:
           $ref: "#/components/responses/Error"
-  /v1/pairing-requests/{request}/verify:
+  /v1/pairing-requests/{pairing}/verify:
     post:
       tags: ["onboarding"]
       operationId: "verifyPairingRoundTrip"
       summary: "VerifyPairingRoundTrip"
       description: |
-        Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+        Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
         
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
         
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
-        - name: "request"
+        - name: "pairing"
           in: "path"
           required: true
           schema:
@@ -4336,19 +4336,19 @@ paths:
           $ref: "#/components/responses/Error"
         501:
           $ref: "#/components/responses/Error"
-  /v1/pairing-requests/{request}:
+  /v1/pairing-requests/{pairing}:
     get:
       tags: ["onboarding"]
       operationId: "getPairingRequest"
       summary: "Read a pairing request"
       description: |
-        Only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
+        The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
         
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
         
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
-        - name: "request"
+        - name: "pairing"
           in: "path"
           required: true
           schema:
@@ -4373,6 +4373,40 @@ paths:
           $ref: "#/components/responses/Error"
         501:
           $ref: "#/components/responses/Error"
+
+  /v1/pairing-credentials:
+    post:
+      tags: [onboarding]
+      operationId: createPairingCredential
+      summary: Bind a pairing endpoint to an exact trusted-runtime session
+      description: |
+        Parent person access key only, in the trusted runtime; never a humanClient
+        fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+        Select/replace either own endpoint with current-generation CAS and current
+        access/ownership checks. The inviter cannot select the recipient's endpoint.
+        All lifecycle checks and idempotent replays occur in the same transaction.
+        Old runtime credentials cannot report evidence for a new session/generation.
+        The key is never read or returned by a model-facing hook/socket path.
+        Contract-first: 501 not_implemented until the pairing slice is provided.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePairingCredential" }
+      responses:
+        "200":
+          description: Selected; endpoint metadata only
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairingCredential" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
 
 components:
   securitySchemes:
@@ -7455,6 +7489,7 @@ components:
               type: object
               required: [before, after, preset_applied]
               properties:
+                authorization: { $ref: "#/components/schemas/AdminAuthorization" }
                 before: { $ref: "#/components/schemas/Policy" }
                 after: { $ref: "#/components/schemas/Policy" }
                 preset_applied:
@@ -7510,6 +7545,7 @@ components:
       description: The person the event is about. Who did it is the event's actor.
       required: [member_id, person_id, name]
       properties:
+        authorization: { $ref: "#/components/schemas/AdminAuthorization" }
         by_owner:
           type: string
           description: In person.added by an agent only, the permanent person id of its owner. The event actor is the agent seat.
@@ -8059,8 +8095,10 @@ components:
     Allowance:
       type: "object"
       additionalProperties: false
-      required: ["person_id", "categories"]
+      required: ["id", "revision", "person_id", "categories"]
       properties:
+        id: { type: string, pattern: "^alw_[0-9A-HJKMNP-TV-Z]{26}$" }
+        revision: { type: integer, minimum: 0, description: "Increases on each effective change; execution records freeze the revision used." }
         person_id:
           type: "string"
           pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
@@ -8077,6 +8115,7 @@ components:
       properties:
         categories:
           type: "array"
+          uniqueItems: true
           items:
             $ref: "#/components/schemas/AllowanceCategory"
       description: "Replace the complete category set. No destructive or privilege-raising category is accepted."
@@ -8204,6 +8243,7 @@ components:
       additionalProperties: false
       required: ["id", "person_id", "agent_id", "parent_key_id", "action", "payload_hash", "state", "created_at"]
       properties:
+        execution: { $ref: "#/components/schemas/AdminExecution" }
         id:
           type: "string"
           pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$"
@@ -8274,8 +8314,12 @@ components:
     PairingEndpoint:
       type: "object"
       additionalProperties: false
-      required: ["person_id", "agent_id", "generation"]
+      required: ["person_id", "agent_id", "generation", "session_binding"]
       properties:
+        session_binding:
+          type: string
+          pattern: "^sha256:[0-9a-f]{64}$"
+          description: Issuer-bound trusted-runtime binding to this exact harness conversation; not a process id or activity guess.
         person_id:
           type: "string"
           pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
@@ -8376,16 +8420,21 @@ components:
         generation:
           type: "integer"
           minimum: 1
-        replace:
-          type: "boolean"
-          default: false
       description: |
-        The chosen seat must be owned by the authenticated recipient on the named board. generation is the last-read pairing generation (CAS). Repeat acceptance of the same endpoint is idempotent; another endpoint conflicts unless replace is explicit. Replacing increments generation and invalidates every prior verification. A runtime-session replacement must use replace even with the same seat.
+        agent_id and generation must equal the authenticated recipient endpoint
+        credential bindings. Conflicts return pairing_changed without mutation.
+        Repeat acceptance of that endpoint is idempotent. Selection/replacement
+        belongs only to createPairingCredential, never this operation.
     PairingRoundTrip:
       type: "object"
       additionalProperties: false
-      required: ["generation", "direction", "ping_seq", "reply_seq"]
+      required: ["generation", "direction", "ping_seq", "reply_seq", "handoff_id"]
       properties:
+        handoff_id:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Nonsecret journal handoff confirmed by the selected runtime for this received reply; bound to endpoint credential, generation and message id/seq.
         generation:
           type: "integer"
           minimum: 1
@@ -8397,7 +8446,7 @@ components:
         reply_seq:
           $ref: "#/components/schemas/Seq"
       description: |
-        Evidence names actual immutable messages on this board. The server verifies sender, exact direct recipient, reply linkage, per-generation correlation and authenticated reporting endpoint. Both directions must verify under one current generation; no caller-provided ready flag is accepted.
+        Evidence names actual immutable messages on this board. The server verifies sender, exact direct recipient, reply linkage, per-generation correlation and authenticated reporting endpoint. The trusted runtime vouches for this ping being sent by its exact selected session and this reply having a confirmed delivery handoff there; merely finding both sequences in history is not evidence. Both directions must verify under one current generation; no caller-provided ready flag is accepted.
     OnboardingReceipt:
       type: "object"
       additionalProperties: false
@@ -8438,8 +8487,99 @@ components:
         person:
           $ref: "#/components/schemas/Person"
         key:
-          $ref: "#/components/schemas/AccessKey"
+          $ref: "#/components/schemas/ClientKeyMetadata"
         onboarding:
           $ref: "#/components/schemas/OnboardingReceipt"
       description: |
         200 response only when client_token was supplied. The key is metadata with no token. Legacy redemption without client_token retains its existing 201 Connected response, including its one-time server-generated token.
+
+    AdminAuthorization:
+      type: object
+      additionalProperties: false
+      required: [person_id, agent_id, parent_key_id, via, payload_hash]
+      properties:
+        person_id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
+        agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        parent_key_id: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
+        via: { type: string, enum: [allowance, approval] }
+        allowance_id: { type: string, pattern: "^alw_[0-9A-HJKMNP-TV-Z]{26}$" }
+        allowance_revision: { type: integer, minimum: 0 }
+        approval_id: { type: string, pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$" }
+        payload_hash: { $ref: "#/components/schemas/Hash" }
+      description: |
+        Immutable authorization provenance written with the action, never supplied
+        as authority by a client. via=allowance requires allowance_id and its exact
+        revision; via=approval requires approval_id. Both bind the authorizing person,
+        requesting agent, parent key and canonical action hash. No secret appears here.
+    AdminExecution:
+      type: object
+      additionalProperties: false
+      required: [at, authorization]
+      properties:
+        at: { $ref: "#/components/schemas/Timestamp" }
+        authorization: { $ref: "#/components/schemas/AdminAuthorization" }
+        invite_id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+      description: |
+        Nonsecret immutable execution record, saved with the side effect and approval
+        in one transaction, for automatic allowance actions too. Cannot be overwritten
+        or removed by deciding/replaying an approval. Server-level actions without a
+        board event remain auditable through their terminal approval and execution;
+        listApprovals includes them subject to current owner/access checks. Actions
+        affecting boards also put this authorization in the existing event data,
+        covered by data_hash (the envelope and actor stay unchanged). This adds no new event type or server hash chain.
+
+    CreatePairingCredential:
+      type: object
+      additionalProperties: false
+      required: [request_id, side, agent_id, session_binding, generation, client_token]
+      properties:
+        request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+        side: { type: string, enum: [initiator, recipient] }
+        agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        session_binding: { $ref: "#/components/schemas/Hash" }
+        generation: { type: integer, minimum: 1 }
+        replace: { type: boolean, default: false }
+        client_token:
+          type: string
+          writeOnly: true
+          pattern: "^abp_[A-Za-z0-9_-]{43}$"
+      description: |
+        Trusted runtime supplies the selected exact harness binding, not a model claim.
+        It creates 256 random bits and saves this endpoint token privately before this
+        call. Only the endpoint person's issuer-bound parent access key can mint it;
+        never a seat, browser or D197 delegation token. Server checks that agent is a
+        live seat owned by that person on this request's board and person matches side.
+        generation is the last-read request generation. A competing selection conflicts
+        unless replace is explicit; replacing either side increments generation and
+        revokes both old credentials and all verification evidence, even for a reused
+        seat id. The other side must obtain a fresh credential before verification.
+        Repeating the exact same selection/token is idempotent, not a generation bump.
+    PairingCredential:
+      type: object
+      additionalProperties: false
+      required: [id, request, side, endpoint, expires_at]
+      properties:
+        id: { type: string, pattern: "^pcr_[0-9A-HJKMNP-TV-Z]{26}$" }
+        request: { $ref: "#/components/schemas/PairingRequest" }
+        side: { type: string, enum: [initiator, recipient] }
+        endpoint: { $ref: "#/components/schemas/PairingEndpoint" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+      description: |
+        Nonsecret metadata. The server stores only its keyed HMAC verifier; the secret
+        is never returned, logged, cached or placed on the control socket/hooks/model.
+        The daemon holds it for the selected runtime only. Bound to issuer, parent key,
+        person, request, side, seat, exact session binding and current generation.
+        It expires after 10 minutes or earlier with parent revocation/expiry, removal,
+        endpoint replacement or terminal request. It grants only getPairingRequest,
+        acceptPairingRequest and verifyPairingRoundTrip for this one request; every
+        other operation refuses. It cannot invite, change allowances, add people or
+        post arbitrary messages. Its valid possession authenticates the runtime's
+        confirmation report, not a permanent seat token claiming a new generation.
+
+    ClientKeyMetadata:
+      allOf:
+        - $ref: "#/components/schemas/AccessKey"
+        - type: object
+          not:
+            required: [token]
+      description: Access-key metadata that must not contain a token property.

@@ -339,3 +339,19 @@ though board notes are retired.
 
 Event types and fields are only added, never renamed or removed. A reader that meets an
 unknown `type` must still verify its hashes and otherwise skip it.
+
+## Onboarding authorization (D222; planned)
+
+Existing board events caused by an administrative allowance or approval add optional
+`data.authorization`: immutable authorizing person, requesting agent, parent key,
+canonical action hash and either allowance id with revision, or exact approval id.
+It is derived by the server and covered by the existing data_hash without changing the envelope or actor. Absent on
+older events and ordinary actions; no event type or existing actor field changes.
+
+Every executed admin request, including automatic allowance actions, also stores an
+immutable nonsecret execution on its approval in the same transaction as the action.
+This preserves who authorized and who acted for server-level actions with no board
+log (such as issuing an invite), through the caller-scoped approval API. Execution
+records cannot be changed or removed by replay or a later approval decision. They
+contain invite ids, never invitation/key secrets or their verifiers. This is not a
+second board log or a new server hash chain. Current access still governs retrieval.
