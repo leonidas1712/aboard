@@ -16,6 +16,10 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- Clarify bounded jittered admission-read and harness retry scheduling in the delivery
+  contract. Delivery daemons share failed-read backoff across hooks; wire shapes and
+  the five-attempt harness attention limit remain unchanged. Additive.
+
 - Add local server labels, servers name/rename, connect --server-name, positional open
   targets and optional server_selection explanations to CLI results. Additive for
   CLI scripts; credentials remain bound to issuer URLs.
