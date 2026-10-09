@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 )
 
 // loadTransport bounds connection establishment, not open requests: every observer
@@ -32,7 +31,7 @@ func loadTransport(dial func(context.Context, string, string) (net.Conn, error),
 func (f *fixture) primeObservers() error {
 	for _, p := range f.people {
 		for _, s := range p.seats {
-			s.observer = &http.Client{Timeout: 65 * time.Second, Transport: loadTransport((&net.Dialer{}).DialContext, 16)}
+			s.observer = loadClient()
 			data, err := f.apiWithClient(f.ctx, s.observer, http.MethodGet, "/v1/me", s.Token, nil)
 			if err != nil {
 				return fmt.Errorf("prime observer: %w", err)

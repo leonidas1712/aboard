@@ -104,12 +104,15 @@ func run(ctx context.Context, o options) (r report, err error) {
 	if o.Writers < 0 || (o.Writers > 0 && o.WritesPerWriter < 1) || o.Soak < 0 {
 		return r, errors.New("nonnegative writers and soak required; enabled writers need positive messages")
 	}
+	if _, err := remoteOrigin(o); err != nil {
+		return r, err
+	}
 	root, err := os.MkdirTemp("/tmp", "aboard-load-")
 	if err != nil {
 		return r, err
 	}
 	defer func() { _ = os.RemoveAll(root) }()
-	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: &http.Client{Timeout: 65 * time.Second, Transport: loadTransport((&net.Dialer{}).DialContext, 16)}}
+	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: loadClient()}
 	progress := runProgress{Stage: "build"}
 	defer func() {
 		if f.monitor != nil {
@@ -145,7 +148,7 @@ func run(ctx context.Context, o options) (r report, err error) {
 	start = time.Now()
 	progress.MeasurementStart = start
 	progress.Stage = "round"
-	f.monitor.setPhase("delivery")
+	f.setPhase("delivery")
 	for round := 0; moreRounds(round, o.Rounds, time.Since(start), o.Soak); round++ {
 		if err := f.round(ctx, round, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &progress.Write, &r); err != nil {
 			return r, err
@@ -156,7 +159,7 @@ func run(ctx context.Context, o options) (r report, err error) {
 	r.Throughput = float64(r.Posts) / r.Measurement
 	r.Throttles = int(f.throttles.Load())
 	progress.Stage = "confirmation"
-	f.monitor.setPhase("confirmation")
+	f.setPhase("confirmation")
 	if err := f.finishExtensions(r.Rounds); err != nil {
 		return r, err
 	}
@@ -172,14 +175,14 @@ func run(ctx context.Context, o options) (r report, err error) {
 	}
 	if o.Writers > 0 {
 		progress.Stage = "concurrent_writers"
-		f.monitor.setPhase("concurrent_writers")
+		f.setPhase("concurrent_writers")
 		r.Concurrent, err = f.concurrentWrites(ctx, o.Writers, o.WritesPerWriter)
 		if err != nil {
 			return r, err
 		}
 	}
 	progress.Stage = "audit"
-	f.monitor.setPhase("audit")
+	f.setPhase("audit")
 	for _, b := range f.boards {
 		if err := f.cli(f.admin, "", "audit", "verify", "--board", b.Name, "--json"); err != nil {
 			return r, fmt.Errorf("chain verification: %w", err)
@@ -363,33 +366,7 @@ func wait(ctx context.Context, try func() bool) error {
 }
 
 func (f *fixture) setup(o options) error {
-	listener, err := (&net.ListenConfig{}).Listen(f.ctx, "tcp", "127.0.0.1:0")
-	if err != nil {
-		return err
-	}
-	addr := listener.Addr().String()
-	_ = listener.Close()
-	f.url = "http://" + addr
-	f.admin, err = f.machine("admin", addr)
-	if err != nil {
-		return err
-	}
-	if err := f.process(f.admin, "serve"); err != nil {
-		return err
-	}
-	f.monitor = startResources(f.ctx, f.admin.cmd.Process.Pid)
-	if err := wait(f.ctx, func() bool {
-		raw, e := os.ReadFile(filepath.Join(f.admin.home, "aboard", "config", "local-owner-token"))
-		if e != nil {
-			return false
-		}
-		key := strings.TrimSpace(string(raw))
-		_, e = f.api(f.ctx, "GET", "/v1/me", key, nil)
-		if e == nil {
-			f.admin.key = key
-		}
-		return e == nil
-	}); err != nil {
+	if err := f.setupServer(o); err != nil {
 		return err
 	}
 	for i := range o.Boards {
@@ -607,7 +584,7 @@ func (f *fixture) stream(p *machine) (*headLog, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+p.key)
 	// A stream lasts the run; the ordinary request client has a response deadline.
-	response, err := (&http.Client{Transport: f.client.Transport}).Do(req)
+	response, err := (&http.Client{Transport: f.client.Transport, CheckRedirect: refuseLoadRedirect}).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -920,4 +897,37 @@ func (f *fixture) finishExtensions(rounds int) error {
 func (f *fixture) background(work func()) {
 	f.workers.Add(1)
 	go func() { defer f.workers.Done(); work() }()
+}
+
+func (f *fixture) setupLocalServer() error {
+	listener, err := (&net.ListenConfig{}).Listen(f.ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		return err
+	}
+	addr := listener.Addr().String()
+	_ = listener.Close()
+	f.url = "http://" + addr
+	f.admin, err = f.machine("admin", addr)
+	if err != nil {
+		return err
+	}
+	if err := f.process(f.admin, "serve"); err != nil {
+		return err
+	}
+	f.monitor = startResources(f.ctx, f.admin.cmd.Process.Pid)
+	if err := wait(f.ctx, func() bool {
+		raw, e := os.ReadFile(filepath.Join(f.admin.home, "aboard", "config", "local-owner-token"))
+		if e != nil {
+			return false
+		}
+		key := strings.TrimSpace(string(raw))
+		_, e = f.api(f.ctx, "GET", "/v1/me", key, nil)
+		if e == nil {
+			f.admin.key = key
+		}
+		return e == nil
+	}); err != nil {
+		return err
+	}
+	return nil
 }
