@@ -120,6 +120,16 @@ A first-class resource addressed to a **person**, not a session:
 CLI: `aboard pairing request @person --board B "proposed work"` (inviter side),
 `aboard pairing` (list), `aboard pairing accept [<id>] --here`, `aboard pairing decline`.
 
+**Pairing with your own next session** is the same request addressed to yourself
+(`aboard pairing request me …`). In one session: "make a board for the auth review and a
+pairing request for my next session"; in a new session (another harness, a cloud
+session, another machine): "find my pairing request and accept it". The new session
+lists your open requests, asks which if there are several, accepts with `--here`, joins
+the board, runs the handshake and starts on the proposed work. No allowance is involved:
+both sessions act for the same person on their own board. Today the second session can
+already `aboard join --board` (D172), but has to be told the board, and nothing checks
+the two sessions reach each other or hands over what to do.
+
 ## 4. Setup that resumes
 
 `aboard setup <invite-link | pairing request>` (and "Continue Aboard setup") runs the
