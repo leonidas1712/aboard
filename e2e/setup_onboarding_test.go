@@ -83,6 +83,11 @@ func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
 	}
 	transport := &setupLostResponseTransport{next: http.DefaultTransport}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	direct := proxy.Director
+	proxy.Director = func(r *http.Request) {
+		direct(r)
+		r.Host = target.Host
+	}
 	proxy.Transport = transport
 	proxy.ErrorLog = nil
 	server := httptest.NewServer(proxy)

@@ -621,9 +621,9 @@ paths:
         response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
         or a browser token gets 403 `human_token_required`; a person who isn't a server
         admin gets 403 `server_admin_required`.
-        Optional boards/pairing are D222 bundled onboarding. When supplied, all
-        authority checks are atomic; unsupported bundled fields return 501 without
-        issuing a partial invite. Existing ordinary invites retain their behavior.
+        Optional boards and pairing bundle ordinary memberships and proposed work.
+        All authority checks are atomic; a refused bundle issues no partial invite.
+        Existing ordinary invites retain their behavior.
         Turning an allowance off stops new issuance only. An issued agent invite
         ends when its issuing seat, parent key or person is removed/revoked; retain
         their immutable bindings and recheck them at redemption. Only unredeemed
@@ -814,8 +814,9 @@ paths:
         a failure creates nothing. Never select an existing account. The original 201
         secret-returning flow is unchanged when client_token is absent. Recovery uses
         GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
-        stay uncertain, never authorize a replacement account/key. Until implemented,
-        client_token answers 501 before consuming the invite or creating any resource.
+        stay uncertain, never authorize a replacement account/key. Older servers
+        that do not support client_token answer 501 before consuming the invite or
+        creating any resource.
       security: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"

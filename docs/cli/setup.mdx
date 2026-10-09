@@ -1,0 +1,34 @@
+---
+title: "aboard setup"
+description: "Set up an invited account and report what still needs you."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE] [--server SERVER] [--json]
+```
+
+An invite is consent to create a new account, including inside an agent session. Setup saves its machine-held proof before redeeming, then confirms the original account with that same proof. A lost response remains uncertain until the original key authenticates; setup never creates a replacement account or selects an existing one. No key or invite secret is printed.
+
+The report has six steps: installed, account, memberships, harness, pairing and delivery. Harness trust and restart need your confirmation. Pairing acceptance and delivery verification are pending in this build; file installation alone never proves delivery. Continue Aboard setup after the stated next step.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--handle HANDLE` | Your visible name on the inviting server. |
+| `--name MACHINE` | This machine's key name. |
+| `--server SERVER` | The issuer of the pairing request; never overrides an invite's issuer. |
+| `--json` | Print one JSON object instead of text, errors included. |
+
+## Examples
+
+```bash
+# Set up the new account named in the invitation.
+aboard setup https://team.example.com/join#abi_CODE --handle teammate
+```
+
+## See also
+
+[`aboard connect`](/cli/connect), [`aboard init`](/cli/init), [`aboard invite`](/cli/invite)
