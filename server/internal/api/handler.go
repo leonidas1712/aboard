@@ -282,6 +282,10 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			writeError(w, o.Log, err)
 			return
 		}
+		if p.Pairing != nil && !(r.Method == http.MethodGet && r.URL.Path == "/v1/pairing-requests/"+p.Pairing.RequestID || r.Method == http.MethodPost && (r.URL.Path == "/v1/pairing-requests/"+p.Pairing.RequestID+"/accept" || r.URL.Path == "/v1/pairing-requests/"+p.Pairing.RequestID+"/verify")) {
+			writeError(w, o.Log, apierr.New(http.StatusForbidden, "forbidden", "This endpoint credential only reads and verifies its pairing.", "Use the trusted runtime pairing flow."))
+			return
+		}
 		if p.Delegation != nil && !delegationMay(r) {
 			writeError(w, o.Log, apierr.New(http.StatusForbidden, "forbidden",
 				"A machine's delegation only lists its person's boards, joins sessions and creates boards with session seats.",

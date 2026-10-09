@@ -75,6 +75,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				strings.HasSuffix(r.URL.Path, "/join-codes") && strings.Count(r.URL.Path, "/") == 4) ||
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
+			r.URL.Path == "/v1/pairing-credentials" ||
 			// Creation keeps its answer in the board transaction, with one expiry.
 			r.URL.Path == "/v1/delegations/boards" ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
@@ -200,6 +201,62 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case path == "/v1/pairing-credentials":
+		var input CreatePairingCredential
+		if err := json.Unmarshal(request, &input); err != nil {
+			return err
+		}
+		if principal(ctx).Browser || principal(ctx).Agent != nil || principal(ctx).Human == nil {
+			return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{})
+		}
+		var result PairingCredential
+		if saved.Status == http.StatusOK {
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			return svc.CheckPairingReplay(ctx, principal(ctx), input.RequestId, result.Request.Generation, string(input.Side))
+		}
+		return svc.CheckPairingReplay(ctx, principal(ctx), input.RequestId, input.Generation, string(input.Side))
+	case path == "/v1/pairing-requests" && method == http.MethodPost:
+		if saved.Status == http.StatusCreated {
+			var result PairingRequest
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			return svc.CheckPairingReplay(ctx, principal(ctx), result.Id, 0, "")
+		}
+		var input CreatePairingRequest
+		if err := json.Unmarshal(request, &input); err != nil {
+			return err
+		}
+		return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{ID: input.BoardId})
+	case strings.HasPrefix(path, "/v1/pairing-requests/"):
+		if len(parts) < 3 {
+			return fmt.Errorf("pairing replay has no id")
+		}
+		side := ""
+		generation := 0
+		if strings.HasSuffix(path, "/cancel") {
+			side = "initiator"
+		}
+		if strings.HasSuffix(path, "/decline") {
+			side = "recipient"
+		}
+		if strings.HasSuffix(path, "/accept") {
+			var input AcceptPairingRequest
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			generation = input.Generation
+		}
+		if strings.HasSuffix(path, "/verify") {
+			var input PairingRoundTrip
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			generation = input.Generation
+		}
+		return svc.CheckPairingReplay(ctx, principal(ctx), parts[2], generation, side)
 	case method == http.MethodPut && path == "/v1/me/delivery-queue":
 		var body DeliveryQueueReport
 		if err := json.Unmarshal(request, &body); err != nil {

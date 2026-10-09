@@ -13,7 +13,6 @@ func TestOnboardingContractOperationsAreExplicitlyUnavailable(t *testing.T) {
 	t.Parallel()
 	s := newTestServer(t)
 	for _, tc := range []struct{ method, path, body string }{
-		{"POST", "/v1/pairing-credentials", `{"request_id":"prq_01K00000000000000000000000","side":"recipient","agent_id":"mem_01K00000000000000000000000","session_binding":"sha256:` + strings.Repeat("0", 64) + `","generation":1,"client_token":"abp_` + strings.Repeat("A", 43) + `"}`},
 		{"GET", "/v1/me/allowance", ""},
 		{"PUT", "/v1/me/allowance", `{"categories":[]}`},
 		{"GET", "/v1/me/approvals", ""},
@@ -21,13 +20,6 @@ func TestOnboardingContractOperationsAreExplicitlyUnavailable(t *testing.T) {
 		{"POST", "/v1/me/approvals/apr_01K00000000000000000000000/allow", `{}`},
 		{"POST", "/v1/me/approvals/apr_01K00000000000000000000000/decline", ""},
 		{"GET", "/v1/me/onboarding", ""},
-		{"GET", "/v1/pairing-requests", ""},
-		{"POST", "/v1/pairing-requests", `{"board_id":"brd_01K00000000000000000000000","recipient_id":"hum_01K00000000000000000000000","initiating_agent_id":"mem_01K00000000000000000000000","work":"review"}`},
-		{"GET", "/v1/pairing-requests/prq_01K00000000000000000000000", ""},
-		{"POST", "/v1/pairing-requests/prq_01K00000000000000000000000/accept", `{"agent_id":"mem_01K00000000000000000000000","generation":1}`},
-		{"POST", "/v1/pairing-requests/prq_01K00000000000000000000000/decline", ""},
-		{"POST", "/v1/pairing-requests/prq_01K00000000000000000000000/cancel", ""},
-		{"POST", "/v1/pairing-requests/prq_01K00000000000000000000000/verify", `{"generation":1,"direction":"initiator_to_recipient","ping_seq":1,"reply_seq":2,"handoff_id":"owned-confirmed-handoff"}`},
 	} {
 		t.Run(tc.method+tc.path, func(t *testing.T) {
 			status, body := onboardingCall(t, s, tc.method, tc.path, tc.body, s.owner)
