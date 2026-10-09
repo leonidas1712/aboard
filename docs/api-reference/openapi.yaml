@@ -2751,6 +2751,66 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
 
+  /v1/me/agents:
+    get:
+      tags: [people]
+      operationId: listOwnAgents
+      summary: Find your own agents and their last session locations
+      description: |
+        A person's key or browser session lists only their active agents on boards they
+        still belong to. An active agent token may list its own person's agents, using
+        that token alone; a guest agent stays on its invited board. Deleted boards and
+        ended seats are omitted. Admin status grants no access to another person's
+        locations. Missing location means no daemon has reported it. Location is
+        last-reported bookkeeping, not proof that the session is still running.
+      responses:
+        "200":
+          description: The caller's own agents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/Member" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /v1/me/location:
+    put:
+      tags: [boards]
+      operationId: setAgentLocation
+      summary: Report this agent's session location
+      description: |
+        An active agent token reports only its own seat's last session location.
+        The delivery daemon reports the bound harness, conversation id and working
+        folder. The machine label comes from the seat's issuing access key, never
+        the body. Reports are bookkeeping, append no record event and move no read
+        cursor. They are descriptive, never identity or authorization evidence.
+        Only the agent's person and their active agents may read them; admins and
+        other board members never receive paths or conversation ids. An older client
+        that sends no report leaves the location unavailable. Repeating a report is
+        harmless, with or without an Idempotency-Key.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentLocationReport"
+      responses:
+        "200":
+          description: The last reported location
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentLocation" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /v1/me/presence:
     put:
       tags: [boards]
@@ -5995,10 +6055,32 @@ components:
             Absent otherwise.
 
     # ---------- members ----------
+    AgentLocationReport:
+      type: object
+      additionalProperties: false
+      required: [harness, session_id, folder]
+      properties:
+        harness: { type: string, minLength: 1, maxLength: 40 }
+        session_id: { type: string, minLength: 1, maxLength: 512 }
+        folder: { type: string, minLength: 1, maxLength: 4096 }
+    AgentLocation:
+      type: object
+      required: [harness, session_id, folder, last_active]
+      properties:
+        machine:
+          type: string
+          description: The issuing access key's name; absent for a seat without a named key.
+        harness: { type: string }
+        session_id: { type: string }
+        folder: { type: string }
+        last_active: { $ref: "#/components/schemas/Timestamp" }
     Member:
       type: object
       required: [id, board, name, kind, role, owner, harness, access, server_role, status, joined_at, presence, presence_since, delivery, delivery_mode, delivery_revision]
       properties:
+        location:
+          allOf: [{ $ref: "#/components/schemas/AgentLocation" }]
+          description: Last reported session location; present only for this agent's own person or their active agents. Never shown to other people, including admins.
         id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
         name: { $ref: "#/components/schemas/MemberName" }

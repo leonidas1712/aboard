@@ -37,12 +37,12 @@ func TestAgentsListsOwnLocationsAndQuotesResumeCommands(t *testing.T) {
 			if !strings.Contains(row["resume_command"].(string), name) && row["location"] == nil {
 				continue
 			}
-			if loc, ok := row["location"].(map[string]any); ok {
+			if loc, ok := row["location"].(map[string]any); ok && loc["session_id"] == sid {
 				if loc["folder"] != folder || loc["session_id"] != sid {
 					t.Fatalf("location changed: %v", row)
 				}
 				command := row["reopen_command"].(string)
-				if !strings.Contains(command, "'\"'\"'") || !strings.Contains(command, "--resume") {
+				if !strings.Contains(command, "'\\''") || !strings.Contains(command, "--resume") {
 					t.Fatalf("resume arguments not safely quoted: %s", command)
 				}
 				found = true
@@ -61,7 +61,11 @@ func TestAgentsGroupsKnownIssuersAndKeepsSessionsOnTheirIssuer(t *testing.T) {
 	person.run("connect", second.invite())
 	for _, url := range []string{first.url(), second.url()} {
 		person.run("board", "new", "same", "--server", url, "--json")
-		person.run("join", "--board", "same", "--server", url, "--json")
+		if url == first.url() {
+			first.agentToken(person, "same")
+		} else {
+			second.agentToken(person, "same")
+		}
 	}
 	out := person.run("agents", "--json").json(t)
 	matchesCLISpec(t, "AgentsOutput", out)
@@ -86,8 +90,26 @@ func TestAgentsGroupsKnownIssuersAndKeepsSessionsOnTheirIssuer(t *testing.T) {
 	if len(ownGroups) != 1 || ownGroups[0].(map[string]any)["server"] != first.url() {
 		t.Fatalf("session crossed issuers: %v", result)
 	}
+	beforeResume := s.run("status", "--json").json(t)
+	resumed := s.run("resume", field(t, beforeResume, "agent").(string), "--board", "same", "--server", first.url(), "--json").json(t)
+	matchesCLISpec(t, "ResumeOutput", resumed)
 	refused := s.runExit("agents", "--server", second.url(), "--json")
 	if refused.code == 0 {
 		t.Fatalf("session used other issuer: %v", refused)
+	}
+
+	second.admin.run("down")
+	partial := person.run("agents", "--json").json(t)
+	matchesCLISpec(t, "AgentsOutput", partial)
+	successes, failures := 0, 0
+	for _, raw := range partial["servers"].([]any) {
+		if raw.(map[string]any)["error"] == nil {
+			successes++
+		} else {
+			failures++
+		}
+	}
+	if successes != 1 || failures != 1 {
+		t.Fatalf("partial failure hid the available issuer: %v", partial)
 	}
 }

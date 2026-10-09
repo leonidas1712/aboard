@@ -61,11 +61,13 @@ var (
 // helpTopics returns the help of every command, in the order aboard help lists them.
 func helpTopics() []commandHelp {
 	topics := helpText(strings.Join(boardfile.TemplateNames(), ", "))
-	topics = append(topics, commandHelp{Name: "agents", Group: groupRun, Summary: "Find your own agents and their last sessions",
+	topics = append(topics, commandHelp{
+		Name: "agents", Group: groupRun, Summary: "Find your own agents and their last sessions",
 		Usage:       []string{"aboard agents [--server NAME|URL] [--as AGENT] [--board BOARD] [--json]"},
 		Description: "Lists your own agents, their last reported machine, harness, folder, conversation and activity. In a person’s terminal, groups all known servers; an agent uses only its own seat’s issuer. Copy the reopen command on that machine to return to the conversation, or aboard resume to pick up the agent in any session. Locations are last reported, not proof a session is running; other people and admins cannot see them.",
 		Flags:       []helpFlag{{"--server", "NAME|URL", "List this server only."}, flagAs, flagBoard, flagJSON},
-		Examples:    []helpExample{{"aboard agents", "Find your own agents."}}, SeeAlso: []string{"resume", "status"}})
+		Examples:    []helpExample{{"aboard agents", "Find your own agents."}}, SeeAlso: []string{"resume", "status"},
+	})
 	for i := range topics {
 		// Lists are never null in --json output.
 		h := &topics[i]
@@ -816,12 +818,12 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "resume", Group: groupBoard,
 			Summary: "Make this session act as one of your existing agents",
-			Usage:   []string{"aboard resume <agent> [--board NAME] [--json]"},
+			Usage:   []string{"aboard resume <agent> [--board NAME] [--server NAME|URL] [--json]"},
 			Description: "Binds the Claude Code or Codex session it runs in to an agent this machine already has, " +
 				"so the agent's unread messages are delivered to this session. A session acts as one agent at a time: " +
 				"if it was another agent, that agent's messages wait for whichever session resumes it.\n\n" +
 				"It only works inside a harness session; in a terminal, use --as on each command instead.",
-			Flags:    []helpFlag{flagBoard, flagJSON},
+			Flags:    []helpFlag{flagBoard, {"--server", "NAME|URL", "Select the saved agent seat’s issuer."}, flagJSON},
 			Examples: []helpExample{{"aboard resume reviewer", "Pick up where the reviewer left off"}},
 			SeeAlso:  []string{"status", "join"},
 		},

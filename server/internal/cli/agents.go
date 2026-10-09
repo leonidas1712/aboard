@@ -151,7 +151,7 @@ func runAgents(ctx context.Context, a *app, args []string) error {
 			if row.ReopenCommand != "" {
 				fmt.Fprintf(&text, "    Reopen that conversation: %s\n", row.ReopenCommand)
 			}
-			fmt.Fprintf(&text, "    Pick it up in any session: %s\n", row.ResumeCommand)
+			fmt.Fprintf(&text, "    Pick it up in a session with its saved seat: %s\n", row.ResumeCommand)
 		}
 	}
 	a.emit(struct {
@@ -172,8 +172,10 @@ func (a *app) ownAgentsGroup(ctx context.Context, srv serverRef, c *client) (own
 		return out, apiError(r.StatusCode(), r.Body)
 	}
 	for _, m := range r.JSON200.Agents {
-		row := ownAgentRow{ID: m.Id, Board: m.Board, Name: m.Name, Location: m.Location,
-			ResumeCommand: "aboard resume " + shellWord(m.Name) + " --board " + shellWord(m.Board) + " --server " + shellWord(srv.URL)}
+		row := ownAgentRow{
+			ID: m.Id, Board: m.Board, Name: m.Name, Location: m.Location,
+			ResumeCommand: "aboard resume " + shellWord(m.Name) + " --board " + shellWord(m.Board) + " --server " + shellWord(srv.URL),
+		}
 		if m.Location != nil {
 			if h, ok := a.registry().Get(m.Location.Harness); ok {
 				words := []string{}

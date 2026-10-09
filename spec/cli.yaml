@@ -4135,7 +4135,8 @@ $defs:
       locations stay absent. Partial failures are explicit. Resume commands are
       copyable suggestions, never executed: reopen uses the installed harness
       profile's resume command with shell-quoted folder and session; resume uses
-      aboard resume NAME --board BOARD --server URL. Unknown harnesses omit reopen.
+      aboard resume NAME --board BOARD --server URL, on a machine with that saved seat.
+      These commands never move credentials between machines. Unknown harnesses omit reopen.
       Paths and session ids are untrusted descriptive text, not identity or authority.
     properties:
       servers:
