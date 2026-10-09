@@ -45,8 +45,10 @@ share the 16-dial bound across seats. Connection setup is outside latency sample
 Open requests are not limited: all 500 observers must still be transmitted before a
 measured post. This measures established-connection delivery, not cold-connection
 capacity. Failed observations are not retried.
-Independent inbox long polls observe each recipient before any extension confirms
-the round, so daemon acknowledgments cannot swallow those observations. At the
+Each independent inbox long poll reads its recipient before that extension confirms
+the message, so daemon acknowledgments cannot swallow that observation. Extensions
+validate and confirm independently; a delayed stream or another extension must not
+consume their harness response windows. All stream and poll checks still have to pass. At the
 default topology this adds 500 observer inbox requests per round, alongside the
 daemons’ own traffic. The observers never acknowledge. HTTP request-write callbacks
 establish that all observer requests were transmitted before posting; the public
@@ -86,8 +88,9 @@ workload, not an unlimited saturated-capacity claim.
 Posts are sequential from the admin, with a full fan-out drain between rounds.
 The throughput describes that workload, including gathering and confirmation; it
 is not saturated write capacity or a 50-writer throughput claim. Fake extensions are
-confirmed before serial server ack checks, so a slow ack cannot delay confirmations
-for other extensions beyond their harness response windows.
+confirmed independently, before bounded parallel server cursor checks. Stream
+observations and unrelated extensions cannot delay those confirmations beyond their
+harness response windows.
 
 The proof fails on missing, duplicate or out-of-order messages per permanent seat,
 an incorrect acknowledgement cursor, residual unread messages, or an invalid board

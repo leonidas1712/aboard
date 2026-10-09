@@ -713,10 +713,17 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 		r.Posts++
 	}
 	for _, p := range f.people {
+		for _, s := range p.seats {
+			checks.Expected[s.MemberID] = append(checks.Expected[s.MemberID], byBoard[s.board.ID].key)
+		}
+	}
+	if err := f.confirmRound(ctx, replies, byBoard, markers, checks, polls, handover, r); err != nil {
+		return err
+	}
+	for _, p := range f.people {
 		visited := map[string]bool{}
 		for _, s := range p.seats {
 			v := byBoard[s.board.ID]
-			checks.Expected[s.MemberID] = append(checks.Expected[s.MemberID], v.key)
 			if visited[s.board.ID] {
 				continue
 			}
@@ -733,71 +740,6 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			*streams = append(*streams, at.Sub(v.started))
 		}
 	}
-	for range cap(replies) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case reply := <-replies:
-			if reply.err != nil {
-				return reply.err
-			}
-			want := byBoard[reply.seat.board.ID]
-			messages, _ := reply.data["messages"].([]any)
-			if len(messages) != 1 {
-				return errors.New("long poll lost or duplicated a round message")
-			}
-			message, _ := messages[0].(map[string]any)
-			if seq(message, "seq") != want.key.Seq || str(message, "body") != want.marker {
-				return errors.New("long poll returned the wrong message")
-			}
-			*polls = append(*polls, reply.at.Sub(want.started))
-		}
-	}
-	for _, p := range f.people {
-		for _, s := range p.seats {
-			v, err := s.ext.next(ctx)
-			if err != nil {
-				return err
-			}
-			if v.Event != "deliver" {
-				return errors.New("missing extension delivery")
-			}
-			found := markerPattern.FindAllString(v.Bundle, -1)
-			if len(found) != 1 {
-				return errors.New("delivery lost or duplicated its marker")
-			}
-			sample, ok := markers[found[0]]
-			if !ok || sample.key.BoardID != s.board.ID {
-				return errors.New("delivery crossed boards or repeated an older message")
-			}
-			actual, err := renderedMessage(v.Bundle, s.Board)
-			if err != nil {
-				return err
-			}
-			if actual != sample.key.Seq {
-				return errors.New("rendered message sequence disagrees with posted message")
-			}
-			checks.Seen[s.MemberID] = append(checks.Seen[s.MemberID], messageKey{s.board.ID, actual})
-			*handover = append(*handover, v.at.Sub(sample.started))
-			r.Deliveries++
-			answer := map[string]any{"v": 1, "op": "received", "id": v.ID}
-			if v.Handoff != "" {
-				delete(answer, "id")
-				answer["handoff_id"] = v.Handoff
-			}
-			if err := send(s.ext.conn, answer); err != nil {
-				return err
-			}
-			if err := send(s.ext.conn, map[string]any{"v": 1, "op": "prompt"}); err != nil {
-				return err
-			}
-			if err := send(s.ext.conn, map[string]any{"v": 1, "op": "turn_end"}); err != nil {
-				return err
-			}
-		}
-	}
-	// Confirm every fake harness promptly; server ack polling must not consume the
-	// other harnesses' confirmation windows while they wait for this driver.
 	timing.next("acknowledgments")
 	return f.verifyAcks(ctx, func(s *seat) int64 { return byBoard[s.board.ID].key.Seq })
 }
