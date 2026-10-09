@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
@@ -118,8 +119,9 @@ func readSetupPending(path string) (*setupPending, error) {
 	if err := json.NewDecoder(io.LimitReader(f, 1024*1024)).Decode(&pending); err != nil {
 		return nil, newError("setup_state_invalid", "The saved setup proof cannot be read.", "Keep this file; ask your person to recover setup without creating another account.")
 	}
-	bits, err := base64.RawURLEncoding.DecodeString(pending.Token)
-	if err != nil || len(bits) != 32 || base64.RawURLEncoding.EncodeToString(bits) != pending.Token {
+	raw := strings.TrimPrefix(pending.Token, "abh_")
+	bits, err := base64.RawURLEncoding.Strict().DecodeString(raw)
+	if !strings.HasPrefix(pending.Token, "abh_") || err != nil || len(bits) != 32 || base64.RawURLEncoding.EncodeToString(bits) != raw {
 		return nil, newError("setup_state_invalid", "The saved setup proof is invalid.", "Keep this file; do not create a replacement account or key.")
 	}
 	return &pending, nil
@@ -170,5 +172,5 @@ func (a *app) createSetupPending(srv serverRef, invite, handle, name string, dis
 	if _, err := io.ReadFull(a.env.Rand, bits); err != nil {
 		return nil, fmt.Errorf("generate pending setup proof: %w", err)
 	}
-	return &setupPending{Server: srv.URL, Invite: invite, Token: base64.RawURLEncoding.EncodeToString(bits), Handle: handle, Name: name, DisplayName: display}, nil
+	return &setupPending{Server: srv.URL, Invite: invite, Token: "abh_" + base64.RawURLEncoding.EncodeToString(bits), Handle: handle, Name: name, DisplayName: display}, nil
 }

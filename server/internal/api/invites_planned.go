@@ -5,7 +5,7 @@ import "context"
 func (h *handlers) ListServerInvites(ctx context.Context, _ ListServerInvitesRequestObject) (ListServerInvitesResponseObject, error) {
 	list, err := h.svc.ListServerInvites(ctx, principal(ctx))
 	if err != nil {
-		return nil, onboardingError(ctx, err, "aboard invites")
+		return nil, onboardingError(ctx, err, "aboard invite list")
 	}
 	invites := make([]map[string]any, 0, len(list))
 	for _, v := range list {
@@ -28,7 +28,7 @@ func (h *handlers) ListServerInvites(ctx context.Context, _ ListServerInvitesReq
 func (h *handlers) RevokeServerInvite(ctx context.Context, req RevokeServerInviteRequestObject) (RevokeServerInviteResponseObject, error) {
 	changed, err := h.svc.RevokeServerInvite(ctx, principal(ctx), req.Invite)
 	if err != nil {
-		return nil, onboardingError(ctx, err, "aboard invites revoke '"+req.Invite+"'")
+		return nil, onboardingError(ctx, err, "aboard invite revoke '"+req.Invite+"'")
 	}
 	return convert[RevokeServerInvite200JSONResponse](map[string]any{"id": req.Invite, "revoked": true, "changed": changed})
 }
