@@ -39,7 +39,9 @@ before measurement starts. Streams may coalesce head updates: observing a head a
 or above a message's sequence proves that the stream has reached that message.
 Connection establishment is limited to 16 simultaneous dials. Before measurement,
 each observer gets a dedicated connection and authenticates its seat through `/v1/me`.
-Every measured observer request must reuse that connection; a new dial fails the proof.
+Idle observer connections may redial before a round. All observer requests must
+finish connection establishment and transmit before the measured post. Redials
+share the 16-dial bound across seats. Connection setup is outside latency samples.
 Open requests are not limited: all 500 observers must still be transmitted before a
 measured post. This measures established-connection delivery, not cold-connection
 capacity. Failed observations are not retried.
@@ -126,3 +128,7 @@ use a fresh temporary server, then destroy it yourself after the run.
 Remote runs report local server resource sampling as unavailable. Measure the
 remote machine separately, and report network round-trip measurements separately
 from the end-to-end delivery samples.
+
+Round diagnostics split observer preparation, delivery and cursor verification;
+latency distributions include the maximum as well as percentiles. Cursor checks
+run with at most sixteen requests in flight, after all fake harness confirmations.
