@@ -194,6 +194,22 @@ test("the brief shows under the Now line with its version, author and what happe
   await expect(brief.locator(".brief-summary")).toHaveText("Last updated 2026-10-08 by @claude-2. Staging is on v2; see the runbook, as in snake_case_notes.");
 });
 
+test("Show less stays in reach while a long brief scrolls", async ({ page }) => {
+  const board = "brief-long";
+  await openBoard(page, board);
+  const brief = page.getByRole("region", { name: "Brief" });
+  const sections = Array.from({ length: 40 }, (_, i) => `## Part ${i + 1}\n\nWhat part ${i + 1} covers, and where it stands.\n`).join("\n");
+  await putBrief(board, "brief.md", `# A long brief\n\n${sections}`);
+  await brief.getByRole("button", { name: "Show full brief" }).click();
+  await expect(brief.getByRole("heading", { name: "Part 40" })).toBeAttached();
+  // Scrolled to the end, the header row is still pinned at the top of the brief.
+  await brief.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await expect(brief.getByRole("heading", { name: "Part 40" })).toBeInViewport();
+  await expect(brief.getByRole("button", { name: "Show less" })).toBeInViewport();
+  await brief.getByRole("button", { name: "Show less" }).click();
+  await expect(brief.getByRole("button", { name: "Show full brief" })).toBeVisible();
+});
+
 test("a person writes the brief and edits it, each save a new version with the exact text", async ({ page }) => {
   const board = "brief-edit";
   await openBoard(page, board);
