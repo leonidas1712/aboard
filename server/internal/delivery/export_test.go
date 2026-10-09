@@ -19,3 +19,8 @@ func WithJoinHooks(cfg *Config, h JoinHooks) {
 func PublishQueueIntent(ctx context.Context, j QueueReportJournal, srv QueueReportServer, state QueueReporter, desired []QueuedMessage) (bool, error) {
 	return publishQueueIntent(ctx, j, srv, state, desired)
 }
+
+// PairingConfirmedRows exercises exact-session evidence against the real journal.
+func PairingConfirmedRows(ctx context.Context, j Journal, key SessionKey, agent AgentRef) ([]Delivery, error) {
+	return confirmedPairingDeliveries(ctx, j, key, agent)
+}

@@ -316,7 +316,11 @@ func (d *Daemon) watchPairing(ctx context.Context, key SessionKey, runtime Pairi
 }
 
 func (d *Daemon) confirmedPairingDeliveries(ctx context.Context, key SessionKey, agent AgentRef) ([]Delivery, error) {
-	sessions, err := d.cfg.Journal.Sessions(ctx)
+	return confirmedPairingDeliveries(ctx, d.cfg.Journal, key, agent)
+}
+
+func confirmedPairingDeliveries(ctx context.Context, j Journal, key SessionKey, agent AgentRef) ([]Delivery, error) {
+	sessions, err := j.Sessions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +333,7 @@ func (d *Daemon) confirmedPairingDeliveries(ctx context.Context, key SessionKey,
 	if boot == "" {
 		return nil, nil
 	}
-	bindings, err := d.cfg.Journal.Bindings(ctx)
+	bindings, err := j.Bindings(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +343,7 @@ func (d *Daemon) confirmedPairingDeliveries(ctx context.Context, key SessionKey,
 			generation = b.Generation
 		}
 	}
-	manifests, err := d.cfg.Journal.Handoffs(ctx)
+	manifests, err := j.Handoffs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -359,7 +363,7 @@ func (d *Daemon) confirmedPairingDeliveries(ctx context.Context, key SessionKey,
 			}
 		}
 	}
-	rows, err := d.cfg.Journal.Deliveries(ctx, StateConfirmed)
+	rows, err := j.Deliveries(ctx, StateConfirmed)
 	if err != nil {
 		return nil, err
 	}
