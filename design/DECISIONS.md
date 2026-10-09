@@ -887,3 +887,11 @@ generation CAS; replacement revokes both credentials and earlier evidence. Ready
 requires both linked ping/reply round trips plus confirmed handoff attestations from
 the selected runtimes. Credentials never appear in CLI/hook/socket/model output and
 end at ready, decline, cancel, expiry or replacement. D197 gains no new powers.
+
+D222 invitation safety refinement: `aboard allowance on` enables only `add-people`;
+`off` clears all categories. `invite-people` requires explicit category opt-in, with
+a warning that an agent can admit an outsider who can read every open board. Every
+agent-issued invite, through either an allowance or an approval, produces an own-person
+Inbox notice with its revoke command, derived from the durable invite record without
+exposing its secret. Agent-issued invites default to 24 hours; person-issued invites
+keep the seven-day default. Explicit lifetimes and existing revocation rules remain.

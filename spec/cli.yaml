@@ -4006,8 +4006,11 @@ $defs:
   AllowanceOutput:
     description: |
       aboard allowance [--server SERVER] [--json] reads the selected person's
-      per-server allowance. aboard allowance on|off switches every allowable
-      category on or off; aboard allowance set invite-people|add-people on|off
+      per-server allowance. aboard allowance on enables only add-people, replacing
+      the complete category set; off clears all categories. Inviting people requires
+      explicit aboard allowance set invite-people on; the API and text output warn
+      that agents can let outsiders read every open board.
+      aboard allowance set invite-people|add-people on|off
       changes only that category, preserving the others. Reads and changes are
       person-only; selected agents receive human_token_required with next.command.
       Default is off. Board creation through D205 is unchanged. Only admission

@@ -616,7 +616,7 @@ paths:
         fragment, which browsers never send to a server. `aboard invite --server` prints
         that link.
 
-        The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+        The invite lasts `ttl_seconds` (default 7 days for a person or 24 hours when issued by an agent, at most 30 days). The server keeps
         only a digest of it, never writes it to a board's event log and doesn't keep the
         response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
         or a browser token gets 403 `human_token_required`; a person who isn't a server
@@ -3938,6 +3938,39 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /v1/me/invite-notices:
+    get:
+      tags: ["onboarding"]
+      operationId: "listInviteNotices"
+      summary: "Read notices about invites issued by your agents"
+      description: |
+        Person key or browser only; agents receive human_token_required with next.command.
+        One notice per durable agent-issued invite belonging to the current person,
+        whether issued under an allowance or an approval, including redeemed, revoked
+        and expired invites. Replays create no duplicate notices. No invite secret,
+        recipient, board names, parent keys or authorization payloads are returned.
+        Reads recheck the person's credential and do not move read cursors.
+        The next command is issuer-qualified and revokes only an unredeemed invite.
+      responses:
+        "200":
+          description: "Own-agent invitation notices"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [notices]
+                properties:
+                  notices:
+                    type: array
+                    items: { $ref: "#/components/schemas/InviteNotice" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403":
+          description: "Person-only refusal with next.command"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
+
   /v1/me/allowance:
     get:
       tags: ["onboarding"]
@@ -5245,7 +5278,7 @@ components:
           type: integer
           minimum: 60
           maximum: 2592000
-          description: How long the invite works. Default 604800 (7 days).
+          description: How long the invite works. Default 604800 (7 days) for a person, or 86400 (24 hours) for an agent-issued invite.
         boards:
           type: array
           uniqueItems: true
@@ -8268,6 +8301,18 @@ components:
     AllowanceCategory:
       type: "string"
       enum: ["invite-people", "add-people"]
+    InviteNotice:
+      type: object
+      additionalProperties: false
+      required: [id, issuing_agent_id, message, created_at, expires_at, state, next]
+      properties:
+        id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+        issuing_agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        message: { type: string, enum: ["Your agent invited someone"] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        state: { type: string, enum: [active, redeemed, revoked, expired] }
+        next: { $ref: "#/components/schemas/NextStep" }
     Allowance:
       type: "object"
       additionalProperties: false
@@ -8278,6 +8323,9 @@ components:
         person_id:
           type: "string"
           pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        warning:
+          type: string
+          description: "Present whenever invite-people is enabled: Agents allowed to invite people can let outsiders read every open board."
         categories:
           type: "array"
           items:

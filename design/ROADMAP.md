@@ -427,3 +427,5 @@ bounded-Stop versus idle-wait distinction. This is collective evidence from the 
 run and focused retry, not one clean full run. Protected configuration and auth were
 unchanged. Final CI remains pending; the board-view setting is separate PR #243.
 This feature is not yet shipped.
+
+| D222 invitation safety (GEN-45) | Building: explicit invite opt-in and warning, own-person Inbox notices, 24h agent-invite default. |
