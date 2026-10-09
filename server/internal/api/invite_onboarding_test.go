@@ -219,6 +219,17 @@ func TestInvitePairingAndReceiptCommitTogether(t *testing.T) {
 	if inv.JSON201.PairingRequestId == nil {
 		t.Fatal("pairing absent")
 	}
+	endpointToken := "abp_" + strings.Repeat("a", 43)
+	minted, err := s.client(s.owner).CreatePairingCredentialWithResponse(ctx, nil, api.CreatePairingCredential{
+		RequestId: *inv.JSON201.PairingRequestId, Side: "initiator", AgentId: me.JSON200.Id,
+		ClientToken: &endpointToken, SessionBinding: "sha256:" + strings.Repeat("a", 64), Generation: 1,
+	})
+	mustStatus(t, minted, err, 200)
+	waiting, err := s.client(s.owner).GetPairingRequestWithResponse(ctx, *inv.JSON201.PairingRequestId)
+	mustStatus(t, waiting, err, 200)
+	if waiting.JSON200.State != api.PairingStateAwaitingAccount || waiting.JSON200.Initiator == nil {
+		t.Fatal("selecting the inviting session lost the pending account state or endpoint")
+	}
 	token := onboardingToken(t)
 	c, err := s.client("").ConnectWithResponse(ctx, nil, api.ConnectRequest{Invite: inv.JSON201.Invite, Handle: "maya", KeyName: "laptop", ClientToken: &token})
 	mustStatus(t, c, err, 200)

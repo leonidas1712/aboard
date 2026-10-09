@@ -448,7 +448,9 @@ func (s *Service) MintPairingCredential(ctx context.Context, p Principal, in Pai
 			r.RecipientKeyID = p.KeyID
 		}
 		r.State = "awaiting_endpoint"
-		if r.Initiator != nil && r.Recipient != nil {
+		if r.InviteID != "" && r.RecipientID == "" {
+			r.State = "awaiting_account"
+		} else if r.Initiator != nil && r.Recipient != nil {
 			r.State = "verifying"
 		}
 		now := s.clk.Now()
