@@ -139,3 +139,34 @@ func TestInviteSafetyPreservesPersonDefaultAndExplicitAgentLifetime(t *testing.T
 		t.Fatalf("explicit agent lifetime: %d %s", status, raw)
 	}
 }
+
+func TestAlwaysAllowingInviteWarnsWithoutChangingPlainAllow(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	_, agent, _ := s.pair("starter")
+	status, raw := onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{}}`, agent)
+	var held struct {
+		Approval struct {
+			ID string `json:"id"`
+		} `json:"approval"`
+	}
+	if err := json.Unmarshal([]byte(raw), &held); err != nil {
+		t.Fatal(err)
+	}
+	if status != 202 || !strings.Contains(raw, "aboard approvals allow "+held.Approval.ID) || strings.Contains(raw, "--always") {
+		t.Fatalf("default handover changed: %d %s", status, raw)
+	}
+	path := "/v1/me/approvals/" + held.Approval.ID + "/allow"
+	status, raw = onboardingCall(t, s, "POST", path, `{"always":true}`, s.owner)
+	if status != 200 || !strings.Contains(raw, `"warning":"Agents allowed to invite people can let outsiders read every open board."`) {
+		t.Fatalf("always approval warning: %d %s", status, raw)
+	}
+	status, raw = onboardingCall(t, s, "GET", "/v1/me/allowance", "", s.owner)
+	if status != 200 || !strings.Contains(raw, `"invite-people"`) {
+		t.Fatalf("always category: %d %s", status, raw)
+	}
+	status, raw = onboardingCall(t, s, "POST", path, `{}`, s.owner)
+	if status != 200 || strings.Contains(raw, `"warning"`) || strings.Contains(raw, "abi_") {
+		t.Fatalf("plain replay: %d %s", status, raw)
+	}
+}

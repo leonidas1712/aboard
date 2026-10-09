@@ -222,6 +222,10 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 		text += " · " + board
 	}
 	text += "\n"
+	if result.Warning != nil {
+		out["warning"] = *result.Warning
+		text += *result.Warning + "\n"
+	}
 	if result.Invite != nil && result.Invite.Invite != "" {
 		text += "Invite: aboard connect " + commandWord(srv.URL+"/join#"+result.Invite.Invite) + "\n"
 		prompt := serverInvitePrompt(srv.URL + "/join#" + result.Invite.Invite)

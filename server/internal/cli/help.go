@@ -113,7 +113,7 @@ func helpText(templates string) []commandHelp {
 			Name: "approvals", Group: groupMaintain,
 			Summary:     "See held actions, or allow or decline one",
 			Usage:       []string{"aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals allow ID [--always] [--server SERVER] [--json]", "aboard approvals decline ID [--server SERVER] [--json]"},
-			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category. A newly created invite is returned once; a replay never returns its token again.",
+			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category and warns when enabling invite-people. A newly created invite is returned once; a replay never returns its token again.",
 			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the approval id."}, flagBoard, flagAs, {"--always", "", "Also enable this action's allowance category."}, flagJSON},
 			Examples:    []helpExample{{"aboard approvals", "List your agents' requests."}, {"aboard approvals allow apr_ID", "Allow the recorded action once."}},
 			SeeAlso:     []string{"allowance", "invite", "board"},

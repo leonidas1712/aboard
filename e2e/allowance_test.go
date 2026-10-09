@@ -35,12 +35,22 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	}
 	allowed := tm.admin.run("approvals", "allow", id, "--always", "--json").json(t)
 	matchesCLISpec(t, "ApprovalDecisionOutput", allowed)
+	if warning, ok := allowed["warning"].(string); !ok || !strings.Contains(warning, "every open board") {
+		t.Fatalf("always invite approval has no warning: %v", allowed)
+	}
+	alwaysText := tm.admin.run("approvals", "allow", id, "--always")
+	if !strings.Contains(alwaysText.stdout, "every open board") {
+		t.Fatalf("always invite approval text has no warning: %s", alwaysText)
+	}
 	if field(t, allowed, "approval.state") != "executed" {
 		t.Fatalf("approval: %v", allowed)
 	}
 	link := tm.url() + "/join#" + field(t, allowed, "invite.invite").(string)
 	newPersonHome(t, "invitee").run("connect", link, "--json")
 	repeated := tm.admin.run("approvals", "allow", id, "--json").json(t)
+	if _, warned := repeated["warning"]; warned {
+		t.Fatal("plain allow warned about enabling an allowance")
+	}
 	if _, present := repeated["invite"]; present {
 		t.Fatal("executed approval returned a secret twice")
 	}
