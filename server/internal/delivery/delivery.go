@@ -132,9 +132,11 @@ type Delivery struct {
 
 // SessionRecord is what the journal keeps of a session.
 type SessionRecord struct {
-	Key  SessionKey
-	Boot string
-	Open bool
+	Folder       string
+	LocationBoot string
+	Key          SessionKey
+	Boot         string
+	Open         bool
 	// Process is the harness process the session runs in, or nil if it isn't known.
 	Process *Process
 	// Lost is the agent another session resumed while this one held it, or nil. The
