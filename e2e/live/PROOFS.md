@@ -130,7 +130,7 @@ measured on Claude Code 2.1.287 with its default model.
 | Scenario | Proves | Capabilities | Turns |
 | --- | --- | --- | --- |
 | `TestWakesAndReplies` | Pairing in plain words: "Pair with another agent on Aboard" in one session gives a join line; typed into a second session, it joins and says hello (the baseline, recorded as `JoinsAndTalks`). Then a message to the idle first session is handed over within 2 seconds of the daemon's 2-second gather, its presence goes working and back to idle, and it answers on the board with no one typing. | Baseline, wakes when idle, presence | 6 |
-| `TestAgentLocationMatchesItsRealHarnessSession` | The owner-only agent view reports the exact real harness conversation, its working folder and a nonzero activity timestamp. The session id must match the daemon’s registered session. | Private session location bookkeeping | proof pending |
+| `TestAgentLocationMatchesItsRealHarnessSession` | The owner-only agent view reports the exact real harness conversation, its working folder and a nonzero activity timestamp. The session id must match the daemon’s registered session. | Private session location bookkeeping | passed Claude Code 2.1.294, Codex 0.160.0 and omp 18.5.1; restart/recovery also passed on all three |
 | `TestPairingVerifiesBothExactHarnessSessions` | Two real sessions owned by one person explicitly select their endpoints. Each replies to an ordinary direct handshake ping; the public request becomes ready only after both confirmed round trips, retaining distinct permanent agents and session bindings in the same generation. Passed on Claude Code 2.1.294, Codex 0.160.0 and omp 18.5.1 after the durable-confirmation repair; prior failed proof is retained privately. | Exact-session pairing and confirmed delivery | not measured |
 | `TestTaskWorkflowFromSkill` | Two native sessions pair through the quickstart's plain-language join flow. A work request, without CLI commands, has the first session use its installed skill to create and start a task, post a progress message, and finish it. The public API must retain the task's owner and final note, record that message's `about` with `how: current`, and report a null current task after completion. | Task records and automatic tagging | not measured |
 | `TestAttachedFileReachesTheHarness` | One native session joins a board. A person posts a pinned file version whose contents are absent from the message. The harness follows the delivered file-get hint and posts the exact bytes; the API retains the attachment reference. | Versioned file attachments | not measured |
@@ -410,6 +410,27 @@ built on the helpers in `live_test.go`, `harness_test.go` and `drivers_test.go`:
 A test about one harness starts with `only(t, "<harness>")`.
 
 ## Last run
+
+2026-10-09, bundled invite and setup (#276): the bounded
+`TestInvitedSetupVerifiesTwoPeopleExactSessions` proof passed on Claude Code
+(45 s), Codex (122 s) and omp (48 s), with no skips and 2m3s wall time.
+Each case used separate homes and people. The inviting session selected its
+endpoint, the newcomer redeemed the bundled invite, and both exact sessions
+answered the linked delivery checks. Repeating setup in the newcomer's same
+session reported all six steps complete. Protected configuration stayed unchanged;
+no Codex auth refresh or volatile Claude state change occurred.
+
+The full affected live gate then passed at the same runtime head: 92 cases,
+four existing skips, zero failures, 7m28s wall time at parallelism 12. The setup
+cases passed again (Claude Code 61 s, omp 62 s, Codex 114 s). Protected
+configuration and volatile Claude state stayed unchanged, with no auth refresh.
+
+The first bounded run failed before newcomer setup because the fixture read the
+person invite shape instead of the agent's nested approval-result shape. Its
+private artifacts are retained. The corrected run preserved the public output
+contract. Two integration regressions also failed first: selecting the inviter
+must retain awaiting-account until redemption, and reading ready setup must
+verify the current exact binding without reselecting the endpoint.
 
 2026-10-08, delivery notice follow-up (#210): the affected suite ran 82 cases,
 with four existing skips. Three browser-answer cases failed because the worktree

@@ -26,6 +26,7 @@ func TestGuideAgentsAcrossPeople(t *testing.T) {
 	for _, f := range strings.Fields(inv.stdout) {
 		if strings.Contains(f, "/join#abi_") {
 			link = f
+			break
 		}
 	}
 	if !strings.HasPrefix(inv.stdout, "Invite for "+tm.url()+": one person, as a member, once, within 168 hours. On their machine, run:\n") || link == "" {

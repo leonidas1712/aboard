@@ -38,7 +38,3 @@ func (h *handlers) ApproveFile(context.Context, ApproveFileRequestObject) (Appro
 func (h *handlers) RemoveFileApproval(context.Context, RemoveFileApprovalRequestObject) (RemoveFileApprovalResponseObject, error) {
 	return nil, notProvided("file approvals")
 }
-
-func (h *handlers) GetOnboardingReceipt(context.Context, GetOnboardingReceiptRequestObject) (GetOnboardingReceiptResponseObject, error) {
-	return nil, notProvided("onboarding")
-}

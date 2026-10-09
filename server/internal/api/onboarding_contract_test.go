@@ -9,39 +9,26 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/api"
 )
 
-func TestOnboardingContractOperationsAreExplicitlyUnavailable(t *testing.T) {
+func TestOnboardingReceiptRequiresOriginalRedemptionKey(t *testing.T) {
 	t.Parallel()
 	s := newTestServer(t)
-	for _, tc := range []struct{ method, path, body string }{
-		{"GET", "/v1/me/onboarding", ""},
-	} {
-		t.Run(tc.method+tc.path, func(t *testing.T) {
-			status, body := onboardingCall(t, s, tc.method, tc.path, tc.body, s.owner)
-			if status != 501 || !strings.Contains(body, `"code":"not_implemented"`) {
-				t.Fatalf("got %d %s; want explicit 501 not_implemented", status, body)
-			}
-		})
+	status, body := onboardingCall(t, s, "GET", "/v1/me/onboarding", "", s.owner)
+	if status != 404 || !strings.Contains(body, `"code":"not_found"`) {
+		t.Fatalf("missing receipt: %d %s", status, body)
 	}
 }
 
-func TestUnsupportedOnboardingFieldsHaveNoPartialSideEffects(t *testing.T) {
+func TestInvalidClientTokenLeavesInviteAvailableToLegacyClients(t *testing.T) {
 	t.Parallel()
 	s := newTestServer(t)
 	inv := s.invite(s.owner, 0)
 	mustStatus(t, inv, nil, 201)
-	token := "abh_" + strings.Repeat("A", 43)
+	token := "abh_" + strings.Repeat("A", 42) + "B"
 	status, body := onboardingCall(t, s, "POST", "/v1/connect", `{"invite":"`+inv.JSON201.Invite+`","handle":"maya","key_name":"laptop","client_token":"`+token+`"}`, "")
-	if status != 501 || !strings.Contains(body, `"code":"not_implemented"`) {
-		t.Fatalf("client token: %d %s", status, body)
+	if status != 400 || !strings.Contains(body, `"code":"invalid_request"`) {
+		t.Fatalf("noncanonical token: %d %s", status, body)
 	}
-	// Refusing an unsupported token leaves the original invite available to old clients.
 	mustStatus(t, s.connect(inv.JSON201.Invite, "maya"), nil, 201)
-	status, body = onboardingCall(t, s, "POST", "/v1/invites", `{"boards":["brd_01K00000000000000000000000"]}`, s.owner)
-	if status != 501 || !strings.Contains(body, `"code":"not_implemented"`) {
-		t.Fatalf("bundled invite: %d %s", status, body)
-	}
-	// Ordinary invites continue to work, and the attempted bundle created no person.
-	mustStatus(t, s.invite(s.owner, 0), nil, 201)
 }
 
 func onboardingCall(t *testing.T, s *testServer, method, path, body, token string) (status int, bodyText string) {

@@ -78,7 +78,7 @@ func runAllowance(ctx context.Context, a *app, args []string) error {
 	if len(pos) > 0 {
 		cats := []api.AllowanceCategory{}
 		if len(pos) == 1 && pos[0] == "on" {
-			cats = []api.AllowanceCategory{api.AllowanceCategoryInvitePeople, api.AllowanceCategoryAddPeople}
+			cats = []api.AllowanceCategory{api.AllowanceCategoryAddPeople}
 		}
 		if len(pos) == 3 {
 			cats = append(cats, out.Categories...)
@@ -105,7 +105,11 @@ func runAllowance(ctx context.Context, a *app, args []string) error {
 	if len(names) > 0 {
 		state = strings.Join(names, ", ")
 	}
-	a.emit(map[string]any{"server": srv, "allowance": out}, fmt.Sprintf("Allowance on %s: %s\n", srv.URL, state))
+	text := fmt.Sprintf("Allowance on %s: %s\n", srv.URL, state)
+	if out.Warning != nil {
+		text += *out.Warning + "\n"
+	}
+	a.emit(map[string]any{"server": srv, "allowance": out}, text)
 	return nil
 }
 
@@ -200,6 +204,9 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 }
 
 func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminActionResult) error {
+	if result.Invite != nil && result.Invite.PairingRequestId != nil && result.Next == nil {
+		result.Next = invitedPairingNext(srv, *result.Invite.PairingRequestId)
+	}
 	out := map[string]any{"server": srv, "approval": result.Approval}
 	if board != "" {
 		out["board"] = board
@@ -215,8 +222,15 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 		text += " · " + board
 	}
 	text += "\n"
+	if result.Warning != nil {
+		out["warning"] = *result.Warning
+		text += *result.Warning + "\n"
+	}
 	if result.Invite != nil && result.Invite.Invite != "" {
 		text += "Invite: aboard connect " + commandWord(srv.URL+"/join#"+result.Invite.Invite) + "\n"
+		prompt := serverInvitePrompt(srv.URL + "/join#" + result.Invite.Invite)
+		out["prompt"] = prompt
+		text += prompt + "\n"
 	}
 	if result.Next != nil {
 		text += result.Next.Command + "\n" + result.Next.Resume + "\n"
@@ -225,13 +239,16 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 	return nil
 }
 
-func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, board string, action api.AdminAction) error {
+func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, board string, action api.AdminAction, afterExecution ...func(*api.AdminActionResult)) error {
 	r, err := c.api.RequestAdminActionWithResponse(ctx, nil, action)
 	if err != nil {
 		return c.unreachable(err)
 	}
 	if r.JSON202 != nil {
 		held := r.JSON202
+		if len(afterExecution) != 0 {
+			held.Next.Resume += " After execution, select the returned pairing_request_id in this original session: aboard pairing select ID --here --server " + commandWord(srv.URL) + "."
+		}
 		out := map[string]any{"server": srv, "state": "pending", "approval": held.Approval, "next": held.Next}
 		if board != "" {
 			out["board"] = board
@@ -254,6 +271,9 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 	}
 	if result == nil {
 		return apiError(r.StatusCode(), r.Body)
+	}
+	for _, complete := range afterExecution {
+		complete(result)
 	}
 	return emitAdmissionResult(a, srv, board, result)
 }

@@ -185,12 +185,13 @@ func TestInviteConnectsASecondPerson(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	inv := tm.admin.run("invite", "--server")
-	link := strings.TrimSpace(inv.lines()[len(inv.lines())-1])
+	link := strings.TrimSpace(inv.lines()[1])
 	link = strings.TrimPrefix(link, "aboard connect ")
 	if !strings.HasPrefix(link, tm.url()+"/join#abi_") {
 		t.Fatalf("invite output:\n%s", inv)
 	}
-	expectLines(t, inv, "Invite for "+tm.url()+": one person, as a member, once, within 168 hours. On their machine, run:", "  aboard connect "+link)
+	expectLines(t, inv, "Invite for "+tm.url()+": one person, as a member, once, within 168 hours. On their machine, run:", "  aboard connect "+link,
+		"", "Set up Aboard and join using "+link+". Verify you can exchange messages with the inviting agent.")
 
 	maya := newPersonHome(t, "maya")
 	out := maya.run("connect", link, "--display-name", "Maya Chen", "--json").json(t)

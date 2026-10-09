@@ -69,6 +69,19 @@ func runConnect(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
+	if isInviteLink(pos[0]) && a.agentSelected("") {
+		if *display != "" || *serverName != "" {
+			return usageError("Agent invite setup takes --handle and --name; set other account details afterwards.", connectUsage)
+		}
+		setupArgs := []string{pos[0]}
+		if *handleFlag != "" {
+			setupArgs = append(setupArgs, "--handle", *handleFlag)
+		}
+		if *nameFlag != "" {
+			setupArgs = append(setupArgs, "--name", *nameFlag)
+		}
+		return runSetup(ctx, a, setupArgs)
+	}
 	if err := a.refuseInSession("Connecting this machine to a server", "aboard connect "+shellWord(pos[0])); err != nil {
 		return err
 	}

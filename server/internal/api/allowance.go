@@ -13,6 +13,8 @@ import (
 
 type onboardingIssuerKey struct{}
 
+const inviteAllowanceWarning = "Agents allowed to invite people can let outsiders read every open board."
+
 func onboardingCommand(ctx context.Context, command string) string {
 	issuer, _ := ctx.Value(onboardingIssuerKey{}).(string)
 	return command + " --server '" + strings.ReplaceAll(issuer, "'", "'\\''") + "'"
@@ -32,7 +34,14 @@ func allowanceOf(a board.Allowance) map[string]any {
 	if categories == nil {
 		categories = []string{}
 	}
-	return map[string]any{"id": a.ID, "person_id": a.PersonID, "revision": a.Revision, "categories": categories}
+	out := map[string]any{"id": a.ID, "person_id": a.PersonID, "revision": a.Revision, "categories": categories}
+	for _, category := range categories {
+		if category == "invite-people" {
+			out["warning"] = inviteAllowanceWarning
+			break
+		}
+	}
+	return out
 }
 
 func (h *handlers) GetAllowance(ctx context.Context, _ GetAllowanceRequestObject) (GetAllowanceResponseObject, error) {
@@ -103,10 +112,7 @@ func adminResultOf(ctx context.Context, r board.AdminActionResult) map[string]an
 		out["next"] = approvalNext(ctx, r.Approval.ID)
 	}
 	if r.Invite != nil {
-		out["invite"] = map[string]any{
-			"id": r.Invite.Invite.ID, "invite": r.Invite.Secret,
-			"server_role": board.ServerMember, "expires_at": r.Invite.Invite.ExpiresAt,
-		}
+		out["invite"] = serverInviteOf(*r.Invite)
 	}
 	return out
 }
@@ -135,9 +141,12 @@ func decodeAdminAction(action AdminAction) (board.AdminAction, error) {
 		Role     string `json:"role"`
 		KeyID    string `json:"key_id"`
 		Invite   *struct {
-			TTLSeconds *int            `json:"ttl_seconds"`
-			Boards     []string        `json:"boards"`
-			Pairing    json.RawMessage `json:"pairing"`
+			TTLSeconds *int     `json:"ttl_seconds"`
+			Boards     []string `json:"boards"`
+			Pairing    *struct {
+				InitiatingAgentID string `json:"initiating_agent_id"`
+				Work              string `json:"work"`
+			} `json:"pairing"`
 		} `json:"invite"`
 		Policy *rules.PolicyChange `json:"policy"`
 	}
@@ -146,10 +155,11 @@ func decodeAdminAction(action AdminAction) (board.AdminAction, error) {
 	}
 	out := board.AdminAction{Kind: wire.Kind, BoardID: wire.BoardID, PersonID: wire.PersonID, Role: wire.Role, KeyID: wire.KeyID, Policy: wire.Policy}
 	if wire.Invite != nil {
-		if wire.Invite.Boards != nil || len(wire.Invite.Pairing) != 0 {
-			return board.AdminAction{}, notProvided("bundled onboarding invites")
+
+		out.Invite = &board.InvitePeopleInput{TTLSeconds: wire.Invite.TTLSeconds, Boards: wire.Invite.Boards}
+		if wire.Invite.Pairing != nil {
+			out.Invite.Pairing = &board.InvitePairingInput{InitiatingAgentID: wire.Invite.Pairing.InitiatingAgentID, Work: wire.Invite.Pairing.Work}
 		}
-		out.Invite = &board.InvitePeopleInput{TTLSeconds: wire.Invite.TTLSeconds}
 	}
 	return out, nil
 }
@@ -183,7 +193,11 @@ func (h *handlers) AllowApproval(ctx context.Context, req AllowApprovalRequestOb
 	if err != nil {
 		return nil, onboardingError(ctx, err, "aboard approvals allow "+req.Approval)
 	}
-	return convert[AllowApproval200JSONResponse](adminResultOf(ctx, r))
+	out := adminResultOf(ctx, r)
+	if always && r.Approval.Action.Kind == "invite_people" {
+		out["warning"] = inviteAllowanceWarning
+	}
+	return convert[AllowApproval200JSONResponse](out)
 }
 
 func (h *handlers) DeclineApproval(ctx context.Context, req DeclineApprovalRequestObject) (DeclineApprovalResponseObject, error) {
