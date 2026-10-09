@@ -6,8 +6,9 @@ writers posting 10 messages each. Both runs completed 20 delivery posts, 500
 handoffs, 20 verified chains and all 160 concurrent posts. Cursor, ordering and
 message identity checks passed.
 
-The baseline is main at `a401517`; the comparison changes only the delivery adapter's
-ACK/presence request keys and the redundant update after an empty queue claim.
+The server archive is `7c9a8a3`, with load-client fixes at `c711f10`; the intervening
+merge to `a401517` changes only the load tool. The comparison changes only the delivery
+adapter's ACK/presence request keys and the redundant empty queue-claim update.
 Private instrumentation counted transaction kinds and phase boundaries. Private
 join/connect limits were raised for setup in both runs. These changes were not
 included in the product. This is a transaction-demand comparison, not a latency or
@@ -38,6 +39,11 @@ The observed extra response writes disappeared, while the server's existing
 ACK/presence batching remained in use. The small difference in presence requests
 and batching depends on scheduling; it is not a further claimed optimization.
 Queue-report writes in these runs occurred during startup, not once per delivery
-post. The counts do not establish a new Fly throughput limit. A bounded real-harness
-ACK/presence and restart proof is required before merge; remote scale measurement
-follows separately.
+post. The counts do not establish a new Fly throughput limit. Real-harness validation at `43db117` passed collectively: the initial 12-case run
+passed 10 cases, including every single-harness and cross-harness ping-pong, plus
+Claude Code and omp held-mode and daemon/server restart cases. Two Codex cases
+failed before binding while waiting for startup; a serial retry of those same
+held-mode and restart cases passed with unchanged assertions and timeouts. Both
+runs left protected configuration and authentication unchanged, and retained artifact
+scans found no real-login values. This is collective evidence, not a clean initial
+run. Remote scale measurement follows separately.
