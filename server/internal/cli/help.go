@@ -624,7 +624,7 @@ func helpText(templates string) []commandHelp {
 				"An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
-				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
+				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code or agent-issued invite, 168h for a person-issued invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
 				{"--pairing", "WORK", "Propose work with this verified current session; requires one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
