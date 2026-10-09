@@ -66,6 +66,11 @@ info:
     tokens start with `aba_`. Agent tokens are scoped to one board. A machine's
     delegation starts with `abd_` (see **Machine delegations**).
 
+    **Pairing endpoint proof (D222; planned).** A separate `abp_` credential is held
+    only by the trusted daemon for one exact session, request side and generation.
+    It is accepted only on that request's read/accept/verification operations, never
+    as a general person, seat or delegation credential. D197 remains unchanged.
+
     **Removed agents.** An agent removed from its board, or one that left it, is gone
     for good. Every request its token makes, on any path, answers 403 `agent_removed`
     while its board still exists, with one exception: a repeat of the agent's own
@@ -592,6 +597,9 @@ paths:
         response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
         or a browser token gets 403 `human_token_required`; a person who isn't a server
         admin gets 403 `server_admin_required`.
+        Optional boards/pairing are D222 bundled onboarding. When supplied, all
+        authority checks are atomic; unsupported bundled fields return 501 without
+        issuing a partial invite. Existing ordinary invites retain their behavior.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -605,6 +613,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ServerInvite" }
+        "501": { $ref: "#/components/responses/Error" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
@@ -733,6 +742,14 @@ paths:
         Attempts are limited per client address and across the server; over the limit
         returns 429 with `Retry-After`. The response isn't kept for `Idempotency-Key`
         repeats, since it holds a key.
+        With client_token, consume the invite, create the person/key, all bundled
+        ordinary memberships and pairing recipient, and save the nonsecret onboarding
+        outcome atomically. Recheck inviter authority on every board before consumption;
+        a failure creates nothing. Never select an existing account. The original 201
+        secret-returning flow is unchanged when client_token is absent. Recovery uses
+        GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
+        stay uncertain, never authorize a replacement account/key. Until implemented,
+        client_token answers 501 before consuming the invite or creating any resource.
       security: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -742,6 +759,12 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ConnectRequest" }
       responses:
+        "200":
+          description: Client-generated key connected; metadata only, no token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClientConnected" }
+        "501": { $ref: "#/components/responses/Error" }
         "201":
           description: Connected
           content:
@@ -3834,6 +3857,562 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /v1/me/allowance:
+    get:
+      tags: ["onboarding"]
+      operationId: "getAllowance"
+      summary: "Read the person allowance"
+      description: |
+        Person key/browser only. Agents receive 403 human_token_required; reading never changes authority.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Allowance"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+    put:
+      tags: ["onboarding"]
+      operationId: "setAllowance"
+      summary: "Replace the person allowance"
+      description: |
+        Person key/browser only; agents cannot set their own authority. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAllowanceRequest"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Allowance"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/me/approvals:
+    get:
+      tags: ["onboarding"]
+      operationId: "listApprovals"
+      summary: "List administrative approvals"
+      description: |
+        Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. No private board or payload is shown after access ends.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approvals"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/me/admin-requests:
+    post:
+      tags: ["onboarding"]
+      operationId: "requestAdminAction"
+      summary: "Request an exact administrative action"
+      description: |
+        Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminAction"
+      responses:
+        201:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+        202:
+          description: "Held; exact payload retained, no action executed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+  /v1/me/approvals/{approval}/allow:
+    post:
+      tags: ["onboarding"]
+      operationId: "allowApproval"
+      summary: "Allow and execute an exact approval"
+      description: |
+        Only the approving person key/browser. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: "approval"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AllowApprovalRequest"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminActionResult"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/me/approvals/{approval}/decline:
+    post:
+      tags: ["onboarding"]
+      operationId: "declineApproval"
+      summary: "Decline a pending approval"
+      description: |
+        Only the approving person key/browser. Declining a pending request is idempotent. An executed approval cannot be declined.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: "approval"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/me/onboarding:
+    get:
+      tags: ["onboarding"]
+      operationId: "getOnboardingReceipt"
+      summary: "Read this key’s onboarding outcome"
+      description: |
+        Only the client-generated person access key used in the original redemption, not a browser/agent/delegation credential. A positive authenticated response proves the original account step; failures never prove the invite unused. No redirect, key replacement, invite replay or existing-person selection is authorized. Missing receipt returns 404 not_found.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingReceipt"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/pairing-requests:
+    get:
+      tags: ["onboarding"]
+      operationId: "listPairingRequests"
+      summary: "List visible pairing requests"
+      description: |
+        For a fresh zero-seat session the trusted daemon uses its issuer-bound parent key to return only nonsecret own-person pairing progress; the CLI never opens the person client or receives the key. Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingRequests"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: ["onboarding"]
+      operationId: "createPairingRequest"
+      summary: "Request a pairing with a person"
+      description: |
+        Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePairingRequest"
+      responses:
+        201:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingRequest"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/pairing-requests/{pairing}/accept:
+    post:
+      tags: ["onboarding"]
+      operationId: "acceptPairingRequest"
+      summary: "AcceptPairingRequest"
+      description: |
+        Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: "pairing"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptPairingRequest"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingRequest"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/pairing-requests/{pairing}/decline:
+    post:
+      tags: ["onboarding"]
+      operationId: "declinePairingRequest"
+      summary: "DeclinePairingRequest"
+      description: |
+        Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: "pairing"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingRequest"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/pairing-requests/{pairing}/cancel:
+    post:
+      tags: ["onboarding"]
+      operationId: "cancelPairingRequest"
+      summary: "CancelPairingRequest"
+      description: |
+        Only the inviter may cancel. Repeat cancellation is idempotent; ready/declined/expired transitions conflict.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: "pairing"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingRequest"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/pairing-requests/{pairing}/verify:
+    post:
+      tags: ["onboarding"]
+      operationId: "verifyPairingRoundTrip"
+      summary: "VerifyPairingRoundTrip"
+      description: |
+        Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: "pairing"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PairingRoundTrip"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingRequest"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+  /v1/pairing-requests/{pairing}:
+    get:
+      tags: ["onboarding"]
+      operationId: "getPairingRequest"
+      summary: "Read a pairing request"
+      description: |
+        The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
+
+        Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
+
+        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: "pairing"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+            pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+      responses:
+        200:
+          description: "Success"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingRequest"
+        400:
+          $ref: "#/components/responses/Error"
+        401:
+          $ref: "#/components/responses/Error"
+        403:
+          $ref: "#/components/responses/Error"
+        404:
+          $ref: "#/components/responses/Error"
+        409:
+          $ref: "#/components/responses/Error"
+        501:
+          $ref: "#/components/responses/Error"
+
+  /v1/pairing-credentials:
+    post:
+      tags: [onboarding]
+      operationId: createPairingCredential
+      summary: Bind a pairing endpoint to an exact trusted-runtime session
+      description: |
+        Parent person access key only, in the trusted runtime; never a humanClient
+        fallback in an agent CLI. This separate scoped authority leaves D197 unchanged.
+        Select/replace either own endpoint with current-generation CAS and current
+        access/ownership checks. The inviter cannot select the recipient's endpoint.
+        All lifecycle checks and idempotent replays occur in the same transaction.
+        Old runtime credentials cannot report evidence for a new session/generation.
+        The key is never read or returned by a model-facing hook/socket path.
+        Contract-first: 501 not_implemented until the pairing slice is provided.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreatePairingCredential" }
+      responses:
+        "200":
+          description: Selected; endpoint metadata only
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairingCredential" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+
 components:
   securitySchemes:
     bearer:
@@ -4087,8 +4666,14 @@ components:
                 - brief_exists
                 - file_exists
                 - brief_path_reserved
+                - approval_not_found
+                - approval_closed
+                - pairing_not_found
+                - pairing_changed
+                - pairing_closed
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
+            next: { $ref: "#/components/schemas/NextStep" }
             details:
               type: object
               additionalProperties: true
@@ -4132,7 +4717,7 @@ components:
           description: |
             What this server provides beyond the operations every server has, by name, so
             a client checks before using one and says `server_outdated` naming what is
-            missing. Names are only added: `tasks`, `asks`, `lines`, `files`. Absent from
+            missing. Names are only added: `tasks`, `asks`, `lines`, `files`, `onboarding`. Absent from
             servers that don't list features.
           items: { type: string }
         storage:
@@ -4544,6 +5129,16 @@ components:
           minimum: 60
           maximum: 2592000
           description: How long the invite works. Default 604800 (7 days).
+        boards:
+          type: array
+          uniqueItems: true
+          items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+          description: |
+            Optional ordinary-member admissions by immutable board id. Issuer needs
+            current add-member authority for each board at issue and redemption, in
+            addition to invite authority. Hidden boards return only board_not_found;
+            server admin alone grants no access to another private board.
+        pairing: { $ref: "#/components/schemas/InvitePairing" }
     ServerInvite:
       type: object
       required: [id, invite, server_role, expires_at]
@@ -4558,6 +5153,10 @@ components:
           enum: [member]
           description: The role the new person gets. Always `member`.
         expires_at: { $ref: "#/components/schemas/Timestamp" }
+        boards:
+          type: array
+          items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+        pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
     ConnectRequest:
       type: object
       required: [invite, handle, key_name]
@@ -4571,6 +5170,17 @@ components:
           pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
           maxLength: 40
           description: The name of the first access key, usually the machine that keeps it.
+        client_token:
+          type: string
+          pattern: "^abh_[A-Za-z0-9_-]{43}$"
+          writeOnly: true
+          description: |
+            Optional canonical base64url token containing exactly 256 random bits,
+            generated and durably saved mode 0600 by the client before redemption.
+            Bound locally to this issuer and invite. Send over HTTPS (loopback HTTP
+            remains allowed locally); the server derives its HMAC verifier and never
+            logs, caches or returns this token. No client digest acts as a bearer.
+            Supplied token selects the additive 200 ClientConnected response.
     Connected:
       type: object
       required: [server_id, person, key]
@@ -6884,6 +7494,7 @@ components:
               type: object
               required: [before, after, preset_applied]
               properties:
+                authorization: { $ref: "#/components/schemas/AdminAuthorization" }
                 before: { $ref: "#/components/schemas/Policy" }
                 after: { $ref: "#/components/schemas/Policy" }
                 preset_applied:
@@ -6939,6 +7550,7 @@ components:
       description: The person the event is about. Who did it is the event's actor.
       required: [member_id, person_id, name]
       properties:
+        authorization: { $ref: "#/components/schemas/AdminAuthorization" }
         by_owner:
           type: string
           description: In person.added by an agent only, the permanent person id of its owner. The event actor is the agent seat.
@@ -7464,3 +8076,516 @@ components:
           type: integer
           minimum: 0
           nullable: true
+
+    # ---------- D222 onboarding (contract first) ----------
+    NextStep:
+      type: "object"
+      additionalProperties: false
+      required: ["resume"]
+      properties:
+        command:
+          type: "string"
+          description: "An exact, shell-quoted command with actual immutable ids and issuer URL; no placeholders or secrets."
+        board_view:
+          type: "string"
+          description: "The location of the matching card in the board view; absent when no browser action exists."
+        resume:
+          type: "string"
+          description: "The precise harness action or words to resume, and what completes after it."
+      description: |
+        D222 handover alongside the existing hint. Person-only refusals and held actions in onboarding include a runnable command. A command is guidance, never permission.
+    AllowanceCategory:
+      type: "string"
+      enum: ["invite-people", "add-people"]
+    Allowance:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "revision", "person_id", "categories"]
+      properties:
+        id: { type: string, pattern: "^alw_[0-9A-HJKMNP-TV-Z]{26}$" }
+        revision: { type: integer, minimum: 0, description: "Increases on each effective change; execution records freeze the revision used." }
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        categories:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/AllowanceCategory"
+      description: |
+        Per-issuer person allowance, off by default (empty categories). Only ordinary-member admission. Existing D205 board creation remains unchanged. Every use rechecks current person and parent-key authority; turning off prevents future automatic execution, including replay.
+    SetAllowanceRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["categories"]
+      properties:
+        categories:
+          type: "array"
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/AllowanceCategory"
+      description: "Replace the complete category set. No destructive or privilege-raising category is accepted."
+    InvitePairing:
+      type: "object"
+      additionalProperties: false
+      required: ["initiating_agent_id", "work"]
+      properties:
+        initiating_agent_id:
+          type: "string"
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+        work:
+          type: "string"
+          minLength: 1
+          maxLength: 4000
+      description: |
+        Optional pairing proposal riding on an invite. The initiating agent belongs to the inviter and one bundled board; exactly one board must be named when pairing is supplied. Work is untrusted content, not authority.
+    InvitePeopleAction:
+      type: "object"
+      additionalProperties: false
+      required: ["kind", "invite"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["invite_people"]
+        invite:
+          $ref: "#/components/schemas/CreateInviteRequest"
+    AddPeopleAction:
+      type: "object"
+      additionalProperties: false
+      required: ["kind", "board_id", "person_id"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["add_people"]
+        board_id:
+          type: "string"
+          pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+      description: "Adds only an ordinary member. No role field is accepted."
+    SetServerRoleAction:
+      type: "object"
+      additionalProperties: false
+      required: ["kind", "person_id", "role"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["set_server_role"]
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        role:
+          type: string
+          enum: [admin, member]
+    SetBoardRoleAction:
+      type: "object"
+      additionalProperties: false
+      required: ["kind", "board_id", "person_id", "role"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["set_board_role"]
+        board_id:
+          type: "string"
+          pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        role:
+          $ref: "#/components/schemas/BoardRole"
+    RemovePersonAction:
+      type: "object"
+      additionalProperties: false
+      required: ["kind", "person_id"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["remove_person"]
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        board_id:
+          type: "string"
+          pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+      description: |
+        Without board_id removes from the server; with it removes only that board membership. Always requires a one-action approval.
+    RevokeKeyAction:
+      type: "object"
+      additionalProperties: false
+      required: ["kind", "key_id"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["revoke_key"]
+        key_id:
+          type: "string"
+          pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$"
+    SetBoardPolicyAction:
+      type: "object"
+      additionalProperties: false
+      required: ["kind", "board_id", "policy"]
+      properties:
+        kind:
+          type: "string"
+          enum: ["set_board_policy"]
+        board_id:
+          type: "string"
+          pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+        policy:
+          $ref: "#/components/schemas/PolicyChange"
+    AdminAction:
+      oneOf:
+        - $ref: "#/components/schemas/InvitePeopleAction"
+        - $ref: "#/components/schemas/AddPeopleAction"
+        - $ref: "#/components/schemas/SetServerRoleAction"
+        - $ref: "#/components/schemas/SetBoardRoleAction"
+        - $ref: "#/components/schemas/RemovePersonAction"
+        - $ref: "#/components/schemas/RevokeKeyAction"
+        - $ref: "#/components/schemas/SetBoardPolicyAction"
+      description: |
+        Exact closed payload. Names/handles never bind authority; ids are resolved before submission. Only invite_people and add_people can be allowed automatically. Server validation rejects unknown kinds and any extra field, and rechecks existing operation-specific safety constraints.
+    Approval:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "person_id", "agent_id", "parent_key_id", "action", "payload_hash", "state", "created_at"]
+      properties:
+        execution: { $ref: "#/components/schemas/AdminExecution" }
+        id:
+          type: "string"
+          pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$"
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        agent_id:
+          type: "string"
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+        parent_key_id:
+          type: "string"
+          pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$"
+        action:
+          $ref: "#/components/schemas/AdminAction"
+        payload_hash:
+          $ref: "#/components/schemas/Hash"
+        state:
+          type: "string"
+          enum: ["pending", "executed", "declined", "expired"]
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        expires_at:
+          $ref: "#/components/schemas/Timestamp"
+        decided_at:
+          $ref: "#/components/schemas/Timestamp"
+        next:
+          $ref: "#/components/schemas/NextStep"
+      description: |
+        Server-derived immutable owner, requesting agent and parent key; issuer is the server handling the request. payload_hash is SHA-256 of canonical action JSON including all ids. No secret is stored in an approval. Expired requests never execute. A terminal request cannot be modified or executed again.
+    Approvals:
+      type: "object"
+      additionalProperties: false
+      required: ["approvals"]
+      properties:
+        approvals:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Approval"
+    AllowApprovalRequest:
+      type: "object"
+      additionalProperties: false
+      required: []
+      properties:
+        always:
+          type: "boolean"
+          default: false
+      description: |
+        always is invalid_request for every category except invite_people/add_people, even if the person could do the action.
+    AdminActionResult:
+      type: "object"
+      additionalProperties: false
+      required: ["state", "approval"]
+      properties:
+        state:
+          type: "string"
+          enum: ["pending", "executed"]
+        approval:
+          $ref: "#/components/schemas/Approval"
+        next:
+          $ref: "#/components/schemas/NextStep"
+        invite:
+          $ref: "#/components/schemas/ServerInvite"
+      description: |
+        202 is pending with no side effect; 200/201 is executed. Invite secrets appear only on the authenticated execution response, never in stored approval, listings, next or idempotent responses. A repeated executed approval cannot issue another invite or retrieve the old secret.
+    PairingState:
+      type: "string"
+      enum: ["awaiting_account", "awaiting_session", "awaiting_endpoint", "verifying", "ready", "declined", "cancelled", "expired"]
+    PairingEndpoint:
+      type: "object"
+      additionalProperties: false
+      required: ["person_id", "agent_id", "generation", "session_binding"]
+      properties:
+        session_binding:
+          type: string
+          pattern: "^sha256:[0-9a-f]{64}$"
+          description: Issuer-bound trusted-runtime binding to this exact harness conversation; not a process id or activity guess.
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        agent_id:
+          type: "string"
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+        generation:
+          type: "integer"
+          minimum: 1
+      description: |
+        Permanent board-seat identity and server-controlled endpoint generation. The daemon binds this to an exact harness session; recent activity never chooses it. Replacing the runtime session requires a new generation even if the seat id is reused.
+    PairingRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["id", "server_id", "board_id", "inviter_id", "initiating_agent_id", "work", "state", "generation", "created_at", "expires_at"]
+      properties:
+        id:
+          type: "string"
+          pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+        server_id:
+          type: "string"
+          pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$"
+        board_id:
+          type: "string"
+          pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+        inviter_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        initiating_agent_id:
+          type: "string"
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+        recipient_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        invite_id:
+          type: "string"
+          pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        work:
+          type: "string"
+          maxLength: 4000
+        state:
+          $ref: "#/components/schemas/PairingState"
+        generation:
+          type: "integer"
+          minimum: 1
+        initiator:
+          $ref: "#/components/schemas/PairingEndpoint"
+        recipient:
+          $ref: "#/components/schemas/PairingEndpoint"
+        awaiting:
+          type: "string"
+          enum: ["initiator", "recipient", "both"]
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        expires_at:
+          $ref: "#/components/schemas/Timestamp"
+        next:
+          $ref: "#/components/schemas/NextStep"
+      description: |
+        Before redemption invite_id identifies the invitation and state is awaiting_account. After redemption recipient_id identifies its new person. Views require current caller visibility and ownership/participation. No invite secret or token appears here. Ready means both current-generation round trips were verified, not merely that both endpoints were selected.
+    PairingRequests:
+      type: "object"
+      additionalProperties: false
+      required: ["requests"]
+      properties:
+        requests:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/PairingRequest"
+    CreatePairingRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["board_id", "recipient_id", "initiating_agent_id", "work"]
+      properties:
+        board_id:
+          type: "string"
+          pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+        recipient_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        initiating_agent_id:
+          type: "string"
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+        work:
+          type: "string"
+          minLength: 1
+          maxLength: 4000
+      description: |
+        Initiating agent must belong to the authenticated inviter. Same-person requests need no allowance; other-person membership admission needs current inviter add-member authority and allowance/exact approval, unless the recipient self-joins an open board. Proposal text grants no control over another person or agent.
+    AcceptPairingRequest:
+      type: "object"
+      additionalProperties: false
+      required: ["agent_id", "generation"]
+      properties:
+        agent_id:
+          type: "string"
+          pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+        generation:
+          type: "integer"
+          minimum: 1
+      description: |
+        agent_id and generation must equal the authenticated recipient endpoint
+        credential bindings. Conflicts return pairing_changed without mutation.
+        Repeat acceptance of that endpoint is idempotent. Selection/replacement
+        belongs only to createPairingCredential, never this operation.
+    PairingRoundTrip:
+      type: "object"
+      additionalProperties: false
+      required: ["generation", "direction", "ping_seq", "reply_seq", "handoff_id"]
+      properties:
+        handoff_id:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Nonsecret journal handoff confirmed by the selected runtime for this received reply; bound to endpoint credential, generation and message id/seq.
+        generation:
+          type: "integer"
+          minimum: 1
+        direction:
+          type: "string"
+          enum: ["initiator_to_recipient", "recipient_to_initiator"]
+        ping_seq:
+          $ref: "#/components/schemas/Seq"
+        reply_seq:
+          $ref: "#/components/schemas/Seq"
+      description: |
+        Evidence names actual immutable messages on this board. The server verifies sender, exact direct recipient, reply linkage, per-generation correlation and authenticated reporting endpoint. The trusted runtime vouches for this ping being sent by its exact selected session and this reply having a confirmed delivery handoff there; merely finding both sequences in history is not evidence. Both directions must verify under one current generation; no caller-provided ready flag is accepted.
+    OnboardingReceipt:
+      type: "object"
+      additionalProperties: false
+      required: ["server_id", "person_id", "key_id", "invite_id", "handle", "boards"]
+      properties:
+        server_id:
+          type: "string"
+          pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$"
+        person_id:
+          type: "string"
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        key_id:
+          type: "string"
+          pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$"
+        invite_id:
+          type: "string"
+          pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$"
+        handle:
+          $ref: "#/components/schemas/Handle"
+        boards:
+          type: "array"
+          items:
+            type: "string"
+            pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$"
+        pairing_request_id:
+          type: "string"
+          pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+      description: |
+        Nonsecret original redemption outcome bound to the authenticated client-generated key. Original handle is provenance, not a lookup/select-existing-account mechanism. Returned only after checking the key/person still work and current visibility of every board/request. A removed membership is never recreated by recovery; inaccessible entries are omitted.
+    ClientConnected:
+      type: "object"
+      additionalProperties: false
+      required: ["server_id", "person", "key", "onboarding"]
+      properties:
+        server_id:
+          type: "string"
+          pattern: "^srv_[0-9A-HJKMNP-TV-Z]{26}$"
+        person:
+          $ref: "#/components/schemas/Person"
+        key:
+          $ref: "#/components/schemas/ClientKeyMetadata"
+        onboarding:
+          $ref: "#/components/schemas/OnboardingReceipt"
+      description: |
+        200 response only when client_token was supplied. The key is metadata with no token. Legacy redemption without client_token retains its existing 201 Connected response, including its one-time server-generated token.
+
+    AdminAuthorization:
+      type: object
+      additionalProperties: false
+      required: [person_id, agent_id, parent_key_id, via, payload_hash]
+      properties:
+        person_id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
+        agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        parent_key_id: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
+        via: { type: string, enum: [allowance, approval] }
+        allowance_id: { type: string, pattern: "^alw_[0-9A-HJKMNP-TV-Z]{26}$" }
+        allowance_revision: { type: integer, minimum: 0 }
+        approval_id: { type: string, pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$" }
+        payload_hash: { $ref: "#/components/schemas/Hash" }
+      description: |
+        Immutable authorization provenance written with the action, never supplied
+        as authority by a client. via=allowance requires allowance_id and its exact
+        revision; via=approval requires approval_id. Both bind the authorizing person,
+        requesting agent, parent key and canonical action hash. No secret appears here.
+    AdminExecution:
+      type: object
+      additionalProperties: false
+      required: [at, authorization]
+      properties:
+        at: { $ref: "#/components/schemas/Timestamp" }
+        authorization: { $ref: "#/components/schemas/AdminAuthorization" }
+        invite_id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+      description: |
+        Nonsecret immutable execution record, saved with the side effect and approval
+        in one transaction, for automatic allowance actions too. Cannot be overwritten
+        or removed by deciding/replaying an approval. Server-level actions without a
+        board event remain auditable through their terminal approval and execution;
+        listApprovals includes them subject to current owner/access checks. Actions
+        affecting boards also put this authorization in the existing event data,
+        covered by data_hash (the envelope and actor stay unchanged). This adds no new event type or server hash chain.
+
+    CreatePairingCredential:
+      type: object
+      additionalProperties: false
+      required: [request_id, side, agent_id, session_binding, generation, client_token]
+      properties:
+        request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+        side: { type: string, enum: [initiator, recipient] }
+        agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        session_binding: { $ref: "#/components/schemas/Hash" }
+        generation: { type: integer, minimum: 1 }
+        replace: { type: boolean, default: false }
+        client_token:
+          type: string
+          writeOnly: true
+          pattern: "^abp_[A-Za-z0-9_-]{43}$"
+      description: |
+        Trusted runtime supplies the selected exact harness binding, not a model claim.
+        It creates 256 random bits and saves this endpoint token privately before this
+        call. Only the endpoint person's issuer-bound parent access key can mint it;
+        never a seat, browser or D197 delegation token. Server checks that agent is a
+        live seat owned by that person on this request's board and person matches side.
+        generation is the last-read request generation. A competing selection conflicts
+        unless replace is explicit; replacing either side increments generation and
+        revokes both old credentials and all verification evidence, even for a reused
+        seat id. The other side must obtain a fresh credential before verification.
+        Repeating the exact same selection/token is idempotent, not a generation bump.
+    PairingCredential:
+      type: object
+      additionalProperties: false
+      required: [id, request, side, endpoint, expires_at]
+      properties:
+        id: { type: string, pattern: "^pcr_[0-9A-HJKMNP-TV-Z]{26}$" }
+        request: { $ref: "#/components/schemas/PairingRequest" }
+        side: { type: string, enum: [initiator, recipient] }
+        endpoint: { $ref: "#/components/schemas/PairingEndpoint" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+      description: |
+        Nonsecret metadata. The server stores only its keyed HMAC verifier; the secret
+        is never returned, logged, cached or placed on the control socket/hooks/model.
+        The daemon holds it for the selected runtime only. Bound to issuer, parent key,
+        person, request, side, seat, exact session binding and current generation.
+        It expires after 10 minutes or earlier with parent revocation/expiry, removal,
+        endpoint replacement or terminal request. It grants only getPairingRequest,
+        acceptPairingRequest and verifyPairingRoundTrip for this one request; every
+        other operation refuses. It cannot invite, change allowances, add people or
+        post arbitrary messages. Its valid possession authenticates the runtime's
+        confirmation report, not a permanent seat token claiming a new generation.
+
+    ClientKeyMetadata:
+      allOf:
+        - $ref: "#/components/schemas/AccessKey"
+        - type: object
+          not:
+            required: [token]
+      description: Access-key metadata that must not contain a token property.

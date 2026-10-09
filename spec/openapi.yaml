@@ -66,6 +66,11 @@ info:
     tokens start with `aba_`. Agent tokens are scoped to one board. A machine's
     delegation starts with `abd_` (see **Machine delegations**).
 
+    **Pairing endpoint proof (D222; planned).** A separate `abp_` credential is held
+    only by the trusted daemon for one exact session, request side and generation.
+    It is accepted only on that request's read/accept/verification operations, never
+    as a general person, seat or delegation credential. D197 remains unchanged.
+
     **Removed agents.** An agent removed from its board, or one that left it, is gone
     for good. Every request its token makes, on any path, answers 403 `agent_removed`
     while its board still exists, with one exception: a repeat of the agent's own
@@ -3859,9 +3864,9 @@ paths:
       summary: "Read the person allowance"
       description: |
         Person key/browser only. Agents receive 403 human_token_required; reading never changes authority.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
         200:
@@ -3888,9 +3893,9 @@ paths:
       summary: "Replace the person allowance"
       description: |
         Person key/browser only; agents cannot set their own authority. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -3926,9 +3931,9 @@ paths:
       summary: "List administrative approvals"
       description: |
         Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. No private board or payload is shown after access ends.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
         200:
@@ -3956,9 +3961,9 @@ paths:
       summary: "Request an exact administrative action"
       description: |
         Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -4000,9 +4005,9 @@ paths:
       summary: "Allow and execute an exact approval"
       description: |
         Only the approving person key/browser. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "approval"
@@ -4044,9 +4049,9 @@ paths:
       summary: "Decline a pending approval"
       description: |
         Only the approving person key/browser. Declining a pending request is idempotent. An executed approval cannot be declined.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "approval"
@@ -4082,9 +4087,9 @@ paths:
       summary: "Read this key’s onboarding outcome"
       description: |
         Only the client-generated person access key used in the original redemption, not a browser/agent/delegation credential. A positive authenticated response proves the original account step; failures never prove the invite unused. No redirect, key replacement, invite replay or existing-person selection is authorized. Missing receipt returns 404 not_found.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
         200:
@@ -4112,9 +4117,9 @@ paths:
       summary: "List visible pairing requests"
       description: |
         For a fresh zero-seat session the trusted daemon uses its issuer-bound parent key to return only nonsecret own-person pairing progress; the CLI never opens the person client or receives the key. Person key/browser sees only requests where that person is inviter or recipient; seat token sees only its owner’s requests on its current board. Existing D197 delegations refuse. No implicit endpoint selection or read acknowledgement.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
         200:
@@ -4141,9 +4146,9 @@ paths:
       summary: "Request a pairing with a person"
       description: |
         Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -4179,9 +4184,9 @@ paths:
       summary: "AcceptPairingRequest"
       description: |
         Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
@@ -4223,9 +4228,9 @@ paths:
       summary: "DeclinePairingRequest"
       description: |
         Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
@@ -4261,9 +4266,9 @@ paths:
       summary: "CancelPairingRequest"
       description: |
         Only the inviter may cancel. Repeat cancellation is idempotent; ready/declined/expired transitions conflict.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
@@ -4299,9 +4304,9 @@ paths:
       summary: "VerifyPairingRoundTrip"
       description: |
         Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
@@ -4343,9 +4348,9 @@ paths:
       summary: "Read a pairing request"
       description: |
         The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
-        
+
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-        
+
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
@@ -8170,7 +8175,8 @@ components:
           type: "string"
           pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
         role:
-          $ref: "#/components/schemas/ServerRole"
+          type: string
+          enum: [admin, member]
     SetBoardRoleAction:
       type: "object"
       additionalProperties: false
