@@ -2076,7 +2076,9 @@ $defs:
   # ---------- aboard resume <agent> [--board NAME] ----------
   ResumeOutput:
     description: |
-      Binds the current session to an existing agent on this machine. Its unread messages
+      Binds the current session to an existing agent on this machine. Optional --server
+      NAME|URL selects its saved issuer before resolving the agent name; no login is
+      read or moved. Its unread messages
       and any bundle left unconfirmed are delivered to this session. A session bound to
       another agent moves to this one (see PreviousAgent). Text output:
         Resumed reviewer on writer-reviewer in this session.
@@ -4143,7 +4145,13 @@ $defs:
           required: [server, agents]
           properties:
             server: { type: string }
-            error: { $ref: openapi.yaml#/components/schemas/Error }
+            error:
+              type: object
+              required: [code, message, hint]
+              properties:
+                code: { type: string }
+                message: { type: string }
+                hint: { type: string }
             agents:
               type: array
               items:
