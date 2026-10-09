@@ -15,7 +15,7 @@ import (
 // With only ABOARD_AGENT set, outside any harness session, a command that is up to a
 // person refuses with human_command_in_session before it reads the person's key or
 // sends anything: ABOARD_AGENT is how an agent's environment says who it is.
-// Board add now selects that agent; without its saved seat it refuses locally too.
+// Board additions and server invitations select that agent and refuse locally without a seat.
 func TestPersonCommandsRefuseUnderABOARDAGENT(t *testing.T) {
 	t.Parallel()
 	var hits atomic.Int64
@@ -55,6 +55,12 @@ func TestPersonCommandsRefuseUnderABOARDAGENT(t *testing.T) {
 			want := "human_command_in_session"
 			if args[0] == "board" && args[1] == "add" {
 				want = "agent_not_selected"
+			}
+			if args[0] == "invite" && len(args) > 1 && args[1] == "--server" {
+				want = "agent_session_required"
+				if field(t, r.json(t), "error.next.command") != "aboard help join" {
+					t.Fatalf("missing join handover: %s", r)
+				}
 			}
 			if r.code != 1 || errorCode(t, r.json(t)) != want {
 				t.Fatalf("%v with ABOARD_AGENT set:\n%s", args, r)
