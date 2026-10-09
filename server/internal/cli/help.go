@@ -950,7 +950,7 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "serve", Group: groupInternal,
 			Summary: "Run the local server, or a team server, in the foreground",
-			Usage:   []string{"aboard serve [--files disk:///PATH]", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE] [--files disk:///PATH]"},
+			Usage:   []string{"aboard serve [--files disk:///PATH] [--test-server]", "aboard serve --team --public-url URL --data DIR [--listen ADDR] [--admin HANDLE] [--files disk:///PATH] [--test-server]"},
 			Description: "Runs the local server in the foreground until it is stopped. " +
 				"aboard up and other commands start it in the background this way; use aboard up instead. " +
 				"With --team it runs a team server behind a proxy that ends HTTPS, such as a container behind an ingress. " +
@@ -959,6 +959,7 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--files", "URL", "Disk blob storage: disk:///absolute/path, or ABOARD_FILES. Default: files under the data folder."},
 				{"--team", "", "Run a team server instead of the local one."},
+				{"--test-server", "", "Temporary test servers only: raise join and connect limits to 10000/minute and warn at startup. Also ABOARD_TEST_SERVER=true; the explicit flag wins. Never use on a deployed team server."},
 				{"--public-url", "URL", "With --team: the https address people use, such as https://aboard.example.com. Only requests for its host are answered."},
 				{"--data", "DIR", "With --team: the folder for the database, files and backups, on a disk of its own, never a network file system. It must be this user's alone (mode 700, no links); the server makes it so when it is new."},
 				{"--listen", "ADDR", "With --team: the address to listen on. Default: 0.0.0.0:7400."},

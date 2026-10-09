@@ -106,6 +106,18 @@
 #   -wal and -shm), server.pid, admin-key, admin-key.pending or bootstrap.lock in it is
 #   a link, another user's or readable by others. Plain `aboard serve` is unchanged and
 #   ignores those variables.
+# - Temporary test servers may opt in with `aboard serve --test-server` (also with
+#   --team), or ABOARD_TEST_SERVER=true. The flag wins over the variable, including
+#   --test-server=false. An invalid boolean variable refuses before opening state
+#   with invalid_request (exit 2). Opt-in raises only POST /v1/join per-address and
+#   POST /v1/connect (also guest-join) per-address/server limits to 10000 per minute;
+#   authentication, sign-in limits, permissions and durability do not change.
+#   Startup logs {"msg":"test rate limits enabled","joins_per_minute":10000,
+#   "connects_per_minute":10000,"connects_per_minute_server":10000}. Defaults stay
+#   30/10/60 without opt-in. Use only for an isolated test server, never a deployed
+#   team server. `make load` opts in only for the local server it creates; targeting
+#   a remote server never changes its configuration. A temporary remote test app
+#   must opt in in its own startup environment.
 # - Certificates: every command that talks to a server trusts, besides the system's
 #   roots, the PEM certificates in SSL_CERT_FILE when it is set, on every platform.
 # - Board for agent commands (say, inbox, read, react, task, ask, working, paused, file, brief; a task reference also names its board among the session's seats): the board of the agent they act as.

@@ -15,9 +15,19 @@ make load LOAD_ARGS='--people 2 --agents 2 --boards 2 --rounds 2'
 
 The tool builds the real binary unless `--binary` names one. `--timeout` bounds the
 whole run, including setup. Public invites and joins provision the topology. Rate
-limits stay unchanged; a 429 waits for Retry-After. Setup is timed separately and
-excluded from latency samples. With one loopback source, 500 joins can take about
-17 minutes under the 30-per-minute join limit. The default timeout is 30 minutes.
+limits stay unchanged on production servers. The owned local test server starts
+with `serve --test-server`, raising only join/connect limits to 10000 per minute.
+Startup warns with each raised limit; authentication and permissions remain intact.
+Setup is timed separately and excluded from latency samples. Reports retain
+`setup_throttled_requests` plus join/connect/other retry counts in
+`throttled_requests_by_kind`, without URLs, keys or request bodies. A 429 still waits for
+Retry-After. The default timeout is 30 minutes.
+
+For a new temporary remote test app, add `ABOARD_TEST_SERVER = "true"` to its own
+`[env]` configuration before deployment. Never set it on the deployed team server.
+The remote load client cannot change server settings. Without this opt-in, 500
+joins from one address can still spend about 17 minutes under the production
+30-per-minute limit. The normal Fly deployment recipe retains production defaults.
 
 `--writers N --writes-per-writer N` adds a separate concurrent-writer phase after
 delivery verification. The defaults are sixteen writers and ten messages each;

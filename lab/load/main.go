@@ -12,6 +12,12 @@ import (
 	"time"
 )
 
+type throttleKinds struct {
+	Join    int64 `json:"join"`
+	Connect int64 `json:"connect"`
+	Other   int64 `json:"other"`
+}
+
 type (
 	options struct {
 		Binary, Server, AdminKeyFile   string
@@ -31,6 +37,8 @@ type (
 		Deliveries        int                 `json:"deliveries"`
 		VerifiedChains    int                 `json:"verified_chains"`
 		Throttles         int                 `json:"throttled_requests"`
+		SetupThrottles    int64               `json:"setup_throttled_requests"`
+		ThrottleKinds     throttleKinds       `json:"throttled_requests_by_kind"`
 		Setup             float64             `json:"setup_seconds"`
 		Measurement       float64             `json:"measurement_seconds"`
 		Throughput        float64             `json:"successful_posts_per_second"`
