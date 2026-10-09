@@ -580,6 +580,30 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
 
   /v1/invites:
+    get:
+      tags: [people]
+      operationId: listServerInvites
+      summary: List your outstanding invitations
+      description: |
+        Person access key only. Lists invitations issued by this person or their
+        agents, including expired and revoked ones, without any invite secret.
+        Agents and browsers get human_token_required with next.command. Losing
+        admin authority does not prevent inspecting or revoking your own invites.
+        Board ids are included only while currently visible; private names never
+        appear. Issuing agent and parent key are immutable provenance, not authority.
+      responses:
+        "501": { $ref: "#/components/responses/Error" }
+        "200":
+          description: Your invitation metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerInvites" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403":
+          description: Person access key required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
     post:
       tags: [people]
       operationId: createServerInvite
@@ -597,9 +621,16 @@ paths:
         response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
         or a browser token gets 403 `human_token_required`; a person who isn't a server
         admin gets 403 `server_admin_required`.
-        Optional boards/pairing are D222 bundled onboarding. When supplied, all
-        authority checks are atomic; unsupported bundled fields return 501 without
-        issuing a partial invite. Existing ordinary invites retain their behavior.
+        Optional boards and pairing bundle ordinary memberships and proposed work.
+        All authority checks are atomic; a refused bundle issues no partial invite.
+        Existing ordinary invites retain their behavior.
+        Turning an allowance off stops new issuance only. An issued agent invite
+        ends when its issuing seat, parent key or person is removed/revoked; retain
+        their immutable bindings and recheck them at redemption. Only unredeemed
+        invitations are cancelled: people and memberships already created remain,
+        and removing the issuing agent never removes those people or memberships.
+        Inviter admin and
+        each board's add-member authority are also current at redemption.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -617,6 +648,41 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /v1/invites/{invite}:
+    delete:
+      tags: [people]
+      operationId: revokeServerInvite
+      summary: Revoke your invitation
+      description: |
+        Person access key only; agents and browsers get human_token_required with
+        next.command. Revoke only an invitation issued by this person or their
+        agents, in one transaction. Missing and another person's id are the same
+        invite_not_found. Revocation is idempotent, contains no secret, and prevents
+        redemption immediately. It does not remove an already connected account.
+        Recheck current ownership on idempotent replay. Admin role is not required
+        to reduce your own outstanding invitation authority.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: invite
+          in: path
+          required: true
+          schema: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+      responses:
+        "501": { $ref: "#/components/responses/Error" }
+        "200":
+          description: Nonsecret revocation receipt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerInviteRevocation" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403":
+          description: Person access key required
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /v1/keys:
     get:
@@ -748,8 +814,9 @@ paths:
         a failure creates nothing. Never select an existing account. The original 201
         secret-returning flow is unchanged when client_token is absent. Recovery uses
         GET /v1/me/onboarding with the saved token only; spent-invite and failed auth
-        stay uncertain, never authorize a replacement account/key. Until implemented,
-        client_token answers 501 before consuming the invite or creating any resource.
+        stay uncertain, never authorize a replacement account/key. Older servers
+        that do not support client_token answer 501 before consuming the invite or
+        creating any resource.
       security: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -4713,6 +4780,7 @@ components:
                 - host_not_allowed
                 - server_admin_required
                 - invite_invalid
+                - invite_not_found
                 - handle_taken
                 - handle_invalid
                 - key_name_taken
@@ -5248,6 +5316,38 @@ components:
             addition to invite authority. Hidden boards return only board_not_found;
             server admin alone grants no access to another private board.
         pairing: { $ref: "#/components/schemas/InvitePairing" }
+    ServerInvites:
+      type: object
+      additionalProperties: false
+      required: [invites]
+      properties:
+        invites:
+          type: array
+          items: { $ref: "#/components/schemas/ServerInviteMetadata" }
+    ServerInviteMetadata:
+      type: object
+      additionalProperties: false
+      required: [id, created_at, expires_at, state, boards]
+      properties:
+        id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+        created_at: { $ref: "#/components/schemas/Timestamp" }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+        state: { type: string, enum: [active, expired, revoked, redeemed] }
+        boards:
+          type: array
+          items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+        issuing_agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        parent_key_id: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
+        pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+    ServerInviteRevocation:
+      type: object
+      additionalProperties: false
+      required: [id, revoked, changed]
+      properties:
+        id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+        revoked: { type: boolean, enum: [true] }
+        changed: { type: boolean }
+
     ServerInvite:
       type: object
       required: [id, invite, server_role, expires_at]

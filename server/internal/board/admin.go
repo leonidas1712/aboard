@@ -159,9 +159,6 @@ func (s *Service) adminBoard(tx ReadTx, p Principal, id string) (Board, Member, 
 }
 
 func (s *Service) validateAdmin(tx ReadTx, owner Principal, a AdminAction) error {
-	if a.Invite != nil && (a.Invite.Boards != nil || a.Invite.Pairing != nil) {
-		return apierr.New(http.StatusNotImplemented, "not_implemented", "Bundled invites are not implemented yet.", "Create an ordinary invite instead.")
-	}
 	now := stamp(s.clk.Now())
 	switch a.Kind {
 	case "invite_people":
@@ -173,8 +170,13 @@ func (s *Service) validateAdmin(tx ReadTx, owner Principal, a AdminAction) error
 				return adminInvalid("Invalid invite lifetime.", "Use 60 to 2592000 seconds.")
 			}
 		}
-		_, err := requireServerAdmin(tx, owner, now, "invite people")
-		return err
+		if _, err := requireServerAdmin(tx, owner, now, "invite people"); err != nil {
+			return err
+		}
+		if err := s.inviteBoards(tx, owner, a.Invite.Boards); err != nil {
+			return err
+		}
+		return s.validateInvitePairing(tx, owner, *a.Invite)
 	case "add_people", "set_board_role", "set_board_policy":
 		b, me, err := s.adminBoard(tx, owner, a.BoardID)
 		if err != nil {
@@ -348,6 +350,11 @@ func (s *Service) requestAdminTx(ctx context.Context, tx Tx, p Principal, action
 	if err != nil {
 		return AdminActionResult{}, err
 	}
+	if action.Invite != nil {
+		if err := s.validateInvitePairing(tx, p, *action.Invite); err != nil {
+			return AdminActionResult{}, err
+		}
+	}
 	hash, err := actionHash(action)
 	if err != nil {
 		return AdminActionResult{}, err
@@ -398,7 +405,7 @@ func (s *Service) requestAdminTx(ctx context.Context, tx Tx, p Principal, action
 	}
 	approval := Approval{ID: id, PersonID: owner.Human.ID, AgentID: m.ID, ParentKeyID: p.KeyID, Action: action, PayloadHash: hash, State: "pending", CreatedAt: stamp(now), RequestKey: key}
 	out := AdminActionResult{State: "pending", Approval: approval}
-	if cat := actionCategory(action); cat != "" && slices.Contains(allowance.Categories, cat) {
+	if s.adminAllowanceCovers(tx, p, action, allowance) {
 		auth := AdminAuthorization{PersonID: approval.PersonID, AgentID: m.ID, ParentKeyID: p.KeyID, Via: "allowance", AllowanceID: allowance.ID, AllowanceRevision: allowance.Revision, PayloadHash: hash}
 		invite, err := s.executeAdminTx(ctx, tx, owner, m, action, auth, notes)
 		if err != nil {
@@ -456,6 +463,17 @@ func (s *Service) approvalVisible(tx ReadTx, p Principal, a Approval) error {
 		}
 		if _, _, _, err := s.see(tx, p, b.Name); err != nil {
 			return approvalMissing()
+		}
+	}
+	if a.Action.Invite != nil {
+		for _, id := range a.Action.Invite.Boards {
+			b, err := tx.BoardByID(id)
+			if err != nil {
+				return approvalMissing()
+			}
+			if _, _, _, err := s.see(tx, p, b.Name); err != nil {
+				return approvalMissing()
+			}
 		}
 	}
 	if a.Action.Kind == "revoke_key" {
@@ -618,6 +636,13 @@ func adminActionShape(a AdminAction) error {
 // Replay checks current authority without requiring the completed side effect to be
 // possible again (for example, a removed person no longer has a live membership).
 func (s *Service) adminReplayAuthority(tx ReadTx, owner Principal, a AdminAction) error {
+	if a.Kind == "invite_people" {
+		if _, err := requireServerAdmin(tx, owner, stamp(s.clk.Now()), "invite people"); err != nil {
+			return err
+		}
+		return s.inviteBoards(tx, owner, a.Invite.Boards)
+	}
+
 	if a.Kind == "invite_people" || a.Kind == "set_server_role" || a.Kind == "remove_person" && a.BoardID == "" {
 		_, err := requireServerAdmin(tx, owner, stamp(s.clk.Now()), "perform this administrative action")
 		return err

@@ -370,7 +370,6 @@ func TestPersonCommandsRefuseWhenActingForAnAgent(t *testing.T) {
 		{"approve", "AAA-AAA", "--yes", "--server", counter},
 		{"approve", "AAA-AAA", "--refuse", "--server", counter},
 		{"connect", counter},
-		{"connect", counter + "/join#abi_x"},
 		{"login", counter},
 		{"keys", "--server", counter},
 		{"keys", "create", "x", "--server", counter},

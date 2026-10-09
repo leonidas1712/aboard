@@ -136,20 +136,30 @@ func (t *tx) NameUnnamedKeys(name string) error {
 	return t.exec("UPDATE access_keys SET name = ? WHERE name = ''", name)
 }
 
-const serverInviteColumns = "id, digest, created_by, created_at, expires_at, used_at, used_by"
+const serverInviteColumns = "id, digest, created_by, created_at, expires_at, used_at, used_by, boards, parent_key_id, issuing_agent_id, authorization, revoked_at"
 
 // InsertServerInvite adds a server invite.
 func (t *tx) InsertServerInvite(i board.ServerInvite) error {
-	return t.exec("INSERT INTO server_invites ("+serverInviteColumns+") VALUES (?, ?, ?, ?, ?, ?, ?)",
-		i.ID, i.Digest, i.CreatedBy, i.CreatedAt, i.ExpiresAt, i.UsedAt, i.UsedBy)
+	boards, err := json.Marshal(i.Boards)
+	if err != nil {
+		return err
+	}
+	var authorization *string
+	if i.Authorization != nil {
+		raw, err := json.Marshal(i.Authorization)
+		if err != nil {
+			return err
+		}
+		value := string(raw)
+		authorization = &value
+	}
+	return t.exec("INSERT INTO server_invites ("+serverInviteColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?)",
+		i.ID, i.Digest, i.CreatedBy, i.CreatedAt, i.ExpiresAt, i.UsedAt, i.UsedBy, boards, i.ParentKeyID, i.IssuingAgentID, authorization, i.RevokedAt)
 }
 
 // ServerInviteByDigest finds a server invite by the digest of its secret.
 func (t *tx) ServerInviteByDigest(digest string) (board.ServerInvite, error) {
-	var i board.ServerInvite
-	err := t.queryRow("SELECT "+serverInviteColumns+" FROM server_invites WHERE digest = ?", digest).
-		Scan(&i.ID, &i.Digest, &i.CreatedBy, &i.CreatedAt, &i.ExpiresAt, &i.UsedAt, &i.UsedBy)
-	return i, notFound(err)
+	return scanServerInvite(t.queryRow("SELECT "+serverInviteColumns+" FROM server_invites WHERE digest = ?", digest))
 }
 
 // UseServerInvite marks an unused invite used, and reports whether it was unused.
@@ -717,4 +727,28 @@ func (t *tx) RenameHuman(id, name string) error {
 		return err
 	}
 	return t.exec("UPDATE members SET owner = ? WHERE human_id = ? AND kind = 'agent'", name, id)
+}
+
+func scanServerInvite(row interface{ Scan(...any) error }) (board.ServerInvite, error) {
+	var i board.ServerInvite
+	var boards string
+	var parent, agent, authorization *string
+	err := row.Scan(&i.ID, &i.Digest, &i.CreatedBy, &i.CreatedAt, &i.ExpiresAt, &i.UsedAt, &i.UsedBy, &boards, &parent, &agent, &authorization, &i.RevokedAt)
+	if err != nil {
+		return i, notFound(err)
+	}
+	err = json.Unmarshal([]byte(boards), &i.Boards)
+	if err != nil {
+		return i, err
+	}
+	if parent != nil {
+		i.ParentKeyID = *parent
+	}
+	if agent != nil {
+		i.IssuingAgentID = *agent
+	}
+	if authorization != nil {
+		err = json.Unmarshal([]byte(*authorization), &i.Authorization)
+	}
+	return i, err
 }

@@ -87,6 +87,13 @@ func nonNil[T any](s []T) []T {
 func helpText(templates string) []commandHelp {
 	return []commandHelp{
 		{
+			Name: "setup", Group: groupStart, Summary: "Set up an invited account and report what still needs you",
+			Usage:       []string{"aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE] [--server SERVER] [--json]"},
+			Description: "An invite is consent to create a new account, including inside an agent session. Setup saves its machine-held proof before redeeming, then confirms the original account with that same proof. A lost response remains uncertain until the original key authenticates; setup never creates a replacement account or selects an existing one. No key or invite secret is printed.\n\nThe report has six steps: installed, account, memberships, harness, pairing and delivery. Harness trust and restart need your confirmation. When an accessible pairing request is present, setup accepts it in this trusted current session. Only the verified current-generation round trips mark delivery complete; file installation alone never proves delivery. Continue Aboard setup after the stated next step.",
+			Flags:       []helpFlag{{"--handle", "HANDLE", "Your visible name on the inviting server."}, {"--name", "MACHINE", "This machine's key name."}, {"--server", "SERVER", "The issuer of the pairing request; never overrides an invite's issuer."}, flagJSON},
+			Examples:    []helpExample{{"aboard setup https://team.example.com/join#abi_CODE --handle teammate", "Set up the new account named in the invitation."}}, SeeAlso: []string{"connect", "init", "invite"},
+		},
+		{
 			Name: "pairing", Group: groupStart,
 			Summary:     "Propose work and pair two exact agent sessions",
 			Usage:       []string{pairingUsage},
@@ -613,17 +620,20 @@ func helpText(templates string) []commandHelp {
 			Usage: []string{
 				"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] [--json]",
-				"aboard invite --server [<server URL>] [--ttl DURATION] [--json]",
+				"aboard invite --server [<server URL>] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]",
+				"aboard invite list [--server SERVER] [--json]",
+				"aboard invite revoke ID [--server SERVER] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
-				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin.\n\n" +
+				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. list shows your own invitation metadata without secrets; revoke ends one invitation.\n\n" +
 				"An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--pairing", "WORK", "Propose work with this verified current session; requires one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
 				{"--server", "[URL]", "Invite a person to a server: the one named after the flag, else the one this directory's .aboard names, else this machine's default server, else the only one it knows."},
 				flagJSON,
