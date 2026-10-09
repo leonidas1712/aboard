@@ -13,7 +13,7 @@ func TestPairingNonmemberWaitsForItsExactAdmissionApproval(t *testing.T) {
 	s := newTestServer(t)
 	ctx := context.Background()
 	name := s.newBoard()
-	a, at := s.joinAs(s.owner, name, "writer", "")
+	a, at := pairingAdmissionSeat(t, s, name)
 	seat := s.memberNamed(at, name, a)
 	maya := s.addHuman("maya")
 	me, err := s.client(maya).GetMeWithResponse(ctx)
@@ -41,15 +41,16 @@ func TestPairingNonmemberWaitsForItsExactAdmissionApproval(t *testing.T) {
 	for _, approval := range approvals.JSON200.Approvals {
 		action, e := approval.Action.AsAddPeopleAction()
 		if e == nil && action.Kind == "add_people" && action.BoardId == b.JSON200.Id && action.PersonId == me.JSON200.Id {
-			copy := approval
-			exact = &copy
+			matched := approval
+			exact = &matched
 		}
 	}
 	if exact == nil || exact.State != "pending" || !strings.Contains(created.JSON201.Next.Command, exact.Id) {
 		t.Fatalf("missing exact pending admission approval: %s / %s", created.Body, approvals.Body)
 	}
-	denied, err := s.client(maya).CreatePairingCredentialWithResponse(ctx, nil, api.CreatePairingCredential{RequestId: created.JSON201.Id, Side: "recipient", AgentId: seat.Id, SessionBinding: "sha256:" + strings.Repeat("a", 64), Generation: 1})
-	if err != nil || denied.StatusCode() < 400 {
+	token := "abp_" + strings.Repeat("p", 43)
+	denied, err := s.client(s.owner).CreatePairingCredentialWithResponse(ctx, nil, api.CreatePairingCredential{RequestId: created.JSON201.Id, Side: "initiator", AgentId: seat.Id, SessionBinding: "sha256:" + strings.Repeat("a", 64), Generation: 1, ClientToken: &token})
+	if err != nil || denied.StatusCode() != 409 {
 		t.Fatalf("unadmitted recipient minted an endpoint: %v %s", err, denied.Body)
 	}
 	allowed, err := s.client(s.owner).AllowApprovalWithResponse(ctx, exact.Id, nil, api.AllowApprovalRequest{})
@@ -69,6 +70,12 @@ func TestPairingNonmemberWaitsForItsExactAdmissionApproval(t *testing.T) {
 	if repeated.JSON201.Id != created.JSON201.Id {
 		t.Fatal("replay created another pairing")
 	}
+	finalApprovals, err := s.client(s.owner).ListApprovalsWithResponse(ctx)
+	mustStatus(t, finalApprovals, err, 200)
+	if len(finalApprovals.JSON200.Approvals) != len(approvals.JSON200.Approvals) {
+		t.Fatal("pairing replay created another admission approval")
+	}
+
 }
 
 func TestPairingAllowanceAdmitsTheRecipientWithoutSelectingTheirSession(t *testing.T) {
@@ -76,7 +83,7 @@ func TestPairingAllowanceAdmitsTheRecipientWithoutSelectingTheirSession(t *testi
 	s := newTestServer(t)
 	ctx := context.Background()
 	name := s.newBoard()
-	a, at := s.joinAs(s.owner, name, "writer", "")
+	a, at := pairingAdmissionSeat(t, s, name)
 	seat := s.memberNamed(at, name, a)
 	maya := s.addHuman("maya")
 	me, err := s.client(maya).GetMeWithResponse(ctx)
@@ -111,7 +118,7 @@ func TestPairingAdmissionCannotResumeAfterCancellationOrInitiatorRemoval(t *test
 			s := newTestServer(t)
 			ctx := context.Background()
 			name := s.newBoard()
-			a, at := s.joinAs(s.owner, name, "writer", "")
+			a, at := pairingAdmissionSeat(t, s, name)
 			seat := s.memberNamed(at, name, a)
 			maya := s.addHuman("maya")
 			me, err := s.client(maya).GetMeWithResponse(ctx)
@@ -146,4 +153,12 @@ func TestPairingAdmissionCannotResumeAfterCancellationOrInitiatorRemoval(t *test
 			}
 		})
 	}
+}
+
+func pairingAdmissionSeat(t *testing.T, s *testServer, name string) (agentName, token string) {
+	t.Helper()
+	role, harness, session := "writer", "codex", "codex:pairing-admission"
+	joined, err := s.client(s.owner).JoinWithResponse(context.Background(), nil, api.JoinRequest{Board: &name, Role: &role, Harness: &harness, Session: &session})
+	mustStatus(t, joined, err, 201)
+	return joined.JSON201.Agent.Name, joined.JSON201.Token
 }

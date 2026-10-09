@@ -58,6 +58,10 @@ func (h *handlers) pairingOf(ctx context.Context, r board.PairingRequest) map[st
 				resume = "Run this in the exact agent session you want to pair, then resume the proposed work after pairing reports ready."
 			}
 		}
+		if r.AdmissionApprovalID != "" && r.State == "awaiting_endpoint" {
+			command = "aboard approvals allow " + r.AdmissionApprovalID + " --server '" + issuer + "'"
+			resume = "The requesting agent's person must decide this exact admission. Then resume the same pairing request."
+		}
 		out["next"] = map[string]any{"command": command, "resume": resume}
 	}
 	return out

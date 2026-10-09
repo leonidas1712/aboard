@@ -34,6 +34,7 @@ type PairingRequest struct {
 	Accepted                                                                   bool
 	Creation                                                                   PairingCreation
 	InitialState                                                               string
+	AdmissionApprovalID                                                        string
 	Forward, Reverse                                                           *PairingEvidence
 }
 
@@ -149,6 +150,34 @@ func (s *Service) pairingView(tx ReadTx, p Principal, id string, active bool) (P
 			return PairingRequest{}, err
 		}
 	}
+	if r.AdmissionApprovalID != "" && !pairingTerminal(r) {
+		a, err := tx.Approval(r.AdmissionApprovalID)
+		if err != nil || a.Action.Kind != "add_people" || a.Action.BoardID != r.BoardID || a.Action.PersonID != r.RecipientID || a.PersonID != r.InviterID || a.AgentID != r.InitiatingAgentID {
+			return PairingRequest{}, pairingNotFound()
+		}
+		requester, err := s.frozenAgent(tx, a)
+		if err != nil {
+			return PairingRequest{}, err
+		}
+		owner, _, err := s.adminOwner(tx, requester)
+		if err != nil {
+			return PairingRequest{}, err
+		}
+		if err := s.validateAdmin(tx, owner, a.Action); err != nil {
+			return PairingRequest{}, err
+		}
+		if a.State == "executed" && a.Execution != nil {
+			member, err := tx.HumanMember(r.BoardID, r.RecipientID)
+			if err != nil || member.Status != StatusActive {
+				return PairingRequest{}, pairingNotFound()
+			}
+			if r.State == "awaiting_endpoint" {
+				r.State = "awaiting_session"
+			}
+		} else {
+			r.State = "awaiting_endpoint"
+		}
+	}
 	if r.ExpiresAt <= stamp(s.clk.Now()) && !pairingTerminal(r) {
 		r.State = "expired"
 	}
@@ -158,6 +187,7 @@ func (s *Service) pairingView(tx ReadTx, p Principal, id string, active bool) (P
 // CreatePairing proposes work to an existing ordinary member without selecting their session.
 func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recipientID, agentID, work string, creation PairingCreation) (PairingRequest, error) {
 	var out PairingRequest
+	var admission AdminActionResult
 	if work == "" || !utf8.ValidString(work) || utf8.RuneCountInString(work) > 4000 {
 		return out, invalid("A pairing needs work of at most 4000 characters.", "Describe the work to do together.")
 	}
@@ -199,10 +229,8 @@ func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recip
 			return guestNotAllowed("request pairing with a guest")
 		}
 		membership, err := tx.HumanMember(b.ID, recipientID)
-		if errors.Is(err, ErrNotFound) || err == nil && membership.Status != StatusActive {
-			return pairingError(403, "forbidden", "The recipient must first join this board through an authorized admission.")
-		}
-		if err != nil {
+		needsAdmission := errors.Is(err, ErrNotFound) || err == nil && membership.Status != StatusActive
+		if err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
 		now := s.clk.Now()
@@ -242,8 +270,21 @@ func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recip
 			return err
 		}
 		out = PairingRequest{ID: id, ServerID: s.cfg.ServerID, BoardID: b.ID, InviterID: person.ID, InitiatingAgentID: agentID, RecipientID: recipientID, Work: work, State: "awaiting_session", InitialState: "awaiting_session", Creation: creation, Generation: 1, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(7 * 24 * time.Hour))}
+		if needsAdmission {
+			admission, err = s.RequestAddPersonTx(ctx, tx, p, b.ID, recipientID)
+			if err != nil {
+				return err
+			}
+			if admission.State == "pending" {
+				out.AdmissionApprovalID = admission.Approval.ID
+				out.State, out.InitialState = "awaiting_endpoint", "awaiting_endpoint"
+			}
+		}
 		return tx.SavePairing(out)
 	})
+	if err == nil {
+		s.NotifyAdminResult(admission)
+	}
 	return out, err
 }
 
@@ -323,6 +364,9 @@ func (s *Service) MintPairingCredential(ctx context.Context, p Principal, in Pai
 		}
 		if pairingTerminal(r) {
 			return pairingClosed()
+		}
+		if r.AdmissionApprovalID != "" && r.State == "awaiting_endpoint" {
+			return pairingError(409, "pairing_changed", "The recipient admission is still waiting for its exact approval.")
 		}
 		human, old := pairingSide(r, in.Side)
 		if human != p.personID() {
