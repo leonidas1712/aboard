@@ -39,30 +39,6 @@ func (h *handlers) RemoveFileApproval(context.Context, RemoveFileApprovalRequest
 	return nil, notProvided("file approvals")
 }
 
-func (h *handlers) GetAllowance(context.Context, GetAllowanceRequestObject) (GetAllowanceResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) SetAllowance(context.Context, SetAllowanceRequestObject) (SetAllowanceResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) ListApprovals(context.Context, ListApprovalsRequestObject) (ListApprovalsResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) RequestAdminAction(context.Context, RequestAdminActionRequestObject) (RequestAdminActionResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) AllowApproval(context.Context, AllowApprovalRequestObject) (AllowApprovalResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) DeclineApproval(context.Context, DeclineApprovalRequestObject) (DeclineApprovalResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
 func (h *handlers) GetOnboardingReceipt(context.Context, GetOnboardingReceiptRequestObject) (GetOnboardingReceiptResponseObject, error) {
 	return nil, notProvided("onboarding")
 }

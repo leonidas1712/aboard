@@ -102,7 +102,14 @@ func (h *handlers) RevokeKey(ctx context.Context, req RevokeKeyRequestObject) (R
 }
 
 // ListServerPeople lists the people on the server with their roles.
-func (h *handlers) ListServerPeople(ctx context.Context, _ ListServerPeopleRequestObject) (ListServerPeopleResponseObject, error) {
+func (h *handlers) ListServerPeople(ctx context.Context, req ListServerPeopleRequestObject) (ListServerPeopleResponseObject, error) {
+	if req.Params.Handle != nil {
+		person, err := h.svc.LookupPerson(ctx, principal(ctx), *req.Params.Handle)
+		if err != nil {
+			return nil, err
+		}
+		return convert[ListServerPeople200JSONResponse](map[string]any{"id": person.ID, "handle": person.Name, "display_name": person.DisplayName})
+	}
 	people, err := h.svc.ListServerPeople(ctx, principal(ctx))
 	if err != nil {
 		return nil, err

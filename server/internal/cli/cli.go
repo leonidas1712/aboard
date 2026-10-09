@@ -127,6 +127,8 @@ func commands() []command {
 		{"invite", runInvite},
 		{"connect", runConnect},
 		{"approve", runApprove},
+		{"allowance", runAllowance},
+		{"approvals", runApprovals},
 		{"login", runLogin},
 		{"keys", runKeys},
 		{"people", runPeople},
@@ -277,6 +279,9 @@ func (a *app) report(err error) int {
 		}
 		if e.Hint != "" {
 			msg += st.warn("Hint:") + " " + e.Hint + "\n"
+		}
+		if e.Next != nil {
+			msg += e.Next.Command + "\n" + e.Next.Resume + "\n"
 		}
 		_, _ = io.WriteString(a.env.Stderr, msg)
 	}

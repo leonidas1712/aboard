@@ -31,6 +31,10 @@ type ReadTx interface {
 	PairingByID(id string) (PairingRequest, error)
 	PairingsOf(personID string) ([]PairingRequest, error)
 	PairingCredentialByDigest(digest string) (PairingCredential, error)
+	Allowance(personID string) (Allowance, error)
+	Approval(id string) (Approval, error)
+	ApprovalByRequest(agentID, key string) (Approval, error)
+	Approvals(personID string) ([]Approval, error)
 	QueueReport(memberID string) (QueueReport, error)
 	FileBySelector(boardID, selector string) (File, error)
 	FileByName(boardID, name string) (File, error)
@@ -202,6 +206,9 @@ type Tx interface {
 	SavePairing(PairingRequest) error
 	SavePairingCredential(PairingCredential) error
 	DeletePairingCredentials(requestID string) error
+	SaveAllowance(Allowance) error
+	SaveApproval(Approval) error
+	ExpireAdminRequestKeys(before string) error
 	SaveQueueReport(QueueReport) error
 	SetHumanMidturn(humanID, policy string) error
 	SetAgentMidturn(memberID string, policy *string) error

@@ -120,6 +120,8 @@
                 "pages": [
                   "cli/index",
                   "cli/pairing",
+                  "cli/allowance",
+                  "cli/approvals",
                   "cli/init",
                   "cli/pair",
                   "cli/join",

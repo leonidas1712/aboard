@@ -13,12 +13,6 @@ func TestOnboardingContractOperationsAreExplicitlyUnavailable(t *testing.T) {
 	t.Parallel()
 	s := newTestServer(t)
 	for _, tc := range []struct{ method, path, body string }{
-		{"GET", "/v1/me/allowance", ""},
-		{"PUT", "/v1/me/allowance", `{"categories":[]}`},
-		{"GET", "/v1/me/approvals", ""},
-		{"POST", "/v1/me/admin-requests", `{"kind":"add_people","board_id":"brd_01K00000000000000000000000","person_id":"hum_01K00000000000000000000000"}`},
-		{"POST", "/v1/me/approvals/apr_01K00000000000000000000000/allow", `{}`},
-		{"POST", "/v1/me/approvals/apr_01K00000000000000000000000/decline", ""},
 		{"GET", "/v1/me/onboarding", ""},
 	} {
 		t.Run(tc.method+tc.path, func(t *testing.T) {
