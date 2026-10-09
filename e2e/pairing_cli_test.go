@@ -99,3 +99,24 @@ func TestPairingCLIRequestHoldsNonmemberAdmission(t *testing.T) {
 		t.Fatalf("held admission lost its exact approval: status=%d approvals=%v", status, approvals)
 	}
 }
+
+func TestUnboundInvitePrefersOwnPendingPairing(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	maya := tm.person("maya")
+	board := tm.newBoard(tm.admin, "open")
+	tm.link(tm.admin, board)
+	tm.admin.run("board", "add", "@maya", "--board", board, "--json")
+	writer := tm.admin.claudeSession("s-invite-pairing-writer")
+	writer.run("join", "--board", board, "--server", tm.url(), "--json")
+	writer.run("pairing", "request", "@maya", "--board", board, "Review the change", "--json")
+	fresh := maya.claudeSession("s-invite-pairing-recipient")
+	r := fresh.runExit("invite", "--server", tm.url(), "--json")
+	if r.code != 1 || errorCode(t, r.json(t)) != "agent_session_required" {
+		t.Fatalf("unbound invitation did not refuse: %v", r)
+	}
+	command := field(t, r.json(t), "error.next.command").(string)
+	if !strings.HasPrefix(command, "aboard pairing list --server ") || !strings.Contains(command, tm.url()) {
+		t.Fatalf("pending own pairing was not offered on its issuer: %s", r)
+	}
+}

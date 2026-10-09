@@ -296,3 +296,38 @@ func (a *app) emitPairingAPI(ctx context.Context, c *client, srv serverRef, requ
 func pairingNeedsSession() error {
 	return newError("agent_session_required", "Pairing acceptance needs the exact harness session that will take part.", "Run aboard pairing accept REQUEST_ID --here inside that session.")
 }
+
+func (a *app) unboundInviteNext(ctx context.Context, serverFlag string) api.NextStep {
+	command := "aboard boards"
+	issuer := serverFlag
+	if issuer == "" {
+		if project, ok, err := a.readProject(); err == nil && ok {
+			issuer = project.Server.URL
+		}
+	}
+	if issuer != "" {
+		command += " --server " + shellWord(issuer)
+	}
+	next := api.NextStep{Command: command, Resume: "Join one with aboard join --board NAME in this session, then retry the invitation."}
+	key, inSession, err := a.checkSession(ctx)
+	if err != nil || !inSession {
+		return next
+	}
+	srv, err := a.boardServer(ctx, issuer, "")
+	if err != nil {
+		return next
+	}
+	response, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpPairing, Harness: key.Harness, Session: key.ID, Server: srv.URL, PairingAction: "list"})
+	if err != nil || response.Error != nil {
+		return next
+	}
+	for _, request := range response.Pairings {
+		switch request.State {
+		case "ready", "declined", "cancelled", "expired":
+			continue
+		default:
+			return api.NextStep{Command: "aboard pairing list --server " + shellWord(srv.URL), Resume: "Choose the request in this exact session, then retry the invitation after pairing is ready."}
+		}
+	}
+	return next
+}
