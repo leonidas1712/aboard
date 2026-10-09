@@ -962,6 +962,27 @@ $defs:
       next.command is `aboard pairing list --server SERVER`. Otherwise it is
       `aboard boards` (with --server when known); join one with
       `aboard join --board NAME`, then retry. It never uses the person's login.
+      Repeatable --board NAME|ID carries ordinary memberships; resolve each selector
+      to an immutable board id with current access before writing. --pairing "work"
+      adds a pairing proposal from this session's selected initiating agent and needs
+      exactly one board. --role and --guest remain incompatible with --server.
+      When the agent request executes immediately, the CLI selects the initiating
+      endpoint through this exact trusted session before returning the issued invite.
+      If selection fails, return the issued invite once with a pending next.command
+      to select that same pairing id; never issue another invite automatically.
+      Held approvals do not select an endpoint. After execution, select the returned
+      pairing_request_id from the original initiating session with
+      `aboard pairing select ID --here --server SERVER`.
+      Both invite authority and current add-member authority on every board are
+      checked at issue and redemption. Agent automatic execution also needs each
+      admission's allowance or existing per-board grant; otherwise hold the whole
+      exact payload without creating a partial invite. The response includes the
+      bundled immutable board ids and pairing_request_id when supplied. Existing
+      ordinary invites are unchanged.
+      Bundled invites also include prompt, ready to paste into the colleague's agent:
+      "Set up Aboard and join using <link>. Verify you can exchange messages with the
+      inviting agent." This secret-bearing prompt is shown once with the invite,
+      never in listings, approval replays, hooks or setup progress.
       The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
           aboard connect http://127.0.0.1:7400/join#abi_K8s2…
@@ -976,6 +997,40 @@ $defs:
         description: The server's URL, then /join#, then the invite. Works once.
         examples: ["http://127.0.0.1:7400/join#abi_K8s2Lq9Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj"]
       expires_at: { type: string, format: date-time }
+      boards:
+        type: array
+        items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+      pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+      prompt: { type: string, description: Ready-to-send colleague setup prompt, shown only on issuance. }
+
+  ServerInvitesOutput:
+    description: |
+      aboard invite list --server SERVER [--json] lists only your invitations and
+      your agents' invitations, with immutable issuer agent id and state, never
+      an invite secret or hidden board name. Person-only; agents get
+      human_token_required with next.command. Losing admin authority does not
+      prevent inspecting or revoking your own invitations. Exit 0 or 1.
+    type: object
+    required: [server, invites]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      invites:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/ServerInviteMetadata" }
+  ServerInviteRevocationOutput:
+    description: |
+      aboard invite revoke ID --server SERVER [--json] revokes your invitation once;
+      repeats return changed=false. It never removes an already connected person.
+      Person-only; agents get human_token_required with next.command. Unknown or
+      another person's id gets invite_not_found without revealing ownership.
+      Exit 0 or 1; no secret is returned.
+    type: object
+    required: [server, id, revoked, changed]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+      revoked: { const: true }
+      changed: { type: boolean }
 
   # ---------- aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] ----------
   # ---------- aboard connect <server URL> [--handle NAME] [--name MACHINE] ----------
@@ -3998,6 +4053,9 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
       invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      prompt:
+        type: string
+        description: Ready-to-send colleague setup prompt only when an invite is newly executed; absent on replay.
       next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
 
   HeldAdminOutput:
@@ -4079,6 +4137,9 @@ $defs:
     description: |
       aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE]
       [--server SERVER] [--json] resumes the first incomplete setup step.
+      Inside an agent session, connect with an invite link uses this same safe
+      setup path and SetupOutput, including uncertain recovery. Existing person
+      connect output and D188 no-invite approval behavior are unchanged.
       A pasted one-use invite is consent for setup in this session; an existing
       account is never selected by an invite or a handle. Existing-account/new-machine
       login uses D188 and still needs the person's approval. No human-client fallback.
@@ -4090,8 +4151,10 @@ $defs:
       HTTPS except this machine's loopback server; never follow redirects or use
       another issuer. client_token chooses the nonsecret 200 response. After a lost
       response, only authenticated GET /v1/me/onboarding with the same saved token
-      and matching result completes the account step. Every failed check, including
-      consumed invite, remains uncertain: preserve pending state, do not generate a
+      and matching result completes the account step. A definite refusal of the first
+      redemption, such as invite_invalid, returns that error with next and exit 1.
+      A lost response or failed recovery check with an existing attempted proof,
+      including consumed invite, remains uncertain: preserve pending state, do not generate a
       replacement key/account or interpret unauthorized as unused. Interrupted or
       revoked-key recovery needs the person's action named in next.
       Report all six steps, without claiming completion from process startup alone:
@@ -4100,7 +4163,8 @@ $defs:
       A rerun reuses completed memberships/seats and rechecks current authority;
       removed access is never recreated. Text names completed steps, first pending
       step, and next. JSON progress goes to stderr, one result to stdout.
-      Exit 0 for complete or waiting on a stated person/harness step, 1 for errors,
+      Exit 0 for complete or waiting on a stated person/harness step, 1 for errors
+      and uncertain account recovery (with SetupOutput retained),
       2 for usage. Planned GEN-36/37; does not claim implementation in this slice.
     type: object
     required: [server, state, steps]

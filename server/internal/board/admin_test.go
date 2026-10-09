@@ -94,7 +94,7 @@ func TestAllowanceReplayNeverRetrievesInviteSecretOrRestoresAuthority(t *testing
 	}
 	bundled := board.AdminAction{Kind: "invite_people", Invite: &board.InvitePeopleInput{Boards: []string{"brd_private"}}}
 	_, err = w.svc.RequestAdminAction(ctx, agent, bundled, "not-partial")
-	wantCode(t, "bundled invite", err, "not_implemented")
+	wantCode(t, "missing bundled board", err, "board_not_found")
 }
 
 func TestApprovedServerRemovalRetainsNonsecretExecutionHistory(t *testing.T) {

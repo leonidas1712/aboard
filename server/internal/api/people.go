@@ -9,28 +9,26 @@ import (
 
 // CreateServerInvite makes a server invite, for an admin's own access key.
 func (h *handlers) CreateServerInvite(ctx context.Context, req CreateServerInviteRequestObject) (CreateServerInviteResponseObject, error) {
-	if req.Body != nil && (req.Body.Boards != nil || req.Body.Pairing != nil) {
-		return nil, notProvided("bundled onboarding invites")
+	in := board.InvitePeopleInput{}
+	if req.Body != nil {
+		in.TTLSeconds = req.Body.TtlSeconds
+		if req.Body.Boards != nil {
+			in.Boards = *req.Body.Boards
+		}
+		if req.Body.Pairing != nil {
+			in.Pairing = &board.InvitePairingInput{InitiatingAgentID: req.Body.Pairing.InitiatingAgentId, Work: req.Body.Pairing.Work}
+		}
 	}
-	var ttl time.Duration
-	if req.Body != nil && req.Body.TtlSeconds != nil {
-		ttl = time.Duration(*req.Body.TtlSeconds) * time.Second
-	}
-	inv, err := h.svc.CreateServerInvite(ctx, principal(ctx), ttl)
+	inv, err := h.svc.CreateServerInviteWithInput(ctx, principal(ctx), in)
 	if err != nil {
 		return nil, err
 	}
-	return convert[CreateServerInvite201JSONResponse](map[string]string{
-		"id": inv.Invite.ID, "invite": inv.Secret, "server_role": board.ServerMember, "expires_at": inv.Invite.ExpiresAt,
-	})
+	return convert[CreateServerInvite201JSONResponse](serverInviteOf(inv))
 }
 
 // Connect redeems a server invite. It needs no token: the invite is the proof.
 func (h *handlers) Connect(ctx context.Context, req ConnectRequestObject) (ConnectResponseObject, error) {
-	if req.Body.ClientToken != nil {
-		return nil, notProvided("client-generated onboarding keys")
-	}
-	in := board.ConnectInput{Invite: req.Body.Invite, Handle: req.Body.Handle, KeyName: req.Body.KeyName}
+	in := board.ConnectInput{ClientToken: req.Body.ClientToken, Invite: req.Body.Invite, Handle: req.Body.Handle, KeyName: req.Body.KeyName}
 	if req.Body.DisplayName != nil {
 		in.DisplayName = *req.Body.DisplayName
 	}
@@ -41,6 +39,11 @@ func (h *handlers) Connect(ctx context.Context, req ConnectRequestObject) (Conne
 	key := map[string]any{
 		"id": c.Key.ID, "name": c.Key.Name, "created_at": c.Key.CreatedAt, "expires_at": c.Key.ExpiresAt,
 		"idle_expiry_seconds": c.Key.IdleSeconds, "token": c.Token,
+	}
+	if c.Onboarding != nil {
+		delete(key, "token")
+		key["state"] = "working"
+		return convert[Connect200JSONResponse](map[string]any{"server_id": h.svc.Config().ServerID, "person": personOf(c.Person), "key": key, "onboarding": onboardingOf(*c.Onboarding)})
 	}
 	return convert[Connect201JSONResponse](map[string]any{
 		"server_id": h.svc.Config().ServerID, "person": personOf(c.Person), "key": key,
