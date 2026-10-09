@@ -24,6 +24,7 @@ import { attentionCount } from "./asks";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
+import { AgentLocation } from "./location";
 import { changeMidturn, effectiveMidturn, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 import { Kbd } from "./keys-sheet";
 import { keyLabel } from "./keys";
@@ -600,6 +601,7 @@ export function AgentDetails({
   const midturn = useMidturn();
   const mid = mine && midturn.view ? effectiveMidturn(midturn.view, agent.id) : null;
   return (
+    <>
     <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
       {showOwner && (
         <>
@@ -661,6 +663,8 @@ export function AgentDetails({
         </>
       )}
     </dl>
+    {mine && <AgentLocation agent={agent} board={board} />}
+    </>
   );
 }
 

@@ -137,6 +137,8 @@ export type Member = MemberRef & {
   /** delivery_mode is the agent's delivery mode as its person set it, held by the server; null for people. */
   delivery_mode?: SettableMode | null;
   delivery_revision?: number | null;
+  /** location is where the agent's session last ran; sent only for the viewer's own agents, absent when never reported. */
+  location?: { machine?: string; harness: string; session_id: string; folder: string; last_active: string };
   /** status is active for a member on the board now; removed or left for an agent whose seat ended. */
   status?: "active" | "removed" | "left";
   /** removed_at and removed_by are set for an agent whose seat ended. */
