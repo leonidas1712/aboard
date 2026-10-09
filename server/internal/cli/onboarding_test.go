@@ -3,11 +3,13 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
@@ -226,6 +228,10 @@ func TestSetupPendingProofIsPrivateAndIssuerBound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	bits, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(pending.Token, "abh_"))
+	if err != nil || len(bits) != 32 || !strings.HasPrefix(pending.Token, "abh_") {
+		t.Fatal("pending token does not match the API canonical bearer format")
+	}
 	if err := saveSetupPending(path, pending); err != nil {
 		t.Fatal(err)
 	}
@@ -332,5 +338,27 @@ func TestAgentCannotListOrRevokeInvitesThroughPersonKey(t *testing.T) {
 		if code != 1 || result.Error.Code != "human_command_in_session" || calls != 0 {
 			t.Fatalf("code=%d calls=%d output=%s", code, calls, out.String())
 		}
+	}
+}
+
+func TestSetupPairingNeedsTheIntendedSessionBeforeAuthenticatedHTTP(t *testing.T) {
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	e := lifecycleMachine(t, srv.URL, "must-not-use-human", agentCredential{})
+	var out bytes.Buffer
+	code := Run(context.Background(), []string{"setup", "prq_exact", "--server", srv.URL, "--json"}, e.environment(&out, &out))
+	if code != 0 {
+		t.Fatalf("setup pairing: exit %d: %s", code, out.String())
+	}
+	var result setupOutput
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 0 || result.State != "pending" || result.Steps[4].State != "pending" || result.Steps[5].State != "pending" || result.Next == nil || !strings.Contains(result.Next.Command, "pairing accept prq_exact --here") {
+		t.Fatalf("setup bypassed the intended session: requests=%d result=%+v", requests, result)
 	}
 }
