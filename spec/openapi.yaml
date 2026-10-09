@@ -626,7 +626,10 @@ paths:
         issuing a partial invite. Existing ordinary invites retain their behavior.
         Turning an allowance off stops new issuance only. An issued agent invite
         ends when its issuing seat, parent key or person is removed/revoked; retain
-        their immutable bindings and recheck them at redemption. Inviter admin and
+        their immutable bindings and recheck them at redemption. Only unredeemed
+        invitations are cancelled: people and memberships already created remain,
+        and removing the issuing agent never removes those people or memberships.
+        Inviter admin and
         each board's add-member authority are also current at redemption.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -4708,6 +4711,7 @@ components:
                 - host_not_allowed
                 - server_admin_required
                 - invite_invalid
+                - invite_not_found
                 - handle_taken
                 - handle_invalid
                 - key_name_taken
