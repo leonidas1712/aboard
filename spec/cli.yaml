@@ -966,6 +966,13 @@ $defs:
       to an immutable board id with current access before writing. --pairing "work"
       adds a pairing proposal from this session's selected initiating agent and needs
       exactly one board. --role and --guest remain incompatible with --server.
+      When the agent request executes immediately, the CLI selects the initiating
+      endpoint through this exact trusted session before returning the issued invite.
+      If selection fails, return the issued invite once with a pending next.command
+      to select that same pairing id; never issue another invite automatically.
+      Held approvals do not select an endpoint. After execution, select the returned
+      pairing_request_id from the original initiating session with
+      `aboard pairing select ID --here --server SERVER`.
       Both invite authority and current add-member authority on every board are
       checked at issue and redemption. Agent automatic execution also needs each
       admission's allowance or existing per-board grant; otherwise hold the whole
