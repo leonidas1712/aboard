@@ -1347,6 +1347,68 @@ test("each agent shows its delivery mode and its mid-turn setting, and its perso
   await expect(mark).toHaveAttribute("aria-label", new RegExp(`${kimAgent}: queued, arrives at the end of its turn`));
 });
 
+test("an own agent shows where it ran and copies the commands to resume it; other people's agents show nothing", async ({ page, context }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Where it ran", "--json"));
+  const board: string = pair.board.name;
+  const reviewerName = ((await api(ownerKey(), "POST", "/v1/join", { board, role: "reviewer" })).agent as { name: string }).name;
+  const morganKey = await person("morgan");
+  await api(morganKey, "POST", `/v1/boards/${board}/people`, { handle: "morgan" });
+  const morganAgent = ((await api(morganKey, "POST", "/v1/join", { board, role: "reviewer" })).agent as { name: string }).name;
+
+  // The server reports a location for the viewer's own agents only. This test gives the
+  // writer one, leaves the reviewer without, and also puts one on morgan's agent to prove the
+  // board view never shows what the server would not send.
+  const at = new Date(Date.now() - 5 * 60_000).toISOString();
+  const place = { harness: "claude-code", session_id: "5f1c2d3e-aaaa-bbbb-cccc-1234567890ab", folder: "/work/it's a project", machine: "laptop", last_active: at };
+  await page.route(`**/v1/boards/${board}/members`, async (route) => {
+    const real = await route.fetch();
+    const body = (await real.json()) as { members: { name: string; location?: unknown }[] };
+    for (const m of body.members) {
+      if (m.name === "writer" || m.name === morganAgent) m.location = place;
+    }
+    await route.fulfill({ response: real, json: body });
+  });
+
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(open.url).origin });
+  await openLink(page, open.url);
+  const panel = page.getByRole("complementary", { name: "Where it ran" });
+  const details = async (name: string) => {
+    const row = panel.locator(`[data-agent="${name}"]`);
+    if ((await row.locator(".agent-row").getAttribute("aria-expanded")) !== "true") await row.locator(".agent-row").click();
+    return row;
+  };
+
+  const writer = await details("writer");
+  const where = writer.locator(".agent-location");
+  await expect(where.getByRole("heading", { name: "Where it ran" })).toBeVisible();
+  await expect(where.locator(".loc-machine")).toHaveText("laptop");
+  await expect(where.locator(".loc-harness")).toHaveText("Claude Code");
+  await expect(where.locator(".loc-folder")).toHaveText("/work/it's a project");
+  await expect(where.locator(".loc-session")).toHaveText("5f1c2d3e…");
+  await expect(where.locator(".loc-session")).toHaveAttribute("title", place.session_id);
+  await expect(where.locator(".loc-active")).toHaveText("5 min ago");
+
+  await where.getByRole("button", { name: "Reopen that conversation" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("cd '/work/it'\\''s a project' && claude --resume 5f1c2d3e-aaaa-bbbb-cccc-1234567890ab");
+  await where.getByRole("button", { name: "Pick it up on laptop" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`aboard resume writer --board ${board} --server http://${env.ABOARD_LOCAL_ADDR}`);
+
+  // An agent with no reported location says so, and offers no commands.
+  await writer.locator(".agent-row").click();
+  const reviewer = await details(reviewerName);
+  await expect(reviewer.locator(".agent-location")).toContainText("No session reported yet.");
+  await expect(reviewer.getByRole("button", { name: "Reopen that conversation" })).toHaveCount(0);
+  await expect(reviewer.getByRole("button", { name: /^Pick it up/ })).toHaveCount(0);
+
+  // Another person's agent never shows the section.
+  await reviewer.locator(".agent-row").click();
+  const theirs = await details(morganAgent);
+  await expect(theirs.locator(".agent-row")).toHaveAttribute("aria-expanded", "true");
+  await expect(theirs.locator(".agent-location")).toHaveCount(0);
+  await expect(theirs.getByRole("button", { name: "Reopen that conversation" })).toHaveCount(0);
+});
+
 // ownerKey is alex's key on the local server, started if it isn't running.
 function ownerKey(): string {
   aboard("up");
