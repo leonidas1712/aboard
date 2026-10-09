@@ -118,6 +118,23 @@ API (sketch): `GET /v1/me/allowance`, `PUT /v1/me/allowance` (person token);
 `POST /v1/me/approvals/{id}/decline` (person token); an agent's admin request returns
 `202` with the approval when held, `200` or `201` when the allowance covered it.
 
+### When the agent can't, it says exactly what to do
+
+Every action an agent can't complete itself (held as an approval, person-only, or
+waiting on a harness step) answers with the exact handover, not a general hint:
+
+- the command filled in, with real ids and the right server, ready to paste
+  (`aboard approvals allow apr_7Q2… --server work`), never placeholders;
+- where to do it in the board view instead (Inbox → the card's name);
+- for a harness step, the precise action (`/hooks` → approve Aboard's hooks, then
+  restart) and the words to resume ("Continue Aboard setup");
+- what happens after, so the agent can tell the person what to expect.
+
+In the API this is an additive `next` object on the error or the held response
+(`command`, `board_view`, `resume`), alongside today's `hint`; the CLI prints it and
+`--json` carries it. Tests check that every person-only refusal and held action in this
+flow has a `next` with a runnable command.
+
 ## 2. One invite that carries the board
 
 A server invite gains optional fields: the boards to join, by immutable board id, as an
