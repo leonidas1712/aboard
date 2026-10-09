@@ -67,10 +67,20 @@ func New(url string, tokens Tokens, rand io.Reader) *Server {
 func noRedirects(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 
 func (s *Server) client(token string) (*api.ClientWithResponses, error) {
+	return s.clientWithKey(token, true)
+}
+
+// Bookkeeping repeats a monotonic cursor or the session's serialized presence state;
+// it needs no saved response. Queue claims and updates keep their stable retry keys.
+func (s *Server) bookkeepingClient(token string) (*api.ClientWithResponses, error) {
+	return s.clientWithKey(token, false)
+}
+
+func (s *Server) clientWithKey(token string, keyed bool) (*api.ClientWithResponses, error) {
 	c, err := api.NewClientWithResponses(s.url, api.WithHTTPClient(s.http),
 		api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			req.Header.Set("Authorization", "Bearer "+token)
-			if req.Method != http.MethodGet {
+			if keyed && req.Method != http.MethodGet {
 				key, err := s.idempotencyKey()
 				if err != nil {
 					return err
@@ -214,7 +224,7 @@ func (s *Server) Ack(ctx context.Context, agent delivery.AgentRef, upTo int) err
 	if err != nil {
 		return err
 	}
-	c, err := s.client(token)
+	c, err := s.bookkeepingClient(token)
 	if err != nil {
 		return err
 	}
@@ -238,7 +248,7 @@ func (s *Server) SetPresence(ctx context.Context, agent delivery.AgentRef, p del
 	if err != nil {
 		return err
 	}
-	c, err := s.client(token)
+	c, err := s.bookkeepingClient(token)
 	if err != nil {
 		return err
 	}
