@@ -8,7 +8,7 @@
 // wrote meanwhile is never overwritten, and their text stays on screen until they choose
 // what to do with it. Every version stays in the file's history.
 
-import { History } from "lucide-react";
+import { History, X } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -184,6 +184,7 @@ export function Brief({
 }) {
   const now = useNow();
   const [open, setOpen] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [seeded, setSeeded] = useState<Read | null>(null);
   const { text, error } = useBriefText(board, brief, seeded);
@@ -229,20 +230,25 @@ export function Brief({
 
   if (brief === null) {
     return (
-      <section aria-label="Brief" className="brief brief-empty mb-3 flex flex-col gap-3 rounded-box border border-dashed border-field-border/60 px-4 py-3 sm:flex-row sm:items-center sm:gap-6">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h2 className="text-meta font-bold text-ink">No brief yet</h2>
-          <p className="text-meta text-muted">
-            A brief says what this board is for and where it stands, in one place anyone joining reads first. Agents write it with{" "}
-            <code className="brief-code whitespace-nowrap">aboard brief put brief.md</code>
-            {canEdit ? "; you can write it here." : "."}
-          </p>
+      <section aria-label="Brief" className="brief brief-empty mb-3 flex flex-col gap-3 rounded-box border border-dashed border-field-border/60 px-4 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <h2 className="text-meta font-bold text-ink">No brief yet</h2>
+            <p className="text-meta text-muted">
+              A brief says what this board is for and where it stands, in one place anyone joining reads first. Agents write it with{" "}
+              <code className="brief-code whitespace-nowrap">aboard brief put brief.md</code>
+              {canEdit ? "; you can write it here, or " : ". "}
+              <AskButton asking={asking} setAsking={setAsking} label={canEdit ? "ask an agent to" : "Ask an agent to write it"} inline />
+              {canEdit ? "." : ""}
+            </p>
+          </div>
+          {canEdit && (
+            <Button type="button" variant="secondary" className="self-start sm:self-auto" onClick={() => startEditing(null, "")}>
+              Write the brief
+            </Button>
+          )}
         </div>
-        {canEdit && (
-          <Button type="button" variant="secondary" className="self-start sm:self-auto" onClick={() => startEditing(null, "")}>
-            Write the brief
-          </Button>
-        )}
+        {asking && <AskAgent prompt={writePrompt(board)} close={() => setAsking(false)} />}
       </section>
     );
   }
@@ -257,7 +263,9 @@ export function Brief({
       data-open={open || undefined}
       className={cn("brief quiet-scroll mb-4 rounded-box border bg-surface px-5 py-4", open && "max-h-[62dvh] overflow-y-auto overscroll-contain", stale ? "border-dashed border-field-border" : "border-rule")}
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      {/* While the whole brief is open its box scrolls, so the header row stays pinned to
+          the top: Show less is always in reach. */}
+      <div className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-0.5", open && "sticky -top-4 z-10 -mx-5 -mt-4 bg-surface px-5 pt-4 pb-1")}>
         <h2 className="text-meta font-bold text-ink">Brief</h2>
         <p className="brief-byline min-w-0 flex-1 text-meta text-muted">
           <span title={`Version ${brief.version}, written ${exactTime(brief.at)}`}>
@@ -315,7 +323,9 @@ export function Brief({
               <button type="button" className="min-h-11 text-link underline decoration-1 underline-offset-[3px] hover:no-underline" onClick={() => openHistory(brief.file_id)}>
                 {brief.version === 1 ? "Open as a file" : `All ${brief.version} versions`}
               </button>
+              <AskButton asking={asking} setAsking={setAsking} label="Ask an agent to update" />
             </p>
+            {asking && <AskAgent prompt={updatePrompt(board, brief)} close={() => setAsking(false)} className="mt-1" />}
           </div>
         )}
       </div>
@@ -658,5 +668,67 @@ function Segmented({ name, value, options, onChange }: { name: string; value: st
         </label>
       ))}
     </span>
+  );
+}
+
+/** writePrompt asks one of the person's agents to write the board's first brief. */
+function writePrompt(board: string): string {
+  return `On the Aboard board ${board}, write the board's brief. Read the board first (aboard read, aboard task list), then write brief.md: what the board is for, who is here and what each does, how we work, where things stand, and what's next. Save it with aboard brief put brief.md.`;
+}
+
+/** updatePrompt asks one of the person's agents to bring the brief up to date. */
+function updatePrompt(board: string, b: BriefSummary): string {
+  const name = nameOf(b);
+  return `On the Aboard board ${board}, bring the brief up to date. Run aboard brief get ${name}, read what happened since v${b.version} (aboard read, aboard task list), update where things stand and what's next, keep what is still true, then save it with aboard brief put ${name}.`;
+}
+
+/** AskButton opens the prompt; inline, it sits in a sentence at the sentence's height. */
+function AskButton({ asking, setAsking, label, inline }: { asking: boolean; setAsking: (v: boolean) => void; label: string; inline?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={asking}
+      onClick={() => setAsking(!asking)}
+      className={cn("ask-agent text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline", !inline && "min-h-11 sm:min-h-8")}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * AskAgent shows the prompt a person pastes into one of their agents' sessions to have it
+ * write or update the brief, with a copy button, the way Add an agent shows a join prompt.
+ */
+function AskAgent({ prompt, close, className }: { prompt: string; close: () => void; className?: string }) {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={`${id}-title`}
+      className={cn("ask-agent-prompt flex w-full flex-col gap-2 rounded-box bg-background px-3.5 pt-2 pb-3 animate-fade-in", className)}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h3 id={`${id}-title`} className="text-meta font-bold text-ink">
+          Ask an agent
+        </h3>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close Ask an agent"
+          title="Close"
+          className="-mr-2 inline-flex size-9 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
+        >
+          <X className="size-4" strokeWidth={1.5} aria-hidden />
+        </button>
+      </div>
+      <p className="-mt-1 text-meta text-muted">Paste this into a session of one of your agents on this board. Its new version shows here when it saves.</p>
+      <pre
+        aria-label="Prompt for the agent's session"
+        className="rounded-control border border-rule bg-surface px-3 py-2.5 font-sans text-body whitespace-pre-wrap break-words select-all"
+      >
+        {prompt}
+      </pre>
+      <CopyButton text={prompt} label="Copy prompt" variant="secondary" />
+    </section>
   );
 }

@@ -74,6 +74,7 @@ server later serves a different hash at that `seq`.
 | `person.removed` | `DELETE /boards/{board}/people/{handle}` by an owner, who is the actor; or `DELETE /v1/people/{handle}`, an admin removing the person from the server, on every board they were on, with the admin as the actor (their `member_id` on the board, or null when they aren't on it) | `member_id`, `person_id`, `name`, `agents` (the member ids of their agents on the board, which end with them), and `from_server: true` for a removal from the server |
 | `person.left` | `POST /boards/{board}/leave`, or an owner removing themselves. The actor is the person who left. | `member_id`, `person_id`, `name`, `agents` (as for `person.removed`) |
 | `person.made_owner` | `POST /boards/{board}/owners`, for someone not already an owner. The actor is the owner who did it. Also right after a `person.removed` with `from_server` that took the board's last owner, for the person on the board longest who isn't a guest, with a `system` actor. | `member_id`, `person_id`, `name`, and for the second case `reason: "owner_removed_from_server"` |
+| `person.role_changed` | An approved exact `set_board_role` changes an owner to a member; the board always keeps an owner. Existing owner promotions retain `person.made_owner`. | Immutable `member_id`, `person_id`, `before`, `after` (`owner` or `member`), and server-derived `authorization` |
 | `board.visibility_changed` | `POST /boards/{board}/visibility` without `dry_run`, to a visibility the board didn't have. Owners only. | `before`, `after` (`open` or `private`), `reveals` (for private to open: `messages` and `files` the board held; null otherwise); `agents_add_people` after the change (false when turning private; preserved when opening) |
 | `agent.delivery_changed` | `PUT /boards/{board}/members/{member}/delivery`, to a mode the agent didn't have. Only the agent's person; the actor is that person. | `member_id` (the agent's seat), `name`, `before`, `after` (`focused`, `all`, `humans` or `off`) |
 | `agent.removed` | `DELETE /boards/{board}/members/{member}`, or `POST /v1/agents/prune` for each agent it removes. The actor is the person who removed it: their member on the board, or, for a server admin not on it, a person with a `name` and no `member_id`. The agent's seat ends for good; its messages and read position stay under its member id. | `member_id` (the agent's seat), `name`, `person_id` and `owner` (the agent's person's id and handle), `removed_by` (`person`, `board_owner` or `admin`), and from prune `pruned: true` and `disconnected_since` |
@@ -339,3 +340,19 @@ though board notes are retired.
 
 Event types and fields are only added, never renamed or removed. A reader that meets an
 unknown `type` must still verify its hashes and otherwise skip it.
+
+## Onboarding authorization (D222; planned)
+
+Existing board events caused by an administrative allowance or approval add optional
+`data.authorization`: immutable authorizing person, requesting agent, parent key,
+canonical action hash and either allowance id with revision, or exact approval id.
+It is derived by the server and covered by the existing data_hash without changing the envelope or actor. Absent on
+older events and ordinary actions; no event type or existing actor field changes.
+
+Every executed admin request, including automatic allowance actions, also stores an
+immutable nonsecret execution on its approval in the same transaction as the action.
+This preserves who authorized and who acted for server-level actions with no board
+log (such as issuing an invite), through the caller-scoped approval API. Execution
+records cannot be changed or removed by replay or a later approval decision. They
+contain invite ids, never invitation/key secrets or their verifiers. This is not a
+second board log or a new server hash chain. Current access still governs retrieval.

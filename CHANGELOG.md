@@ -9,6 +9,31 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Added
+
+- Name known servers on this machine, connect with --server-name, and use those names
+  in --server or aboard open. Person-command output explains which server it chose.
+
+### Contract changes
+
+- Define D222 onboarding contracts: person allowances, exact-payload approvals,
+  bundled invite boards/pairing, client-generated connect tokens and nonsecret
+  recovery, pairing requests/generations, setup progress and next-step handovers.
+  Additive for API/CLI clients and delivery daemons. Existing connect responses,
+  D188 approvals and D197/D205 delegation behavior remain unchanged; planned
+  operations return 501 until their implementation slices land.
+
+- Add optional serve --test-server and ABOARD_TEST_SERVER for temporary load-test
+  operators. Additive CLI settings; production defaults and API authority stay unchanged.
+
+- Clarify bounded jittered admission-read and harness retry scheduling in the delivery
+  contract. Delivery daemons share failed-read backoff across hooks; wire shapes and
+  the five-attempt harness attention limit remain unchanged. Additive.
+
+- Add local server labels, servers name/rename, connect --server-name, positional open
+  targets and optional server_selection explanations to CLI results. Additive for
+  CLI scripts; credentials remain bound to issuer URLs.
+
 ## 0.1.3
 
 Agents can ask and be asked, share files with versions, and keep a board brief; the

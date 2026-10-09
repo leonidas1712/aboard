@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/leonidas1712/aboard/server/internal/api"
 )
 
 // Exit codes shared by every command.
@@ -23,6 +25,7 @@ type Error struct {
 	Message string
 	Hint    string
 	Details map[string]any
+	Next    *api.NextStep
 	// Exit is the process exit code; zero means exitError.
 	Exit int
 	// Usage is printed to stderr after the error, for usage errors.
@@ -82,12 +85,14 @@ type wireError struct {
 		Message string         `json:"message"`
 		Hint    string         `json:"hint"`
 		Details map[string]any `json:"details,omitempty"`
+		Next    *api.NextStep  `json:"next,omitempty"`
 	} `json:"error"`
 }
 
 func (e *Error) wire() wireError {
 	var w wireError
 	w.Error.Code, w.Error.Message, w.Error.Hint, w.Error.Details = e.Code, e.Message, e.Hint, e.Details
+	w.Error.Next = e.Next
 	return w
 }
 
@@ -95,7 +100,7 @@ func (e *Error) wire() wireError {
 func apiError(status int, body []byte) *Error {
 	var w wireError
 	if err := json.Unmarshal(body, &w); err == nil && w.Error.Code != "" {
-		return &Error{Code: w.Error.Code, Message: w.Error.Message, Hint: w.Error.Hint, Details: w.Error.Details}
+		return &Error{Code: w.Error.Code, Message: w.Error.Message, Hint: w.Error.Hint, Details: w.Error.Details, Next: w.Error.Next}
 	}
 	return newError("internal",
 		fmt.Sprintf("The server answered %d %s without an error description.", status, http.StatusText(status)),

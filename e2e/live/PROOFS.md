@@ -130,6 +130,7 @@ measured on Claude Code 2.1.287 with its default model.
 | Scenario | Proves | Capabilities | Turns |
 | --- | --- | --- | --- |
 | `TestWakesAndReplies` | Pairing in plain words: "Pair with another agent on Aboard" in one session gives a join line; typed into a second session, it joins and says hello (the baseline, recorded as `JoinsAndTalks`). Then a message to the idle first session is handed over within 2 seconds of the daemon's 2-second gather, its presence goes working and back to idle, and it answers on the board with no one typing. | Baseline, wakes when idle, presence | 6 |
+| `TestPairingVerifiesBothExactHarnessSessions` | Two real sessions owned by one person explicitly select their endpoints. Each replies to an ordinary direct handshake ping; the public request becomes ready only after both confirmed round trips, retaining distinct permanent agents and session bindings in the same generation. Passed on Claude Code 2.1.294, Codex 0.160.0 and omp 18.5.1 after the durable-confirmation repair; prior failed proof is retained privately. | Exact-session pairing and confirmed delivery | not measured |
 | `TestTaskWorkflowFromSkill` | Two native sessions pair through the quickstart's plain-language join flow. A work request, without CLI commands, has the first session use its installed skill to create and start a task, post a progress message, and finish it. The public API must retain the task's owner and final note, record that message's `about` with `how: current`, and report a null current task after completion. | Task records and automatic tagging | not measured |
 | `TestAttachedFileReachesTheHarness` | One native session joins a board. A person posts a pinned file version whose contents are absent from the message. The harness follows the delivered file-get hint and posts the exact bytes; the API retains the attachment reference. | Versioned file attachments | not measured |
 | `TestBriefGetEditPutFromTheHarness` | A native session fetches the existing brief into a new local path, appends an exact line and puts it back without an explicit base or editing local state. The API retains the immutable file identity, version 2 against base 1, both exact digests and the writer's event; local provenance names the issuer, board and seat. This case does not measure keeper-nudge timing or read cursors. | Conditional brief updates | not measured |
@@ -138,7 +139,8 @@ measured on Claude Code 2.1.287 with its default model.
 | `TestPingPongAcrossHarnesses` | The same between two harnesses, once for each pair (`claude-code-with-codex`). | Wakes when idle | about 9 |
 | `TestOwnerTargetsWakeEachCurrentAgent` | An owner target wakes both current seats; each replies to the exact request and gets a received receipt. | Owner targets | not measured |
 | `TestRepliesReachPromptly` | The session starts the wiring check itself with a person's agent; each PONG reaches it within 30 seconds of being posted, measured from the daemon's log (handed, added at a tool boundary or shown by `say --wait-reply`), so it never keeps its turn busy waiting. | Wakes when idle | 4 |
-| `TestOwnerReachesBusy` | While a turn runs a slow task twice and then posts DONE, the owner's message (posted with the owner login on the API) reaches it at the next tool boundary and is acted on before DONE; two peer messages sent at the same time, one urgent, never enter the turn: a harness whose hook waits for idle is handed them in one bundle after DONE, and a queue holds them until then. | Owner mid-turn, peers at turn end | 3 |
+| `TestOwnerReachesBusy` | With owner-only mid-turn policy, while a turn runs a slow task twice and then posts DONE, the owner's message (posted with the owner login on the API) reaches it at the next tool boundary and is acted on before DONE; two peer messages sent at the same time, one urgent, never enter the turn: a harness whose hook waits for idle is handed them in one bundle after DONE, and a queue holds them until then. | Owner mid-turn, peers at turn end | 3 |
+| `TestSameOwnerUrgentPeerReachesOneToolBoundary` | A FIFO holds a busy turn while two urgent messages from one same-owner sender and one ordinary message arrive. The first urgent message reaches the next tool boundary; the sender's excess and ordinary message wait until DONE. All are acknowledged, with no interruption or extra sender allowance. | Same-owner peer mid-turn | 3 |
 | `TestPeerWaitsButNoticeArrives` | While a turn runs two slow tasks, a peer's message never enters it: one tool boundary's notice names it, exactly once, and the message arrives in a bundle when the turn ends (or the agent fetches it itself after the notice). n/a for a harness whose queue takes peers' messages at once. | Waiting notice | 3 |
 | `TestQuietMessageArrivesWithTheOwnersNextPrompt` | In the default `focused` mode, another agent's message to everyone, asking nothing, doesn't wake the idle session for 15 seconds; the owner's next prompt starts a turn, the harness's turn-start mechanism adds the message before the model runs (the daemon logs `turn start`), the agent answers from it, and it is acknowledged. n/a without the `turn-start` capability. | (focused delivery) | 2 (3 for a harness that runs its session-start hook only at the first prompt) |
 | `TestReplyWakesOnlyTheAsker` | The session asks a person's agent a question; the answer, sent with `--reply` and no `--to`, goes to the asker only, wakes it and is acted on, while a third agent's idle session on the board is handed nothing and never works. | (focused delivery) | 3 (5 for a harness that runs its session-start hook only at the first prompt) |
@@ -408,6 +410,27 @@ A test about one harness starts with `only(t, "<harness>")`.
 
 ## Last run
 
+2026-10-09, bundled invite and setup (#276): the bounded
+`TestInvitedSetupVerifiesTwoPeopleExactSessions` proof passed on Claude Code
+(45 s), Codex (122 s) and omp (48 s), with no skips and 2m3s wall time.
+Each case used separate homes and people. The inviting session selected its
+endpoint, the newcomer redeemed the bundled invite, and both exact sessions
+answered the linked delivery checks. Repeating setup in the newcomer's same
+session reported all six steps complete. Protected configuration stayed unchanged;
+no Codex auth refresh or volatile Claude state change occurred.
+
+The full affected live gate then passed at the same runtime head: 92 cases,
+four existing skips, zero failures, 7m28s wall time at parallelism 12. The setup
+cases passed again (Claude Code 61 s, omp 62 s, Codex 114 s). Protected
+configuration and volatile Claude state stayed unchanged, with no auth refresh.
+
+The first bounded run failed before newcomer setup because the fixture read the
+person invite shape instead of the agent's nested approval-result shape. Its
+private artifacts are retained. The corrected run preserved the public output
+contract. Two integration regressions also failed first: selecting the inviter
+must retain awaiting-account until redemption, and reading ready setup must
+verify the current exact binding without reselecting the endpoint.
+
 2026-10-08, delivery notice follow-up (#210): the affected suite ran 82 cases,
 with four existing skips. Three browser-answer cases failed because the worktree
 lacked its locked browser dependencies; Claude Code's ping-pong failed at startup,
@@ -452,3 +475,19 @@ passed the same checks for Codex: idle wake through the queue, the exchange with
 Code, urgent at the next tool call once the hooks were trusted (after a fix: urgent
 messages wait for the next tool call while a turn runs, instead of going to the queue),
 restarts and doctor.
+
+## Admission retry scheduling (#265)
+
+At runtime head `55f5cac`, the bounded ping-pong, cross-harness ping-pong,
+held-mode and restart scenarios passed collectively on Claude Code, Codex and omp.
+The initial run passed 11 of 12 cases in 125 seconds. Codex's restart case stopped
+at “Waiting for startup”, before binding or receiving any bundle; its isolated
+retry passed in 52 seconds with the same assertions and timeouts. This is not a
+claim of one clean initial run. Protected harness config and auth files were
+unchanged in both runs; retained artifacts contained no actual login values.
+
+The deterministic failed-read regression failed first when repeated hooks issued
+new admission reads without waiting. It now retains unread text, shares the retry
+deadline across hooks and resets after recovery. Delivery and retry package races
+passed, including existing terminal, generation, frozen-bundle and cursor checks.
+These proofs validate delivery behavior, not a new load-capacity or latency claim.

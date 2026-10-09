@@ -59,6 +59,9 @@ func TestAgentBoardAddUsesOnlyTheSeatsToken(t *testing.T) {
 	if err := runBoard(context.Background(), a, []string{"add", "@pat", "--board", "work"}); err != nil {
 		t.Fatal(err)
 	}
+	if len(auth) != 2 {
+		t.Fatalf("direct admission made extra requests: %v", auth)
+	}
 	for _, got := range auth {
 		if got != "Bearer seat-only" {
 			t.Fatalf("wrong credential reached API: %q", got)
@@ -155,8 +158,16 @@ func TestAgentAddHandoffNamesItsSeatServer(t *testing.T) {
 			_, _ = w.Write([]byte(`{"name":"scout","kind":"agent","owner":"alex"}`))
 			return
 		}
+		if r.URL.Path == "/v1/boards/work" {
+			_, _ = w.Write([]byte(`{"id":"brd_work","name":"work"}`))
+			return
+		}
+		if r.URL.Path == "/v1/people" {
+			_, _ = w.Write([]byte(`{"id":"hum_pat","handle":"pat","display_name":null}`))
+			return
+		}
 		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"error":{"code":"add_people_not_allowed","message":"gate is off","hint":"ask person"}}`))
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": "add_people_not_allowed", "message": "gate is off", "hint": "ask person", "next": map[string]string{"command": "aboard board add @pat --board work --server " + "http://" + r.Host, "resume": "Ask your person."}}})
 	}))
 	defer srv.Close()
 	e := lifecycleMachine(t, "https://linked.example", "human-only", agentCredential{Server: srv.URL, Board: "work", Name: "scout", Token: "seat-only"})
@@ -164,7 +175,7 @@ func TestAgentAddHandoffNamesItsSeatServer(t *testing.T) {
 	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
 	err := runBoard(context.Background(), a, []string{"add", "@pat", "--board", "work"})
 	got := asError(err)
-	if got.Code != "add_people_not_allowed" || !strings.Contains(got.Hint, "--server "+srv.URL) || strings.Contains(got.Hint, "linked.example") {
+	if got.Code != "add_people_not_allowed" || got.Next == nil || !strings.Contains(got.Next.Command, "--server "+srv.URL) || strings.Contains(got.Next.Command, "linked.example") {
 		t.Fatalf("wrong handoff: %+v", got)
 	}
 	err = runBoard(context.Background(), a, []string{"add", "@pat", "--board", "work", "--server", "https://linked.example"})

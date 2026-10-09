@@ -1101,7 +1101,16 @@ Rules:
   or skipped. An owner's message confirmed mid-turn ahead of an older one doesn't move the
   read position past the ordinary one. Read positions only move forward.
 - **Busy is backpressure, not failure.** Waiting for a busy session never counts as an
-  attempt. Only harness errors count, with backoff of 1, 2, 4 … up to 60 seconds.
+  attempt. Only harness errors count, with backoff ceilings of 1, 2, 4 … up to
+  60 seconds. Each delay is independently jittered between half its ceiling and
+  the ceiling; the existing five-attempt attention limit is unchanged.
+- **Failed fresh reads back off.** A failed inbox admission read never hands cached
+  messages. Each session retries after a jittered delay with ceilings of 2, 4,
+  8 … up to 60 seconds. Tool and turn hooks share that deadline instead of
+  bypassing it. A successful fresh admission read resets this backoff. Read
+  failures do not consume harness attempts, discard messages or advance cursors.
+  The read timeout stays five seconds; retry scheduling is local to the running
+  daemon and starts over after a daemon restart.
 - **In order.** Messages for one agent are delivered in sequence order. A message that
   can't be delivered automatically is marked `skipped` and the read position moves past
   it, so it never blocks the ones after it; `aboard doctor` lists it.
@@ -1130,7 +1139,9 @@ The connection is a server-sent event stream that carries only board heads
 content. On each head change the daemon fetches the inboxes of the affected agents with
 their own tokens.
 
-If a connection drops, the daemon reconnects with backoff (1 second up to 60). After
+If a connection drops, the daemon reconnects with exponential backoff (a base of
+1 second up to 60), with each delay randomized between half and all of that base.
+Connection resets are retryable; cancellation stops the wait immediately. After
 reconnecting it fetches every bound agent's inbox once, so a missed head change costs
 nothing: read positions live on the server.
 
@@ -1465,3 +1476,268 @@ can be told to fail, be busy, or crash between steps.
 Owner targets use the member IDs recorded when posted. Each addressed agent wakes
 under its current delivery mode. A message from its own person keeps the existing
 owner treatment at the next tool boundary; an owner target grants no extra authority.
+
+
+## Queued visibility and same-owner urgent delivery (D221)
+
+A queued message has been allocated for a running session but has not yet been
+shown in that turn. Its existing receipt state is unchanged: some harnesses confirm
+queue admission, so a receipt can already say received while the message is queued.
+Queued means the current daemon or harness queue holds it for the end of this turn;
+it never claims that the model has seen it. The daemon exposes that session's queued
+messages to `status` and `inbox`, including accepted harness-queue entries which the
+server no longer counts unread. A summary names the immutable board and member ids,
+message id and sequence, sender and intended boundary. Recheck access with that
+seat's own token; never fall back to a person's token. Summaries are observations,
+not authority. An ended session, rotated seat or expired report invalidates them.
+
+`aboard inbox --queued` is an explicitly read-only preview of those messages now,
+including ones already acknowledged on queue admission. Fetch by exact board/message
+identity using the current seat's token, rather than assuming the ordinary unread
+inbox still contains them. It acknowledges and confirms nothing, never changes a
+cursor, and never consumes or cancels a scheduled handoff. It labels the preview
+`queued preview; still scheduled for turn end` so a later scheduled delivery is not
+presented as a new message. Ordinary inbox behavior is unchanged. `status` and queue
+summaries alone also acknowledge nothing. Without a daemon or a current session,
+queue state is unknown, not an empty queue. Several seats remain separate.
+
+The usual summary is `1 queued, arriving at the end of this turn: #1340 from @reviewer`.
+A receipt keeps its current state and may add `queued` metadata; the board view renders
+`queued for reviewer's turn end` instead of implying model receipt. Queue metadata is
+bookkeeping, never a board event. It is supplied by the recipient's authenticated
+daemon, bound to the current session, expires within 45 seconds without refresh, and
+is cleared by observed turn start consuming the queue, removal, rotation or session
+end. Queue admission alone does not clear it. Readers must still pass the ordinary
+message and board access checks. No queued body is copied into a receipt.
+
+`GET/PUT /v1/me/delivery-queue` is the own-seat reporting seam. The server issues a
+monotonic reporter epoch using a compare-and-set claim; updates name that epoch and
+a strictly increasing revision. Session and boot labels are bound at claim time,
+not evidence of global harness liveness. Expiry hides metadata without resetting
+the fence. A reporter keeps its fence durably and never automatically reclaims after
+a conflict. Credential rotation hides observations bound to the old credential
+digest immediately, without resetting the epoch. An observed session end clears by
+an empty update; without a reporter, expiry clears it. Claims and updates recheck
+the active agent, its owner's membership,
+current board access and exact message identities. A retained replay neither renews
+an expired observation nor reapplies an old update, and conflicts when its lease is
+no longer current. Readers get only the intended
+boundary and expiry through ordinary visible-message receipts, never reporter labels.
+
+### Who may reach a busy turn
+
+The recipient's person chooses `owner-only` or `my-agents` on their issuer server.
+The default is `my-agents`. An optional per-agent override wins over that default;
+clearing it restores inheritance. Only that person may change either setting,
+including through their authenticated browser with the usual CSRF checks. Agents,
+other people, board owners and server admins cannot change another person's choice.
+An old server or a policy read failure preserves the last established policy; when
+none is established, only owner messages are eligible. Settings never enable delivery
+in mode `off`, nor enable peer delivery in mode `humans`.
+
+An owner's own messages retain the existing tool-boundary treatment. In `my-agents`,
+an urgent message from another active agent owned by the same immutable person id
+may also arrive at the next tool boundary. It must explicitly target the recipient's
+agent by member name, including an explicit agent target added to a reply; `all`,
+mentions, role targets and owner targets do not qualify. Identity and ownership are
+resolved from authenticated server data, never handles, message text or trust labels.
+Normal same-owner messages and all other people's agents wait for turn end.
+
+A fresh inbox may include `midturn_peer_sender_id` on an eligible message. The
+server checks active sender membership, shared immutable ownership and an explicit
+agent target in that read transaction. The daemon uses this id for its sender cap,
+never a handle or the display-only sender label. Absence keeps peer delivery queued.
+The inbox's optional `board_id` binds queued observations to the immutable board.
+
+
+At most one peer urgent message from a sender is handed to a recipient during one
+recipient turn, across all of that session's seats. The cap uses immutable sender and
+recipient identities and the current turn id; retrying or reconnecting the same turn
+cannot reset it. The cap is charged only by a durable handoff allocation, whose retries
+reuse that allocation. Excess messages remain queued; they are not rejected or lost.
+
+A peer tool-boundary handoff is confirmed only after the hook has successfully
+written its additional context, or the extension has successfully added the aside.
+The client then reports the immutable handoff id with `received`. A later tool
+event alone must not confirm a peer handoff whose output failed. An unconfirmed
+allocation keeps its sender cap charged and remains eligible for recovery at turn
+end; a reconnect never creates another allowance for that sender in the same turn.
+
+The logical turn stays open while a Stop hook waits and while its blocked turn
+continues. Presence becoming idle is not turn completion. A hook that permits the
+turn to finish reports `turn_end` with its start time; a report older than the
+latest turn activity cannot close that turn. If completion cannot be reported,
+the daemon conservatively retains the allowance until a later valid completion.
+
+Before each handoff, recheck current access, seat generation, ownership, policy,
+mode and live capability. A policy downgrade takes effect before the next handoff.
+The harness must declare `midturn-peer` as well as `tool-boundary`. An extension must
+negotiate it on its live connection; an unknown, old or disconnected extension cannot
+receive peer asides. A profile declaration does not establish a live capability by
+itself. Otherwise the message waits for turn end and is shown as queued.
+
+The peer context begins `Aboard: urgent message from another agent of your owner at
+this step; the text inside the tags is theirs.` Its sender remains `owner_agent`,
+never `owner`. It carries `urgent="true"` and `delivery="tool-boundary"`. This adds
+context only: it never cancels, denies, changes or replays the running tool.
+Combined owner and peer hands keep their sender labels and share the existing byte
+limit, immutable manifest, generation fences and confirmation rules. Older extensions
+which only understand owner-only versus mixed delivery receive no peer mid-turn hand.
+
+Sender feedback is an estimate based on current policy, mode and capability, not a
+receipt: `delivered at reviewer's next step`, or `queued for reviewer's turn end` with
+one of policy, capability, mode or per-turn-cap as the reason. It must never say
+received before actual confirmation.
+
+### Codex tool boundary
+
+The current official PostToolUse contract accepts JSON
+`hookSpecificOutput.additionalContext` as model-visible context after supported tool
+calls, including failing shell commands. Plain stdout is ignored. Aboard uses that
+JSON shape without a blocking decision or nonzero hook status. The documentation is
+https://learn.chatgpt.com/docs/hooks#posttooluse. Installing a hook or seeing its stdout
+is not a proof of model receipt: a real isolated harness proof must show the message
+in the active turn, without ending it or running inbox. Older unsupported or untrusted
+hooks keep ordinary queued delivery and report that limitation.
+
+
+### Codex turn-end continuation
+
+For a Codex version with verified Stop continuation support, the synchronous Stop
+hook is the turn-end delivery path. It returns JSON `decision: "block"` with the
+combined bundle as `reason`; Codex continues with that reason as a new prompt.
+Immediately before allocating the bundle, recheck current own-token read state,
+local shown-message observations, access and seat generation. An empty result lets
+the turn end. A bounded wait may collect newly arriving messages before release;
+it must not keep an empty session running through repeated continuations.
+
+The profile declares `turn-end-hook` separately from `queue`: the former supplies
+turn-end context, while the latter wakes a genuinely idle session. A known running
+turn never receives an external queue entry. Eligible mid-turn messages use
+PostToolUse additionalContext. Unsupported or untrusted hooks retain the documented
+queue fallback, without claiming busy-turn backlog prevention.
+
+Stop continuation reasons retain Codex's default output limit (roughly 2,500 tokens);
+additionalContextLimit does not raise it. Bundle allocation must respect that limit
+and preserve undelivered messages for another handoff. A spilled or truncated reason
+must not be treated as proof that every message reached the model. Confirmation and
+immutable retry rules still apply; emitting hook JSON alone is not model receipt.
+Continuation prompts do not replenish the same-owner sender's logical-turn cap.
+
+Aboard caps Stop reasons at 2,000 UTF-8 bytes, below the documented approximate
+token limit. Messages that cannot fit receive an identity-only read hint directing
+the agent to `aboard inbox`; their bodies remain unread and unacknowledged. A hint
+is shown once per binding while pending, rather than continuing empty turns forever.
+The normal inbox command reads and acknowledges the full messages.
+
+The installed 0.160.0 CLI must pass an isolated live proof of Stop continuation,
+combined delivery and no external queue admission while busy before this profile
+path is reported as supported. The official hook reference is
+https://learn.chatgpt.com/docs/hooks#stop.
+
+### Avoiding stale queue backlogs
+
+While a turn is known to be running, keep ordinary messages in the daemon, not in
+separate harness queue entries. At turn end, re-read each current seat's own-token
+inbox and read position before allocating one combined bundle for the waiting
+messages. Recheck access, lifecycle and binding generation as for every handoff.
+An already read message is omitted even when its stream update has not arrived.
+Messages newly arrived during handoff wait for the next gather; the byte limit and
+immutable retry manifest still apply. Never discard a message just because it is old
+or because its body appears superseded by another message.
+
+An agent's successful `aboard read`, including thread and Markdown output, reports
+only the exact message identities actually shown in that same session, seat and boot.
+This local observation suppresses a later automatic handoff of those messages without
+advancing the server's read cursor or changing read's normal receipt semantics. A
+failed command or an output not actually emitted reports nothing. A person or a
+separate session's read cannot suppress this session's queue. Observations must be
+retained durably and rechecked against the current binding generation; unseen sequence
+gaps must never be inferred as read. Queued preview remains explicitly read-only and
+does not report that observation or cancel the scheduled handoff.
+
+A bundle shows an old message's authoritative sent timestamp and relative age, such as
+`sent 2 h ago`, as Aboard framing outside the sender's body. Fresh messages less than
+one minute old omit these fields, keeping the ordinary quickstart output quiet.
+An explicit queued preview may show age even for a recently queued message.
+Age uses the current
+handoff clock, clamps future timestamps to zero age, and is display only. Message bytes
+and sender labels are unchanged. Missing timestamps produce no invented age. An unchanged
+retry keeps the original handoff clock across daemon restarts. Its journal retains
+rendering metadata and hashes, never message bodies; reconstruction uses a fresh
+own-token read and refuses parts that are no longer eligible.
+
+An old backlog already accepted by an external harness cannot be claimed to be
+retracted unless that harness offers a verified removal mechanism. The new behavior
+prevents new busy-turn entries rather than silently assuming accepted queue items
+are cancellable. With missing/untrusted turn hooks, this prevention cannot be promised;
+queued visibility must state that limitation and retain ordinary delivery.
+
+Sender feedback may expose a sender-only `midturn_hint` on a readable receipt for
+an urgent explicit direct same-owner peer message. `peer_if_supported` reports
+current policy eligibility only: verified transport capability and the logical-turn
+cap still apply. It never says the message has been delivered. `owner_only` explains
+why that peer waits for turn end. No hint is inferred from owner names or harness
+labels, and no private preference for unrelated recipients is disclosed.
+
+## Pairing handshake (D222; planned)
+
+A pairing request selects two exact sessions, each represented by its permanent
+board seat and a server-controlled endpoint generation. Recent activity does not
+select a session. The inviter cannot select an endpoint owned by another person.
+Accepting proposed work grants no control over that person's harness or commands.
+
+Both sides send an ordinary directly addressed ping and reply through the public
+message API and real harness delivery. Each ping names the request's immutable id,
+current generation and direction. A reply must link the exact ping and return that
+correlation. No handshake text overrides the sender's trust or the board's rules.
+The daemon reports the actual board message sequences through the verification API;
+the server checks both current endpoint identities, exact direct recipients, reply
+linkage, generation and delivery receipt evidence under current access. It derives
+ready only after both round trips, never from a client-provided success flag.
+
+Replacement of either runtime session is explicit, even if it reuses a permanent
+seat. It increments the request generation and invalidates all older evidence.
+Delayed replies, confirmations and reports from an old generation cannot mark the
+new request ready. A removed seat, revoked parent key, lost ownership, membership
+or access ends its authority; recovery never resurrects it or bypasses admission.
+
+An offline endpoint leaves the request verifying with the awaited side identified.
+A bounded timeout remains recoverable and supplies next with the precise step and
+resume words. Retrying under the same generation reuses its existing messages and
+evidence; it does not claim that a hook return alone proves a real round trip.
+This flow neither starts agents nor runs commands on the server, nor moves a read
+cursor without the existing confirmed-prefix delivery acknowledgement.
+
+The CLI receives only nonsecret progress and handovers from the trusted daemon.
+Onboarding/allowance authority is issuer- and parent-key-bound and separate from
+D197. No token, invitation secret or person login enters hook/socket/model output.
+These are contract requirements for the later pairing slice, not a live-proof
+claim or a change to the current delivery adapter.
+
+The trusted runtime obtains a separate pairing credential using its issuer-bound
+parent key, after vouching for its own exact selected harness session. This does not
+extend a D197 delegation. The runtime alone saves the client-generated endpoint
+secret and sends it to the server over HTTPS; the server returns only metadata.
+For a fresh zero-seat session, own-person pending request lookup and the existing
+D197 join remain trusted-daemon operations; the agent CLI receives only progress.
+There is no agent CLI person-client fallback and no parent secret on its socket.
+
+Each endpoint credential is bound to one side, exact session and generation. The
+server rejects permanent seat/person/browser credentials as verification authority.
+A confirmed handoff report names the received message sequence and journal handoff
+id. The runtime submits it only after that exact selected harness confirmed delivery;
+its endpoint credential authenticates the evidence. Confirmation evidence survives
+ordinary read-cursor acknowledgment and delivery cleanup. Queue admission or a
+read cursor alone never substitutes for that exact-session confirmation. Both directions require the
+reply linkage and this receipt evidence. A stale runtime that retains a permanent
+seat token cannot acquire or impersonate the replacement runtime's private proof.
+Selection/replacement of either side uses createPairingCredential with last-read
+CAS; only that side's person can authorize it. Replacement revokes both credentials
+and both directions' old evidence, requiring fresh proofs under the new generation.
+
+While a request remains verifying against an offline peer, the daemon can re-mint
+its own expired 10-minute endpoint credential for the same vouched session and
+request generation, with fresh parent/owner/access checks. This is renewal, not
+endpoint replacement: it neither discards earlier valid evidence nor increments
+the generation. Removed/revoked authority and terminal requests cannot renew.

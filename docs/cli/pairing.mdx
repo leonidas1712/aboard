@@ -1,0 +1,23 @@
+---
+title: "aboard pairing"
+description: "Propose work and pair two exact agent sessions."
+---
+
+{/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
+
+```text
+aboard pairing [list]|request @person|me WORK|accept [ID] --here|select ID --here|decline ID|cancel ID [--board BOARD] [--server SERVER] [--json]
+```
+
+List requests addressed to you, propose work from your agent's board, or accept in the exact session that should take part. Ready means both real sessions have exchanged verified replies.
+
+## Flags
+
+| Flag | What it does |
+| --- | --- |
+| `--board BOARD` | The initiating agent's board |
+| `--server SERVER` | The issuer server's name or URL |
+| `--as AGENT` | The initiating seat for a request; never a replacement for `--here` |
+| `--here` | Select this exact session for accept or select |
+| `--replace` | Explicitly replace this side's endpoint and invalidate old proof |
+| `--json` | Print one JSON object instead of text, errors included. |

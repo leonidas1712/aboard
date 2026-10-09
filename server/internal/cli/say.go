@@ -40,6 +40,8 @@ type recipientNote struct {
 const (
 	outcomeNow        = "now"
 	outcomeTurnEnd    = "turn_end"
+	outcomePeerStep   = "next_step_if_supported"
+	outcomeOwnerOnly  = "turn_end_owner_only"
 	outcomeNextTurn   = "next_turn"
 	outcomeNotWoken   = "not_woken"
 	outcomeNoSession  = "no_session"
@@ -49,7 +51,7 @@ const (
 )
 
 var outcomeOrder = []string{
-	outcomeNow, outcomeTurnEnd, outcomeNextTurn, outcomeNotWoken, outcomeNoSession, outcomeCannotRead, outcomeOverLimit, outcomePerson,
+	outcomeNow, outcomePeerStep, outcomeOwnerOnly, outcomeTurnEnd, outcomeNextTurn, outcomeNotWoken, outcomeNoSession, outcomeCannotRead, outcomeOverLimit, outcomePerson,
 }
 
 // maxMentionWakes is how many agents one message's mentions can wake, as the server
@@ -106,6 +108,17 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 			ownerRecipients = append(ownerRecipients, receipt.Member.Name)
 		}
 	}
+	hints := map[string]string{}
+	if m.Urgent {
+		receipts, receiptErr := c.api.GetReceiptsWithResponse(ctx, m.Board, m.Seq)
+		if receiptErr == nil && receipts.JSON200 != nil {
+			for _, rc := range receipts.JSON200.Recipients {
+				if rc.MidturnHint != nil && rc.State == "pending" && (rc.Queued == nil || *rc.MidturnHint == "owner_only") {
+					hints[rc.Member.Name] = string(*rc.MidturnHint)
+				}
+			}
+		}
+	}
 	out := []recipientNote{}
 	text := textMessage(*m)
 	for _, mem := range r.JSON200.Members {
@@ -128,6 +141,14 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 				n.Delivery = &d
 			}
 			n.Outcome = agentOutcome(n.Presence, n.Delivery, delivery.Concerns(text, mem.Name))
+			if n.Outcome == outcomeTurnEnd {
+				switch hints[mem.Name] {
+				case "peer_if_supported":
+					n.Outcome = outcomePeerStep
+				case "owner_only":
+					n.Outcome = outcomeOwnerOnly
+				}
+			}
 			// A mention the server didn't let wake the agent reaches it only if the
 			// message is addressed to it.
 			if !addressed && !mention.Wakes {
@@ -216,7 +237,7 @@ func wakeWarning(m *api.Message, rs []recipientNote) *sayWarning {
 	quiet := false
 	for _, r := range rs {
 		switch r.Outcome {
-		case outcomeNow, outcomeTurnEnd:
+		case outcomeNow, outcomeTurnEnd, outcomePeerStep, outcomeOwnerOnly:
 			return nil
 		case outcomeNextTurn:
 			quiet = true
@@ -269,6 +290,10 @@ func recipientsText(rs []recipientNote) string {
 		switch o {
 		case outcomeNow:
 			parts = append(parts, list+pick(" gets it now.", " get it now."))
+		case outcomePeerStep:
+			parts = append(parts, list+" can receive this at the next tool boundary if its harness supports it and this sender has not used its turn limit; otherwise it waits for turn end.")
+		case outcomeOwnerOnly:
+			parts = append(parts, list+" waits for turn end: its owner allows mid-turn input only from their person.")
 		case outcomeTurnEnd:
 			parts = append(parts, list+pick(" gets it when its turn ends.", " get it when their turn ends."))
 		case outcomeNextTurn:

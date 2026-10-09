@@ -9,22 +9,26 @@ import (
 
 // CreateServerInvite makes a server invite, for an admin's own access key.
 func (h *handlers) CreateServerInvite(ctx context.Context, req CreateServerInviteRequestObject) (CreateServerInviteResponseObject, error) {
-	var ttl time.Duration
-	if req.Body != nil && req.Body.TtlSeconds != nil {
-		ttl = time.Duration(*req.Body.TtlSeconds) * time.Second
+	in := board.InvitePeopleInput{}
+	if req.Body != nil {
+		in.TTLSeconds = req.Body.TtlSeconds
+		if req.Body.Boards != nil {
+			in.Boards = *req.Body.Boards
+		}
+		if req.Body.Pairing != nil {
+			in.Pairing = &board.InvitePairingInput{InitiatingAgentID: req.Body.Pairing.InitiatingAgentId, Work: req.Body.Pairing.Work}
+		}
 	}
-	inv, err := h.svc.CreateServerInvite(ctx, principal(ctx), ttl)
+	inv, err := h.svc.CreateServerInviteWithInput(ctx, principal(ctx), in)
 	if err != nil {
 		return nil, err
 	}
-	return convert[CreateServerInvite201JSONResponse](map[string]string{
-		"id": inv.Invite.ID, "invite": inv.Secret, "server_role": board.ServerMember, "expires_at": inv.Invite.ExpiresAt,
-	})
+	return convert[CreateServerInvite201JSONResponse](serverInviteOf(inv))
 }
 
 // Connect redeems a server invite. It needs no token: the invite is the proof.
 func (h *handlers) Connect(ctx context.Context, req ConnectRequestObject) (ConnectResponseObject, error) {
-	in := board.ConnectInput{Invite: req.Body.Invite, Handle: req.Body.Handle, KeyName: req.Body.KeyName}
+	in := board.ConnectInput{ClientToken: req.Body.ClientToken, Invite: req.Body.Invite, Handle: req.Body.Handle, KeyName: req.Body.KeyName}
 	if req.Body.DisplayName != nil {
 		in.DisplayName = *req.Body.DisplayName
 	}
@@ -35,6 +39,11 @@ func (h *handlers) Connect(ctx context.Context, req ConnectRequestObject) (Conne
 	key := map[string]any{
 		"id": c.Key.ID, "name": c.Key.Name, "created_at": c.Key.CreatedAt, "expires_at": c.Key.ExpiresAt,
 		"idle_expiry_seconds": c.Key.IdleSeconds, "token": c.Token,
+	}
+	if c.Onboarding != nil {
+		delete(key, "token")
+		key["state"] = "working"
+		return convert[Connect200JSONResponse](map[string]any{"server_id": h.svc.Config().ServerID, "person": personOf(c.Person), "key": key, "onboarding": onboardingOf(*c.Onboarding)})
 	}
 	return convert[Connect201JSONResponse](map[string]any{
 		"server_id": h.svc.Config().ServerID, "person": personOf(c.Person), "key": key,
@@ -96,7 +105,14 @@ func (h *handlers) RevokeKey(ctx context.Context, req RevokeKeyRequestObject) (R
 }
 
 // ListServerPeople lists the people on the server with their roles.
-func (h *handlers) ListServerPeople(ctx context.Context, _ ListServerPeopleRequestObject) (ListServerPeopleResponseObject, error) {
+func (h *handlers) ListServerPeople(ctx context.Context, req ListServerPeopleRequestObject) (ListServerPeopleResponseObject, error) {
+	if req.Params.Handle != nil {
+		person, err := h.svc.LookupPerson(ctx, principal(ctx), *req.Params.Handle)
+		if err != nil {
+			return nil, err
+		}
+		return convert[ListServerPeople200JSONResponse](map[string]any{"id": person.ID, "handle": person.Name, "display_name": person.DisplayName})
+	}
 	people, err := h.svc.ListServerPeople(ctx, principal(ctx))
 	if err != nil {
 		return nil, err

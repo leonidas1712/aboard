@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
 )
@@ -25,9 +26,11 @@ func (h *handlers) AckBoard(ctx context.Context, req AckBoardRequestObject) (Ack
 }
 
 type wireReceipt struct {
-	Member   wireMemberRef `json:"member"`
-	State    string        `json:"state"`
-	Presence *string       `json:"presence"`
+	MidturnHint *string        `json:"midturn_hint,omitempty"`
+	Queued      *QueuedReceipt `json:"queued,omitempty"`
+	Member      wireMemberRef  `json:"member"`
+	State       string         `json:"state"`
+	Presence    *string        `json:"presence"`
 }
 
 func (h *handlers) GetReceipts(ctx context.Context, req GetReceiptsRequestObject) (GetReceiptsResponseObject, error) {
@@ -37,7 +40,10 @@ func (h *handlers) GetReceipts(ctx context.Context, req GetReceiptsRequestObject
 	}
 	recipients := make([]wireReceipt, 0, len(r.Recipients))
 	for _, rc := range r.Recipients {
-		w := wireReceipt{Member: refOf(rc.Member), State: rc.State}
+		w := wireReceipt{Member: refOf(rc.Member), State: rc.State, MidturnHint: rc.MidturnHint}
+		if at, err := time.Parse(time.RFC3339Nano, rc.QueuedUntil); err == nil {
+			w.Queued = &QueuedReceipt{Boundary: QueuedReceiptBoundary("turn_end"), ExpiresAt: at}
+		}
 		if rc.Presence != nil {
 			w.Presence = &rc.Presence.State
 		}

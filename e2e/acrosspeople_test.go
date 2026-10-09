@@ -26,13 +26,14 @@ func TestGuideAgentsAcrossPeople(t *testing.T) {
 	for _, f := range strings.Fields(inv.stdout) {
 		if strings.Contains(f, "/join#abi_") {
 			link = f
+			break
 		}
 	}
 	if !strings.HasPrefix(inv.stdout, "Invite for "+tm.url()+": one person, as a member, once, within 168 hours. On their machine, run:\n") || link == "" {
 		t.Fatalf("invite --server:\n%s", inv)
 	}
 	ls := leo.claudeSession("s-leo")
-	if r := ls.runExit("invite", "--server", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {
+	if r := ls.runExit("invite", "--server", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "agent_session_required" || field(t, r.json(t), "error.next.command") != "aboard boards" {
 		t.Fatalf("an agent made a server invite:\n%s", r)
 	}
 

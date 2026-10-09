@@ -51,8 +51,21 @@ func validateManifest(m delivery.HandoffManifest) error {
 	if _, err := hex.DecodeString(m.PayloadHash); err != nil {
 		return errors.New("invalid handoff payload hash")
 	}
-	if m.Class != delivery.ClassMixed && m.Class != delivery.ClassOwnerOnly {
+	if m.Class != delivery.ClassMixed && m.Class != delivery.ClassOwnerOnly && m.Class != delivery.ClassMidturnPeer {
 		return errors.New("invalid handoff class")
+	}
+	if m.Class == delivery.ClassMidturnPeer && (m.PeerTurn == 0 || len(m.PeerSenders) == 0) {
+		return errors.New("peer handoff requires a turn and immutable senders")
+	}
+	seenSenders := map[delivery.AgentKey]bool{}
+	for _, sender := range m.PeerSenders {
+		if sender.Server == "" || sender.MemberID == "" || sender.Board != "" || sender.Name != "" || seenSenders[sender] {
+			return errors.New("invalid or duplicate peer sender")
+		}
+		seenSenders[sender] = true
+	}
+	if m.Class != delivery.ClassMidturnPeer && (m.PeerTurn != 0 || len(m.PeerSenders) != 0) {
+		return errors.New("non-peer handoff carries peer allocation")
 	}
 	if m.Session.Harness == "" || m.Session.ID == "" || m.Boot == "" || len(m.Parts) == 0 || m.CreatedAt.IsZero() {
 		return errors.New("incomplete handoff manifest")
@@ -137,6 +150,15 @@ func (j *Journal) PrepareHandoff(ctx context.Context, m delivery.HandoffManifest
 			if !bytes.Equal(left, right) {
 				return errors.New("handoff manifest changed")
 			}
+			if previous.Class == delivery.ClassMidturnPeer {
+				var current int
+				if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sessions WHERE harness = ? AND session_id = ? AND boot = ? AND open = 1 AND peer_turn_active = 1 AND peer_turn = ?`, previous.Session.Harness, previous.Session.ID, previous.Boot, previous.PeerTurn).Scan(&current); err != nil {
+					return err
+				}
+				if current != 1 {
+					return errors.New("peer handoff turn changed")
+				}
+			}
 			for _, p := range previous.Parts {
 				current, err := currentPart(ctx, tx, previous, p)
 				if err != nil {
@@ -163,6 +185,20 @@ func (j *Journal) PrepareHandoff(ctx context.Context, m delivery.HandoffManifest
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
 			return err
+		}
+		if m.Class == delivery.ClassMidturnPeer {
+			var current int
+			if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sessions WHERE harness = ? AND session_id = ? AND boot = ? AND open = 1 AND peer_turn_active = 1 AND peer_turn = ?`, m.Session.Harness, m.Session.ID, m.Boot, m.PeerTurn).Scan(&current); err != nil {
+				return err
+			}
+			if current != 1 {
+				return errors.New("peer handoff turn changed")
+			}
+			for _, sender := range m.PeerSenders {
+				if _, err := tx.ExecContext(ctx, `INSERT INTO peer_caps (harness,session_id,turn_id,sender_server,sender_member_id,handoff_id) VALUES (?,?,?,?,?,?)`, m.Session.Harness, m.Session.ID, m.PeerTurn, sender.Server, sender.MemberID, m.ID); err != nil {
+					return fmt.Errorf("reserve peer sender allowance: %w", err)
+				}
+			}
 		}
 		m.Parts = append([]delivery.HandoffPart(nil), m.Parts...)
 		for i, p := range m.Parts {
@@ -242,7 +278,7 @@ func reuseDelivery(ctx context.Context, tx *sql.Tx, m delivery.HandoffManifest, 
 	if !slices.Equal(seqs, p.Seqs) {
 		return errors.New("handoff delivery sequences changed")
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, harness = ?, session_id = ?, agent = ?, boot = ?, updated_at = ?, accepted_at = '', turn_started_at = '', stalled = 0, handoff_id = ? WHERE id = ?`, string(delivery.StateHanded), m.Session.Harness, m.Session.ID, p.Agent.Name, m.Boot, formatTime(m.CreatedAt), m.ID, p.DeliveryID)
+	_, err = tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, harness = ?, session_id = ?, agent = ?, boot = ?, updated_at = ?, accepted_at = '', turn_started_at = '', stalled = 0, confirmed_at = '', handoff_id = ? WHERE id = ?`, string(delivery.StateHanded), m.Session.Harness, m.Session.ID, p.Agent.Name, m.Boot, formatTime(m.CreatedAt), m.ID, p.DeliveryID)
 	return err
 }
 
@@ -278,7 +314,7 @@ func (j *Journal) ConfirmHandoff(ctx context.Context, id string, session deliver
 			if state != string(delivery.StateHanded) || active != m.ID {
 				continue
 			}
-			if _, err := tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, accepted_at = ?, updated_at = ? WHERE id = ?`, string(delivery.StateConfirmed), formatTime(at), formatTime(at), p.DeliveryID); err != nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, accepted_at = ?, updated_at = ?, confirmed_at = ? WHERE id = ?`, string(delivery.StateConfirmed), formatTime(at), formatTime(at), formatTime(at), p.DeliveryID); err != nil {
 				return err
 			}
 			d, err := readHandoffDelivery(ctx, tx, p.DeliveryID)
@@ -319,8 +355,8 @@ func (j *Journal) Handoffs(ctx context.Context) ([]delivery.HandoffManifest, err
 
 func readHandoffDelivery(ctx context.Context, tx *sql.Tx, id int64) (delivery.Delivery, error) {
 	var d delivery.Delivery
-	var state, retry, created, updated, accepted, started string
-	err := tx.QueryRowContext(ctx, `SELECT id, server, board, agent, member_id, harness, session_id, boot, state, attempts, reason, retry_at, created_at, updated_at, accepted_at, turn_started_at, stalled, handoff_id FROM deliveries WHERE id = ?`, id).Scan(&d.ID, &d.Agent.Server, &d.Agent.Board, &d.Agent.Name, &d.Agent.MemberID, &d.Session.Harness, &d.Session.ID, &d.Boot, &state, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &started, &d.Stalled, &d.HandoffID)
+	var state, retry, created, updated, accepted, started, confirmed string
+	err := tx.QueryRowContext(ctx, `SELECT id, server, board, agent, member_id, harness, session_id, boot, state, attempts, reason, retry_at, created_at, updated_at, accepted_at, turn_started_at, stalled, handoff_id, confirmed_at FROM deliveries WHERE id = ?`, id).Scan(&d.ID, &d.Agent.Server, &d.Agent.Board, &d.Agent.Name, &d.Agent.MemberID, &d.Session.Harness, &d.Session.ID, &d.Boot, &state, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &started, &d.Stalled, &d.HandoffID, &confirmed)
 	if err != nil {
 		return d, err
 	}
@@ -328,7 +364,7 @@ func readHandoffDelivery(ctx context.Context, tx *sql.Tx, id int64) (delivery.De
 	for _, field := range []struct {
 		raw    string
 		target *time.Time
-	}{{retry, &d.RetryAt}, {created, &d.CreatedAt}, {updated, &d.UpdatedAt}, {accepted, &d.AcceptedAt}, {started, &d.TurnStartedAt}} {
+	}{{retry, &d.RetryAt}, {created, &d.CreatedAt}, {updated, &d.UpdatedAt}, {accepted, &d.AcceptedAt}, {started, &d.TurnStartedAt}, {confirmed, &d.ConfirmedAt}} {
 		*field.target, err = parseTime(field.raw)
 		if err != nil {
 			return d, err

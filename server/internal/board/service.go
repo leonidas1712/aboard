@@ -22,23 +22,26 @@ import (
 
 // Config describes the server a Service runs in.
 type Config struct {
-	Blobs    Blobs
-	ServerID string
-	Mode     string // "local" or "team"
-	JoinHost string // how join lines name this server: "localhost", "localhost:7411", a domain
+	Blobs     Blobs
+	ServerID  string
+	Mode      string // "local" or "team"
+	IssuerURL string // exact configured issuer URL used by credential-qualified handovers
+	JoinHost  string // how join lines name this server: "localhost", "localhost:7411", a domain
 }
 
 // Service implements every board operation.
 type Service struct {
-	st     Store
-	notify Notifier
-	clk    clock.Clock
-	gen    *ids.Generator
-	key    []byte // keys the digests of tokens and join codes
-	cfg    Config
-	log    *slog.Logger
-	codes  *loginCodes
-	uses   *keyUses
+	st                 Store
+	notify             Notifier
+	clk                clock.Clock
+	gen                *ids.Generator
+	key                []byte // keys the digests of tokens and join codes
+	cfg                Config
+	log                *slog.Logger
+	adminAuthorization *AdminAuthorization
+	adminActor         *events.Actor
+	codes              *loginCodes
+	uses               *keyUses
 }
 
 // New returns a Service that keeps its data in st and wakes waiting readers through
@@ -69,6 +72,19 @@ func actorOf(m Member) events.Actor {
 
 // append seals and stores the next event on b, and advances b's head.
 func (s *Service) append(tx Tx, b *Board, typ string, actor events.Actor, at time.Time, data any) (events.Event, error) {
+	if s.adminAuthorization != nil {
+		if original, ok := data.(map[string]any); ok {
+			copied := make(map[string]any)
+			for key, value := range original {
+				copied[key] = value
+			}
+			copied["authorization"] = s.adminAuthorization.data()
+			data = copied
+		}
+		if s.adminActor != nil && actor.Kind != "system" {
+			actor = *s.adminActor
+		}
+	}
 	id, err := s.gen.ID("evt", at)
 	if err != nil {
 		return events.Event{}, err

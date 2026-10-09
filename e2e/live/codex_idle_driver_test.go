@@ -3,9 +3,9 @@
 package live
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -32,6 +32,10 @@ func TestCodexIdleWaitsForThisPanesStopHook(t *testing.T) {
 		{name: "another panes stop cannot end this turn", events: "prompt at=%s\nstop at=another-project\n"},
 		{name: "old stop cannot end submitted turn", events: "prompt at=%s\nstop at=%s\n", submitted: true, stops: 1},
 		{name: "this panes stop ends the turn", events: "prompt at=%s\nstop at=%s\n", submitted: true, want: true},
+		{name: "continuation hook entry is still busy", events: "prompt at=%s\nstop-continue at=%s\n", submitted: true},
+		{name: "blocking continuation is still busy", events: "prompt at=%s\nstop-block at=%s\n", submitted: true},
+		{name: "completed empty continuation stop is idle", events: "prompt at=%s\nstop-complete at=%s\n", submitted: true, want: true},
+		{name: "completion closes multiple continuation prompts", events: "prompt at=%s\nstop-block at=%s\nprompt at=%s\nstop-complete at=%s\n", submitted: true, want: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			l := &lab{t: t, dir: t.TempDir()}
@@ -39,11 +43,7 @@ func TestCodexIdleWaitsForThisPanesStopHook(t *testing.T) {
 			tag := codexHookTag(p.dir)
 			events := tc.events
 			if events != "" {
-				if tc.want || tc.stops > 0 {
-					events = fmt.Sprintf(events, tag, tag)
-				} else {
-					events = fmt.Sprintf(events, tag)
-				}
+				events = strings.ReplaceAll(events, "%s", tag)
 			}
 			if err := os.WriteFile(l.codexHookLog(), []byte(events), 0o600); err != nil {
 				t.Fatal(err)

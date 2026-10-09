@@ -235,6 +235,7 @@ func humansRoundTrip(t *testing.T, st board.Store) {
 		}
 		return tx.InsertHuman(human("hum_blair"))
 	})
+	want.MidturnPolicy = board.MidturnMyAgents
 	read(t, st, func(tx board.ReadTx) error {
 		got, err := tx.HumanByName(want.Name)
 		if err != nil {

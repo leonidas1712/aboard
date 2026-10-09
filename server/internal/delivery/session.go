@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/deliverytext"
+	"github.com/leonidas1712/aboard/server/internal/retry"
 )
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
 type sessionMsg struct {
+	queueReport *queueReportResult
 	// A control request, answered on reply.
 	req       Request
 	reply     chan<- Response
@@ -113,12 +115,15 @@ type ackResult struct {
 // session is one open conversation in one harness. Everything below mail is changed
 // only by the session's own goroutine, in run.
 type session struct {
-	handoffs  map[string]*sessionHandoff
-	firstSeat int
-	d         *Daemon
-	key       SessionKey
-	adapter   Adapter
-	mail      *mailbox[sessionMsg]
+	shown       []ShownRecord
+	shownLoaded bool
+	shownBoot   string
+	handoffs    map[string]*sessionHandoff
+	firstSeat   int
+	d           *Daemon
+	key         SessionKey
+	adapter     Adapter
+	mail        *mailbox[sessionMsg]
 
 	boot string
 	open bool
@@ -136,7 +141,11 @@ type session struct {
 	inTurn bool
 	// working is true from a turn's start (a prompt, a tool call, a wake) until its end
 	// (the stop hook waiting, or a queueing harness's stop hook), for presence.
-	working bool
+	working           bool
+	peerHookBoot      string
+	peerHookSupported bool
+	peerTurnActive    bool
+	peerTurn          uint64
 	// reported is the presence and delivery mode last reported for each agent.
 	reported map[AgentKey]reportedPresence
 	// waiter is the connection waiting while the session is idle: its stop hook's, or
@@ -167,6 +176,8 @@ type session struct {
 	gatherUntil time.Time
 	// prepareFailures counts the handoffs in a row that failed to prepare.
 	prepareFailures int
+	recheckFailures int
+	recheckAt       time.Time
 	// forward holds agents released while still being adopted: once the adoption
 	// arrives, it is passed on to the session that took them.
 	forward map[AgentKey]*session
@@ -178,8 +189,14 @@ type session struct {
 
 // agentState is what a session knows about one of its agents.
 type agentState struct {
-	generation uint64
-	ref        AgentRef
+	queueGeneration                          uint64
+	queueBoot                                string
+	queueSending, queueStopped, queueLastSet bool
+	queueNext, queueFreshAt                  time.Time
+	queueLast                                []QueuedMessage
+	midturnPolicy                            string
+	generation                               uint64
+	ref                                      AgentRef
 	// adopting is true until the previous session has given the agent up.
 	adopting bool
 	// fetched is true once the inbox has been read at least once.
@@ -230,16 +247,20 @@ func (s *session) run(ctx context.Context) error {
 			}
 			s.tryDeliver(ctx)
 			s.reportPresence(renew)
+			s.publishQueues(ctx)
 		case <-timer:
 			s.checkStalls(ctx)
 			s.tryDeliver(ctx)
 			s.reportPresence(false)
+			s.publishQueues(ctx)
 		}
 	}
 }
 
 func (s *session) handle(ctx context.Context, m sessionMsg) {
 	switch {
+	case m.queueReport != nil:
+		s.onQueueReport(*m.queueReport)
 	case m.preflight != nil:
 		m.reply <- s.preflightBinding(*m.preflight)
 	case m.waiter != nil:
@@ -321,7 +342,9 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
-	s.noteProcess(ctx, req)
+	if req.Op != OpQueued && req.Op != OpShown {
+		s.noteProcess(ctx, req)
+	}
 	switch req.Op {
 	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent:
 		if s.started && !s.open {
@@ -362,6 +385,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpPrompt, OpTurnStart:
+		s.beginPeerTurn()
 		if req.Op == OpTurnStart || req.Harness != "omp" {
 			ok.Nudge = s.briefStartNudge(ctx)
 		}
@@ -369,6 +393,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true
 		s.turnStarted(ctx)
+		s.saveSession(ctx)
 		if !req.Wake {
 			s.event(ctx, req.Boot)
 		}
@@ -380,25 +405,47 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			ok.Bundle = s.atTurnStart(ctx)
 		}
 	case OpBoundary, OpUrgent:
+		if slices.Contains(req.Capabilities, "midturn-peer") && req.Boot != "" && s.boot != "" && req.Boot != s.boot {
+			return errorResponse("session_unknown", "This tool boundary belongs to an older session boot.", "Keep the message queued for the current session.")
+		}
+		s.beginPeerTurn()
 		s.busyAt = s.now()
 		s.working = true
 		s.turnStarted(ctx)
+		s.saveSession(ctx)
 		if req.Boot != "" && req.Boot != s.boot {
 			s.newBoot(ctx, req.Boot)
 		} else {
 			s.confirmBefore(ctx, req.Started)
 		}
-		ok.Bundle, ok.Notice = s.boundary(ctx)
+		s.peerHookBoot = s.boot
+		s.peerHookSupported = slices.Contains(req.Capabilities, "tool-boundary") && slices.Contains(req.Capabilities, "midturn-peer")
+		ok.Bundle, ok.Notice, ok.HandoffID = s.boundary(ctx, s.peerHookSupported)
+		if ok.HandoffID != "" {
+			ok.Boot, ok.TurnID = s.boot, s.peerTurn
+		}
+	case OpReceived:
+		return s.receivePeerBoundary(ctx, req)
 	case OpTurnEnd:
+		if req.TurnID != 0 && (req.TurnID != s.peerTurn || req.Boot == "" || req.Boot != s.boot) {
+			return ok
+		}
+		if (!req.Started.IsZero() && req.Started.Before(s.busyAt)) || (req.Boot != "" && req.Boot != s.boot) {
+			return ok
+		}
 		s.markTurned(ctx)
 		s.event(ctx, req.Boot)
+		s.requeueUnreceivedPeers(ctx)
 		s.inTurn, s.working = false, false
+		s.peerTurnActive = false
 		s.seenTurns = true
+		s.saveSession(ctx)
 		if len(s.offers(s.queueFilter())) > 0 && s.gatherUntil.IsZero() {
 			s.gatherUntil = s.now()
 		}
 	case OpEnd:
 		s.inTurn, s.working = false, false
+		s.peerTurnActive = false
 		if s.waiter != nil {
 			s.waiter.Release()
 			s.waiter = nil
@@ -426,7 +473,12 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if !s.open {
 			s.setOpen(ctx, true)
 		}
+	case OpShown:
+		return s.observeShown(ctx, req)
+	case OpQueued:
+		return s.queued(ctx, req)
 	case OpAgents:
+		ok.Boot = s.boot
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 		ok.Capabilities = negotiatedCapabilities(s.ext)
 	}
@@ -583,9 +635,16 @@ func (s *session) markTurned(ctx context.Context) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, BusyAt: s.busyAt, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
+	}
+}
+
+func (s *session) beginPeerTurn() {
+	if !s.peerTurnActive {
+		s.peerTurn++
+		s.peerTurnActive = true
 	}
 }
 
@@ -643,13 +702,16 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		// never arrived.
 		s.unhand(ctx)
 	}
+	s.requeueUnreceivedPeers(ctx)
 	if s.waiter != nil && s.waiter != w {
 		s.waiter.Release()
 	}
 	s.waiter = w
+	s.inTurn = false
 	s.working = false
 	s.seenTurns = true
-	w.accepted()
+	s.saveSession(ctx)
+	w.acceptedTurn(s.boot, s.peerTurn)
 	if !s.open {
 		s.setOpen(ctx, true)
 	}
@@ -857,7 +919,10 @@ func (s *session) onInbox(ctx context.Context, r inboxResult) {
 	}
 	s.setProblem(a, "")
 	a.fetched = true
+	a.queueFreshAt = s.now()
+	a.midturnPolicy = ""
 	if r.mode != nil {
+		a.midturnPolicy = r.mode.MidturnPolicy
 		s.d.learnMode(ctx, a.ref, *r.mode)
 	}
 	if a.told == "" {
@@ -1067,7 +1132,7 @@ func (s *session) onReading(ctx context.Context, req Request, rd *reading) Respo
 	if req.Session != "" && req.Key() == s.key && s.open && !req.Started.IsZero() && (req.Boot == "" || req.Boot == s.boot) {
 		s.confirmBefore(ctx, req.Started)
 	}
-	return Response{V: ProtocolVersion, Held: true, Received: s.received(a)}
+	return Response{V: ProtocolVersion, Held: true, Boot: s.boot, Generation: a.generation, Received: s.received(a)}
 }
 
 // received returns the agent's messages past its read position that a session
@@ -1124,7 +1189,7 @@ func (s *session) newMessages(a *agentState, f filter) []Message {
 	t := taken(a)
 	var out []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) {
+		if _, in := t[m.Seq]; in || !f.allows(m) || s.held(a.ref, m) || s.alreadyShown(a, m) {
 			continue
 		}
 		out = append(out, m)
@@ -1206,6 +1271,9 @@ func (s *session) offers(f filter) []offer {
 		blocked := false
 		for _, id := range slices.Sorted(maps.Keys(a.deliveries)) {
 			dl := a.deliveries[id]
+			if s.deliveryFullyShown(a, dl) {
+				continue
+			}
 			switch dl.State {
 			case StateAttention:
 				blocked = true
@@ -1294,7 +1362,7 @@ func anyConcerns(offers []offer, name string) bool {
 func (s *session) messagesFor(a *agentState, seqs []int) []Message {
 	var out []Message
 	for _, m := range a.unread {
-		if slices.Contains(seqs, m.Seq) {
+		if slices.Contains(seqs, m.Seq) && !s.alreadyShown(a, m) {
 			out = append(out, m)
 		}
 	}
@@ -1327,17 +1395,29 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if len(offers) > 0 {
 		// The server is the authority on what the agent has read: check just before
 		// handing, in case a read the stream reports hasn't arrived yet.
-		s.recheck(ctx)
+		if !s.recheck(ctx) {
+			s.gatherUntil = s.recheckAt
+			return
+		}
 		offers = s.offers(s.queueFilter())
 	}
 	notes, told := s.modeNotes()
 	limit := BundleLimit
+	stopHand := s.key.Harness == "codex" && s.waiter != nil
+	if stopHand {
+		limit = codexStopLimit
+	}
 	if notes != "" {
 		limit -= len(notes) + 1
 	}
 	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), notes)
-	s.skip(ctx, c.tooLarge)
+	if !stopHand {
+		s.skip(ctx, c.tooLarge)
+	}
 	if len(c.parts) == 0 {
+		if stopHand {
+			s.stopReadHint(ctx, offers)
+		}
 		s.scheduleRetry()
 		return
 	}
@@ -1353,7 +1433,8 @@ func (s *session) tryDeliver(ctx context.Context) {
 		first = handed[0].ID
 	}
 	began := s.now()
-	idle := s.adapter.WaitsForIdle() || !s.inTurn
+	hookHand := s.waiter != nil
+	idle := !stopHand && (s.adapter.WaitsForIdle() || !s.inTurn)
 	confirmed, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: first, HandoffID: func() string {
 		if len(s.agents) > 1 {
 			return handoff.manifest.ID
@@ -1364,11 +1445,13 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.accepted(ctx, handed, idle)
 		s.markTold(told)
 	}
-	if s.adapter.WaitsForIdle() {
+	if s.adapter.WaitsForIdle() || hookHand {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
 	}
-	if err == nil && s.adapter.WaitsForIdle() {
+	if err == nil && (s.adapter.WaitsForIdle() || hookHand) {
+		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true // the waiting hook took the bundle and wakes the session with it
+		s.saveSession(ctx)
 	}
 	switch {
 	case err == nil && confirmed:
@@ -1402,6 +1485,40 @@ func (s *session) tryDeliver(ctx context.Context) {
 		"bytes", len(c.text), "began", began, "error", errText(err))
 }
 
+const codexStopLimit = 2000
+
+// stopReadHint leaves bodies pending when they cannot fit a continuation reason.
+func (s *session) stopReadHint(ctx context.Context, offers []offer) {
+	text := "Aboard: queued messages need a full read. Run aboard inbox to read and acknowledge them. These hints are not receipts.\n"
+	var shown []offer
+	for _, o := range offers {
+		a := s.agents[o.agent.Key()]
+		for _, m := range o.msgs {
+			if a.previewed[m.Seq] {
+				continue
+			}
+			line := fmt.Sprintf("Board %q: #%d from @%s.\n", a.ref.Board, m.Seq, m.FromName)
+			if len(text)+len(line) > codexStopLimit {
+				break
+			}
+			text += line
+			shown = append(shown, offer{agent: o.agent, msgs: []Message{m}})
+		}
+	}
+	if len(shown) == 0 {
+		return
+	}
+	if _, err := s.hand(ctx, Handover{SessionID: s.key.ID, Bundle: text, Waiter: s.waiter}); err != nil {
+		return
+	}
+	for _, o := range shown {
+		s.agents[o.agent.Key()].previewed[o.msgs[0].Seq] = true
+	}
+	s.waiter = nil
+	s.inTurn, s.working = true, true
+	s.saveSession(ctx)
+}
+
 // accepted records that the harness took the deliveries of a bundle. Handed to an idle
 // session whose turns the daemon sees, they wait for the turn they should start, and
 // count as stalled after StallAfter without one.
@@ -1409,6 +1526,9 @@ func (s *session) accepted(ctx context.Context, ds []*Delivery, idle bool) {
 	now := s.now()
 	for _, dl := range ds {
 		dl.AcceptedAt = now
+		if !idle {
+			dl.TurnStartedAt = now
+		}
 		s.saveDelivery(ctx, dl)
 	}
 	if !idle || !s.seenTurns || len(ds) == 0 {
@@ -1467,27 +1587,31 @@ func (s *session) forgetAwaiting() {
 	s.awaitingTurn, s.stallAt = nil, time.Time{}
 }
 
-// canTake reports whether the session can be handed a bundle now: a queueing harness
-// always can, one that waits for idle only while its hook or extension waits.
+// canTake keeps a tracked busy turn's backlog in the daemon, where reads can remove
+// it and turn end can coalesce it. An accepted idle wake waits for its turn to start.
 func (s *session) canTake() bool {
-	return !s.adapter.WaitsForIdle() || s.waiter != nil
+	if s.adapter.WaitsForIdle() {
+		return s.waiter != nil
+	}
+	return s.waiter != nil || (!s.inTurn && len(s.awaitingTurn) == 0)
 }
 
 // nextTimer is when the session next has something to do on its own: hand a bundle once
 // its messages are gathered, or check for stalls; zero for nothing.
 func (s *session) nextTimer() time.Time {
-	gather := s.gatherUntil
+	next := s.gatherUntil
 	if !s.canTake() {
-		// Nothing can be handed until a waiter comes, which runs the session anyway.
-		gather = time.Time{}
+		next = time.Time{}
 	}
-	switch {
-	case gather.IsZero():
-		return s.stallAt
-	case s.stallAt.IsZero() || gather.Before(s.stallAt):
-		return gather
+	if !s.stallAt.IsZero() && (next.IsZero() || s.stallAt.Before(next)) {
+		next = s.stallAt
 	}
-	return s.stallAt
+	for _, a := range s.agents {
+		if !a.adopting && a.problem == "" && a.fetched && !a.queueSending && !a.queueStopped && !a.queueNext.IsZero() && (next.IsZero() || a.queueNext.Before(next)) {
+			next = a.queueNext
+		}
+	}
+	return next
 }
 
 // saveDelivery writes a delivery to the journal as it is, without moving its state.
@@ -1533,6 +1657,15 @@ func (s *session) hand(ctx context.Context, h Handover) (bool, error) {
 		}
 	})
 	defer stop()
+	if s.waiter != nil && !s.adapter.WaitsForIdle() {
+		if w, ok := s.waiter.(HandoffWaiter); ok {
+			return false, w.DeliverHandoff(hctx, h)
+		}
+		if h.HandoffID != "" {
+			return false, ErrExtensionOutdated
+		}
+		return false, s.waiter.Deliver(hctx, h.ID, h.Bundle)
+	}
 	return s.adapter.Hand(hctx, h)
 }
 
@@ -1563,6 +1696,11 @@ func (s *session) failed(ctx context.Context, ds []*Delivery, err error) {
 	case errors.Is(err, ErrSubAgent):
 		reason = ReasonSubAgent
 	}
+	delay := time.Duration(0)
+	for _, dl := range ds {
+		delay = max(delay, backoff(dl.Attempts+1))
+	}
+	retryAt := s.now().Add(retry.Delay(delay))
 	for _, dl := range ds {
 		dl.Attempts++
 		dl.Reason = reason
@@ -1570,7 +1708,7 @@ func (s *session) failed(ctx context.Context, ds []*Delivery, err error) {
 			s.setState(ctx, dl, StateAttention)
 			continue
 		}
-		dl.RetryAt = s.now().Add(backoff(dl.Attempts))
+		dl.RetryAt = retryAt
 		s.setState(ctx, dl, StateRetry)
 	}
 	s.d.log.Warn("delivery failed", "session", s.key.String(), "reason", reason, "error", err)
@@ -1626,34 +1764,65 @@ const previewLimit = 2000
 // midTurnFrame is Aboard's line before the owner's messages handed mid-turn.
 const midTurnFrame = "Aboard: your owner sent this while you were working; the text inside the tags is theirs.\n"
 
+const peerMidTurnFrame = "Aboard: urgent message from another agent of your owner at this step; the text inside the tags is theirs.\n"
+
 // boundary answers a busy session's tool hook: the owner's waiting messages, handed
 // over, and a notice naming other messages that arrived since the last notice. Each
 // message is claimed by one hook, since the session answers one request at a time.
-func (s *session) boundary(ctx context.Context) (bundle, notice string) {
+func (s *session) boundary(ctx context.Context, peers bool) (bundle, notice, handoffID string) {
 	if !s.open {
-		return "", ""
+		return "", "", ""
 	}
-	if len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce() {
-		s.recheck(ctx)
+	if s.key.Harness == "omp" {
+		peers = peers && s.ext.SupportsHandoffs() && s.ext.supportsPeer
 	}
-	c := s.composePending(s.offers(ownerOnly), MidTurnLimit-len(midTurnFrame), s.compositionOptions(MidTurnLimit), midTurnFrame)
+	if (peers || len(s.offers(ownerOnly)) > 0 || s.anyToAnnounce()) && !s.recheck(ctx) {
+		return "", "", ""
+	}
+	prefix := midTurnFrame
+	offers := s.peerBoundaryOffers(peers)
+	ownerMessages, peerMessages := false, false
+	for _, offer := range offers {
+		for _, m := range offer.msgs {
+			if m.PeerBoundary {
+				peerMessages = true
+			} else {
+				ownerMessages = true
+			}
+		}
+	}
+	if peerMessages {
+		prefix = peerMidTurnFrame
+		if ownerMessages {
+			prefix = midTurnFrame + prefix
+		}
+	}
+	c := s.composePending(offers, MidTurnLimit-len(prefix), s.compositionOptions(MidTurnLimit), prefix)
+	for _, part := range c.parts {
+		for _, m := range part.msgs {
+			c.peerBoundary = c.peerBoundary || m.PeerBoundary
+		}
+	}
 	text := c.text
 	previews := map[AgentKey][]int{}
 	for _, o := range c.tooLarge {
 		a := s.agents[o.agent.Key()]
 		m := o.msgs[0]
+		if m.PeerBoundary {
+			continue
+		}
 		if a.previewed[m.Seq] {
 			continue
 		}
 		preview := previewTextFor(m, s.textContext(a.ref))
-		if len(text)+len(preview)+len(midTurnFrame)+2 > MidTurnLimit {
+		if len(text)+len(preview)+len(prefix)+2 > MidTurnLimit {
 			break
 		}
 		previews[a.ref.Key()] = append(previews[a.ref.Key()], m.Seq)
 		text = strings.TrimSpace(text + "\n\n" + preview)
 	}
 	if text != "" {
-		bundle = midTurnFrame + text
+		bundle = prefix + text
 	}
 	announcements := map[AgentKey][]int{}
 	var announced []int
@@ -1678,10 +1847,13 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 		if notice != "" {
 			payload = bundle + "\n\n" + notice
 		}
-		_, deliveries, err := s.prepare(ctx, c, midTurnFrame, payload)
+		h, deliveries, err := s.prepare(ctx, c, prefix, payload)
 		if err != nil {
 			s.prepareFailed("prepare boundary handoff", err)
-			return "", ""
+			return "", "", ""
+		}
+		if c.peerBoundary {
+			handoffID = h.manifest.ID
 		}
 		s.prepared()
 		now := s.now()
@@ -1703,7 +1875,7 @@ func (s *session) boundary(ctx context.Context) (bundle, notice string) {
 	if bundle != "" || notice != "" {
 		s.d.log.Info("tool boundary", "session", s.key.String(), "seqs", partSeqs(c.parts), "announced", announced, "bytes", len(bundle)+len(notice))
 	}
-	return bundle, notice
+	return bundle, notice, handoffID
 }
 
 // atTurnStart answers a turn's start: in focused mode, every message still waiting for
@@ -1720,7 +1892,9 @@ func (s *session) atTurnStart(ctx context.Context) string {
 		return notes
 	}
 	// The server is the authority on what the agent has read.
-	s.recheck(ctx)
+	if !s.recheck(ctx) {
+		return notes
+	}
 	limit := MidTurnLimit
 	if notes != "" {
 		limit -= len(notes) + 1
@@ -1847,7 +2021,7 @@ func (s *session) toAnnounce(a *agentState) []Message {
 	t := taken(a)
 	var fresh []Message
 	for _, m := range a.unread {
-		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) {
+		if _, in := t[m.Seq]; in || fromOwner(m) || a.announced[m.Seq] || s.held(a.ref, m) || s.alreadyShown(a, m) {
 			continue
 		}
 		fresh = append(fresh, m)
@@ -1866,15 +2040,23 @@ func (s *session) anyToAnnounce() bool {
 }
 
 // recheckTimeout bounds the read of an agent's inbox just before a hand or a notice. It
-// holds up the session, and a tool hook waiting for its answer, so it is short; a read
-// that fails goes by what the server's stream reported.
+// holds up the session and a tool hook waiting for its answer, so it is short. A
+// failed read never admits cached messages.
 const recheckTimeout = 5 * time.Second
 
 // recheck reads each agent's inbox and read position from its server now, in the
 // session's goroutine, so a bundle or a notice never carries a message the agent read
 // through any client a moment ago, before the stream's report of it arrived. It costs
 // one request per agent, made only when there is something to hand or announce.
-func (s *session) recheck(ctx context.Context) {
+func (s *session) recheck(ctx context.Context) bool {
+	if s.now().Before(s.recheckAt) {
+		return false
+	}
+	if !s.ensureShown(ctx) {
+		s.deferRecheck()
+		return false
+	}
+	fresh := true
 	for _, ref := range s.agentRefs() {
 		if a := s.agents[ref.Key()]; a.adopting || a.gone() {
 			continue
@@ -1884,10 +2066,24 @@ func (s *session) recheck(ctx context.Context) {
 		cancel()
 		if err != nil && problemOf(err) == "" {
 			s.d.log.Warn("recheck inbox", "agent", ref.Name, "board", ref.Board, "error", err)
+			fresh = false
 			continue
 		}
 		s.onInbox(ctx, inboxResult{agent: ref, msgs: msgs, cursor: cursor, mode: mode, err: err})
 	}
+	if fresh {
+		s.recheckFailures = 0
+		s.recheckAt = time.Time{}
+	} else {
+		s.deferRecheck()
+	}
+	return fresh
+}
+
+func (s *session) deferRecheck() {
+	s.recheckFailures = min(s.recheckFailures+1, 6)
+	ceiling := min(2*backoff(s.recheckFailures), time.Minute)
+	s.recheckAt = s.now().Add(retry.Delay(ceiling))
 }
 
 func newAgentState(ref AgentRef, adopting bool) *agentState {

@@ -23,8 +23,15 @@ func runOpen(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("open")
 	boardFlag := fs.String("board", "", "the board to show; without it, the board list")
 	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
-	if _, err := a.parse(fs, args, openUsage, 0, 0); err != nil {
+	pos, err := a.parse(fs, args, openUsage, 0, 1)
+	if err != nil {
 		return err
+	}
+	if len(pos) > 0 {
+		if *serverFlag != "" {
+			return usageError("Give the server as an argument or --server, not both.", openUsage)
+		}
+		*serverFlag = pos[0]
 	}
 	inSession := a.actsForAgent()
 	srv, started, err := a.personServer(ctx, *serverFlag)

@@ -168,6 +168,13 @@ Setup:  claude-code everywhere
     "name": "codex_hooks"
   },
   {
+    "code": "codex_hooks_unsupported",
+    "fix": "update Codex to 0.160.0 or later, then run aboard init",
+    "level": "warning",
+    "message": "codex: Codex 0.159.3 doesn't run Aboard's Stop and PostToolUse hooks, so turn-end delivery uses the harness queue and older versions use the pre-tool hook",
+    "name": "codex_version"
+  },
+  {
     "code": "codex_aboard_not_allowed",
     "fix": "run aboard init --yes --allow-commands",
     "level": "warning",

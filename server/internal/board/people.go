@@ -30,8 +30,11 @@ const (
 // Principal is the authenticated caller: exactly one of Human, Agent and Delegation is
 // set.
 type Principal struct {
-	Human *Human
-	Agent *Member
+	// Pairing is a separate, exact-runtime credential, never an ordinary seat authority.
+	Pairing        *PairingCredential
+	pairingAllowed bool
+	Human          *Human
+	Agent          *Member
 	// Delegation is a machine's delegation, which acts for its person only to list their
 	// boards (ListBoards), give a session a seat (Join), and create a board with its
 	// session seat (CreateDelegatedBoard); everything else
@@ -78,7 +81,19 @@ func workingKey(tx ReadTx, id, now string) (AccessKey, error) {
 // expired since the request was authenticated can't write, nor can a browser login or
 // agent token it started. Every write a caller makes goes through here.
 func (s *Service) writeAs(ctx context.Context, p Principal, fn func(Tx) error) error {
-	return s.st.Write(ctx, func(tx Tx) error {
+	return s.writeWith(ctx, p, fn, s.st.Write)
+}
+
+func (s *Service) writeBookkeepingAs(ctx context.Context, p Principal, fn func(Tx) error) error {
+	write := s.st.Write
+	if st, ok := s.st.(BookkeepingStore); ok {
+		write = st.WriteBookkeeping
+	}
+	return s.writeWith(ctx, p, fn, write)
+}
+
+func (s *Service) writeWith(ctx context.Context, p Principal, fn func(Tx) error, write func(context.Context, func(Tx) error) error) error {
+	return write(ctx, func(tx Tx) error {
 		if err := stillValid(tx, p, stamp(s.clk.Now())); err != nil {
 			return err
 		}
@@ -110,6 +125,37 @@ func credentialState(tx ReadTx, p Principal, now string) (*string, error) {
 }
 
 func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error) {
+	if p.Pairing != nil {
+		if !p.pairingAllowed {
+			return Human{}, nil, pairingError(403, "forbidden", "This endpoint credential only reads and verifies its pairing.")
+		}
+		c := p.Pairing
+		r, err := tx.PairingByID(c.RequestID)
+		if err != nil || r.Generation != c.Endpoint.Generation || pairingTerminal(r) || r.ExpiresAt <= now {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		current, err := tx.PairingCredentialByDigest(c.Digest)
+		if err != nil || current.ID != c.ID || current.ExpiresAt <= now {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		person, endpoint := pairingSide(r, c.Side)
+		if endpoint == nil || *endpoint != c.Endpoint || person != c.Endpoint.PersonID {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		key, err := workingKey(tx, c.KeyID, now)
+		if err != nil || key.HumanID != person {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		if err := pairingMember(tx, r.BoardID, person, c.Endpoint.AgentID); err != nil {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		b, err := tx.BoardByID(r.BoardID)
+		if err != nil || lifecycleOf(b) != LifecycleActive {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		h, err := tx.HumanByID(person)
+		return h, &current.ExpiresAt, err
+	}
 	if p.Delegation != nil {
 		if !p.delegated {
 			return Human{}, nil, delegationForbidden()
@@ -191,6 +237,9 @@ func keyState(tx ReadTx, p Principal, now string) (*string, error) {
 // Authenticate resolves a bearer token to a person, through their access key or a
 // browser login, or to an agent.
 func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
+	if strings.HasPrefix(token, "abp_") {
+		return s.authenticatePairing(ctx, token)
+	}
 	if strings.HasPrefix(token, browserTokenPrefix) {
 		return s.authenticateBrowser(ctx, token)
 	}
@@ -373,6 +422,26 @@ type NewServerInvite struct {
 // create one new person as a member. Only a server admin can, with their own access key:
 // not an agent, and not a browser.
 func (s *Service) CreateServerInvite(ctx context.Context, p Principal, ttl time.Duration) (NewServerInvite, error) {
+	seconds := int(ttl / time.Second)
+	in := InvitePeopleInput{}
+	if ttl != 0 {
+		in.TTLSeconds = &seconds
+	}
+	return s.CreateServerInviteWithInput(ctx, p, in)
+}
+
+// CreateServerInviteWithInput freezes ordinary board admissions with the invite.
+func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, in InvitePeopleInput) (NewServerInvite, error) {
+	in = copyInviteInput(in)
+
+	ttl := time.Duration(0)
+	if in.TTLSeconds != nil {
+		if *in.TTLSeconds < 60 || *in.TTLSeconds > 2592000 {
+			return NewServerInvite{}, adminInvalid("Invalid invite lifetime.", "Use 60 to 2592000 seconds.")
+		}
+		ttl = time.Duration(*in.TTLSeconds) * time.Second
+	}
+
 	if err := requireHuman(p); err != nil {
 		return NewServerInvite{}, err
 	}
@@ -388,6 +457,7 @@ func (s *Service) CreateServerInvite(ctx context.Context, p Principal, ttl time.
 		return NewServerInvite{}, invalid("An invite works for at least a minute and at most 30 days.", "Pick a lifetime between 1m and 720h.")
 	}
 	var out NewServerInvite
+	notes := newAdminNotes(s.notify)
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		// The role is read again here, so a person demoted since they authenticated can't.
 		h, err := tx.HumanByID(p.Human.ID)
@@ -399,27 +469,59 @@ func (s *Service) CreateServerInvite(ctx context.Context, p Principal, ttl time.
 				"Only an admin of this server can invite people to it.",
 				"Ask an admin of this server to run aboard invite --server.")
 		}
+		if err := s.inviteBoards(tx, p, in.Boards); err != nil {
+			return err
+		}
+		proposer := p
+		if s.adminAuthorization != nil {
+			m, err := tx.MemberByID(s.adminAuthorization.AgentID)
+			if err != nil {
+				return err
+			}
+			proposer = Principal{Agent: &m, KeyID: s.adminAuthorization.ParentKeyID}
+		}
+		if err := s.validateInvitePairing(tx, proposer, in); err != nil {
+			return err
+		}
 		now := s.clk.Now()
 		secret, err := s.gen.Token(strings.TrimSuffix(invitePrefix, "_"))
 		if err != nil {
 			return err
 		}
-		inv := ServerInvite{Digest: ids.Digest(s.key, secret), CreatedBy: h.ID, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(ttl))}
+		inv := ServerInvite{ParentKeyID: p.KeyID, Boards: in.Boards, Digest: ids.Digest(s.key, secret), CreatedBy: h.ID, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(ttl))}
+		if s.adminAuthorization != nil {
+			authorization := *s.adminAuthorization
+			inv.Authorization = &authorization
+			inv.ParentKeyID = authorization.ParentKeyID
+			inv.IssuingAgentID = authorization.AgentID
+		}
 		if inv.ID, err = s.gen.ID("inv", now); err != nil {
 			return err
 		}
 		if err := tx.InsertServerInvite(inv); err != nil {
 			return fmt.Errorf("insert server invite: %w", err)
 		}
+		if in.Pairing != nil {
+			r, err := s.CreateInvitedPairingTx(tx, proposer, inv.ID, in.Boards[0], in.Pairing.InitiatingAgentID, in.Pairing.Work, inv.ExpiresAt)
+			if err != nil {
+				return err
+			}
+			inv.PairingRequestID = r.ID
+			notes.Changed(boardsOfKey(h.ID))
+		}
 		out = NewServerInvite{Invite: inv, Secret: secret}
 		return nil
 	})
+	if err == nil {
+		notes.flush()
+	}
 	return out, err
 }
 
 // ConnectInput redeems a server invite: the invite, and the new person's handle,
 // display name and first key's name.
 type ConnectInput struct {
+	ClientToken *string
 	Invite      string
 	Handle      string
 	DisplayName string
@@ -429,9 +531,10 @@ type ConnectInput struct {
 // Connected is a new person with their first access key, whose secret is only
 // available here.
 type Connected struct {
-	Person Human
-	Key    AccessKey
-	Token  string
+	Onboarding *OnboardingReceipt
+	Person     Human
+	Key        AccessKey
+	Token      string
 }
 
 func inviteInvalid() *apierr.Error {
@@ -451,6 +554,11 @@ func validName(s string) bool {
 // made by someone no longer an admin fails the same way. A handle someone has fails with
 // handle_taken and leaves the invite unused: a handle never reaches an existing person.
 func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, error) {
+	if in.ClientToken != nil && !canonicalClientToken(*in.ClientToken) {
+		return Connected{}, adminInvalid("Invalid client token.", "Generate and save a canonical 256-bit person token before redemption.")
+	}
+	notes := newAdminNotes(s.notify)
+
 	if !validName(in.Handle) {
 		return Connected{}, apierr.New(http.StatusUnprocessableEntity, "handle_invalid",
 			fmt.Sprintf("%q can't be a handle: use lowercase letters, digits and single dashes, at most 40 characters.", in.Handle),
@@ -477,7 +585,7 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 		if err != nil {
 			return err
 		}
-		if inv.UsedAt != nil || inv.ExpiresAt <= stamp(now) {
+		if inv.UsedAt != nil || inv.RevokedAt != nil || inv.ExpiresAt <= stamp(now) {
 			return inviteInvalid()
 		}
 		// The admin's authority is checked again as the invite is used.
@@ -485,6 +593,25 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 			if err != nil && !errors.Is(err, ErrNotFound) {
 				return err
 			}
+			return inviteInvalid()
+		}
+		if inv.IssuingAgentID != "" && inv.ParentKeyID != "" {
+			k, err := tx.AccessKeyByID(inv.ParentKeyID)
+			if err != nil || !keyWorks(k, stamp(now)) || k.HumanID != inv.CreatedBy {
+				return inviteInvalid()
+			}
+		}
+		if inv.IssuingAgentID != "" {
+			_, err := s.frozenAgent(tx, Approval{AgentID: inv.IssuingAgentID, ParentKeyID: inv.ParentKeyID, PersonID: inv.CreatedBy})
+			if err != nil {
+				return inviteInvalid()
+			}
+		}
+		issuer, err := tx.HumanByID(inv.CreatedBy)
+		if err != nil {
+			return err
+		}
+		if err := s.redeemedInviteBoards(tx, issuer, inv.Boards); err != nil {
 			return inviteInvalid()
 		}
 		if _, err := tx.ReservedHandle(in.Handle); err == nil {
@@ -509,9 +636,52 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 		if err := tx.InsertHuman(h); err != nil {
 			return fmt.Errorf("insert person: %w", err)
 		}
-		token, key, err := s.newKey(tx, h.ID, in.KeyName, now, nil, ptr(MachineKeyIdle))
+		var token string
+		var key AccessKey
+		if in.ClientToken != nil {
+			if _, err := tx.AccessKeyByDigest(ids.Digest(s.key, *in.ClientToken)); err == nil {
+				return adminInvalid("This client token is already registered.", "Resume using its saved key; do not select an existing account.")
+			} else if !errors.Is(err, ErrNotFound) {
+				return err
+			}
+			key, err = s.storeKey(tx, h.ID, in.KeyName, now, nil, ptr(MachineKeyIdle), *in.ClientToken)
+		} else {
+			token, key, err = s.newKey(tx, h.ID, in.KeyName, now, nil, ptr(MachineKeyIdle))
+		}
 		if err != nil {
 			return err
+		}
+		admission := *s
+		admission.st = adminTxStore{tx: tx}
+		admission.notify = notes
+		admission.adminAuthorization = inv.Authorization
+		if inv.IssuingAgentID != "" {
+			m, err := tx.MemberByID(inv.IssuingAgentID)
+			if err != nil {
+				return err
+			}
+			actor := actorOf(m)
+			admission.adminActor = &actor
+		}
+		for _, id := range inv.Boards {
+			b, err := tx.BoardByID(id)
+			if err != nil {
+				return err
+			}
+			if err := admission.admitInvitedPerson(tx, &b, issuer, h); err != nil {
+				return err
+			}
+			notes.Changed(b.ID)
+			notes.Changed(boardsOfKey(h.ID))
+		}
+
+		pairingID, err := s.RedeemInvitedPairingTx(tx, inv.ID, h.ID)
+		if err != nil {
+			return err
+		}
+		if pairingID != "" {
+			notes.Changed(boardsOfKey(h.ID))
+			notes.Changed(boardsOfKey(issuer.ID))
 		}
 		if used, err := tx.UseServerInvite(inv.ID, stamp(now), h.ID); err != nil || !used {
 			if err != nil {
@@ -520,7 +690,17 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 			return inviteInvalid()
 		}
 		out = Connected{Person: h, Key: key, Token: token}
+		if in.ClientToken != nil {
+			receipt := OnboardingReceipt{ServerID: s.cfg.ServerID, PersonID: h.ID, KeyID: key.ID, InviteID: inv.ID, Handle: h.Name, PairingRequestID: pairingID, Boards: append([]string{}, inv.Boards...)}
+			if err := tx.SaveOnboardingReceipt(receipt); err != nil {
+				return err
+			}
+			out.Onboarding = &receipt
+		}
 		return nil
 	})
+	if err == nil {
+		notes.flush()
+	}
 	return out, err
 }

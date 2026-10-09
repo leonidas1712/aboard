@@ -65,11 +65,11 @@ func (a *app) personBoard(boardFlag string) (target, error) {
 	if boardFlag == "" {
 		return target{}, usageError("--server needs --board, naming a board on that server.", boardUsage)
 	}
-	srv, err := parseServerURL(a.boardServerFlag)
+	srv, err := a.namedServer(a.boardServerFlag)
 	if err != nil {
 		return target{}, err
 	}
-	return target{server: a.serverRefFor(srv.URL), board: boardFlag, source: boardFromFlag}, nil
+	return target{server: a.selectedServer(srv, "flag"), board: boardFlag, source: boardFromFlag}, nil
 }
 
 // agentSelected reports whether a command that can act as a person or as an agent acts
@@ -210,7 +210,7 @@ func runBoardAddAs(ctx context.Context, a *app, boardFlag, handle, as string) er
 		var cred agentCredential
 		t, cred, err = a.agentTarget(ctx, boardFlag, as)
 		if err == nil && a.boardServerFlag != "" {
-			selected, parseErr := parseServerURL(a.boardServerFlag)
+			selected, parseErr := a.namedServer(a.boardServerFlag)
 			if parseErr != nil {
 				return parseErr
 			}
@@ -261,6 +261,31 @@ func runBoardAddAs(ctx context.Context, a *app, boardFlag, handle, as string) er
 	}
 	if r.JSON201 == nil {
 		refusal := apiError(r.StatusCode(), r.Body)
+		if byAgent != "" && (refusal.Code == "add_people_not_allowed" || refusal.Code == "human_token_required" || refusal.Code == "human_command_in_session") {
+			board, err := c.board(ctx, t.board)
+			if err != nil {
+				return err
+			}
+			lookup, err := c.api.ListServerPeopleWithResponse(ctx, &api.ListServerPeopleParams{Handle: &handle})
+			if err != nil {
+				return c.unreachable(err)
+			}
+			if lookup.JSON200 == nil {
+				return apiError(lookup.StatusCode(), lookup.Body)
+			}
+			person, err := lookup.JSON200.AsPersonIdentityLookup()
+			if err != nil {
+				return err
+			}
+			if person.Id == "" {
+				return newError("internal", "The server did not return a person's immutable identity.", "Check that the server supports exact person lookup.")
+			}
+			var action api.AdminAction
+			if err := action.FromAddPeopleAction(api.AddPeopleAction{Kind: api.AddPeopleActionKindAddPeople, BoardId: board.Id, PersonId: person.Id}); err != nil {
+				return err
+			}
+			return requestAdmission(ctx, a, c, t.server, t.board, action)
+		}
 		if byAgent != "" {
 			var e *Error
 			if errors.As(refusal, &e) {

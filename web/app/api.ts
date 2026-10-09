@@ -86,7 +86,11 @@ export function changeLifecycle(board: string, action: "archive" | "restore" | "
 }
 
 /** Receipt is whether a message has reached one of its recipients; presence is an agent's now, null for a person. */
-export type Receipt = { member: MemberRef; state: "pending" | "received" | "read"; presence: Presence | null };
+export type Receipt = {
+  member: MemberRef; state: "pending" | "received" | "read"; presence: Presence | null;
+  /** queued says the recipient reported the message waiting for turn end; its state is unchanged. */
+  queued?: { boundary: "turn_end"; expires_at: string };
+};
 
 /** Receipts are a message's recipients, fixed when it was posted; a message to everyone has none. */
 export type Receipts = { board: string; seq: number; message_id: string; to: string[]; to_everyone: boolean; available: boolean; recipients: Receipt[] };
@@ -172,6 +176,26 @@ export type DeliverySetting = { board: string; agent: string; mode: SettableMode
 /** setDelivery sets the delivery mode of one of the person's own agents. */
 export function setDelivery(board: string, agent: string, mode: SettableMode): Promise<DeliverySetting> {
   return put<DeliverySetting>(`/v1/boards/${encodeURIComponent(board)}/members/${encodeURIComponent(agent)}/delivery`, { mode });
+}
+
+/** MidturnPolicy is who may reach an agent at its next tool step (D221). */
+export type MidturnPolicy = "owner-only" | "my-agents";
+
+/** MidturnView is the person's default and their own agents' overrides (MidturnPolicyView). */
+export type MidturnView = {
+  policy: MidturnPolicy;
+  source: "person_default" | "agent_override";
+  overrides?: { member_id: string; policy: MidturnPolicy }[];
+};
+
+/** getMidturn reads the person's mid-turn policy and their own agents' overrides. */
+export function getMidturn(): Promise<MidturnView> {
+  return get<MidturnView>("/v1/me/midturn");
+}
+
+/** setMidturn sets the person's default, or one own agent's override; a null policy clears an override. */
+export function setMidturn(policy: MidturnPolicy | null, memberId?: string): Promise<MidturnView> {
+  return put<MidturnView>("/v1/me/midturn", memberId ? { member_id: memberId, policy } : { policy });
 }
 
 export type Sender = "owner" | "owner_agent" | "other_person" | "other_agent" | "self";
@@ -636,10 +660,28 @@ export function follow(on: StreamHandlers): () => void {
         stopped.signal.removeEventListener("abort", stop);
       }
       if (stopped.signal.aborted) return;
-      await new Promise((done) => setTimeout(done, wait));
+      await reconnectWait(stopped.signal, reconnectDelay(wait));
     }
   })();
   return () => stopped.abort();
+}
+
+/** Randomization spreads clients reconnecting after the same server restart. */
+export function reconnectDelay(base: number, random = Math.random()): number {
+  return base / 2 + base / 2 * random;
+}
+
+function reconnectWait(signal: AbortSignal, delay: number): Promise<void> {
+  return new Promise((done) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      done();
+    };
+    const timer = setTimeout(finish, delay);
+    signal.addEventListener("abort", finish, { once: true });
+    if (signal.aborted) finish();
+  });
 }
 
 // readEvents parses a server-sent event stream until it ends: "event:" and "data:"

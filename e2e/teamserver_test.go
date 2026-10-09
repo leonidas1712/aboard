@@ -39,6 +39,11 @@ type teamServer struct {
 // environment, as a container gets it.
 func startTeamServer(t *testing.T) *teamServer {
 	t.Helper()
+	return startTeamServerOptions(t, nil, nil)
+}
+
+func startTeamServerOptions(t *testing.T, extraEnv, extraArgs []string) *teamServer {
+	t.Helper()
 	listen := "127.0.0.1:0"
 	var backend atomic.Pointer[url.URL]
 	proxy := httptest.NewUnstartedServer(&httputil.ReverseProxy{Rewrite: func(r *httputil.ProxyRequest) {
@@ -59,12 +64,13 @@ func startTeamServer(t *testing.T) *teamServer {
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command(binary, "serve", "--team")
+	cmd := exec.Command(binary, append([]string{"serve", "--team"}, extraArgs...)...)
 	cmd.Env = []string{
 		"HOME=" + home, "PATH=" + os.Getenv("PATH"),
 		"ABOARD_PUBLIC_URL=" + s.url, "ABOARD_DATA=" + s.data, "ABOARD_LISTEN=" + listen, "ABOARD_ADMIN=alex",
 		exitWithVar + "=" + strconv.Itoa(os.Getpid()),
 	}
+	cmd.Env = append(cmd.Env, extraEnv...)
 	cmd.Stdout, cmd.Stderr = s.log, s.log
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
