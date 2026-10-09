@@ -38,6 +38,7 @@ type (
 		Stream            distribution        `json:"request_to_stream"`
 		LongPoll          distribution        `json:"request_to_long_poll"`
 		Handover          distribution        `json:"request_to_handover"`
+		RoundPhases       []roundTiming       `json:"round_phases,omitempty"`
 		Rounds            int                 `json:"completed_rounds"`
 		ConfiguredStreams int                 `json:"configured_sse_streams"`
 		Resources         resourceHistory     `json:"resources"`

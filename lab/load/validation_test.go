@@ -70,7 +70,7 @@ func TestLatencyProofRejectsEmptySamplesAndIncludesTheTail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Samples != 100 || got.P50 != 50 || got.P95 != 95 || got.P99 != 99 {
+	if got.Samples != 100 || got.P50 != 50 || got.P95 != 95 || got.P99 != 99 || got.Max != 100 {
 		t.Fatalf("latency proof omitted or miscomputed samples: %+v", got)
 	}
 	if samples[0] != 100*time.Millisecond {

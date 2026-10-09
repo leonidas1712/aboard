@@ -56,6 +56,7 @@ type distribution struct {
 	P50     float64 `json:"p50"`
 	P95     float64 `json:"p95"`
 	P99     float64 `json:"p99"`
+	Max     float64 `json:"max"`
 }
 
 func summarize(samples []time.Duration) (distribution, error) {
@@ -72,5 +73,5 @@ func summarize(samples []time.Duration) (distribution, error) {
 	quantile := func(q float64) float64 {
 		return float64(values[int(math.Ceil(q*float64(len(values))))-1]) / float64(time.Millisecond)
 	}
-	return distribution{len(values), quantile(.5), quantile(.95), quantile(.99)}, nil
+	return distribution{Samples: len(values), P50: quantile(.5), P95: quantile(.95), P99: quantile(.99), Max: quantile(1)}, nil
 }
