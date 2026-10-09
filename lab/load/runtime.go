@@ -166,12 +166,8 @@ func run(ctx context.Context, o options) (r report, err error) {
 	if err := checks.validate(); err != nil {
 		return r, err
 	}
-	for _, p := range f.people {
-		for _, s := range p.seats {
-			if err := f.awaitAck(s, checks.Expected[s.MemberID][len(checks.Expected[s.MemberID])-1].Seq); err != nil {
-				return r, err
-			}
-		}
+	if err := f.verifyAcks(ctx, func(s *seat) int64 { return checks.Expected[s.MemberID][len(checks.Expected[s.MemberID])-1].Seq }); err != nil {
+		return r, err
 	}
 	if o.Writers > 0 {
 		progress.Stage = "concurrent_writers"
@@ -663,19 +659,19 @@ type polled struct {
 	err  error
 }
 
-func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, streams, polls, handover, writes *[]time.Duration, r *report) error {
+func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, streams, polls, handover, writes *[]time.Duration, r *report) (err error) {
+	timing := newRoundTiming(r, round+1)
+	defer func() { timing.finish(err) }()
 	replies := make(chan polled, len(f.people)*len(f.people[0].seats))
 	started := make(chan error, cap(replies))
 	for _, p := range f.people {
 		for _, s := range p.seats {
 			f.background(func() {
 				var ready sync.Once
-				trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
-					if !info.Reused {
-						ready.Do(func() { started <- errors.New("observer connection was not established during setup") })
+				trace := &httptrace.ClientTrace{WroteRequest: func(info httptrace.WroteRequestInfo) {
+					if info.Err == nil {
+						ready.Do(func() { started <- nil })
 					}
-				}, WroteRequest: func(info httptrace.WroteRequestInfo) {
-					ready.Do(func() { started <- info.Err })
 				}}
 				ctx := httptrace.WithClientTrace(ctx, trace)
 				data, err := f.apiWithClient(ctx, s.observer, "GET", fmt.Sprintf("/v1/me/inbox?wait=60&after=%d", s.board.Head), s.Token, nil)
@@ -699,6 +695,7 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			}
 		}
 	}
+	timing.next("delivery")
 	byBoard := map[string]sample{}
 	markers := map[string]sample{}
 	for i, b := range f.boards {
@@ -801,20 +798,14 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 	}
 	// Confirm every fake harness promptly; server ack polling must not consume the
 	// other harnesses' confirmation windows while they wait for this driver.
-	for _, p := range f.people {
-		for _, s := range p.seats {
-			if err := f.awaitAck(s, byBoard[s.board.ID].key.Seq); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	timing.next("acknowledgments")
+	return f.verifyAcks(ctx, func(s *seat) int64 { return byBoard[s.board.ID].key.Seq })
 }
 
-func (f *fixture) awaitAck(s *seat, want int64) error {
+func (f *fixture) awaitAck(ctx context.Context, s *seat, want int64) error {
 	var terminal error
-	err := wait(f.ctx, func() bool {
-		data, e := f.api(f.ctx, "GET", "/v1/me/inbox", s.Token, nil)
+	err := wait(ctx, func() bool {
+		data, e := f.api(ctx, "GET", "/v1/me/inbox", s.Token, nil)
 		if e != nil {
 			terminal = e
 			return true

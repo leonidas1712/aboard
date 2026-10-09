@@ -29,9 +29,10 @@ func loadTransport(dial func(context.Context, string, string) (net.Conn, error),
 }
 
 func (f *fixture) primeObservers() error {
+	dial := loadTransport((&net.Dialer{}).DialContext, 16).DialContext
 	for _, p := range f.people {
 		for _, s := range p.seats {
-			s.observer = loadClient()
+			s.observer = loadClientWithDial(dial)
 			data, err := f.apiWithClient(f.ctx, s.observer, http.MethodGet, "/v1/me", s.Token, nil)
 			if err != nil {
 				return fmt.Errorf("prime observer: %w", err)

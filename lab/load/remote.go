@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -38,8 +39,9 @@ func remoteOrigin(o options) (string, error) {
 	return u.String(), nil
 }
 
-func loadClient() *http.Client {
-	return &http.Client{Timeout: 65 * time.Second, Transport: loadTransport((&net.Dialer{}).DialContext, 16), CheckRedirect: refuseLoadRedirect}
+func loadClient() *http.Client { return loadClientWithDial((&net.Dialer{}).DialContext) }
+func loadClientWithDial(dial func(context.Context, string, string) (net.Conn, error)) *http.Client {
+	return &http.Client{Timeout: 65 * time.Second, Transport: loadTransport(dial, 16), CheckRedirect: refuseLoadRedirect}
 }
 
 func refuseLoadRedirect(_ *http.Request, _ []*http.Request) error {

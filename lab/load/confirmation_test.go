@@ -15,9 +15,25 @@ import (
 )
 
 func TestLoadConfirmsEveryExtensionBeforeWaitingForServerAcks(t *testing.T) {
+	testLoadConfirmation(t, false, false)
+}
+
+func TestLoadRedialsIdleObserversBeforePosting(t *testing.T) {
+	testLoadConfirmation(t, true, false)
+}
+
+func TestLoadVerifiesAcknowledgmentsConcurrently(t *testing.T) {
+	testLoadConfirmation(t, false, true)
+}
+
+func testLoadConfirmation(t *testing.T, closeIdle, parallelChecks bool) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var confirmed atomic.Int64
+	var checking atomic.Int64
+	var release sync.Once
+	ready := make(chan struct{})
 	var workers sync.WaitGroup
 	defer workers.Wait()
 	p := &machine{heads: &headLog{changed: make(chan struct{})}}
@@ -68,6 +84,16 @@ func TestLoadConfirmsEveryExtensionBeforeWaitingForServerAcks(t *testing.T) {
 			return
 		}
 		if r.URL.Query().Get("wait") == "" {
+			if parallelChecks {
+				if checking.Add(1) == 2 {
+					release.Do(func() { close(ready) })
+				}
+				select {
+				case <-ready:
+				case <-ctx.Done():
+					return
+				}
+			}
 			if confirmed.Load() != 2 {
 				w.WriteHeader(http.StatusConflict)
 				_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": "confirmation_barrier_not_reached"}})
@@ -94,6 +120,11 @@ func TestLoadConfirmsEveryExtensionBeforeWaitingForServerAcks(t *testing.T) {
 	}()
 	if err := f.primeObservers(); err != nil {
 		t.Fatal(err)
+	}
+	if closeIdle {
+		for _, seat := range p.seats {
+			seat.observer.CloseIdleConnections()
+		}
 	}
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
 	var streams, polls, handovers, writes []time.Duration
