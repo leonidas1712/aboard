@@ -4019,7 +4019,7 @@ $defs:
       An agent uses only its issuer-bound onboarding/seat authority, never the
       person's CLI client. Text shows id, board, other person and state; no token,
       invitation secret or private board outside current access. Exit 0 or 1.
-      Planned until GEN-37; machine delegation powers are not extended.
+      Machine delegation powers are not extended.
     type: object
     required: [server, requests]
     properties:
@@ -4060,7 +4060,7 @@ $defs:
       or recipient self-join on an open board. Pairing becomes ready only after both
       real-session round trips at the current generation. Offline peers stay pending.
       Text shows board, request state, awaited endpoint and precise next step.
-      Exit 0 for accepted/pending/ready, 1 for refusal, 2 for usage. Planned GEN-37.
+      Exit 0 for accepted/pending/ready, 1 for refusal, 2 for usage.
     type: object
     required: [server, board, request]
     properties:
