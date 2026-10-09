@@ -158,15 +158,27 @@ func durationText(d time.Duration) string {
 	return fmt.Sprintf("%d %ss", n, unit)
 }
 
-// runServerInvite makes a server invite with the person's access key and prints the
-// link a newcomer passes to aboard connect. The server is serverFlag, else as
-// personServer picks it. The link holds a secret that makes a person on
-// the server, so it refuses inside a harness session, where an agent would see it.
+// runServerInvite uses a person's key or an agent's selected seat to request an
+// ordinary server invitation. Without a seat, the agent must join before requesting.
 func runServerInvite(ctx context.Context, a *app, serverFlag string, ttl time.Duration) error {
 	if a.agentSelected("") {
 		srv, board, c, err := a.admissionClient(ctx, serverFlag, "", "")
 		if err != nil {
-			return err
+			switch asError(err).Code {
+			case "board_not_selected", "agent_not_selected":
+				command := "aboard boards"
+				if serverFlag != "" {
+					command += " --server " + shellWord(serverFlag)
+				} else if project, ok, readErr := a.readProject(); readErr == nil && ok && project.Server.URL != "" {
+					command += " --server " + shellWord(project.Server.URL)
+				}
+				e := newError("agent_session_required", "Inviting a person needs an agent with a board seat.",
+					"Run "+command+" to find a board, join one with aboard join --board NAME, then retry the invitation.")
+				e.Next = &api.NextStep{Command: command, Resume: "Join one with aboard join --board NAME in this session, then retry the invitation."}
+				return e
+			default:
+				return err
+			}
 		}
 		req := api.CreateInviteRequest{}
 		if ttl != 0 {
