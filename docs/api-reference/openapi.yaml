@@ -1123,14 +1123,28 @@ paths:
         Every person on the server, oldest first, each with their server role: `admin`,
         `member` or `guest`. People removed from the server aren't listed. A person's
         access key or browser may list them; an agent gets 403 `human_token_required`.
+        With `handle`, return only that person's id, current handle and display name,
+        instead of the directory. A current non-guest agent whose person may list
+        people may use this exact lookup with its own seat token. Unknown and guest
+        handles return the same 404 `person_not_found`; no prefix search is provided.
+        Subsequent administrative actions bind the returned immutable id.
+      parameters:
+        - name: handle
+          in: query
+          description: Exact current handle; enables the minimal identity lookup.
+          schema: { $ref: "#/components/schemas/Handle" }
       responses:
         "200":
           description: The people
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ServerPeople" }
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/ServerPeople" }
+                  - { $ref: "#/components/schemas/PersonIdentityLookup" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
 
   /v1/people/{handle}:
     parameters:
@@ -3869,26 +3883,26 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Allowance"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
     put:
       tags: ["onboarding"]
@@ -3909,26 +3923,26 @@ paths:
             schema:
               $ref: "#/components/schemas/SetAllowanceRequest"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Allowance"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/approvals:
     get:
@@ -3942,23 +3956,23 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Approvals"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/admin-requests:
     post:
@@ -3985,25 +3999,25 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminActionResult" }
-        '201':
+        "201":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminActionResult"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
-        '202':
+        "202":
           description: "Held; exact payload retained, no action executed"
           content:
             application/json:
@@ -4035,26 +4049,26 @@ paths:
             schema:
               $ref: "#/components/schemas/AllowApprovalRequest"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminActionResult"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/approvals/{approval}/decline:
     post:
@@ -4076,26 +4090,26 @@ paths:
             pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Approval"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/onboarding:
     get:
@@ -4109,23 +4123,23 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OnboardingReceipt"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests:
     get:
@@ -4139,23 +4153,23 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequests"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
     post:
       tags: ["onboarding"]
@@ -4176,23 +4190,23 @@ paths:
             schema:
               $ref: "#/components/schemas/CreatePairingRequest"
       responses:
-        '201':
+        "201":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/accept:
     post:
@@ -4220,23 +4234,23 @@ paths:
             schema:
               $ref: "#/components/schemas/AcceptPairingRequest"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/decline:
     post:
@@ -4258,23 +4272,23 @@ paths:
             pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/cancel:
     post:
@@ -4296,23 +4310,23 @@ paths:
             pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/verify:
     post:
@@ -4340,23 +4354,23 @@ paths:
             schema:
               $ref: "#/components/schemas/PairingRoundTrip"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}:
     get:
@@ -4377,23 +4391,23 @@ paths:
             type: "string"
             pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
       responses:
-        '200':
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        '400':
+        "400":
           $ref: "#/components/responses/Error"
-        '401':
+        "401":
           $ref: "#/components/responses/Error"
-        '403':
+        "403":
           $ref: "#/components/responses/Error"
-        '404':
+        "404":
           $ref: "#/components/responses/Error"
-        '409':
+        "409":
           $ref: "#/components/responses/Error"
-        '501':
+        "501":
           $ref: "#/components/responses/Error"
 
   /v1/pairing-credentials:
@@ -4942,6 +4956,16 @@ components:
         display_name: { type: string, nullable: true, maxLength: 80, example: Maya Chen }
         server_role: { $ref: "#/components/schemas/ServerRole" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
+    PersonIdentityLookup:
+      type: object
+      additionalProperties: false
+      required: [id, handle, display_name]
+      properties:
+        id:
+          type: string
+          pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        handle: { $ref: "#/components/schemas/Handle" }
+        display_name: { type: string, nullable: true, maxLength: 80 }
     ServerPeople:
       type: object
       required: [people]
@@ -7261,6 +7285,7 @@ components:
         - $ref: "#/components/schemas/PersonRemovedEvent"
         - $ref: "#/components/schemas/PersonLeftEvent"
         - $ref: "#/components/schemas/PersonMadeOwnerEvent"
+        - $ref: "#/components/schemas/PersonRoleChangedEvent"
         - $ref: "#/components/schemas/BoardArchivedEvent"
         - $ref: "#/components/schemas/BoardRestoredEvent"
         - $ref: "#/components/schemas/BoardDeletedEvent"
@@ -7299,6 +7324,7 @@ components:
           person.removed: "#/components/schemas/PersonRemovedEvent"
           person.left: "#/components/schemas/PersonLeftEvent"
           person.made_owner: "#/components/schemas/PersonMadeOwnerEvent"
+          person.role_changed: "#/components/schemas/PersonRoleChangedEvent"
           board.archived: "#/components/schemas/BoardArchivedEvent"
           board.restored: "#/components/schemas/BoardRestoredEvent"
           board.deleted: "#/components/schemas/BoardDeletedEvent"
@@ -7653,6 +7679,25 @@ components:
           properties:
             type: { type: string, enum: [person.made_owner] }
             data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonRoleChangedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.role_changed] }
+            data:
+              type: object
+              required: [member_id, person_id, before, after, authorization]
+              properties:
+                member_id:
+                  type: string
+                  pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+                person_id:
+                  type: string
+                  pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+                before: { $ref: "#/components/schemas/BoardRole" }
+                after: { $ref: "#/components/schemas/BoardRole" }
+                authorization: { $ref: "#/components/schemas/AdminAuthorization" }
     BoardLifecycleEventData:
       type: object
       required: [person_id, before, after]

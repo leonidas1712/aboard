@@ -84,8 +84,8 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 		t.Fatalf("board before refused addition: status %d, error %v", status, before["error"])
 	}
 	refused := s.runExit("board", "add", "@kim", "--board", board, "--json")
-	if refused.code != 1 || errorCode(t, refused.json(t)) != "add_people_not_allowed" {
-		t.Fatalf("agent adding people to a private board without opt-in: exit %d, error %v", refused.code, refused.json(t)["error"])
+	if refused.code != 0 || field(t, refused.json(t), "state") != "pending" || field(t, refused.json(t), "approval.state") != "pending" {
+		t.Fatalf("agent addition without opt-in did not wait for approval: exit %d, error %v", refused.code, refused.json(t)["error"])
 	}
 	status, after := tm.call("GET", "/v1/boards/"+board, tm.key(maya), nil)
 	if status != http.StatusOK || after["head_seq"] != before["head_seq"] {

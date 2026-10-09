@@ -14,12 +14,6 @@ func TestOnboardingContractOperationsAreExplicitlyUnavailable(t *testing.T) {
 	s := newTestServer(t)
 	for _, tc := range []struct{ method, path, body string }{
 		{"POST", "/v1/pairing-credentials", `{"request_id":"prq_01K00000000000000000000000","side":"recipient","agent_id":"mem_01K00000000000000000000000","session_binding":"sha256:` + strings.Repeat("0", 64) + `","generation":1,"client_token":"abp_` + strings.Repeat("A", 43) + `"}`},
-		{"GET", "/v1/me/allowance", ""},
-		{"PUT", "/v1/me/allowance", `{"categories":[]}`},
-		{"GET", "/v1/me/approvals", ""},
-		{"POST", "/v1/me/admin-requests", `{"kind":"add_people","board_id":"brd_01K00000000000000000000000","person_id":"hum_01K00000000000000000000000"}`},
-		{"POST", "/v1/me/approvals/apr_01K00000000000000000000000/allow", `{}`},
-		{"POST", "/v1/me/approvals/apr_01K00000000000000000000000/decline", ""},
 		{"GET", "/v1/me/onboarding", ""},
 		{"GET", "/v1/pairing-requests", ""},
 		{"POST", "/v1/pairing-requests", `{"board_id":"brd_01K00000000000000000000000","recipient_id":"hum_01K00000000000000000000000","initiating_agent_id":"mem_01K00000000000000000000000","work":"review"}`},

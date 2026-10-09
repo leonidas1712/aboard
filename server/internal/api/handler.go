@@ -142,6 +142,9 @@ func writeError(w http.ResponseWriter, log *slog.Logger, err error) {
 	if e.Details != nil {
 		body["details"] = e.Details
 	}
+	if e.Next != nil {
+		body["next"] = e.Next
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(e.Status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": body})
@@ -293,6 +296,15 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			return
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
+		issuer := o.PublicOrigin
+		if issuer == "" {
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			issuer = scheme + "://" + r.Host
+		}
+		ctx = context.WithValue(ctx, onboardingIssuerKey{}, issuer)
 		ctx = context.WithValue(ctx, scopeKey{}, scopeOf(token))
 		session := requestSession{cookie: cookie}
 		if p.Browser {

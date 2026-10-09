@@ -16,9 +16,9 @@ var inviteUsage = usageOf("invite")
 // agent's session. The board view's "Add an agent" uses the same words.
 const invitePrompt = "You have the Aboard skill. Join with this line, read the charter in the join output, then say hello on the board."
 
-// runInvite creates a join code for an existing board and prints a prompt that brings
-// one more agent onto it. It uses the person's login, so it refuses inside a harness
-// session and hands over the command instead.
+// runInvite creates a board join code or a server invitation. Agent server invitations
+// use the selected seat and the admission request path; board and guest codes remain
+// person-only.
 func runInvite(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("invite")
 	boardFlag := fs.String("board", "", "the board to add an agent to")
@@ -158,11 +158,41 @@ func durationText(d time.Duration) string {
 	return fmt.Sprintf("%d %ss", n, unit)
 }
 
-// runServerInvite makes a server invite with the person's access key and prints the
-// link a newcomer passes to aboard connect. The server is serverFlag, else as
-// personServer picks it. The link holds a secret that makes a person on
-// the server, so it refuses inside a harness session, where an agent would see it.
+// runServerInvite uses a person's key or an agent's selected seat to request an
+// ordinary server invitation. Without a seat, the agent must join before requesting.
 func runServerInvite(ctx context.Context, a *app, serverFlag string, ttl time.Duration) error {
+	if a.agentSelected("") {
+		srv, board, c, err := a.admissionClient(ctx, serverFlag, "", "")
+		if err != nil {
+			switch asError(err).Code {
+			case "board_not_selected", "agent_not_selected":
+				command := "aboard boards"
+				if serverFlag != "" {
+					command += " --server " + shellWord(serverFlag)
+				} else if project, ok, readErr := a.readProject(); readErr == nil && ok && project.Server.URL != "" {
+					command += " --server " + shellWord(project.Server.URL)
+				}
+				e := newError("agent_session_required", "Inviting a person needs an agent with a board seat.",
+					"Run "+command+" to find a board, join one with aboard join --board NAME, then retry the invitation.")
+				e.Next = &api.NextStep{Command: command, Resume: "Join one with aboard join --board NAME in this session, then retry the invitation."}
+				return e
+			default:
+				return err
+			}
+		}
+		req := api.CreateInviteRequest{}
+		if ttl != 0 {
+			seconds := int(ttl.Seconds())
+			req.TtlSeconds = &seconds
+		}
+		var action api.AdminAction
+		if err := action.FromInvitePeopleAction(api.InvitePeopleAction{Kind: api.InvitePeopleActionKindInvitePeople, Invite: req}); err != nil {
+			return err
+		}
+		ctx, cancel := a.requestContext(ctx)
+		defer cancel()
+		return requestAdmission(ctx, a, c, srv, board, action)
+	}
 	command := "aboard invite --server"
 	if serverFlag != "" {
 		command += " " + commandWord(serverFlag)

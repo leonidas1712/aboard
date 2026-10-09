@@ -77,6 +77,11 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			r.URL.Path == "/v1/delegations" ||
 			// Creation keeps its answer in the board transaction, with one expiry.
 			r.URL.Path == "/v1/delegations/boards" ||
+			// Administrative requests save their nonsecret receipt in the action's
+			// transaction; invite secrets must never enter this response cache.
+			r.URL.Path == "/v1/me/admin-requests" ||
+			(r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/me/approvals/") &&
+				(strings.HasSuffix(r.URL.Path, "/allow") || strings.HasSuffix(r.URL.Path, "/decline"))) ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
 			// call, which the server answers by finding the same seat.
 			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)

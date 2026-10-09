@@ -119,6 +119,8 @@
                 "expanded": false,
                 "pages": [
                   "cli/index",
+                  "cli/allowance",
+                  "cli/approvals",
                   "cli/init",
                   "cli/pair",
                   "cli/join",

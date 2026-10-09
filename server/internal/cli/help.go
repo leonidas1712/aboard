@@ -80,6 +80,24 @@ func nonNil[T any](s []T) []T {
 func helpText(templates string) []commandHelp {
 	return []commandHelp{
 		{
+			Name: "allowance", Group: groupMaintain,
+			Summary:     "Read or change what your agents may do without asking",
+			Usage:       []string{"aboard allowance [--server SERVER] [--json]", "aboard allowance on|off [--server SERVER] [--json]", "aboard allowance set invite-people|add-people on|off [--server SERVER] [--json]"},
+			Description: "Allowances start off. Only your person can change them. on enables both categories; off disables both; set changes one category and keeps the other. Agents use their own seat credential and receive the command their person can run.",
+			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the allowance."}, flagJSON},
+			Examples:    []helpExample{{"aboard allowance set add-people on", "Let your agents add people without asking."}},
+			SeeAlso:     []string{"approvals", "invite", "board"},
+		},
+		{
+			Name: "approvals", Group: groupMaintain,
+			Summary:     "See held actions, or allow or decline one",
+			Usage:       []string{"aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals allow ID [--always] [--server SERVER] [--json]", "aboard approvals decline ID [--server SERVER] [--json]"},
+			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category. A newly created invite is returned once; a replay never returns its token again.",
+			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the approval id."}, flagBoard, flagAs, {"--always", "", "Also enable this action's allowance category."}, flagJSON},
+			Examples:    []helpExample{{"aboard approvals", "List your agents' requests."}, {"aboard approvals allow apr_ID", "Allow the recorded action once."}},
+			SeeAlso:     []string{"allowance", "invite", "board"},
+		},
+		{
 			Name: "init", Group: groupStart,
 			Summary: "Add the Aboard skill and delivery hooks to Claude Code and Codex",
 			Usage:   []string{"aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery focused|all|humans|off] [--allow-commands] [--json]"},
@@ -580,7 +598,7 @@ func helpText(templates string) []commandHelp {
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
 				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin.\n\n" +
-				"Inviting is up to a person, so invite is refused inside an agent's session; the error gives the command to run in a terminal.",
+				"An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
