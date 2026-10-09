@@ -72,7 +72,8 @@ hold it as an **approval** for the person.
   shows both: who authorized (the person, with the allowance or approval id) and who
   acted (the agent).
 - **How the agent holds this authority:** not through the person's key. Today a
-  machine delegation (D197) can only list boards and join sessions, and an agent never
+  machine delegation (D197) can only list boards, join sessions and create boards
+  (D205), and an agent never
   touches the person's login. An allowance is a new, scoped authority on the agent's own
   authenticated identity, bound to the server that issued it, ending with its parent key
   or the person, and limited to the allowance's categories. The CLI must not reach for the
@@ -176,11 +177,22 @@ always says which of the six steps are done. Redemption needs care, because toda
 - **A consumed invite alone can never retrieve, reissue or select a key or a person.**
   The server never caches a plaintext key under the invite or an idempotency key.
 - **The machine holds the proof instead (proposed):** before redeeming, setup generates
-  the new key's secret on this machine and saves it to Aboard's state as pending; it sends
-  the server only the secret's digest with the invite. If the response is lost, setup
-  simply tries the saved key: if the server accepts it, redemption succeeded; if not, the
-  invite is still unused. A failed save stops setup before the invite is spent. This is an
-  additive change to `/v1/connect` (an optional client-supplied key digest).
+  the new key's token on this machine (256 random bits), saves it durably to Aboard's
+  state as pending (mode 0600), bound to the invite and its issuing server, and sends that
+  token to `/v1/connect` over HTTPS with the invite. The server derives its existing keyed
+  verifier from it, as for any key, and never logs, caches or returns the token. (The
+  verifier is an HMAC with a server secret, so the client can't send a digest instead;
+  later requests send the token over HTTPS anyway.) A failed save stops setup before the
+  invite is spent. This is an additive change to `/v1/connect` (an optional
+  client-supplied token).
+- **A lost response is resolved only by a positive answer:** setup retries against the
+  same issuer, with no redirects or fallback, until an authenticated read with the saved
+  token returns the matching person and onboarding result; only then is the account step
+  complete. A failed check proves nothing about the invite (the network, a key already
+  revoked or expired, a removed person, the wrong server), so it leaves the step uncertain
+  and recoverable, never "unused". A repeated "invite already used" refusal stays
+  uncertain too: setup never creates a second account or replaces the key on its own.
+  Crash-safe pending state and the commit-then-revoke case are part of slice 3.
 - **Anything else goes through the existing person:** an existing account, or another
   machine, uses D188's approval by that person. That approval stays the person's.
 - **This belongs in slice 3,** with the first redemption path, not deferred to recovery.
