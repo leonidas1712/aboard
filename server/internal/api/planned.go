@@ -42,35 +42,3 @@ func (h *handlers) RemoveFileApproval(context.Context, RemoveFileApprovalRequest
 func (h *handlers) GetOnboardingReceipt(context.Context, GetOnboardingReceiptRequestObject) (GetOnboardingReceiptResponseObject, error) {
 	return nil, notProvided("onboarding")
 }
-
-func (h *handlers) ListPairingRequests(context.Context, ListPairingRequestsRequestObject) (ListPairingRequestsResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) CreatePairingRequest(context.Context, CreatePairingRequestRequestObject) (CreatePairingRequestResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) AcceptPairingRequest(context.Context, AcceptPairingRequestRequestObject) (AcceptPairingRequestResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) DeclinePairingRequest(context.Context, DeclinePairingRequestRequestObject) (DeclinePairingRequestResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) CancelPairingRequest(context.Context, CancelPairingRequestRequestObject) (CancelPairingRequestResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) VerifyPairingRoundTrip(context.Context, VerifyPairingRoundTripRequestObject) (VerifyPairingRoundTripResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) GetPairingRequest(context.Context, GetPairingRequestRequestObject) (GetPairingRequestResponseObject, error) {
-	return nil, notProvided("onboarding")
-}
-
-func (h *handlers) CreatePairingCredential(context.Context, CreatePairingCredentialRequestObject) (CreatePairingCredentialResponseObject, error) {
-	return nil, notProvided("pairing endpoint credentials")
-}

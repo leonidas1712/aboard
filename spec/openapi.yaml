@@ -4216,7 +4216,6 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
-        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
         "200":
           description: "Success"
@@ -4234,6 +4233,8 @@ paths:
           $ref: "#/components/responses/Error"
         "409":
           $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
     post:
@@ -4245,7 +4246,6 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
-        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -4271,6 +4271,8 @@ paths:
           $ref: "#/components/responses/Error"
         "409":
           $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/accept:
@@ -4283,7 +4285,6 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
-        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
           in: "path"
@@ -4315,6 +4316,8 @@ paths:
           $ref: "#/components/responses/Error"
         "409":
           $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/decline:
@@ -4327,7 +4330,6 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
-        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
           in: "path"
@@ -4352,6 +4354,8 @@ paths:
         "404":
           $ref: "#/components/responses/Error"
         "409":
+          $ref: "#/components/responses/Error"
+        "422":
           $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
@@ -4365,7 +4369,6 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
-        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
           in: "path"
@@ -4391,6 +4394,8 @@ paths:
           $ref: "#/components/responses/Error"
         "409":
           $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/verify:
@@ -4403,7 +4408,6 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
-        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
           in: "path"
@@ -4435,6 +4439,8 @@ paths:
           $ref: "#/components/responses/Error"
         "409":
           $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}:
@@ -4447,7 +4453,6 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
-        Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       parameters:
         - name: "pairing"
           in: "path"
@@ -4472,6 +4477,8 @@ paths:
           $ref: "#/components/responses/Error"
         "409":
           $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
 
@@ -4488,7 +4495,6 @@ paths:
         All lifecycle checks and idempotent replays occur in the same transaction.
         Old runtime credentials cannot report evidence for a new session/generation.
         The key is never read or returned by a model-facing hook/socket path.
-        Contract-first: 501 not_implemented until the pairing slice is provided.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -4507,6 +4513,7 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
 
 components:

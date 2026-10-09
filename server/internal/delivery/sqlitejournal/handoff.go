@@ -278,7 +278,7 @@ func reuseDelivery(ctx context.Context, tx *sql.Tx, m delivery.HandoffManifest, 
 	if !slices.Equal(seqs, p.Seqs) {
 		return errors.New("handoff delivery sequences changed")
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, harness = ?, session_id = ?, agent = ?, boot = ?, updated_at = ?, accepted_at = '', turn_started_at = '', stalled = 0, handoff_id = ? WHERE id = ?`, string(delivery.StateHanded), m.Session.Harness, m.Session.ID, p.Agent.Name, m.Boot, formatTime(m.CreatedAt), m.ID, p.DeliveryID)
+	_, err = tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, harness = ?, session_id = ?, agent = ?, boot = ?, updated_at = ?, accepted_at = '', turn_started_at = '', stalled = 0, confirmed_at = '', handoff_id = ? WHERE id = ?`, string(delivery.StateHanded), m.Session.Harness, m.Session.ID, p.Agent.Name, m.Boot, formatTime(m.CreatedAt), m.ID, p.DeliveryID)
 	return err
 }
 
@@ -314,7 +314,7 @@ func (j *Journal) ConfirmHandoff(ctx context.Context, id string, session deliver
 			if state != string(delivery.StateHanded) || active != m.ID {
 				continue
 			}
-			if _, err := tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, accepted_at = ?, updated_at = ? WHERE id = ?`, string(delivery.StateConfirmed), formatTime(at), formatTime(at), p.DeliveryID); err != nil {
+			if _, err := tx.ExecContext(ctx, `UPDATE deliveries SET state = ?, accepted_at = ?, updated_at = ?, confirmed_at = ? WHERE id = ?`, string(delivery.StateConfirmed), formatTime(at), formatTime(at), formatTime(at), p.DeliveryID); err != nil {
 				return err
 			}
 			d, err := readHandoffDelivery(ctx, tx, p.DeliveryID)
@@ -355,8 +355,8 @@ func (j *Journal) Handoffs(ctx context.Context) ([]delivery.HandoffManifest, err
 
 func readHandoffDelivery(ctx context.Context, tx *sql.Tx, id int64) (delivery.Delivery, error) {
 	var d delivery.Delivery
-	var state, retry, created, updated, accepted, started string
-	err := tx.QueryRowContext(ctx, `SELECT id, server, board, agent, member_id, harness, session_id, boot, state, attempts, reason, retry_at, created_at, updated_at, accepted_at, turn_started_at, stalled, handoff_id FROM deliveries WHERE id = ?`, id).Scan(&d.ID, &d.Agent.Server, &d.Agent.Board, &d.Agent.Name, &d.Agent.MemberID, &d.Session.Harness, &d.Session.ID, &d.Boot, &state, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &started, &d.Stalled, &d.HandoffID)
+	var state, retry, created, updated, accepted, started, confirmed string
+	err := tx.QueryRowContext(ctx, `SELECT id, server, board, agent, member_id, harness, session_id, boot, state, attempts, reason, retry_at, created_at, updated_at, accepted_at, turn_started_at, stalled, handoff_id, confirmed_at FROM deliveries WHERE id = ?`, id).Scan(&d.ID, &d.Agent.Server, &d.Agent.Board, &d.Agent.Name, &d.Agent.MemberID, &d.Session.Harness, &d.Session.ID, &d.Boot, &state, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &started, &d.Stalled, &d.HandoffID, &confirmed)
 	if err != nil {
 		return d, err
 	}
@@ -364,7 +364,7 @@ func readHandoffDelivery(ctx context.Context, tx *sql.Tx, id int64) (delivery.De
 	for _, field := range []struct {
 		raw    string
 		target *time.Time
-	}{{retry, &d.RetryAt}, {created, &d.CreatedAt}, {updated, &d.UpdatedAt}, {accepted, &d.AcceptedAt}, {started, &d.TurnStartedAt}} {
+	}{{retry, &d.RetryAt}, {created, &d.CreatedAt}, {updated, &d.UpdatedAt}, {accepted, &d.AcceptedAt}, {started, &d.TurnStartedAt}, {confirmed, &d.ConfirmedAt}} {
 		*field.target, err = parseTime(field.raw)
 		if err != nil {
 			return d, err

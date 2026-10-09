@@ -30,8 +30,11 @@ const (
 // Principal is the authenticated caller: exactly one of Human, Agent and Delegation is
 // set.
 type Principal struct {
-	Human *Human
-	Agent *Member
+	// Pairing is a separate, exact-runtime credential, never an ordinary seat authority.
+	Pairing        *PairingCredential
+	pairingAllowed bool
+	Human          *Human
+	Agent          *Member
 	// Delegation is a machine's delegation, which acts for its person only to list their
 	// boards (ListBoards), give a session a seat (Join), and create a board with its
 	// session seat (CreateDelegatedBoard); everything else
@@ -122,6 +125,37 @@ func credentialState(tx ReadTx, p Principal, now string) (*string, error) {
 }
 
 func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error) {
+	if p.Pairing != nil {
+		if !p.pairingAllowed {
+			return Human{}, nil, pairingError(403, "forbidden", "This endpoint credential only reads and verifies its pairing.")
+		}
+		c := p.Pairing
+		r, err := tx.PairingByID(c.RequestID)
+		if err != nil || r.Generation != c.Endpoint.Generation || pairingTerminal(r) || r.ExpiresAt <= now {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		current, err := tx.PairingCredentialByDigest(c.Digest)
+		if err != nil || current.ID != c.ID || current.ExpiresAt <= now {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		person, endpoint := pairingSide(r, c.Side)
+		if endpoint == nil || *endpoint != c.Endpoint || person != c.Endpoint.PersonID {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		key, err := workingKey(tx, c.KeyID, now)
+		if err != nil || key.HumanID != person {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		if err := pairingMember(tx, r.BoardID, person, c.Endpoint.AgentID); err != nil {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		b, err := tx.BoardByID(r.BoardID)
+		if err != nil || lifecycleOf(b) != LifecycleActive {
+			return Human{}, nil, apierr.Unauthorized()
+		}
+		h, err := tx.HumanByID(person)
+		return h, &current.ExpiresAt, err
+	}
 	if p.Delegation != nil {
 		if !p.delegated {
 			return Human{}, nil, delegationForbidden()
@@ -203,6 +237,9 @@ func keyState(tx ReadTx, p Principal, now string) (*string, error) {
 // Authenticate resolves a bearer token to a person, through their access key or a
 // browser login, or to an agent.
 func (s *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
+	if strings.HasPrefix(token, "abp_") {
+		return s.authenticatePairing(ctx, token)
+	}
 	if strings.HasPrefix(token, browserTokenPrefix) {
 		return s.authenticateBrowser(ctx, token)
 	}
