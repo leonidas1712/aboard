@@ -31,6 +31,9 @@ type ReadTx interface {
 	PairingByID(id string) (PairingRequest, error)
 	PairingsOf(personID string) ([]PairingRequest, error)
 	PairingCredentialByDigest(digest string) (PairingCredential, error)
+	ServerInviteByID(id string) (ServerInvite, error)
+	ServerInvites(personID string) ([]ServerInvite, error)
+	OnboardingReceipt(keyID string) (OnboardingReceipt, error)
 	Allowance(personID string) (Allowance, error)
 	Approval(id string) (Approval, error)
 	ApprovalByRequest(agentID, key string) (Approval, error)
@@ -206,6 +209,8 @@ type Tx interface {
 	SavePairing(PairingRequest) error
 	SavePairingCredential(PairingCredential) error
 	DeletePairingCredentials(requestID string) error
+	RevokeServerInvite(id, at string) (bool, error)
+	SaveOnboardingReceipt(OnboardingReceipt) error
 	SaveAllowance(Allowance) error
 	SaveApproval(Approval) error
 	ExpireAdminRequestKeys(before string) error

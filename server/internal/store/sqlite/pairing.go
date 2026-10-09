@@ -42,7 +42,7 @@ func (t *tx) SavePairing(r board.PairingRequest) error {
 	if err != nil {
 		return err
 	}
-	return t.exec("INSERT INTO pairing_requests (id, invite_id, inviter_id, recipient_id, created_at, creation_scope, creation_key, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET recipient_id = excluded.recipient_id, data = excluded.data", r.ID, r.InviteID, r.InviterID, r.RecipientID, r.CreatedAt, r.Creation.Scope, r.Creation.Key, data)
+	return t.exec("INSERT INTO pairing_requests (id, invite_id, inviter_id, recipient_id, created_at, creation_scope, creation_key, data) VALUES (?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET recipient_id = excluded.recipient_id, data = excluded.data", r.ID, r.InviteID, r.InviterID, r.RecipientID, r.CreatedAt, r.Creation.Scope, r.Creation.Key, data)
 }
 
 func (t *tx) PairingCredentialByDigest(digest string) (board.PairingCredential, error) {

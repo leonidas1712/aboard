@@ -3,7 +3,6 @@ package board
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/events"
@@ -55,11 +54,7 @@ func (s *Service) executeAdminTx(ctx context.Context, tx Tx, owner Principal, ag
 	}
 	switch a.Kind {
 	case "invite_people":
-		ttl := time.Duration(0)
-		if a.Invite.TTLSeconds != nil {
-			ttl = time.Duration(*a.Invite.TTLSeconds) * time.Second
-		}
-		out, err := execution.CreateServerInvite(ctx, owner, ttl)
+		out, err := execution.CreateServerInviteWithInput(ctx, owner, *a.Invite)
 		return &out, err
 	case "add_people":
 		if m, err := tx.HumanMember(a.BoardID, a.PersonID); err == nil && m.Status == StatusActive {
