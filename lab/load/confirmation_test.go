@@ -34,8 +34,16 @@ func TestLoadConfirmsReadyExtensionsWithoutWaitingForAnEarlierSeat(t *testing.T)
 	testLoadConfirmation(t, confirmationOptions{heldFirst: true})
 }
 
+func TestLoadConfirmsAnEarlierBoardWhileALaterPostIsPending(t *testing.T) {
+	testLoadConfirmation(t, confirmationOptions{heldPost: true})
+}
+
+func TestLoadNeverConfirmsAnUnverifiedPostOutcome(t *testing.T) {
+	testLoadConfirmation(t, confirmationOptions{failedPost: true})
+}
+
 type confirmationOptions struct {
-	closeIdle, parallelChecks, heldHeads, heldFirst bool
+	closeIdle, parallelChecks, heldHeads, heldFirst, heldPost, failedPost bool
 }
 
 func testLoadConfirmation(t *testing.T, o confirmationOptions) {
@@ -47,6 +55,7 @@ func testLoadConfirmation(t *testing.T, o confirmationOptions) {
 	var release sync.Once
 	ready := make(chan struct{})
 	secondConfirmed := make(chan struct{})
+	firstConfirmed := make(chan struct{})
 	allConfirmed := make(chan struct{})
 	var workers sync.WaitGroup
 	defer workers.Wait()
@@ -73,6 +82,8 @@ func testLoadConfirmation(t *testing.T, o confirmationOptions) {
 				if response["op"] == "received" {
 					if i == 1 {
 						close(secondConfirmed)
+					} else {
+						close(firstConfirmed)
 					}
 					if confirmed.Add(1) == 2 {
 						close(allConfirmed)
@@ -89,6 +100,13 @@ func testLoadConfirmation(t *testing.T, o confirmationOptions) {
 			return
 		}
 		if r.Method == http.MethodPost {
+			if o.heldPost && strings.Contains(r.URL.Path, "board-1") {
+				select {
+				case <-firstConfirmed:
+				case <-ctx.Done():
+					return
+				}
+			}
 			for i, s := range p.seats {
 				if !strings.Contains(r.URL.Path, s.Board) {
 					continue
@@ -118,6 +136,11 @@ func testLoadConfirmation(t *testing.T, o confirmationOptions) {
 					p.heads.changed = make(chan struct{})
 					p.heads.mu.Unlock()
 				})
+			}
+			if o.failedPost {
+				w.WriteHeader(http.StatusBadGateway)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": "server_error"}})
+				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]int{"seq": 2})
 			return
@@ -168,7 +191,14 @@ func testLoadConfirmation(t *testing.T, o confirmationOptions) {
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
 	var streams, polls, handovers, writes []time.Duration
 	var report report
-	if err := f.round(ctx, 0, &checks, &streams, &polls, &handovers, &writes, &report); err != nil {
+	err := f.round(ctx, 0, &checks, &streams, &polls, &handovers, &writes, &report)
+	if o.failedPost {
+		if err == nil || confirmed.Load() != 0 {
+			t.Fatalf("unverified post: error %v, confirmations %d", err, confirmed.Load())
+		}
+		return
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	if confirmed.Load() != 2 || report.Deliveries != 2 {

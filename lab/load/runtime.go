@@ -697,7 +697,12 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 	}
 	timing.next("delivery")
 	byBoard := map[string]sample{}
-	markers := map[string]sample{}
+	posted := map[string]*postedBoard{}
+	for _, b := range f.boards {
+		posted[b.ID] = &postedBoard{ready: make(chan struct{})}
+	}
+	confirmations := startConfirmations(ctx, replies, posted)
+	defer confirmations.finish(checks, polls, handover, r)
 	for i, b := range f.boards {
 		marker := fmt.Sprintf("load-r%d-b%d", round, i)
 		start := time.Now()
@@ -709,7 +714,8 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 		*writes = append(*writes, time.Since(start))
 		b.Head = v.key.Seq
 		byBoard[b.ID] = v
-		markers[marker] = v
+		posted[b.ID].sample = v
+		close(posted[b.ID].ready)
 		r.Posts++
 	}
 	for _, p := range f.people {
@@ -717,7 +723,7 @@ func (f *fixture) round(ctx context.Context, round int, checks *deliveryCheck, s
 			checks.Expected[s.MemberID] = append(checks.Expected[s.MemberID], byBoard[s.board.ID].key)
 		}
 	}
-	if err := f.confirmRound(ctx, replies, byBoard, markers, checks, polls, handover, r); err != nil {
+	if err := confirmations.collect(checks, polls, handover, r); err != nil {
 		return err
 	}
 	for _, p := range f.people {

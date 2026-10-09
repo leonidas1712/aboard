@@ -11,57 +11,59 @@ type confirmation struct {
 	seat    *seat
 	key     messageKey
 	elapsed time.Duration
+	poll    time.Duration
+	polled  bool
 	err     error
 }
 
-// Each observer reads before its own harness confirms; unrelated slow observations
-// must not consume that harness's reply window.
-func (f *fixture) confirmRound(ctx context.Context, replies <-chan polled, boards, markers map[string]sample, checks *deliveryCheck, polls, handovers *[]time.Duration, r *report) error {
+type postedBoard struct {
+	ready  chan struct{}
+	sample sample
+}
+
+type confirmations struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	workers sync.WaitGroup
+	results chan confirmation
+}
+
+// A post response publishes only its own board's expected identity. A pending
+// later post must not consume an earlier harness's reply window.
+func startConfirmations(ctx context.Context, replies <-chan polled, boards map[string]*postedBoard) *confirmations {
 	ctx, cancel := context.WithCancel(ctx)
-	results := make(chan confirmation, cap(replies))
-	var workers sync.WaitGroup
-	record := func(v confirmation) {
-		if v.key.BoardID != "" {
-			checks.Seen[v.seat.MemberID] = append(checks.Seen[v.seat.MemberID], v.key)
-			*handovers = append(*handovers, v.elapsed)
-			r.Deliveries++
+	c := &confirmations{ctx: ctx, cancel: cancel, results: make(chan confirmation, cap(replies))}
+	c.workers.Go(func() {
+		for range cap(replies) {
+			select {
+			case <-ctx.Done():
+				return
+			case reply := <-replies:
+				c.workers.Go(func() { c.results <- confirmObserved(ctx, reply, boards[reply.seat.board.ID]) })
+			}
 		}
+	})
+	return c
+}
+
+func recordConfirmation(v confirmation, checks *deliveryCheck, polls, handovers *[]time.Duration, r *report) {
+	if v.polled {
+		*polls = append(*polls, v.poll)
 	}
-	defer func() {
-		cancel()
-		workers.Wait()
-		close(results)
-		for v := range results {
-			record(v)
-		}
-	}()
-	for range cap(replies) {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case reply := <-replies:
-			if reply.err != nil {
-				return reply.err
-			}
-			want := boards[reply.seat.board.ID]
-			messages, _ := reply.data["messages"].([]any)
-			if len(messages) != 1 {
-				return errors.New("long poll lost or duplicated a round message")
-			}
-			message, _ := messages[0].(map[string]any)
-			if seq(message, "seq") != want.key.Seq || str(message, "body") != want.marker {
-				return errors.New("long poll returned the wrong message")
-			}
-			*polls = append(*polls, reply.at.Sub(want.started))
-			workers.Go(func() { results <- confirmExtension(ctx, reply.seat, markers) })
-		}
+	if v.key.BoardID != "" {
+		checks.Seen[v.seat.MemberID] = append(checks.Seen[v.seat.MemberID], v.key)
+		*handovers = append(*handovers, v.elapsed)
+		r.Deliveries++
 	}
-	for range cap(replies) {
+}
+
+func (c *confirmations) collect(checks *deliveryCheck, polls, handovers *[]time.Duration, r *report) error {
+	for range cap(c.results) {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case v := <-results:
-			record(v)
+		case <-c.ctx.Done():
+			return c.ctx.Err()
+		case v := <-c.results:
+			recordConfirmation(v, checks, polls, handovers, r)
 			if v.err != nil {
 				return v.err
 			}
@@ -70,7 +72,44 @@ func (f *fixture) confirmRound(ctx context.Context, replies <-chan polled, board
 	return nil
 }
 
-func confirmExtension(ctx context.Context, s *seat, markers map[string]sample) (result confirmation) {
+func (c *confirmations) finish(checks *deliveryCheck, polls, handovers *[]time.Duration, r *report) {
+	c.cancel()
+	c.workers.Wait()
+	close(c.results)
+	for v := range c.results {
+		recordConfirmation(v, checks, polls, handovers, r)
+	}
+}
+
+func confirmObserved(ctx context.Context, reply polled, board *postedBoard) confirmation {
+	result := confirmation{seat: reply.seat}
+	if reply.err != nil {
+		result.err = reply.err
+		return result
+	}
+	select {
+	case <-ctx.Done():
+		result.err = ctx.Err()
+		return result
+	case <-board.ready:
+	}
+	want := board.sample
+	messages, _ := reply.data["messages"].([]any)
+	if len(messages) != 1 {
+		result.err = errors.New("long poll lost or duplicated a round message")
+		return result
+	}
+	message, _ := messages[0].(map[string]any)
+	if seq(message, "seq") != want.key.Seq || str(message, "body") != want.marker {
+		result.err = errors.New("long poll returned the wrong message")
+		return result
+	}
+	result = confirmExtension(ctx, reply.seat, want)
+	result.polled, result.poll = true, reply.at.Sub(want.started)
+	return result
+}
+
+func confirmExtension(ctx context.Context, s *seat, sample sample) (result confirmation) {
 	result.seat = s
 	v, err := s.ext.next(ctx)
 	if err != nil {
@@ -86,8 +125,7 @@ func confirmExtension(ctx context.Context, s *seat, markers map[string]sample) (
 		result.err = errors.New("delivery lost or duplicated its marker")
 		return result
 	}
-	sample, ok := markers[found[0]]
-	if !ok || sample.key.BoardID != s.board.ID {
+	if found[0] != sample.marker || sample.key.BoardID != s.board.ID {
 		result.err = errors.New("delivery crossed boards or repeated an older message")
 		return result
 	}
