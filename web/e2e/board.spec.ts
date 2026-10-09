@@ -2539,7 +2539,9 @@ test("My agents records an owner target and receipts for its current seats", asy
   await page.getByRole("menuitemcheckbox", { name: "My agents", exact: true }).click();
   await page.keyboard.press("Escape");
   await page.getByLabel("Message alex’s agents", { exact: true }).fill("To both my seats");
+  const committed = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === `/v1/boards/${b.name}/messages`);
   await page.getByRole("button", { name: "Post", exact: true }).click();
+  expect((await committed).status()).toBe(201);
   await expect(page.locator("main")).toContainText("alex’s agents");
   const messages = await api(key, "GET", `/v1/boards/${b.name}/messages`);
   const posted = (messages.messages as { to: string[]; seq: number; body: string }[]).find((m) => m.body === "To both my seats");
