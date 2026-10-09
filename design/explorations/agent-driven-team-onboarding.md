@@ -1,6 +1,6 @@
 # Agent-driven team onboarding and administration
 
-A design for #268, proposed for the release after 0.1.4. Its decision is D222 in
+The approved design for #268, required for 0.1.4. Its decision is D222 in
 DECISIONS.md; this page is the detail. Nothing here is built yet.
 
 ## Why

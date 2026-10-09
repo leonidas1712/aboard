@@ -8291,7 +8291,6 @@ components:
     AllowApprovalRequest:
       type: "object"
       additionalProperties: false
-      required: []
       properties:
         always:
           type: "boolean"
