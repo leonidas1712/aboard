@@ -452,6 +452,9 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 	}
 	if ttl == 0 {
 		ttl = DefaultInviteTTL
+		if s.adminAuthorization != nil {
+			ttl = 24 * time.Hour
+		}
 	}
 	if ttl < time.Minute || ttl > MaxInviteTTL {
 		return NewServerInvite{}, invalid("An invite works for at least a minute and at most 30 days.", "Pick a lifetime between 1m and 720h.")
