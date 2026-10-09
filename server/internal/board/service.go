@@ -73,7 +73,7 @@ func actorOf(m Member) events.Actor {
 func (s *Service) append(tx Tx, b *Board, typ string, actor events.Actor, at time.Time, data any) (events.Event, error) {
 	if s.adminAuthorization != nil {
 		if original, ok := data.(map[string]any); ok {
-			copied := make(map[string]any, len(original)+1)
+			copied := make(map[string]any)
 			for key, value := range original {
 				copied[key] = value
 			}
