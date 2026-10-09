@@ -114,3 +114,15 @@ Diagnostics contain process roles and fixture indices, counts and category names
 They contain no arbitrary log text, bodies, credentials, command input or log paths.
 The tool still cancels and removes all child state after recording this summary. A
 failed observation is not retried and does not relax limits, gathering or timeouts.
+
+For an explicitly provisioned, disposable remote server, use `--server URL` with
+`--admin-key-file PATH`. The URL must be an HTTPS origin (HTTP is accepted only on
+loopback for tests). The key file must be a private regular file. The tool validates
+the origin before reading the key and refuses HTTP redirects. It uses only that
+issuer's credentials, starts local delivery daemons in scratch homes, and never
+starts or stops the remote server. Provisioning creates people, boards and seats;
+use a fresh temporary server, then destroy it yourself after the run.
+
+Remote runs report local server resource sampling as unavailable. Measure the
+remote machine separately, and report network round-trip measurements separately
+from the end-to-end delivery samples.
