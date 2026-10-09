@@ -152,6 +152,11 @@ func (f *fixture) finishReport(r *report, progress runProgress, runErr error) {
 		}
 	}
 	r.Throttles = int(f.throttles.Load())
+	r.SetupThrottles = f.setupThrottles.Load()
+	if progress.Stage == "setup" {
+		r.SetupThrottles = f.throttles.Load()
+	}
+	r.ThrottleKinds = throttleKinds{Join: f.joinThrottles.Load(), Connect: f.connectThrottles.Load(), Other: f.otherThrottles.Load()}
 	r.Daemons = 0
 	for _, p := range f.people {
 		if p.cmd != nil {

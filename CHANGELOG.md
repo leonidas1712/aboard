@@ -16,6 +16,9 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- Add optional serve --test-server and ABOARD_TEST_SERVER for temporary load-test
+  operators. Additive CLI settings; production defaults and API authority stay unchanged.
+
 - Add local server labels, servers name/rename, connect --server-name, positional open
   targets and optional server_selection explanations to CLI results. Additive for
   CLI scripts; credentials remain bound to issuer URLs.

@@ -38,6 +38,8 @@ const DefaultLocalAddr = "127.0.0.1:7400"
 
 // Options configures a server.
 type Options struct {
+	// TestServer raises provisioning limits for an explicitly opted-in temporary server.
+	TestServer bool
 	// Addr is the address to listen on, such as 127.0.0.1:7400.
 	Addr string
 	// Listener, when set, is the listener to serve on in place of Addr. Run closes it.
@@ -202,8 +204,13 @@ func Run(ctx context.Context, o Options) error {
 	if o.Team != nil {
 		hosts, publicOrigin = []string{o.Team.PublicURL.Host}, o.Team.PublicURL.Origin
 	}
+	joins, connects, serverConnects := 30, 10, 60
+	if o.TestServer {
+		joins, connects, serverConnects = 10_000, 10_000, 10_000
+		o.Log.Warn("test rate limits enabled", "joins_per_minute", joins, "connects_per_minute", connects, "connects_per_minute_server", serverConnects)
+	}
 	handler, err := api.NewHandler(api.Options{
-		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: 30, ConnectsPerMinute: 10, ConnectsPerMinuteServer: 60,
+		Service: svc, Responses: st, Clock: o.Clock, Log: o.Log, Version: o.Version, Commit: o.Commit, CommitTime: o.CommitTime, JoinsPerMinute: joins, ConnectsPerMinute: connects, ConnectsPerMinuteServer: serverConnects,
 		MachineRequests: api.Limits{PerAddr: 10, Server: 60}, MachineCodes: api.Limits{PerAddr: 10, PerPerson: 10, Server: 60},
 		MachineCollects: api.Limits{PerAddr: 60, Server: 600},
 		SignInFailures:  api.Limits{PerAddr: 20, Server: 100}, SignInAttempts: api.Limits{PerAddr: 120, Server: 600},
