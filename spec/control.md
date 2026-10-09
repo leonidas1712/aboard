@@ -942,3 +942,33 @@ only on a connection that negotiated both handoff-v1 and midturn-peer, with addi
 `delivery_class: midturn_peer`; existing owner_only and mixed classes keep their
 meaning. Unknown classes must not be interpreted as owner messages. A peer context
 with no capable live connection remains queued for turn end.
+
+## Pairing requests (D222)
+
+`pairing` is a trusted-daemon operation. It requires `harness`, `session` and an
+issuer URL in `server`. The daemon verifies the exact live, non-subagent harness
+conversation, as for `join`; a process id or recent activity never selects one.
+`pairing_action` is `list`, `request`, `get`, `accept`, `decline` or `cancel`.
+`pairing_id` identifies one request except on list and request. Request supplies
+immutable `board_id`, `recipient_id` and `initiating_agent_id`, `work` and a stable
+`idempotency_key`. Accept selects the caller's exact session; `replace` is explicit.
+An omitted id on accept is allowed only when exactly one visible pending request
+exists. Ambiguity exposes only visible request ids.
+
+Responses contain `pairings` (the public PairingRequests metadata) or `pairing`
+(the public PairingRequest metadata), and the existing error shape. They never
+contain parent, seat or endpoint tokens. Commands do not automatically retry a
+lost socket response on a replacement daemon. A deliberate retry reads current
+request state and resumes its existing generation and evidence.
+
+A fresh zero-seat session lists its own person's requests through the daemon's
+issuer-bound parent key, then uses the existing D197 join before endpoint selection.
+It cannot use this operation to widen the delegation. A selected endpoint is bound
+to the issuer, request, side, permanent seat and a hash of the exact harness session,
+boot and local binding generation. Its private client-generated credential is saved
+before minting and is never placed on this socket, hooks or model output.
+
+Only a confirmed journal handoff for this exact session and binding can supply
+round-trip receipt evidence. Finding a message in history or receiving a hook call
+is insufficient. Endpoint replacement invalidates earlier credentials/evidence;
+offline peers remain verifying and receive a nonsecret next-step handover.
