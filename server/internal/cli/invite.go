@@ -33,7 +33,7 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	fs.Var(&boards, "board", "the board; repeat to bundle server-invite memberships")
 	pairing := fs.String("pairing", "", "proposed work with this session on exactly one bundled board")
 	roleFlag := fs.String("role", "", "the role the agent joins as; default: the role the board's template invites, else member")
-	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h (168h with --server)")
+	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h for codes and agent invites, 168h for person invites")
 	var serverFlag optionalValue
 	fs.Var(&serverFlag, "server", "invite a person to the server instead of an agent to a board; --server URL names the server")
 	guestFlag := fs.String("guest", "", "make a guest code that lets this person, from outside the server, onto the board once")
@@ -409,7 +409,11 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 		}
 		text := "Invitations on " + srv.URL + "\n"
 		for _, invite := range r.JSON200.Invites {
-			text += fmt.Sprintf("%s · %s · expires %s\n", invite.Id, invite.State, invite.ExpiresAt.Format(time.RFC3339))
+			issuer := ""
+			if invite.IssuingAgentId != nil {
+				issuer = " · issued by agent " + *invite.IssuingAgentId
+			}
+			text += fmt.Sprintf("%s · %s%s · expires %s\n", invite.Id, invite.State, issuer, invite.ExpiresAt.Format(time.RFC3339))
 		}
 		a.emit(map[string]any{"server": srv, "invites": r.JSON200.Invites}, text)
 		return nil

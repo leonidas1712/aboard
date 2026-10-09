@@ -179,6 +179,28 @@ func (s *Service) ListServerInvites(ctx context.Context, p Principal) ([]ServerI
 	if err := inviteManagementPerson(p); err != nil {
 		return nil, err
 	}
+	return s.listServerInvites(ctx, p)
+}
+
+// ListInviteNotices lets a person read their agents' issued invites without management authority.
+func (s *Service) ListInviteNotices(ctx context.Context, p Principal) ([]ServerInviteView, error) {
+	if err := humanOnly(p, "read your invitation notices", "aboard invite list"); err != nil {
+		return nil, err
+	}
+	list, err := s.listServerInvites(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	out := []ServerInviteView{}
+	for _, v := range list {
+		if v.Invite.IssuingAgentID != "" {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
+func (s *Service) listServerInvites(ctx context.Context, p Principal) ([]ServerInviteView, error) {
 	out := []ServerInviteView{}
 	err := s.st.Read(ctx, func(tx ReadTx) error {
 		h, err := caller(tx, p, stamp(s.clk.Now()))

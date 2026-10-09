@@ -13,6 +13,8 @@ import (
 
 type onboardingIssuerKey struct{}
 
+const inviteAllowanceWarning = "Agents allowed to invite people can let outsiders read every open board."
+
 func onboardingCommand(ctx context.Context, command string) string {
 	issuer, _ := ctx.Value(onboardingIssuerKey{}).(string)
 	return command + " --server '" + strings.ReplaceAll(issuer, "'", "'\\''") + "'"
@@ -32,7 +34,14 @@ func allowanceOf(a board.Allowance) map[string]any {
 	if categories == nil {
 		categories = []string{}
 	}
-	return map[string]any{"id": a.ID, "person_id": a.PersonID, "revision": a.Revision, "categories": categories}
+	out := map[string]any{"id": a.ID, "person_id": a.PersonID, "revision": a.Revision, "categories": categories}
+	for _, category := range categories {
+		if category == "invite-people" {
+			out["warning"] = inviteAllowanceWarning
+			break
+		}
+	}
+	return out
 }
 
 func (h *handlers) GetAllowance(ctx context.Context, _ GetAllowanceRequestObject) (GetAllowanceResponseObject, error) {
@@ -184,7 +193,11 @@ func (h *handlers) AllowApproval(ctx context.Context, req AllowApprovalRequestOb
 	if err != nil {
 		return nil, onboardingError(ctx, err, "aboard approvals allow "+req.Approval)
 	}
-	return convert[AllowApproval200JSONResponse](adminResultOf(ctx, r))
+	out := adminResultOf(ctx, r)
+	if always && r.Approval.Action.Kind == "invite_people" {
+		out["warning"] = inviteAllowanceWarning
+	}
+	return convert[AllowApproval200JSONResponse](out)
 }
 
 func (h *handlers) DeclineApproval(ctx context.Context, req DeclineApprovalRequestObject) (DeclineApprovalResponseObject, error) {
