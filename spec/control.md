@@ -957,6 +957,15 @@ immutable `board_id`, `recipient_id` and `initiating_agent_id`, `work` and a sta
 An omitted id on accept is allowed only when exactly one visible pending request
 exists. Ambiguity exposes only visible request ids.
 
+Accept or select with an explicit ready request id returns its unchanged metadata
+only when fresh person and board access still hold and the selected immutable seat
+is bound to this exact trusted session. Its recorded endpoint generation must equal
+the request generation, and its binding hash must match the current session boot,
+local binding generation and daemon instance. The daemon freshly verifies the seat
+credential. This is a read: it never joins, reselects or writes evidence. Another
+session or stale proof gets `pairing_changed`; `replace` on ready still gets
+`pairing_closed`. Historical ready metadata alone never completes setup.
+
 Every write supplies the same stable idempotency key across its transport retries.
 Responses also carry `pairing_board`, the currently visible board name, for a
 single request; it never exposes a hidden name. Responses contain `pairings` (the public PairingRequests metadata) or `pairing`
