@@ -895,3 +895,7 @@ agent-issued invite, through either an allowance or an approval, produces an own
 Inbox notice with its revoke command, derived from the durable invite record without
 exposing its secret. Agent-issued invites default to 24 hours; person-issued invites
 keep the seven-day default. Explicit lifetimes and existing revocation rules remain.
+
+D222 invitation opt-in also includes `approvals allow ID --always` for an
+invite-people action: its API response and CLI output carry the same warning.
+Allow-once remains the default handover and enables no invitation allowance.

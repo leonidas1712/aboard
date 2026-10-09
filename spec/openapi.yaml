@@ -8515,12 +8515,15 @@ components:
           type: "boolean"
           default: false
       description: |
-        always is invalid_request for every category except invite_people/add_people, even if the person could do the action.
+        always is invalid_request for every category except invite_people/add_people, even if the person could do the action. Allowing invite_people with always=true returns the same invitation warning as explicit category opt-in; allowing once does not enable the allowance.
     AdminActionResult:
       type: "object"
       additionalProperties: false
       required: ["state", "approval"]
       properties:
+        warning:
+          type: string
+          description: "Present on invite_people approval with always=true: Agents allowed to invite people can let outsiders read every open board."
         state:
           type: "string"
           enum: ["pending", "executed"]

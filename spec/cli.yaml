@@ -4049,7 +4049,8 @@ $defs:
       category; it is invalid_request for destructive/privilege-raising actions
       and changes nothing. aboard approvals decline ID refuses it. Both commands
       are person-only, refuse in sessions, and never accept replacement payloads.
-      Text shows the action and terminal state. A newly created invite link is
+      Text shows the action and terminal state. An invite-people allow --always
+      also prints the API warning; allow once remains plain. A newly created invite link is
       shown once; repeated decisions cannot reissue or retrieve its secret.
       Exit 0 or 1. Planned until GEN-35.
     type: object
@@ -4058,6 +4059,7 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
       invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      warning: { type: string, description: Invitation risk warning for invite-people allow --always. }
       prompt:
         type: string
         description: Ready-to-send colleague setup prompt only when an invite is newly executed; absent on replay.
