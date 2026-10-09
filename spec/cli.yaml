@@ -4036,6 +4036,14 @@ $defs:
       current access before writing. Proposed work is content, not control over the
       recipient's session. Self-pairing changes no allowance or existing D205 behavior.
       aboard pairing accept [ID] --here selects this exact, verified harness session.
+      aboard pairing select ID --here selects the inviter's exact initiating session,
+      including deliberate recovery after its daemon restarts. It uses the same
+      private endpoint mint and generation CAS; only the inviter may select it.
+      This never accepts on behalf of the recipient. --replace explicitly replaces
+      an existing initiating endpoint. A person-terminal request or a selected-seat
+      request outside a real session remains awaiting this selection; recent
+      activity never fills it in. --as may name that request's initiating seat,
+      but select and accept always use the verified current session, not --as.
       If ID is omitted, exactly one accessible pending request must exist; otherwise
       refuse with pairing_ambiguous (details.requests contains only visible ids).
       Never guess from activity. --replace is explicit endpoint replacement using
