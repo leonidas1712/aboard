@@ -88,6 +88,10 @@ func publishQueueIntent(ctx context.Context, j QueueReportJournal, srv QueueRepo
 		if err := j.SaveQueueReporter(ctx, state); err != nil {
 			return false, err
 		}
+		// A successful claim already replaced the old report with an empty queue.
+		if in.ExpectedEpoch != nil && len(desired) == 0 {
+			return false, nil
+		}
 		if in.ExpectedEpoch == nil {
 			if slices.Equal(in.Messages, desired) {
 				return false, nil
