@@ -110,23 +110,18 @@ func runPairing(ctx context.Context, a *app, args []string) error {
 		if name == "me" && me.JSON200.Owner != nil {
 			name = *me.JSON200.Owner
 		}
-		people, err := c.api.ListPeopleWithResponse(ctx, t.board)
+		lookup, err := c.api.ListServerPeopleWithResponse(ctx, &api.ListServerPeopleParams{Handle: &name})
 		if err != nil {
 			return c.unreachable(err)
 		}
-		if people.JSON200 == nil {
-			return apiError(people.StatusCode(), people.Body)
+		if lookup.JSON200 == nil {
+			return apiError(lookup.StatusCode(), lookup.Body)
 		}
-		personID := ""
-		for _, p := range people.JSON200.People {
-			if p.Handle == name {
-				personID = p.Id
-				break
-			}
+		person, err := lookup.JSON200.AsPersonIdentityLookup()
+		if err != nil {
+			return err
 		}
-		if personID == "" {
-			return newError("person_not_found", "That person is not visible on this board.", "Check aboard board people before making the request.")
-		}
+		personID := person.Id
 		create = api.CreatePairingRequest{BoardId: b.JSON200.Id, RecipientId: personID, InitiatingAgentId: me.JSON200.Id, Work: pos[1]}
 	case inSession:
 		seats, err := a.sessionAgents(ctx, key)
