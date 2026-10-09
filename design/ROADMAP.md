@@ -428,4 +428,4 @@ run and focused retry, not one clean full run. Protected configuration and auth 
 unchanged. Final CI remains pending; the board-view setting is separate PR #243.
 This feature is not yet shipped.
 
-| Find your agent (#275): owner-only session location and profile-derived resume commands, `aboard agents` | in progress (GEN-42); contract first, API/CLI; board view owned separately | bookkeeping only |
+| Find your agent (#275): owner-only session location and profile-derived resume commands, `aboard agents` | API/CLI in review (#277, GEN-42); source pass and three-harness location/restart proof pass; board view owned separately | bookkeeping only |

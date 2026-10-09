@@ -3,6 +3,12 @@
     "claude-code": {
       "version": "2.1.294 (Claude Code)",
       "scenarios": {
+        "AgentLocationMatchesItsRealHarnessSession": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
+          "test": "TestAgentLocationMatchesItsRealHarnessSession/claude-code"
+        },
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
           "date": "2026-10-09",
@@ -187,6 +193,12 @@
         "reconnect": "quitting Codex leaves its session open in Codex's app server, which still takes messages"
       },
       "scenarios": {
+        "AgentLocationMatchesItsRealHarnessSession": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "codex-cli 0.160.0",
+          "test": "TestAgentLocationMatchesItsRealHarnessSession/codex"
+        },
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
           "date": "2026-10-09",
@@ -372,6 +384,12 @@
     "omp": {
       "version": "omp/18.5.1",
       "scenarios": {
+        "AgentLocationMatchesItsRealHarnessSession": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "omp/18.5.1",
+          "test": "TestAgentLocationMatchesItsRealHarnessSession/omp"
+        },
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
           "date": "2026-10-09",
