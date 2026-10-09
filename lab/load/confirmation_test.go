@@ -15,18 +15,30 @@ import (
 )
 
 func TestLoadConfirmsEveryExtensionBeforeWaitingForServerAcks(t *testing.T) {
-	testLoadConfirmation(t, false, false)
+	testLoadConfirmation(t, confirmationOptions{})
 }
 
 func TestLoadRedialsIdleObserversBeforePosting(t *testing.T) {
-	testLoadConfirmation(t, true, false)
+	testLoadConfirmation(t, confirmationOptions{closeIdle: true})
 }
 
 func TestLoadVerifiesAcknowledgmentsConcurrently(t *testing.T) {
-	testLoadConfirmation(t, false, true)
+	testLoadConfirmation(t, confirmationOptions{parallelChecks: true})
 }
 
-func testLoadConfirmation(t *testing.T, closeIdle, parallelChecks bool) {
+func TestLoadConfirmsExtensionsBeforeWaitingForDelayedHeads(t *testing.T) {
+	testLoadConfirmation(t, confirmationOptions{heldHeads: true})
+}
+
+func TestLoadConfirmsReadyExtensionsWithoutWaitingForAnEarlierSeat(t *testing.T) {
+	testLoadConfirmation(t, confirmationOptions{heldFirst: true})
+}
+
+type confirmationOptions struct {
+	closeIdle, parallelChecks, heldHeads, heldFirst bool
+}
+
+func testLoadConfirmation(t *testing.T, o confirmationOptions) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -34,6 +46,8 @@ func testLoadConfirmation(t *testing.T, closeIdle, parallelChecks bool) {
 	var checking atomic.Int64
 	var release sync.Once
 	ready := make(chan struct{})
+	secondConfirmed := make(chan struct{})
+	allConfirmed := make(chan struct{})
 	var workers sync.WaitGroup
 	defer workers.Wait()
 	p := &machine{heads: &headLog{changed: make(chan struct{})}}
@@ -57,7 +71,12 @@ func testLoadConfirmation(t *testing.T, closeIdle, parallelChecks bool) {
 					return
 				}
 				if response["op"] == "received" {
-					confirmed.Add(1)
+					if i == 1 {
+						close(secondConfirmed)
+					}
+					if confirmed.Add(1) == 2 {
+						close(allConfirmed)
+					}
 				}
 			}
 		})
@@ -75,16 +94,36 @@ func testLoadConfirmation(t *testing.T, closeIdle, parallelChecks bool) {
 					continue
 				}
 				at := time.Now()
-				s.ext.frames <- frame{Event: "deliver", ID: int64(i + 1), Bundle: fmt.Sprintf(`<aboard-message board=%q seq="2">load-r0-b%d</aboard-message>`, s.Board, i), at: at}
-				p.heads.mu.Lock()
-				p.heads.heads = append(p.heads.heads, observation{Key: messageKey{s.board.ID, 2}, At: at})
-				p.heads.mu.Unlock()
+				workers.Go(func() {
+					if o.heldFirst && i == 0 {
+						select {
+						case <-secondConfirmed:
+						case <-ctx.Done():
+							return
+						}
+					}
+					s.ext.frames <- frame{Event: "deliver", ID: int64(i + 1), Bundle: fmt.Sprintf(`<aboard-message board=%q seq="2">load-r0-b%d</aboard-message>`, s.Board, i), at: at}
+				})
+				workers.Go(func() {
+					if o.heldHeads {
+						select {
+						case <-allConfirmed:
+						case <-ctx.Done():
+							return
+						}
+					}
+					p.heads.mu.Lock()
+					p.heads.heads = append(p.heads.heads, observation{Key: messageKey{s.board.ID, 2}, At: at})
+					close(p.heads.changed)
+					p.heads.changed = make(chan struct{})
+					p.heads.mu.Unlock()
+				})
 			}
 			_ = json.NewEncoder(w).Encode(map[string]int{"seq": 2})
 			return
 		}
 		if r.URL.Query().Get("wait") == "" {
-			if parallelChecks {
+			if o.parallelChecks {
 				if checking.Add(1) == 2 {
 					release.Do(func() { close(ready) })
 				}
@@ -121,7 +160,7 @@ func testLoadConfirmation(t *testing.T, closeIdle, parallelChecks bool) {
 	if err := f.primeObservers(); err != nil {
 		t.Fatal(err)
 	}
-	if closeIdle {
+	if o.closeIdle {
 		for _, seat := range p.seats {
 			seat.observer.CloseIdleConnections()
 		}
