@@ -103,10 +103,7 @@ func adminResultOf(ctx context.Context, r board.AdminActionResult) map[string]an
 		out["next"] = approvalNext(ctx, r.Approval.ID)
 	}
 	if r.Invite != nil {
-		out["invite"] = map[string]any{
-			"id": r.Invite.Invite.ID, "invite": r.Invite.Secret,
-			"server_role": board.ServerMember, "expires_at": r.Invite.Invite.ExpiresAt,
-		}
+		out["invite"] = serverInviteOf(*r.Invite)
 	}
 	return out
 }
@@ -135,9 +132,12 @@ func decodeAdminAction(action AdminAction) (board.AdminAction, error) {
 		Role     string `json:"role"`
 		KeyID    string `json:"key_id"`
 		Invite   *struct {
-			TTLSeconds *int            `json:"ttl_seconds"`
-			Boards     []string        `json:"boards"`
-			Pairing    json.RawMessage `json:"pairing"`
+			TTLSeconds *int     `json:"ttl_seconds"`
+			Boards     []string `json:"boards"`
+			Pairing    *struct {
+				InitiatingAgentID string `json:"initiating_agent_id"`
+				Work              string `json:"work"`
+			} `json:"pairing"`
 		} `json:"invite"`
 		Policy *rules.PolicyChange `json:"policy"`
 	}
@@ -146,10 +146,11 @@ func decodeAdminAction(action AdminAction) (board.AdminAction, error) {
 	}
 	out := board.AdminAction{Kind: wire.Kind, BoardID: wire.BoardID, PersonID: wire.PersonID, Role: wire.Role, KeyID: wire.KeyID, Policy: wire.Policy}
 	if wire.Invite != nil {
-		if wire.Invite.Boards != nil || len(wire.Invite.Pairing) != 0 {
-			return board.AdminAction{}, notProvided("bundled onboarding invites")
+
+		out.Invite = &board.InvitePeopleInput{TTLSeconds: wire.Invite.TTLSeconds, Boards: wire.Invite.Boards}
+		if wire.Invite.Pairing != nil {
+			out.Invite.Pairing = &board.InvitePairingInput{InitiatingAgentID: wire.Invite.Pairing.InitiatingAgentID, Work: wire.Invite.Pairing.Work}
 		}
-		out.Invite = &board.InvitePeopleInput{TTLSeconds: wire.Invite.TTLSeconds}
 	}
 	return out, nil
 }

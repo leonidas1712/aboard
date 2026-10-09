@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"cmp"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,6 +24,7 @@ import (
 
 // Config is everything the daemon needs from outside.
 type Config struct {
+	PairingFor func(string) PairingRuntime
 	// AllowBriefNudge limits already-rendered keeper advice using local private bookkeeping.
 	AllowBriefNudge func(AgentRef, deliverytext.BriefContext) bool
 	Journal         Journal
@@ -62,9 +65,11 @@ var errIdle = errors.New("no open session")
 
 // Daemon delivers messages to the sessions open on this machine.
 type Daemon struct {
-	cfg      Config
-	adapters map[string]Adapter
-	log      *slog.Logger
+	pairingWatching map[string]bool
+	pairingBoot     string
+	cfg             Config
+	adapters        map[string]Adapter
+	log             *slog.Logger
 
 	g   *errgroup.Group
 	ctx context.Context
@@ -109,6 +114,13 @@ func Run(ctx context.Context, cfg Config) error {
 		refs: map[AgentKey]AgentRef{}, sessions: map[SessionKey]*session{}, owners: map[AgentKey]*session{},
 		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentKey]string{},
 		generations: map[AgentKey]uint64{}, modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
+	}
+	if cfg.PairingFor != nil {
+		nonce := make([]byte, 32)
+		if _, err := rand.Read(nonce); err != nil {
+			return fmt.Errorf("make pairing runtime binding: %w", err)
+		}
+		d.pairingBoot = hex.EncodeToString(nonce)
 	}
 	for _, a := range cfg.Adapters {
 		d.adapters[a.Harness()] = a
@@ -811,6 +823,8 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		d.serveExtension(ctx, conn, r, req)
 	case OpBoards:
 		_ = WriteFrame(conn, d.serveBoards(ctx, req))
+	case OpPairing:
+		_ = WriteFrame(conn, d.servePairing(ctx, req))
 	case OpCreateBoard:
 		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:

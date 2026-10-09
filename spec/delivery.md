@@ -1727,7 +1727,9 @@ Each endpoint credential is bound to one side, exact session and generation. The
 server rejects permanent seat/person/browser credentials as verification authority.
 A confirmed handoff report names the received message sequence and journal handoff
 id. The runtime submits it only after that exact selected harness confirmed delivery;
-its endpoint credential authenticates the evidence. Both directions require the
+its endpoint credential authenticates the evidence. Confirmation evidence survives
+ordinary read-cursor acknowledgment and delivery cleanup. Queue admission or a
+read cursor alone never substitutes for that exact-session confirmation. Both directions require the
 reply linkage and this receipt evidence. A stale runtime that retains a permanent
 seat token cannot acquire or impersonate the replacement runtime's private proof.
 Selection/replacement of either side uses createPairingCredential with last-read

@@ -475,7 +475,7 @@ func (j *Journal) UnstartedDeliveries(ctx context.Context) ([]delivery.Delivery,
 func (j *Journal) deliveriesWhere(ctx context.Context, state delivery.State, unstarted bool) ([]delivery.Delivery, error) {
 	rows, err := j.db.QueryContext(ctx, `
 		SELECT d.id, d.server, d.board, d.agent, d.member_id, d.harness, d.session_id, d.boot, d.attempts, d.reason,
-		       d.retry_at, d.created_at, d.updated_at, d.accepted_at, d.turn_started_at, d.stalled, d.handoff_id, m.seq
+		       d.retry_at, d.created_at, d.updated_at, d.accepted_at, d.turn_started_at, d.stalled, d.handoff_id, d.confirmed_at, m.seq
 		FROM deliveries d JOIN delivery_messages m ON m.delivery_id = d.id
 		WHERE d.state = ? AND (? = 0 OR (d.accepted_at != '' AND d.turn_started_at = ''))
 		ORDER BY d.id, m.seq`, string(state), unstarted)
@@ -486,10 +486,10 @@ func (j *Journal) deliveriesWhere(ctx context.Context, state delivery.State, uns
 	var out []delivery.Delivery
 	for rows.Next() {
 		d := delivery.Delivery{State: state}
-		var retry, created, updated, accepted, turnStarted string
+		var retry, created, updated, accepted, turnStarted, confirmed string
 		var seq int
 		if err := rows.Scan(&d.ID, &d.Agent.Server, &d.Agent.Board, &d.Agent.Name, &d.Agent.MemberID, &d.Session.Harness, &d.Session.ID,
-			&d.Boot, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &turnStarted, &d.Stalled, &d.HandoffID, &seq); err != nil {
+			&d.Boot, &d.Attempts, &d.Reason, &retry, &created, &updated, &accepted, &turnStarted, &d.Stalled, &d.HandoffID, &confirmed, &seq); err != nil {
 			return nil, fmt.Errorf("read delivery: %w", err)
 		}
 		if n := len(out); n > 0 && out[n-1].ID == d.ID {
@@ -507,6 +507,9 @@ func (j *Journal) deliveriesWhere(ctx context.Context, state delivery.State, uns
 			return nil, err
 		}
 		if d.AcceptedAt, err = parseTime(accepted); err != nil {
+			return nil, err
+		}
+		if d.ConfirmedAt, err = parseTime(confirmed); err != nil {
 			return nil, err
 		}
 		if d.TurnStartedAt, err = parseTime(turnStarted); err != nil {

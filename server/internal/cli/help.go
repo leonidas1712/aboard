@@ -87,6 +87,20 @@ func helpText(templates string) []commandHelp {
 			Examples:    []helpExample{{"aboard setup https://team.example.com/join#abi_CODE --handle teammate", "Set up the new account named in the invitation."}}, SeeAlso: []string{"connect", "init", "invite"},
 		},
 		{
+			Name: "pairing", Group: groupStart,
+			Summary:     "Propose work and pair two exact agent sessions",
+			Usage:       []string{pairingUsage},
+			Description: "List requests addressed to you, propose work from your agent's board, or accept in the exact session that should take part. Ready means both real sessions have exchanged verified replies.",
+			Flags: []helpFlag{
+				{"--board", "BOARD", "The initiating agent's board"},
+				{"--server", "SERVER", "The issuer server's name or URL"},
+				{"--as", "AGENT", "The initiating seat for a request; never a replacement for --here"},
+				{"--here", "", "Select this exact session for accept or select"},
+				{"--replace", "", "Explicitly replace this side's endpoint and invalidate old proof"},
+				flagJSON,
+			},
+		},
+		{
 			Name: "allowance", Group: groupMaintain,
 			Summary:     "Read or change what your agents may do without asking",
 			Usage:       []string{"aboard allowance [--server SERVER] [--json]", "aboard allowance on|off [--server SERVER] [--json]", "aboard allowance set invite-people|add-people on|off [--server SERVER] [--json]"},

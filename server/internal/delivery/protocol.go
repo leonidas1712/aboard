@@ -72,6 +72,7 @@ const (
 	// server decides whether it is a new seat or the session's earlier one.
 	OpJoin        = "join"
 	OpCreateBoard = "create_board"
+	OpPairing     = "pairing"
 	OpQueued      = "queued"
 	OpShown       = "shown"
 )
@@ -90,12 +91,19 @@ const (
 
 // Request is one message from a hook or the CLI to the daemon.
 type Request struct {
-	Generation    uint64         `json:"generation,omitempty"`
-	ShownMessages []ShownMessage `json:"shown_messages,omitempty"`
-	V             int            `json:"v"`
-	Op            string         `json:"op"`
-	Harness       string         `json:"harness,omitempty"`
-	Session       string         `json:"session,omitempty"`
+	PairingAction     string         `json:"pairing_action,omitempty"`
+	PairingID         string         `json:"pairing_id,omitempty"`
+	BoardID           string         `json:"board_id,omitempty"`
+	RecipientID       string         `json:"recipient_id,omitempty"`
+	InitiatingAgentID string         `json:"initiating_agent_id,omitempty"`
+	Work              string         `json:"work,omitempty"`
+	Replace           bool           `json:"replace,omitempty"`
+	Generation        uint64         `json:"generation,omitempty"`
+	ShownMessages     []ShownMessage `json:"shown_messages,omitempty"`
+	V                 int            `json:"v"`
+	Op                string         `json:"op"`
+	Harness           string         `json:"harness,omitempty"`
+	Session           string         `json:"session,omitempty"`
 	// Boot is the session's boot id. Empty means the boot the daemon has on record.
 	Boot string `json:"boot,omitempty"`
 	// Source is what started the session: startup, resume, clear or compact.
@@ -156,14 +164,17 @@ func (r Request) Key() SessionKey { return SessionKey{Harness: r.Harness, ID: r.
 
 // Response is one message from the daemon.
 type Response struct {
-	Generation uint64          `json:"generation,omitempty"`
-	Shown      bool            `json:"shown,omitempty"`
-	Queued     *QueuedMessages `json:"queued,omitempty"`
-	Nudge      string          `json:"nudge,omitempty"`
-	V          int             `json:"v"`
-	Event      string          `json:"event,omitempty"`
-	TurnID     uint64          `json:"turn_id,omitempty"`
-	Bundle     string          `json:"bundle,omitempty"`
+	PairingBoard string           `json:"pairing_board,omitempty"`
+	Pairing      *PairingRequest  `json:"pairing,omitempty"`
+	Pairings     []PairingRequest `json:"pairings,omitempty"`
+	Generation   uint64           `json:"generation,omitempty"`
+	Shown        bool             `json:"shown,omitempty"`
+	Queued       *QueuedMessages  `json:"queued,omitempty"`
+	Nudge        string           `json:"nudge,omitempty"`
+	V            int              `json:"v"`
+	Event        string           `json:"event,omitempty"`
+	TurnID       uint64           `json:"turn_id,omitempty"`
+	Bundle       string           `json:"bundle,omitempty"`
 	// ID is the delivery an EventDeliver on an extension connection carries, which the
 	// extension names when it confirms it.
 	ID            int64    `json:"id,omitempty"`

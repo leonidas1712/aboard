@@ -188,15 +188,10 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 		if err != nil {
 			switch asError(err).Code {
 			case "board_not_selected", "agent_not_selected":
-				command := "aboard boards"
-				if serverFlag != "" {
-					command += " --server " + shellWord(serverFlag)
-				} else if project, ok, readErr := a.readProject(); readErr == nil && ok && project.Server.URL != "" {
-					command += " --server " + shellWord(project.Server.URL)
-				}
+				next := a.unboundInviteNext(ctx, serverFlag)
 				e := newError("agent_session_required", "Inviting a person needs an agent with a board seat.",
-					"Run "+command+" to find a board, join one with aboard join --board NAME, then retry the invitation.")
-				e.Next = &api.NextStep{Command: command, Resume: "Join one with aboard join --board NAME in this session, then retry the invitation."}
+					"Run "+next.Command+". "+next.Resume)
+				e.Next = &next
 				return e
 			default:
 				return err
