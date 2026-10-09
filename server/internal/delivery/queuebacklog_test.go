@@ -156,12 +156,15 @@ func TestTurnEndDoesNotHandCachedMessagesWhenFreshReadFails(t *testing.T) {
 	}
 	remote.fail.Store(true)
 	r.ok(req(delivery.OpTurnEnd))
-	r.clock.Advance(2 * delivery.QueueGather)
-	select {
-	case <-remote.attempted:
-	case <-time.After(within):
-		t.Fatal("fresh read wasn't attempted")
-	}
+	// Advance on each poll: the gather timer may be armed after a single advance.
+	r.eventually("fresh read attempted", delivery.QueueGather, func() bool {
+		select {
+		case <-remote.attempted:
+			return true
+		default:
+			return false
+		}
+	})
 	r.ok(req(delivery.OpAgents))
 	if got := r.codex.Handed("failed-refresh"); len(got) != 0 {
 		t.Fatalf("failed fresh read handed stale cached text: %q", got)
