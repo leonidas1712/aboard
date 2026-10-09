@@ -12,7 +12,8 @@ import (
 
 func TestPairingConfirmationSurvivesAckBeforeProofRead(t *testing.T) {
 	ctx := context.Background()
-	j, err := sqlitejournal.Open(ctx, filepath.Join(t.TempDir(), "delivery.db"))
+	path := filepath.Join(t.TempDir(), "delivery.db")
+	j, err := sqlitejournal.Open(ctx, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,6 +43,13 @@ func TestPairingConfirmationSurvivesAckBeforeProofRead(t *testing.T) {
 	if err := j.UpdateDelivery(ctx, done); err != nil {
 		t.Fatal(err)
 	}
+	if err := j.Close(); err != nil {
+		t.Fatal(err)
+	}
+	j, err = sqlitejournal.Open(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	proof, err := delivery.PairingConfirmedRows(ctx, j, session, agent)
 	if err != nil || len(proof) != 1 || proof[0].HandoffID != saved.ID || len(proof[0].Seqs) != 1 || proof[0].Seqs[0] != 8 || proof[0].State != delivery.StateConfirmed {
 		t.Fatalf("ack erased confirmed pairing evidence: %v %v", proof, err)
@@ -69,6 +77,16 @@ func TestPairingConfirmationSurvivesAckBeforeProofRead(t *testing.T) {
 	proof, err = delivery.PairingConfirmedRows(ctx, j, session, agent)
 	if err != nil || len(proof) != 1 || proof[0].HandoffID == queued.ID {
 		t.Fatalf("unconfirmed acknowledged admission became proof: %v %v", proof, err)
+	}
+	if err := j.SaveSession(ctx, delivery.SessionRecord{Key: session, Boot: "new-boot", Open: true, UpdatedAt: now.Add(3 * time.Second)}); err != nil {
+		t.Fatal(err)
+	}
+	proof, err = delivery.PairingConfirmedRows(ctx, j, session, agent)
+	if err != nil || len(proof) != 0 {
+		t.Fatalf("new harness boot reused old proof: %v %v", proof, err)
+	}
+	if err := j.SaveSession(ctx, delivery.SessionRecord{Key: session, Boot: "boot", Open: true, UpdatedAt: now.Add(3 * time.Second)}); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := j.BindGeneration(ctx, delivery.Binding{Agent: agent, Session: session, BoundAt: now.Add(3 * time.Second)}, true); err != nil {
 		t.Fatal(err)

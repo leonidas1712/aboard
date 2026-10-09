@@ -120,6 +120,9 @@ type Delivery struct {
 	// AcceptedAt is when the harness accepted the delivery: a waiting hook took it, its
 	// queue took it, or its extension added it. TurnStartedAt is when the session's next
 	// turn started after that. Both are zero until then.
+	// ConfirmedAt is set only by the journal's exact-handoff confirmation. It survives
+	// cursor acknowledgment; queue acceptance and history reads cannot set it.
+	ConfirmedAt   time.Time
 	AcceptedAt    time.Time
 	TurnStartedAt time.Time
 	// Stalled is set when the delivery was handed to an idle session that started no

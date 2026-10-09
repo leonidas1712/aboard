@@ -363,16 +363,17 @@ func confirmedPairingDeliveries(ctx context.Context, j Journal, key SessionKey, 
 			}
 		}
 	}
-	rows, err := j.Deliveries(ctx, StateConfirmed)
+	rows, err := j.Deliveries(ctx, StateConfirmed, StateDone)
 	if err != nil {
 		return nil, err
 	}
 	out := []Delivery{}
 	for _, row := range rows {
-		if row.Session != key || row.Boot != boot || row.Agent.Key() != agent.Key() || row.HandoffID == "" {
+		if row.Session != key || row.Boot != boot || row.Agent.Key() != agent.Key() || row.HandoffID == "" || row.ConfirmedAt.IsZero() {
 			continue
 		}
 		selected := row
+		selected.State = StateConfirmed
 		selected.Seqs = nil
 		for _, seq := range row.Seqs {
 			if eligible[row.HandoffID][seq] {
