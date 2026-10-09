@@ -948,14 +948,18 @@ with no capable live connection remains queued for turn end.
 `pairing` is a trusted-daemon operation. It requires `harness`, `session` and an
 issuer URL in `server`. The daemon verifies the exact live, non-subagent harness
 conversation, as for `join`; a process id or recent activity never selects one.
-`pairing_action` is `list`, `request`, `get`, `accept`, `decline` or `cancel`.
+`pairing_action` is `list`, `request`, `get`, `select`, `accept`, `decline` or `cancel`.
+`select` selects only the initiating endpoint; `accept` selects only the recipient.
+Neither guesses a side from activity, including when both sides have one owner.
 `pairing_id` identifies one request except on list and request. Request supplies
 immutable `board_id`, `recipient_id` and `initiating_agent_id`, `work` and a stable
 `idempotency_key`. Accept selects the caller's exact session; `replace` is explicit.
 An omitted id on accept is allowed only when exactly one visible pending request
 exists. Ambiguity exposes only visible request ids.
 
-Responses contain `pairings` (the public PairingRequests metadata) or `pairing`
+Every write supplies the same stable idempotency key across its transport retries.
+Responses also carry `pairing_board`, the currently visible board name, for a
+single request; it never exposes a hidden name. Responses contain `pairings` (the public PairingRequests metadata) or `pairing`
 (the public PairingRequest metadata), and the existing error shape. They never
 contain parent, seat or endpoint tokens. Commands do not automatically retry a
 lost socket response on a replacement daemon. A deliberate retry reads current
