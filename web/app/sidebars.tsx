@@ -17,13 +17,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type Member, type MemberRef, type Message, type Task, addedBy, isArchived, setDelivery } from "./api";
+import { ApiError, type Board, type MidturnPolicy, type Member, type MemberRef, type Message, type Task, addedBy, isArchived, setDelivery } from "./api";
 import { AgentMark } from "./agent-mark";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { attentionCount } from "./asks";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
+import { changeMidturn, effectiveMidturn, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 import { Kbd } from "./keys-sheet";
 import { keyLabel } from "./keys";
 import { usePref } from "./prefs";
@@ -596,6 +597,8 @@ export function AgentDetails({
   const held = agent.delivery_mode ?? null;
   const applied = agent.delivery ? appliedMode(agent.delivery) : null;
   const mode = held ?? applied;
+  const midturn = useMidturn();
+  const mid = mine && midturn.view ? effectiveMidturn(midturn.view, agent.id) : null;
   return (
     <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
       {showOwner && (
@@ -649,7 +652,67 @@ export function AgentDetails({
           </dd>
         </>
       )}
+      {mid && midturn.view && (
+        <>
+          <dt className={label}>Mid-turn</dt>
+          <dd className="midturn">
+            <MidturnMenu agent={agent} view={midturn.view.policy} mid={mid} />
+          </dd>
+        </>
+      )}
     </dl>
+  );
+}
+
+/**
+ * MidturnMenu is the person's own agent's mid-turn override: follow the person's setting
+ * or choose one for this agent. The trigger shows the policy in force now.
+ */
+function MidturnMenu({ agent, view, mid }: { agent: Member; view: MidturnPolicy; mid: { policy: MidturnPolicy; overridden: boolean } }) {
+  const [error, setError] = useState<string | null>(null);
+  const pick = (value: string) => {
+    setError(null);
+    changeMidturn(value === "default" ? null : (value as MidturnPolicy), agent.id).catch((e: unknown) =>
+      setError(e instanceof ApiError ? e.message : "Couldn't change the mid-turn setting."),
+    );
+  };
+  const text = midturnLabels[mid.policy].toLowerCase();
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="midturn-menu group inline-flex items-center gap-1 rounded-[6px] text-ink hover:underline hover:decoration-1 hover:underline-offset-[3px] data-[state=open]:underline"
+          aria-label={`Mid-turn messages for ${agent.name}: ${text}${mid.overridden ? "" : ", from your setting"}. Change it`}
+        >
+          {text}
+          {!mid.overridden && <span className="text-meta text-muted">(default)</span>}
+          <ChevronDown
+            className="size-3.5 text-muted transition-transform duration-200 ease-out group-data-[state=open]:rotate-180"
+            strokeWidth={1.5}
+            aria-hidden
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="midturn-options w-[22rem] max-w-[calc(100vw-2rem)]">
+          <DropdownMenuLabel>Mid-turn messages for {agent.name}</DropdownMenuLabel>
+          <p className="px-3 pb-1 text-meta text-muted">
+            Urgent messages from your own agents arrive at its next step instead of waiting for the turn to end.
+          </p>
+          <DropdownMenuRadioGroup value={mid.overridden ? mid.policy : "default"} onValueChange={pick}>
+            <DropdownMenuRadioItem value="default">Default (follows your setting: {midturnLabels[view]})</DropdownMenuRadioItem>
+            {midturnPolicies.map((p) => (
+              <DropdownMenuRadioItem key={p} value={p}>
+                {midturnLabels[p]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {error && (
+        <p role="alert" className="mt-1 text-meta">
+          {error}
+        </p>
+      )}
+    </>
   );
 }
 
