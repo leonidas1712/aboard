@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +21,11 @@ type setupStep struct {
 	State   string `json:"state"`
 	Message string `json:"message,omitempty"`
 }
+
+type setupRefusal struct{ cause *Error }
+
+func (e *setupRefusal) Error() string { return e.cause.Error() }
+
 type setupOutput struct {
 	Server         serverRef           `json:"server"`
 	State          string              `json:"state"`
@@ -107,6 +113,10 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 	}
 	pending, err := a.redeemSetup(ctx, srv, invite, h, machine, nil)
 	if err != nil {
+		var refusal *setupRefusal
+		if errors.As(err, &refusal) {
+			return refusal.cause
+		}
 		path, pathErr := a.setupPendingPath(srv, invite)
 		if pathErr != nil {
 			return pathErr
@@ -119,7 +129,8 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		out.Steps[1].State = "uncertain"
 		out.Steps[1].Message = "The original account proof is retained; this account has not been confirmed."
 		out.Next = setupRecoveryNext(srv)
-		return emitSetup(a, out)
+		_ = emitSetup(a, out)
+		return errReportedFailure
 	}
 	out.Steps[1].State = "complete"
 	out.Steps[1].Message = "The original machine-held key authenticated its onboarding outcome."
@@ -215,7 +226,15 @@ func (a *app) redeemSetup(ctx context.Context, srv serverRef, invite, handle, na
 			return nil, c.unreachable(callErr)
 		}
 		if response.JSON200 == nil {
-			return nil, apiError(response.StatusCode(), response.Body)
+			err := apiError(response.StatusCode(), response.Body)
+			if response.StatusCode() >= 400 && response.StatusCode() < 500 {
+				refusal := asError(err)
+				if refusal.Next == nil {
+					refusal.Next = &api.NextStep{Command: "aboard help setup", Resume: "Ask the inviter to resolve this refusal or send a new invite, then run setup with that invite. Keep the saved proof for the refused request."}
+				}
+				return nil, &setupRefusal{cause: refusal}
+			}
+			return nil, err
 		}
 		if response.JSON200 != nil {
 			pending.Connected = response.JSON200

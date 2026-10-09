@@ -27,7 +27,7 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	link := field(t, invite, "link").(string)
 	person := newPersonHome(t, "newcomer")
 	session := person.claudeSession("newcomer-setup")
-	first := session.run("setup", link, "--handle", "newcomer", "--json")
+	first := session.run("connect", link, "--handle", "newcomer", "--json")
 	out := first.json(t)
 	matchesCLISpec(t, "SetupOutput", out)
 	if out["state"] == "complete" {
@@ -70,6 +70,30 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	}
 }
 
+func TestAgentConnectRejectsAnInvalidFirstInvite(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	for _, jsonOutput := range []bool{false, true} {
+		person := newPersonHome(t, "newcomer")
+		args := []string{"connect", tm.url() + "/join#abi_x"}
+		if jsonOutput {
+			args = append(args, "--json")
+		}
+		result := person.exec([]string{"ABOARD_AGENT=helper"}, "", args...)
+		if result.code != 1 {
+			t.Fatalf("invalid first invite exited %d: %s", result.code, result)
+		}
+		if jsonOutput {
+			out := result.json(t)
+			if errorCode(t, out) != "invite_invalid" || field(t, out, "error.next.command") == "" {
+				t.Fatalf("invalid invite lost its error or next step: %s", result)
+			}
+		} else if !strings.Contains(result.stdout+result.stderr, "invite_invalid") {
+			t.Fatalf("text output lost the definite refusal: %s", result)
+		}
+	}
+}
+
 // The proxy drops the committed account response, then allows the original saved
 // key to recover its receipt. It never simulates an uncommitted server failure.
 func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
@@ -96,7 +120,7 @@ func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
 	person := newPersonHome(t, "recoverer")
 	session := person.claudeSession("recovering-setup")
 	first := session.runExit("setup", link, "--handle", "recoverer", "--json")
-	if first.json(t)["state"] != "uncertain" || !transport.dropped.Load() {
+	if first.code != 1 || first.json(t)["state"] != "uncertain" || !transport.dropped.Load() {
 		t.Fatalf("lost commit response did not remain uncertain: %s", first)
 	}
 	recovered := session.run("setup", link, "--handle", "recoverer", "--json").json(t)

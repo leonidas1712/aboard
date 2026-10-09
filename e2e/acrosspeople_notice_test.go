@@ -21,6 +21,7 @@ func TestAddedNoticeAndPeoplesAgents(t *testing.T) {
 	for _, f := range strings.Fields(leo.run("invite", "--server").stdout) {
 		if strings.Contains(f, "/join#abi_") {
 			link = f
+			break
 		}
 	}
 	maya := newPersonHome(t, "maya")

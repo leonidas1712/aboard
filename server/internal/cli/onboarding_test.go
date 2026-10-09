@@ -148,7 +148,7 @@ func TestSetupRevokedPendingKeyNeverRedeemsAgain(t *testing.T) {
 			State string `json:"state"`
 		}
 		_ = json.Unmarshal(out.Bytes(), &result)
-		if (code != 0 && code != 1) || result.State != "uncertain" {
+		if code != 1 || result.State != "uncertain" {
 			t.Fatalf("code=%d output=%s", code, out.String())
 		}
 	}
