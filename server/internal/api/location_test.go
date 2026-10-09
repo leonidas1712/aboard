@@ -112,3 +112,63 @@ func TestLocationReportsRequireTheOwnActiveAgentAndHideEndedSeats(t *testing.T) 
 		t.Fatalf("ended location remained exposed: %s", members.Body)
 	}
 }
+
+func TestGuestLocationLookupStaysOnTheInvitedBoard(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name, writer, _ := s.pair("starter")
+	code := s.guestCode(s.owner, name, "kim")
+	mustStatus(t, code, nil, 201)
+	joined := s.guestJoin(*code.JSON201.Code)
+	mustStatus(t, joined, nil, 201)
+	report := api.AgentLocationReport{Harness: "codex", SessionId: "codex:guest-session", Folder: "/work/guest"}
+	saved, err := s.client(joined.JSON201.Token).SetAgentLocationWithResponse(ctx, nil, report)
+	mustStatus(t, saved, err, 200)
+	other := s.newBoard()
+	s.joinAs(s.owner, other, "writer", "")
+	for _, token := range []string{joined.JSON201.Token, joined.JSON201.Key.Token} {
+		found, e := s.client(token).ListOwnAgentsWithResponse(ctx)
+		mustStatus(t, found, e, 200)
+		if len(found.JSON200.Agents) != 1 || found.JSON200.Agents[0].Board != name || found.JSON200.Agents[0].Id != joined.JSON201.Agent.Id {
+			t.Fatalf("guest lookup escaped: %s", found.Body)
+		}
+	}
+	members, err := s.client(writer).ListMembersWithResponse(ctx, name, nil)
+	mustStatus(t, members, err, 200)
+	if strings.Contains(string(members.Body), report.Folder) || strings.Contains(string(members.Body), report.SessionId) {
+		t.Fatalf("guest location leaked to another person's agent: %s", members.Body)
+	}
+}
+
+func TestOwnLocationsDisappearWhenAccessOrTheIssuingKeyEnds(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	first, second := s.newBoard(), s.newBoard()
+	maya := s.addHuman("maya")
+	a := s.joinBoard(maya, first, "writer", nil)
+	b := s.joinBoard(maya, second, "reviewer", nil)
+	report := api.AgentLocationReport{Harness: "codex", SessionId: "codex:private-session", Folder: "/work/private"}
+	saved, err := s.client(a.JSON201.Token).SetAgentLocationWithResponse(ctx, nil, report)
+	mustStatus(t, saved, err, 200)
+	removed, err := s.client(s.owner).RemovePersonWithResponse(ctx, first, "maya", nil)
+	mustStatus(t, removed, err, 200)
+	found, err := s.client(b.JSON201.Token).ListOwnAgentsWithResponse(ctx)
+	mustStatus(t, found, err, 200)
+	if len(found.JSON200.Agents) != 1 || found.JSON200.Agents[0].Board != second || strings.Contains(string(found.Body), report.Folder) {
+		t.Fatalf("former board location remained visible: %s", found.Body)
+	}
+	keys, err := s.client(maya).ListKeysWithResponse(ctx, nil)
+	mustStatus(t, keys, err, 200)
+	revoked, err := s.client(maya).RevokeKeyWithResponse(ctx, keys.JSON200.Keys[0].Id, nil)
+	mustStatus(t, revoked, err, 200)
+	ended, err := s.client(b.JSON201.Token).ListOwnAgentsWithResponse(ctx)
+	if errorCode(t, ended, err, 401) != "unauthorized" {
+		t.Fatalf("revoked lookup: %s", ended.Body)
+	}
+	reportDenied, err := s.client(b.JSON201.Token).SetAgentLocationWithResponse(ctx, nil, report)
+	if errorCode(t, reportDenied, err, 401) != "unauthorized" {
+		t.Fatalf("revoked report: %s", reportDenied.Body)
+	}
+}
