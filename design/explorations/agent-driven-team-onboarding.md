@@ -94,8 +94,18 @@ aboard approvals                      # pending approvals (an agent sees its own
 aboard approvals allow <id> [--always]
 aboard approvals decline <id>
 aboard allowance                      # show
+aboard allowance on|off               # every allowable category at once
 aboard allowance set invite-people on|off
 ```
+
+The allowance is off by default. Turning it on switches on every category that can be
+allowed; the person can then turn single categories off or on, from the CLI or the
+toggles under it in Settings. "Allow always" on an approval turns on only that request's
+category. Actions that can never be allowed don't appear as categories at all.
+
+So "allow it once, the first time" means: the first time an agent invites someone, the
+person gets an approval card (**Allow once** · **Allow always** · **Decline**); picking
+Allow always is the only click they ever make for inviting.
 
 `approvals allow|decline` and `allowance set` are the person's: they refuse inside a
 session, as D85 commands do. An agent runs `aboard approvals --json`, and when something
@@ -143,6 +153,13 @@ A first-class resource addressed to a **person**, not a session:
 
 CLI: `aboard pairing request @person --board B "proposed work"` (inviter side),
 `aboard pairing` (list), `aboard pairing accept [<id>] --here`, `aboard pairing decline`.
+
+**Pairing on a board that already exists:** the request names the board. If the
+teammate is already on it, accepting changes no membership: the chosen session joins,
+the handshake runs and the work starts. If they aren't, accepting also adds them as an
+ordinary member, which uses the inviter's authority to add people to that board (their
+allowance, or an approval first); on an open board they may join themselves and no
+approval is needed.
 
 **Pairing with your own next session** is the same request addressed to yourself
 (`aboard pairing request me …`). In one session: "make a board for the auth review and a
