@@ -181,6 +181,9 @@ func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 	if expectedPerson == "" || ownPerson != expectedPerson {
 		return errorResponse("forbidden", "This person cannot select that pairing side.", "Ask the selected side's person to use their own session.")
 	}
+	if current.State == "ready" && !req.Replace {
+		return d.readyPairing(ctx, req, runtime, current)
+	}
 	if current.State == "ready" || current.State == "declined" || current.State == "cancelled" || current.State == "expired" {
 		return errorResponse("pairing_closed", "This pairing request has ended.", "Create a new pairing request.")
 	}
@@ -237,6 +240,65 @@ func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 	}
 	d.watchPairing(ctx, req.Key(), runtime, got, selected, binding)
 	return Response{V: 1, Server: req.Server, PairingBoard: board, Pairing: &got}
+}
+
+func (d *Daemon) readyPairing(ctx context.Context, req Request, runtime PairingRuntime, listed PairingRequest) Response {
+	current, err := runtime.Get(ctx, listed.ID)
+	if err != nil {
+		return seatsError(req.Server, err)
+	}
+	if current.ID != listed.ID || current.State != "ready" || current.Generation <= 0 || current.Generation != listed.Generation {
+		return errorResponse("pairing_changed", "The pairing proof changed.", "Read the request before selecting another endpoint.")
+	}
+	endpoint := current.Recipient
+	if req.PairingAction == "select" {
+		endpoint = current.Initiator
+	}
+	ownPerson, err := runtime.PersonID(ctx)
+	if err != nil {
+		return seatsError(req.Server, err)
+	}
+	if endpoint == nil || endpoint.PersonID != ownPerson || endpoint.AgentID == "" || endpoint.Generation != current.Generation || endpoint.SessionBinding == "" {
+		return errorResponse("pairing_changed", "The recorded endpoint does not match this pairing generation.", "Use the selected endpoint's original session.")
+	}
+	boards, err := d.cfg.Seats.Boards(ctx, req.Server, "active")
+	if err != nil {
+		return seatsError(req.Server, err)
+	}
+	var board string
+	for _, row := range boards.Boards {
+		var identity struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(row.Board, &identity) == nil && identity.ID == current.BoardID {
+			board = row.Name
+		}
+	}
+	if board == "" {
+		return errorResponse("board_not_found", "The pairing board is not available.", "Ask the inviter to check your board membership.")
+	}
+	agents, werr := d.sessionAgents(ctx, req)
+	if werr != nil {
+		return Response{V: ProtocolVersion, Error: werr}
+	}
+	for _, agent := range agents {
+		if agent.Server != req.Server || agent.Board != board || agent.MemberID != endpoint.AgentID {
+			continue
+		}
+		verified, err := d.resolveAgent(ctx, agent)
+		if err != nil {
+			return seatsError(req.Server, err)
+		}
+		binding, err := d.pairingBinding(ctx, req.Key(), verified)
+		if err != nil {
+			return seatsError(req.Server, err)
+		}
+		if binding != endpoint.SessionBinding {
+			break
+		}
+		return Response{V: ProtocolVersion, Server: req.Server, PairingBoard: board, Pairing: &current}
+	}
+	return errorResponse("pairing_changed", "The ready endpoint is not bound to this exact current session.", "Use the original session; ready pairings cannot replace their endpoint.")
 }
 
 func (d *Daemon) pairingBinding(ctx context.Context, key SessionKey, agent AgentRef) (string, error) {
