@@ -257,7 +257,9 @@ export function Brief({
       data-open={open || undefined}
       className={cn("brief quiet-scroll mb-4 rounded-box border bg-surface px-5 py-4", open && "max-h-[62dvh] overflow-y-auto overscroll-contain", stale ? "border-dashed border-field-border" : "border-rule")}
     >
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      {/* While the whole brief is open its box scrolls, so the header row stays pinned to
+          the top: Show less is always in reach. */}
+      <div className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-0.5", open && "sticky -top-4 z-10 -mx-5 -mt-4 bg-surface px-5 pt-4 pb-1")}>
         <h2 className="text-meta font-bold text-ink">Brief</h2>
         <p className="brief-byline min-w-0 flex-1 text-meta text-muted">
           <span title={`Version ${brief.version}, written ${exactTime(brief.at)}`}>
