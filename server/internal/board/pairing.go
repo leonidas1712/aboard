@@ -31,7 +31,14 @@ type PairingRequest struct {
 	Generation                                                                 int
 	Initiator, Recipient                                                       *PairingEndpoint
 	Accepted                                                                   bool
+	Creation                                                                   PairingCreation
+	InitialState                                                               string
 	Forward, Reverse                                                           *PairingEvidence
+}
+
+// PairingCreation binds one creation receipt to its authenticated caller and request.
+type PairingCreation struct {
+	Scope, Key, Hash string
 }
 
 // PairingCredential is nonsecret endpoint metadata and the server's verifier.
@@ -75,26 +82,26 @@ func pairingSide(r PairingRequest, side string) (string, *PairingEndpoint) {
 	return r.RecipientID, r.Recipient
 }
 
-func pairingMember(tx ReadTx, boardID, humanID, agentID string) (Member, error) {
+func pairingMember(tx ReadTx, boardID, humanID, agentID string) error {
 	h, err := tx.HumanByID(humanID)
 	if errors.Is(err, ErrNotFound) || err == nil && h.RemovedAt != nil {
-		return Member{}, pairingNotFound()
+		return pairingNotFound()
 	}
 	if err != nil {
-		return Member{}, err
+		return err
 	}
 	hm, err := tx.HumanMember(boardID, humanID)
 	if errors.Is(err, ErrNotFound) || err == nil && hm.Status != StatusActive {
-		return Member{}, pairingNotFound()
+		return pairingNotFound()
 	}
 	if err != nil {
-		return Member{}, err
+		return err
 	}
 	m, err := tx.MemberByID(agentID)
 	if errors.Is(err, ErrNotFound) || err == nil && (m.Kind != "agent" || m.Status != StatusActive || m.BoardID != boardID || m.HumanID != humanID) {
-		return Member{}, pairingNotFound()
+		return pairingNotFound()
 	}
-	return m, err
+	return err
 }
 
 func (s *Service) pairingView(tx ReadTx, p Principal, id string, active bool) (PairingRequest, error) {
@@ -148,9 +155,9 @@ func (s *Service) pairingView(tx ReadTx, p Principal, id string, active bool) (P
 }
 
 // CreatePairing proposes work to an existing ordinary member without selecting their session.
-func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recipientID, agentID, work string) (PairingRequest, error) {
+func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recipientID, agentID, work string, creation PairingCreation) (PairingRequest, error) {
 	var out PairingRequest
-	if len(work) == 0 || len(work) > 4000 {
+	if work == "" || len(work) > 4000 {
 		return out, invalid("A pairing needs work of at most 4000 bytes.", "Describe the work to do together.")
 	}
 	err := s.writeAs(ctx, p, func(tx Tx) error {
@@ -164,7 +171,7 @@ func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recip
 		if _, _, err = s.access(tx, p, b.Name); err != nil {
 			return err
 		}
-		if err = requireActive(b); err != nil {
+		if err := requireActive(b); err != nil {
 			return err
 		}
 		person, err := caller(tx, p, stamp(s.clk.Now()))
@@ -174,7 +181,7 @@ func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recip
 		if person.Role == ServerGuest {
 			return guestNotAllowed("request pairing")
 		}
-		if _, err = pairingMember(tx, b.ID, person.ID, agentID); err != nil {
+		if err := pairingMember(tx, b.ID, person.ID, agentID); err != nil {
 			return err
 		}
 		if p.Agent != nil && p.Agent.ID != agentID {
@@ -198,11 +205,42 @@ func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recip
 			return err
 		}
 		now := s.clk.Now()
+		if creation.Key != "" {
+			if creation.Scope == "" || creation.Hash == "" {
+				return invalid("The creation receipt is incomplete.", "Retry the same request.")
+			}
+			previous, err := tx.PairingByCreation(creation.Scope, creation.Key)
+			if err == nil {
+				createdAt, err := time.Parse(time.RFC3339Nano, previous.CreatedAt)
+				if err != nil {
+					return err
+				}
+				if now.Before(createdAt.Add(24 * time.Hour)) {
+					if previous.Creation.Hash != creation.Hash {
+						return apierr.New(422, "idempotency_conflict", "This Idempotency-Key was already used for a different request.", "Use a new Idempotency-Key for new work.")
+					}
+					if _, err := s.pairingView(tx, p, previous.ID, true); err != nil {
+						return err
+					}
+					out = previous
+					out.State = previous.InitialState
+					out.Generation = 1
+					out.Initiator = nil
+					out.Recipient = nil
+					out.Forward = nil
+					out.Reverse = nil
+					out.Accepted = false
+					return nil
+				}
+			} else if !errors.Is(err, ErrNotFound) {
+				return err
+			}
+		}
 		id, err := s.gen.ID("prq", now)
 		if err != nil {
 			return err
 		}
-		out = PairingRequest{ID: id, ServerID: s.cfg.ServerID, BoardID: b.ID, InviterID: person.ID, InitiatingAgentID: agentID, RecipientID: recipientID, Work: work, State: "awaiting_session", Generation: 1, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(7 * 24 * time.Hour))}
+		out = PairingRequest{ID: id, ServerID: s.cfg.ServerID, BoardID: b.ID, InviterID: person.ID, InitiatingAgentID: agentID, RecipientID: recipientID, Work: work, State: "awaiting_session", InitialState: "awaiting_session", Creation: creation, Generation: 1, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(7 * 24 * time.Hour))}
 		return tx.SavePairing(out)
 	})
 	return out, err
@@ -289,10 +327,17 @@ func (s *Service) MintPairingCredential(ctx context.Context, p Principal, in Pai
 		if human != p.personID() {
 			return pairingError(403, "forbidden", "Only the endpoint's own person can select its session.")
 		}
-		if _, err := pairingMember(tx, r.BoardID, human, in.AgentID); err != nil {
+		if err := pairingMember(tx, r.BoardID, human, in.AgentID); err != nil {
 			return err
 		}
 		if in.Side == "initiator" && in.AgentID != r.InitiatingAgentID && !in.Replace {
+			return pairingChanged()
+		}
+		_, other := pairingSide(r, "recipient")
+		if in.Side == "recipient" {
+			_, other = pairingSide(r, "initiator")
+		}
+		if other != nil && other.AgentID == in.AgentID {
 			return pairingChanged()
 		}
 		same := old != nil && old.AgentID == in.AgentID && old.SessionBinding == in.SessionBinding
@@ -381,7 +426,8 @@ func validClientToken(token, prefix string) bool {
 		return false
 	}
 	for _, r := range token[len(prefix):] {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-') {
+		valid := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-'
+		if !valid {
 			return false
 		}
 	}
@@ -393,7 +439,8 @@ func validBinding(binding string) bool {
 		return false
 	}
 	for _, r := range binding[7:] {
-		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
+		valid := r >= '0' && r <= '9' || r >= 'a' && r <= 'f'
+		if !valid {
 			return false
 		}
 	}
@@ -420,7 +467,7 @@ func (s *Service) pairingCredentialState(tx ReadTx, c PairingCredential, now str
 	if endpoint == nil || *endpoint != c.Endpoint || person != key.HumanID {
 		return Human{}, apierr.Unauthorized()
 	}
-	if _, err := pairingMember(tx, r.BoardID, person, c.Endpoint.AgentID); err != nil {
+	if err := pairingMember(tx, r.BoardID, person, c.Endpoint.AgentID); err != nil {
 		return Human{}, apierr.Unauthorized()
 	}
 	b, err := tx.BoardByID(r.BoardID)
@@ -507,10 +554,10 @@ func (s *Service) VerifyPairing(ctx context.Context, p Principal, id, direction 
 		if p.Pairing.Side != side {
 			return pairingChanged()
 		}
-		if _, err := pairingMember(tx, r.BoardID, sender.PersonID, sender.AgentID); err != nil {
+		if err := pairingMember(tx, r.BoardID, sender.PersonID, sender.AgentID); err != nil {
 			return err
 		}
-		if _, err := pairingMember(tx, r.BoardID, peer.PersonID, peer.AgentID); err != nil {
+		if err := pairingMember(tx, r.BoardID, peer.PersonID, peer.AgentID); err != nil {
 			return err
 		}
 		for _, keyID := range []string{r.InitiatorKeyID, r.RecipientKeyID} {
@@ -570,7 +617,7 @@ func (s *Service) CheckPairingReplay(ctx context.Context, p Principal, id string
 				return pairingNotFound()
 			}
 			if endpoint != nil {
-				if _, err := pairingMember(tx, r.BoardID, person, endpoint.AgentID); err != nil {
+				if err := pairingMember(tx, r.BoardID, person, endpoint.AgentID); err != nil {
 					return err
 				}
 			}
@@ -604,10 +651,10 @@ func (s *Service) CreateInvitedPairingTx(tx Tx, p Principal, inviteID, boardID, 
 	if p.Agent != nil && p.Agent.ID != agentID {
 		return PairingRequest{}, pairingError(403, "forbidden", "A pairing proposal must use the initiating agent's own seat.")
 	}
-	if _, err := pairingMember(tx, boardID, person.ID, agentID); err != nil {
+	if err := pairingMember(tx, boardID, person.ID, agentID); err != nil {
 		return PairingRequest{}, err
 	}
-	if len(work) == 0 || len(work) > 4000 || expiresAt <= stamp(s.clk.Now()) {
+	if work == "" || len(work) > 4000 || expiresAt <= stamp(s.clk.Now()) {
 		return PairingRequest{}, invalid("The pairing work or expiry is invalid.", "Create a new pairing proposal.")
 	}
 	now := s.clk.Now()
@@ -651,7 +698,7 @@ func (s *Service) RedeemInvitedPairingTx(tx Tx, inviteID, recipientID string) (s
 	if membership.Status != StatusActive {
 		return "", pairingNotFound()
 	}
-	if _, err := pairingMember(tx, r.BoardID, r.InviterID, r.InitiatingAgentID); err != nil {
+	if err := pairingMember(tx, r.BoardID, r.InviterID, r.InitiatingAgentID); err != nil {
 		return "", err
 	}
 	b, err := tx.BoardByID(r.BoardID)

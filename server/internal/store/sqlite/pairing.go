@@ -21,7 +21,7 @@ func (t *tx) PairingsOf(personID string) ([]board.PairingRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []board.PairingRequest{}
 	for rows.Next() {
 		var data []byte
@@ -42,7 +42,7 @@ func (t *tx) SavePairing(r board.PairingRequest) error {
 	if err != nil {
 		return err
 	}
-	return t.exec("INSERT INTO pairing_requests (id, invite_id, inviter_id, recipient_id, created_at, data) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET recipient_id = excluded.recipient_id, data = excluded.data", r.ID, r.InviteID, r.InviterID, r.RecipientID, r.CreatedAt, data)
+	return t.exec("INSERT INTO pairing_requests (id, invite_id, inviter_id, recipient_id, created_at, creation_scope, creation_key, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET recipient_id = excluded.recipient_id, data = excluded.data", r.ID, r.InviteID, r.InviterID, r.RecipientID, r.CreatedAt, r.Creation.Scope, r.Creation.Key, data)
 }
 
 func (t *tx) PairingCredentialByDigest(digest string) (board.PairingCredential, error) {
@@ -71,6 +71,16 @@ func (t *tx) PairingByInvite(inviteID string) (board.PairingRequest, error) {
 	var r board.PairingRequest
 	var data []byte
 	if err := t.queryRow("SELECT data FROM pairing_requests WHERE invite_id = ?", inviteID).Scan(&data); err != nil {
+		return r, notFound(err)
+	}
+	err := json.Unmarshal(data, &r)
+	return r, err
+}
+
+func (t *tx) PairingByCreation(scope, key string) (board.PairingRequest, error) {
+	var r board.PairingRequest
+	var data []byte
+	if err := t.queryRow("SELECT data FROM pairing_requests WHERE creation_scope = ? AND creation_key = ? ORDER BY created_at DESC, rowid DESC LIMIT 1", scope, key).Scan(&data); err != nil {
 		return r, notFound(err)
 	}
 	err := json.Unmarshal(data, &r)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -110,7 +111,7 @@ func newPairingFixture(t *testing.T) *pairingFixture {
 	return f
 }
 
-func (f *pairingFixture) roundTrip(t *testing.T, side int) (api.Message, api.Message) {
+func (f *pairingFixture) roundTrip(t *testing.T, side int) (pingMessage, replyMessage api.Message) {
 	t.Helper()
 	direction := "initiator_to_recipient"
 	if side == 1 {
@@ -185,7 +186,7 @@ func TestPairingExpiresRenewsWithoutReplacingAndRechecksParentRevocation(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	if _, err := db.ExecContext(ctx, "UPDATE access_keys SET revoked_at = ? WHERE human_id = ?", "2026-10-01T16:10:00.000Z", me.JSON200.Id); err != nil {
 		t.Fatal(err)
 	}
@@ -232,4 +233,138 @@ func TestPairingVisibilityAndCredentialMintAreCurrentOwnerOnly(t *testing.T) {
 	}
 	ended, err := s.client(token).GetPairingRequestWithResponse(ctx, f.request.Id)
 	mustStatus(t, ended, err, 401)
+}
+
+func TestPairingAnotherPersonCannotSelectTheRecipientAndBrowserDeclineNeedsCSRF(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name := s.newBoard()
+	a, at := s.joinAs(s.owner, name, "writer", "")
+	am := s.memberNamed(at, name, a)
+	maya := s.addHuman("maya")
+	joined := s.joinBoard(maya, name, "reviewer", nil)
+	recipient := joined.JSON201.Agent
+	me, err := s.client(maya).GetMeWithResponse(ctx)
+	mustStatus(t, me, err, 200)
+	b, err := s.client(s.owner).GetBoardWithResponse(ctx, name)
+	mustStatus(t, b, err, 200)
+	created, err := s.client(at).CreatePairingRequestWithResponse(ctx, nil, api.CreatePairingRequest{BoardId: b.JSON200.Id, RecipientId: me.JSON200.Id, InitiatingAgentId: am.Id, Work: "Review together."})
+	mustStatus(t, created, err, 201)
+	if created.JSON201.Next == nil || !strings.Contains(created.JSON201.Next.Command, "pairing select ") {
+		t.Fatalf("missing own endpoint handover: %s", created.Body)
+	}
+	token := "abp_" + strings.Repeat("t", 43)
+	body := api.CreatePairingCredential{RequestId: created.JSON201.Id, Side: "recipient", AgentId: recipient.Id, SessionBinding: "sha256:" + strings.Repeat("c", 64), Generation: 1, ClientToken: &token}
+	wrong, err := s.client(s.owner).CreatePairingCredentialWithResponse(ctx, nil, body)
+	wantCode(t, wrong, 403, "forbidden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	good, err := s.client(maya).CreatePairingCredentialWithResponse(ctx, nil, body)
+	mustStatus(t, good, err, 200)
+	browser := s.cookieBrowser(maya)
+	path := "/v1/pairing-requests/" + created.JSON201.Id + "/decline"
+	forged := s.send(http.MethodPost, path, nil, func(r *http.Request) { r.AddCookie(browser.cookie); s.fromPage(r) })
+	if forged.status != 403 || forged.code() != "csrf_token_invalid" {
+		t.Fatalf("browser decline without CSRF: %d %s", forged.status, forged.raw)
+	}
+	declined := browser.do(http.MethodPost, path, nil)
+	if declined.status != 200 {
+		t.Fatalf("decline: %d %s", declined.status, declined.raw)
+	}
+	repeated, err := s.client(maya).DeclinePairingRequestWithResponse(ctx, created.JSON201.Id, nil)
+	mustStatus(t, repeated, err, 200)
+	ended, err := s.client(token).GetPairingRequestWithResponse(ctx, created.JSON201.Id)
+	mustStatus(t, ended, err, 401)
+	closed, err := s.client(maya).CreatePairingCredentialWithResponse(ctx, nil, body)
+	wantCode(t, closed, 409, "pairing_closed")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPairingRenewalCannotExtendPastTheRequestAndRejectedProofCannotChangeIt(t *testing.T) {
+	t.Parallel()
+	f := newPairingFixture(t)
+	ctx := context.Background()
+	s := f.s
+	s.clock.Advance(7*24*time.Hour - 5*time.Minute)
+	token := f.proofs[0]
+	renewed, err := s.client(s.owner).CreatePairingCredentialWithResponse(ctx, nil, api.CreatePairingCredential{RequestId: f.request.Id, Side: "initiator", AgentId: f.seats[0], SessionBinding: "sha256:" + strings.Repeat("a", 64), Generation: 1, ClientToken: &token})
+	mustStatus(t, renewed, err, 200)
+	if !renewed.JSON200.ExpiresAt.Equal(f.request.ExpiresAt) {
+		t.Fatalf("credential extends beyond request: %s", renewed.Body)
+	}
+	evidence := api.PairingRoundTrip{Direction: "initiator_to_recipient", Generation: 1, PingSeq: 1, ReplySeq: 2, HandoffId: "unconfirmed"}
+	bad, err := s.client(token).VerifyPairingRoundTripWithResponse(ctx, f.request.Id, nil, evidence)
+	wantCode(t, bad, 409, "pairing_changed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.client(s.owner).GetPairingRequestWithResponse(ctx, f.request.Id)
+	mustStatus(t, current, err, 200)
+	if current.JSON200.State != "verifying" || current.JSON200.Awaiting == nil || *current.JSON200.Awaiting != "both" {
+		t.Fatalf("rejected evidence changed request: %s", current.Body)
+	}
+	s.clock.Advance(5 * time.Minute)
+	expired, err := s.client(token).GetPairingRequestWithResponse(ctx, f.request.Id)
+	mustStatus(t, expired, err, 401)
+	view, err := s.client(s.owner).GetPairingRequestWithResponse(ctx, f.request.Id)
+	mustStatus(t, view, err, 200)
+	if view.JSON200.State != "expired" {
+		t.Fatalf("expiry: %s", view.Body)
+	}
+}
+
+func TestPairingCreationSurvivesACommittedResponseLostBeforeTheReplayCache(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	name := s.newBoard()
+	a, at := s.joinAs(s.owner, name, "writer", "")
+	seat := s.memberNamed(at, name, a)
+	me, err := s.client(s.owner).GetMeWithResponse(ctx)
+	mustStatus(t, me, err, 200)
+	b, err := s.client(s.owner).GetBoardWithResponse(ctx, name)
+	mustStatus(t, b, err, 200)
+	key := api.IdempotencyKey("pairing-lost-answer")
+	in := api.CreatePairingRequest{BoardId: b.JSON200.Id, RecipientId: me.JSON200.Id, InitiatingAgentId: seat.Id, Work: "Do one piece of work."}
+	first, err := s.client(at).CreatePairingRequestWithResponse(ctx, &api.CreatePairingRequestParams{IdempotencyKey: &key}, in)
+	mustStatus(t, first, err, 201)
+	// The creation committed but its generic response cache did not survive.
+	db, err := sql.Open("sqlite", "file:"+s.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	if _, err := db.ExecContext(ctx, "DELETE FROM idempotency"); err != nil {
+		t.Fatal(err)
+	}
+	repeated, err := s.client(at).CreatePairingRequestWithResponse(ctx, &api.CreatePairingRequestParams{IdempotencyKey: &key}, in)
+	mustStatus(t, repeated, err, 201)
+	if first.JSON201.Id != repeated.JSON201.Id {
+		t.Fatalf("lost response made another proposal: %s / %s", first.JSON201.Id, repeated.JSON201.Id)
+	}
+	var count int
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM pairing_requests").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("made %d proposals", count)
+	}
+	in.Work = "Different work."
+	changed, err := s.client(at).CreatePairingRequestWithResponse(ctx, &api.CreatePairingRequestParams{IdempotencyKey: &key}, in)
+	wantCode(t, changed, 422, "idempotency_conflict")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed, err := s.client(s.owner).RemoveAgentWithResponse(ctx, name, seat.Id, nil)
+	mustStatus(t, removed, err, 200)
+	in.Work = "Do one piece of work."
+	ended, err := s.client(at).CreatePairingRequestWithResponse(ctx, &api.CreatePairingRequestParams{IdempotencyKey: &key}, in)
+	wantCode(t, ended, 403, "agent_removed")
+	if err != nil {
+		t.Fatal(err)
+	}
 }

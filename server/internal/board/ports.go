@@ -26,6 +26,7 @@ type BookkeepingStore interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	PairingByCreation(scope, key string) (PairingRequest, error)
 	PairingByInvite(inviteID string) (PairingRequest, error)
 	PairingByID(id string) (PairingRequest, error)
 	PairingsOf(personID string) ([]PairingRequest, error)

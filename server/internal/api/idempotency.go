@@ -40,7 +40,7 @@ type SavedResponse struct {
 // creationRequestHash keeps the incoming bytes before validation applies defaults.
 func creationRequestHash(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/v1/delegations/boards" {
+		if r.Method == http.MethodPost && (r.URL.Path == "/v1/delegations/boards" || r.URL.Path == "/v1/pairing-requests") {
 			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 			if err != nil {
 				writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body could not be read.", "Send the request again."))
@@ -76,6 +76,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
 			r.URL.Path == "/v1/pairing-credentials" ||
+			r.URL.Path == "/v1/pairing-requests" ||
 			// Creation keeps its answer in the board transaction, with one expiry.
 			r.URL.Path == "/v1/delegations/boards" ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new

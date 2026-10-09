@@ -146,7 +146,7 @@ func checkCredential(tx ReadTx, p Principal, now string) (Human, *string, error)
 		if err != nil || key.HumanID != person {
 			return Human{}, nil, apierr.Unauthorized()
 		}
-		if _, err := pairingMember(tx, r.BoardID, person, c.Endpoint.AgentID); err != nil {
+		if err := pairingMember(tx, r.BoardID, person, c.Endpoint.AgentID); err != nil {
 			return Human{}, nil, apierr.Unauthorized()
 		}
 		b, err := tx.BoardByID(r.BoardID)

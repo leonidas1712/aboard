@@ -282,7 +282,7 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			writeError(w, o.Log, err)
 			return
 		}
-		if p.Pairing != nil && !(r.Method == http.MethodGet && r.URL.Path == "/v1/pairing-requests/"+p.Pairing.RequestID || r.Method == http.MethodPost && (r.URL.Path == "/v1/pairing-requests/"+p.Pairing.RequestID+"/accept" || r.URL.Path == "/v1/pairing-requests/"+p.Pairing.RequestID+"/verify")) {
+		if p.Pairing != nil && !pairingMay(r, p.Pairing.RequestID) {
 			writeError(w, o.Log, apierr.New(http.StatusForbidden, "forbidden", "This endpoint credential only reads and verifies its pairing.", "Use the trusted runtime pairing flow."))
 			return
 		}
@@ -401,3 +401,8 @@ func scopeOf(token string) string {
 }
 
 var errNoScope = errors.New("idempotent request without an authenticated caller")
+
+func pairingMay(r *http.Request, id string) bool {
+	path := "/v1/pairing-requests/" + id
+	return r.Method == http.MethodGet && r.URL.Path == path || r.Method == http.MethodPost && (r.URL.Path == path+"/accept" || r.URL.Path == path+"/verify")
+}
