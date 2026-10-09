@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/leonidas1712/aboard/server/internal/apierr"
 	"github.com/leonidas1712/aboard/server/internal/ids"
@@ -157,8 +158,8 @@ func (s *Service) pairingView(tx ReadTx, p Principal, id string, active bool) (P
 // CreatePairing proposes work to an existing ordinary member without selecting their session.
 func (s *Service) CreatePairing(ctx context.Context, p Principal, boardID, recipientID, agentID, work string, creation PairingCreation) (PairingRequest, error) {
 	var out PairingRequest
-	if work == "" || len(work) > 4000 {
-		return out, invalid("A pairing needs work of at most 4000 bytes.", "Describe the work to do together.")
+	if work == "" || !utf8.ValidString(work) || utf8.RuneCountInString(work) > 4000 {
+		return out, invalid("A pairing needs work of at most 4000 characters.", "Describe the work to do together.")
 	}
 	err := s.writeAs(ctx, p, func(tx Tx) error {
 		b, err := tx.BoardByID(boardID)
@@ -340,6 +341,14 @@ func (s *Service) MintPairingCredential(ctx context.Context, p Principal, in Pai
 		if other != nil && other.AgentID == in.AgentID {
 			return pairingChanged()
 		}
+		parent, err := workingKey(tx, p.KeyID, stamp(s.clk.Now()))
+		if err != nil {
+			return err
+		}
+		expiresAt := pairingExpiry(s.clk.Now(), r.ExpiresAt)
+		if parent.ExpiresAt != nil && *parent.ExpiresAt < expiresAt {
+			expiresAt = *parent.ExpiresAt
+		}
 		same := old != nil && old.AgentID == in.AgentID && old.SessionBinding == in.SessionBinding
 		oldKey := r.InitiatorKeyID
 		if in.Side == "recipient" {
@@ -354,7 +363,7 @@ func (s *Service) MintPairingCredential(ctx context.Context, p Principal, in Pai
 			}
 			out = existing
 			if out.ExpiresAt <= stamp(s.clk.Now()) {
-				out.ExpiresAt = pairingExpiry(s.clk.Now(), r.ExpiresAt)
+				out.ExpiresAt = expiresAt
 				if err := tx.SavePairingCredential(out); err != nil {
 					return err
 				}
@@ -403,7 +412,7 @@ func (s *Service) MintPairingCredential(ctx context.Context, p Principal, in Pai
 		if err != nil {
 			return err
 		}
-		out = PairingCredential{ID: id, RequestID: r.ID, Side: in.Side, KeyID: p.KeyID, Digest: digest, Endpoint: endpoint, SelectionGeneration: in.Generation, ExpiresAt: pairingExpiry(now, r.ExpiresAt)}
+		out = PairingCredential{ID: id, RequestID: r.ID, Side: in.Side, KeyID: p.KeyID, Digest: digest, Endpoint: endpoint, SelectionGeneration: in.Generation, ExpiresAt: expiresAt}
 		if err := tx.SavePairingCredential(out); err != nil {
 			return err
 		}
@@ -654,7 +663,7 @@ func (s *Service) CreateInvitedPairingTx(tx Tx, p Principal, inviteID, boardID, 
 	if err := pairingMember(tx, boardID, person.ID, agentID); err != nil {
 		return PairingRequest{}, err
 	}
-	if work == "" || len(work) > 4000 || expiresAt <= stamp(s.clk.Now()) {
+	if work == "" || !utf8.ValidString(work) || utf8.RuneCountInString(work) > 4000 || expiresAt <= stamp(s.clk.Now()) {
 		return PairingRequest{}, invalid("The pairing work or expiry is invalid.", "Create a new pairing proposal.")
 	}
 	now := s.clk.Now()

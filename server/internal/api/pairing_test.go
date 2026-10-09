@@ -368,3 +368,37 @@ func TestPairingCreationSurvivesACommittedResponseLostBeforeTheReplayCache(t *te
 		t.Fatal(err)
 	}
 }
+
+func TestPairingMintCapsCredentialAtItsParentKeyAndCannotUseOneSeatForBothSessions(t *testing.T) {
+	t.Parallel()
+	f := newPairingFixture(t)
+	s := f.s
+	ctx := context.Background()
+	token := "abp_" + strings.Repeat("n", 43)
+	in := api.CreatePairingCredential{RequestId: f.request.Id, Side: "recipient", AgentId: f.seats[0], SessionBinding: "sha256:" + strings.Repeat("d", 64), Generation: 1, ClientToken: &token}
+	replace := true
+	in.Replace = &replace
+	sameSeat, err := s.client(s.owner).CreatePairingCredentialWithResponse(ctx, nil, in)
+	wantCode(t, sameSeat, 409, "pairing_changed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", "file:"+s.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	expiry := s.clock.Now().Add(3 * time.Minute)
+	if _, err := db.ExecContext(ctx, "UPDATE access_keys SET expires_at = ?", expiry.Format("2006-01-02T15:04:05.000Z")); err != nil {
+		t.Fatal(err)
+	}
+	in.Side = "initiator"
+	in.AgentId = f.seats[0]
+	in.SessionBinding = "sha256:" + strings.Repeat("a", 64)
+	in.Replace = nil
+	good, err := s.client(s.owner).CreatePairingCredentialWithResponse(ctx, nil, in)
+	mustStatus(t, good, err, 200)
+	if !good.JSON200.ExpiresAt.Equal(expiry) {
+		t.Fatalf("credential outlives its parent: %s", good.Body)
+	}
+}
