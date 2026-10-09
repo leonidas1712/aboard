@@ -93,7 +93,7 @@ optional; each operation says which it reads.
 | `id` | integer | The delivery an extension confirms on the legacy one-seat path; never substitutes for `handoff_id` |
 | `handoff_id` | string | On `received`: the exact combined handoff being confirmed, when the connection negotiated `handoff-v1` |
 | `capabilities` | array of strings | On `hello`: optional extension capabilities, including `handoff-v1` ("Combined handoffs"); a supported tool hook may declare `tool-boundary` and `midturn-peer` on `boundary`, while an extension also needs its current live negotiation |
-| `cwd` | string | The extension session's working directory |
+| `cwd` | string | The root harness session's working directory, on hook events or extension hello; absent when unavailable |
 | `harness_version` | string | The harness's version, as it reports it |
 | `extension_version` | string | The extension's own version |
 | `subagent` | string | The harness's id for the subagent a hello comes from |
@@ -978,3 +978,13 @@ Only a confirmed journal handoff for this exact session and binding can supply
 round-trip receipt evidence. Finding a message in history or receiving a hook call
 is insufficient. Endpoint replacement invalidates earlier credentials/evidence;
 offline peers remain verifying and receive a nonsecret next-step handover.
+
+## Session location bookkeeping
+
+A root hook or extension may report `cwd`. The daemon reports it through
+`PUT /v1/me/location` using each currently bound seat's own token, with the exact
+harness and conversation id. Old boots, subagents and replaced bindings cannot
+overwrite the current location. No report means location unavailable; the daemon
+never guesses a folder. Reports change neither delivery nor read state, and a failed
+report never stops delivery. The machine label is derived by the server, not sent
+by the hook or extension.
