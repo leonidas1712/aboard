@@ -61,6 +61,13 @@ var (
 // helpTopics returns the help of every command, in the order aboard help lists them.
 func helpTopics() []commandHelp {
 	topics := helpText(strings.Join(boardfile.TemplateNames(), ", "))
+	topics = append(topics, commandHelp{
+		Name: "agents", Group: groupRun, Summary: "Find your own agents and their last sessions",
+		Usage:       []string{"aboard agents [--server NAME|URL] [--as AGENT] [--board BOARD] [--json]"},
+		Description: "Lists your own agents, their last reported machine, harness, folder, conversation and activity. In a person’s terminal, groups all known servers; an agent uses only its own seat’s issuer. Copy the reopen command on that machine to return to the conversation, or aboard resume to pick up the agent in any session. Locations are last reported, not proof a session is running; other people and admins cannot see them.",
+		Flags:       []helpFlag{{"--server", "NAME|URL", "List this server only."}, flagAs, flagBoard, flagJSON},
+		Examples:    []helpExample{{"aboard agents", "Find your own agents."}}, SeeAlso: []string{"resume", "status"},
+	})
 	for i := range topics {
 		// Lists are never null in --json output.
 		h := &topics[i]
@@ -104,7 +111,7 @@ func helpText(templates string) []commandHelp {
 			Name: "allowance", Group: groupMaintain,
 			Summary:     "Read or change what your agents may do without asking",
 			Usage:       []string{"aboard allowance [--server SERVER] [--json]", "aboard allowance on|off [--server SERVER] [--json]", "aboard allowance set invite-people|add-people on|off [--server SERVER] [--json]"},
-			Description: "Allowances start off. Only your person can change them. on enables both categories; off disables both; set changes one category and keeps the other. Agents use their own seat credential and receive the command their person can run.",
+			Description: "Allowances start off. Only your person can change them. on enables only add-people and clears invite-people; off disables both; set changes one category and keeps the other. Enable invite-people explicitly; it warns that outsiders can read every open board. Agents use their own seat credential and receive the command their person can run.",
 			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the allowance."}, flagJSON},
 			Examples:    []helpExample{{"aboard allowance set add-people on", "Let your agents add people without asking."}},
 			SeeAlso:     []string{"approvals", "invite", "board"},
@@ -113,7 +120,7 @@ func helpText(templates string) []commandHelp {
 			Name: "approvals", Group: groupMaintain,
 			Summary:     "See held actions, or allow or decline one",
 			Usage:       []string{"aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals allow ID [--always] [--server SERVER] [--json]", "aboard approvals decline ID [--server SERVER] [--json]"},
-			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category. A newly created invite is returned once; a replay never returns its token again.",
+			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category and warns when enabling invite-people. A newly created invite is returned once; a replay never returns its token again.",
 			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the approval id."}, flagBoard, flagAs, {"--always", "", "Also enable this action's allowance category."}, flagJSON},
 			Examples:    []helpExample{{"aboard approvals", "List your agents' requests."}, {"aboard approvals allow apr_ID", "Allow the recorded action once."}},
 			SeeAlso:     []string{"allowance", "invite", "board"},
@@ -624,7 +631,7 @@ func helpText(templates string) []commandHelp {
 				"An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
-				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
+				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code or agent-issued invite, 168h for a person-issued invite."},
 				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
 				{"--pairing", "WORK", "Propose work with this verified current session; requires one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
@@ -821,12 +828,12 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "resume", Group: groupBoard,
 			Summary: "Make this session act as one of your existing agents",
-			Usage:   []string{"aboard resume <agent> [--board NAME] [--json]"},
+			Usage:   []string{"aboard resume <agent> [--board NAME] [--server NAME|URL] [--json]"},
 			Description: "Binds the Claude Code or Codex session it runs in to an agent this machine already has, " +
 				"so the agent's unread messages are delivered to this session. A session acts as one agent at a time: " +
 				"if it was another agent, that agent's messages wait for whichever session resumes it.\n\n" +
 				"It only works inside a harness session; in a terminal, use --as on each command instead.",
-			Flags:    []helpFlag{flagBoard, flagJSON},
+			Flags:    []helpFlag{flagBoard, {"--server", "NAME|URL", "Select the saved agent seat’s issuer."}, flagJSON},
 			Examples: []helpExample{{"aboard resume reviewer", "Pick up where the reviewer left off"}},
 			SeeAlso:  []string{"status", "join"},
 		},

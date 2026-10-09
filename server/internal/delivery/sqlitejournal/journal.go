@@ -168,13 +168,13 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 	}
 	return j.write(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO sessions (harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, in_turn, seen_turns, peer_turn_active, peer_turn, busy_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO sessions (harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, in_turn, seen_turns, peer_turn_active, peer_turn, busy_at, updated_at, folder, location_boot)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (harness, session_id) DO UPDATE SET boot = excluded.boot, open = excluded.open,
 				pid = excluded.pid, pid_start = excluded.pid_start, lost_server = excluded.lost_server,
 				lost_board = excluded.lost_board, lost_agent = excluded.lost_agent, lost_member_id = excluded.lost_member_id, turned = excluded.turned, in_turn = excluded.in_turn, seen_turns = excluded.seen_turns,
-				peer_turn_active = excluded.peer_turn_active, peer_turn = excluded.peer_turn, busy_at = excluded.busy_at, updated_at = excluded.updated_at`,
-			s.Key.Harness, s.Key.ID, s.Boot, s.Open, p.PID, p.Start, lost.Server, lost.Board, lost.Name, lost.MemberID, s.Turned, s.InTurn, s.SeenTurns, s.PeerTurnActive, s.PeerTurn, formatTime(s.BusyAt), formatTime(s.UpdatedAt))
+				peer_turn_active = excluded.peer_turn_active, peer_turn = excluded.peer_turn, busy_at = excluded.busy_at, updated_at = excluded.updated_at, folder = excluded.folder, location_boot = excluded.location_boot`,
+			s.Key.Harness, s.Key.ID, s.Boot, s.Open, p.PID, p.Start, lost.Server, lost.Board, lost.Name, lost.MemberID, s.Turned, s.InTurn, s.SeenTurns, s.PeerTurnActive, s.PeerTurn, formatTime(s.BusyAt), formatTime(s.UpdatedAt), s.Folder, s.LocationBoot)
 		if err != nil {
 			return fmt.Errorf("save session %s: %w", s.Key, err)
 		}
@@ -185,7 +185,7 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 // Sessions returns every recorded session.
 func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error) {
 	rows, err := j.db.QueryContext(ctx, `
-		SELECT harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, in_turn, seen_turns, peer_turn_active, peer_turn, busy_at, updated_at
+		SELECT harness, session_id, boot, open, pid, pid_start, lost_server, lost_board, lost_agent, lost_member_id, turned, in_turn, seen_turns, peer_turn_active, peer_turn, busy_at, updated_at, folder, location_boot
 		FROM sessions ORDER BY harness, session_id`)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
@@ -198,7 +198,7 @@ func (j *Journal) Sessions(ctx context.Context) ([]delivery.SessionRecord, error
 		var lost delivery.AgentRef
 		var updated, busy string
 		if err := rows.Scan(&s.Key.Harness, &s.Key.ID, &s.Boot, &s.Open, &p.PID, &p.Start,
-			&lost.Server, &lost.Board, &lost.Name, &lost.MemberID, &s.Turned, &s.InTurn, &s.SeenTurns, &s.PeerTurnActive, &s.PeerTurn, &busy, &updated); err != nil {
+			&lost.Server, &lost.Board, &lost.Name, &lost.MemberID, &s.Turned, &s.InTurn, &s.SeenTurns, &s.PeerTurnActive, &s.PeerTurn, &busy, &updated, &s.Folder, &s.LocationBoot); err != nil {
 			return nil, fmt.Errorf("read session: %w", err)
 		}
 		if p.PID != 0 {

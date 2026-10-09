@@ -193,6 +193,7 @@ const (
 
 // Member is a human or agent on a board.
 type Member struct {
+	Location        *AgentLocation
 	MidturnOverride *string
 	DisplayName     *string
 	CurrentTask     *TaskRef

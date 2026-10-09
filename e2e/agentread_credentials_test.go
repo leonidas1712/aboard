@@ -50,7 +50,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 	humanStream := make(chan struct{}, 1)
 	var mu sync.Mutex
 	ownerRequests, seatRequests, wrongBoard := 0, 0, false
-	var ownerPaths []string
+	var ownerPaths, seatPaths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		switch r.Header.Get("Authorization") {
@@ -65,7 +65,11 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 				ownerPaths = append(ownerPaths, r.Method+" "+r.URL.Path)
 			}
 		case "Bearer " + seat.Token:
-			seatRequests++
+			// The daemon reports the bound seat location independently of command REST.
+			if r.Method != http.MethodPut || r.URL.Path != "/v1/me/location" {
+				seatRequests++
+				seatPaths = append(seatPaths, r.Method+" "+r.URL.Path)
+			}
 		}
 		if strings.HasPrefix(r.URL.Path, "/v1/boards/") && r.URL.Path != "/v1/boards/"+seat.Board && !strings.HasPrefix(r.URL.Path, "/v1/boards/"+seat.Board+"/") {
 			wrongBoard = true
@@ -118,6 +122,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 				mu.Lock()
 				ownerRequests, seatRequests, wrongBoard = 0, 0, false
 				ownerPaths = nil
+				seatPaths = nil
 				mu.Unlock()
 				args := append(append(append([]string{}, command...), selection.args...), "--json")
 				result := e.exec(selection.vars, "", args...)
@@ -192,6 +197,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 			mu.Lock()
 			ownerRequests, seatRequests, wrongBoard = 0, 0, false
 			ownerPaths = nil
+			seatPaths = nil
 			mu.Unlock()
 			args := append(append([]string{"audit", "verify"}, selection.args...), "--json")
 			result := e.exec(selection.vars, "", args...)
@@ -200,9 +206,10 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 			}
 			mu.Lock()
 			human, agent := ownerRequests, seatRequests
+			seatCalls := append([]string(nil), seatPaths...)
 			mu.Unlock()
 			if human != 0 || agent != 0 {
-				t.Fatalf("ambiguous audit sent credentials: person %d, seat %d", human, agent)
+				t.Fatalf("ambiguous audit sent credentials: person %d, seat %d; seat paths %v", human, agent, seatCalls)
 			}
 			result = e.exec(selection.vars, "", append(args, "--board", seat.Board)...)
 			if result.code != 0 || field(t, result.json(t), "board") != seat.Board {

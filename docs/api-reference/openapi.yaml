@@ -616,7 +616,7 @@ paths:
         fragment, which browsers never send to a server. `aboard invite --server` prints
         that link.
 
-        The invite lasts `ttl_seconds` (default 7 days, at most 30 days). The server keeps
+        The invite lasts `ttl_seconds` (default 7 days for a person or 24 hours when issued by an agent, at most 30 days). The server keeps
         only a digest of it, never writes it to a board's event log and doesn't keep the
         response for `Idempotency-Key` repeats: each call makes a new invite. An agent token
         or a browser token gets 403 `human_token_required`; a person who isn't a server
@@ -2818,6 +2818,66 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
 
+  /v1/me/agents:
+    get:
+      tags: [people]
+      operationId: listOwnAgents
+      summary: Find your own agents and their last session locations
+      description: |
+        A person's key or browser session lists only their active agents on boards they
+        still belong to. An active agent token may list its own person's agents, using
+        that token alone; a guest agent stays on its invited board. Deleted boards and
+        ended seats are omitted. Admin status grants no access to another person's
+        locations. Missing location means no daemon has reported it. Location is
+        last-reported bookkeeping, not proof that the session is still running.
+      responses:
+        "200":
+          description: The caller's own agents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/Member" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /v1/me/location:
+    put:
+      tags: [boards]
+      operationId: setAgentLocation
+      summary: Report this agent's session location
+      description: |
+        An active agent token reports only its own seat's last session location.
+        The delivery daemon reports the bound harness, conversation id and working
+        folder. The machine label comes from the seat's issuing access key, never
+        the body. Reports are bookkeeping, append no record event and move no read
+        cursor. They are descriptive, never identity or authorization evidence.
+        Only the agent's person and their active agents may read them; admins and
+        other board members never receive paths or conversation ids. An older client
+        that sends no report leaves the location unavailable. Repeating a report is
+        harmless, with or without an Idempotency-Key.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentLocationReport"
+      responses:
+        "200":
+          description: The last reported location
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentLocation" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /v1/me/presence:
     put:
       tags: [boards]
@@ -3937,6 +3997,39 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+
+  /v1/me/invite-notices:
+    get:
+      tags: ["onboarding"]
+      operationId: "listInviteNotices"
+      summary: "Read notices about invites issued by your agents"
+      description: |
+        Person key or browser only; agents receive human_token_required with next.command.
+        One notice per durable agent-issued invite belonging to the current person,
+        whether issued under an allowance or an approval, including redeemed, revoked
+        and expired invites. Replays create no duplicate notices. No invite secret,
+        recipient, board names, parent keys or authorization payloads are returned.
+        Reads recheck the person's credential and do not move read cursors.
+        The next command is issuer-qualified and revokes only an unredeemed invite.
+      responses:
+        "200":
+          description: "Own-agent invitation notices"
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [notices]
+                properties:
+                  notices:
+                    type: array
+                    items: { $ref: "#/components/schemas/InviteNotice" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403":
+          description: "Person-only refusal with next.command"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
 
   /v1/me/allowance:
     get:
@@ -5245,7 +5338,7 @@ components:
           type: integer
           minimum: 60
           maximum: 2592000
-          description: How long the invite works. Default 604800 (7 days).
+          description: How long the invite works. Default 604800 (7 days) for a person, or 86400 (24 hours) for an agent-issued invite.
         boards:
           type: array
           uniqueItems: true
@@ -6095,10 +6188,32 @@ components:
             Absent otherwise.
 
     # ---------- members ----------
+    AgentLocationReport:
+      type: object
+      additionalProperties: false
+      required: [harness, session_id, folder]
+      properties:
+        harness: { type: string, minLength: 1, maxLength: 40 }
+        session_id: { type: string, minLength: 1, maxLength: 512 }
+        folder: { type: string, minLength: 1, maxLength: 4096 }
+    AgentLocation:
+      type: object
+      required: [harness, session_id, folder, last_active]
+      properties:
+        machine:
+          type: string
+          description: The issuing access key's name; absent for a seat without a named key.
+        harness: { type: string }
+        session_id: { type: string }
+        folder: { type: string }
+        last_active: { $ref: "#/components/schemas/Timestamp" }
     Member:
       type: object
       required: [id, board, name, kind, role, owner, harness, access, server_role, status, joined_at, presence, presence_since, delivery, delivery_mode, delivery_revision]
       properties:
+        location:
+          allOf: [{ $ref: "#/components/schemas/AgentLocation" }]
+          description: Last reported session location; present only for this agent's own person or their active agents. Never shown to other people, including admins.
         id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         board: { $ref: "#/components/schemas/BoardName" }
         name: { $ref: "#/components/schemas/MemberName" }
@@ -8268,6 +8383,18 @@ components:
     AllowanceCategory:
       type: "string"
       enum: ["invite-people", "add-people"]
+    InviteNotice:
+      type: object
+      additionalProperties: false
+      required: [id, issuing_agent_id, message, created_at, expires_at, state, next]
+      properties:
+        id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+        issuing_agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
+        message: { type: string, enum: ["Your agent invited someone"] }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        state: { type: string, enum: [active, redeemed, revoked, expired] }
+        next: { $ref: "#/components/schemas/NextStep" }
     Allowance:
       type: "object"
       additionalProperties: false
@@ -8278,6 +8405,9 @@ components:
         person_id:
           type: "string"
           pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+        warning:
+          type: string
+          description: "Present whenever invite-people is enabled: Agents allowed to invite people can let outsiders read every open board."
         categories:
           type: "array"
           items:
@@ -8467,12 +8597,15 @@ components:
           type: "boolean"
           default: false
       description: |
-        always is invalid_request for every category except invite_people/add_people, even if the person could do the action.
+        always is invalid_request for every category except invite_people/add_people, even if the person could do the action. Allowing invite_people with always=true returns the same invitation warning as explicit category opt-in; allowing once does not enable the allowance.
     AdminActionResult:
       type: "object"
       additionalProperties: false
       required: ["state", "approval"]
       properties:
+        warning:
+          type: string
+          description: "Present on invite_people approval with always=true: Agents allowed to invite people can let outsiders read every open board."
         state:
           type: "string"
           enum: ["pending", "executed"]

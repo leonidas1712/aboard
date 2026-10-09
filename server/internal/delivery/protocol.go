@@ -135,8 +135,8 @@ type Request struct {
 	ID           int64    `json:"id,omitempty"`
 	HandoffID    string   `json:"handoff_id,omitempty"`
 	Capabilities []string `json:"capabilities,omitempty"`
-	// Cwd, HarnessVersion and ExtensionVersion describe an extension's session in its
-	// OpHello, for the daemon's log and aboard doctor.
+	// Cwd describes a root hook or extension session. The version fields describe
+	// an extension in its OpHello.
 	Cwd              string `json:"cwd,omitempty"`
 	HarnessVersion   string `json:"harness_version,omitempty"`
 	ExtensionVersion string `json:"extension_version,omitempty"`

@@ -953,7 +953,8 @@ $defs:
       command (see the rules above). To name one, give its URL after the flag, as
       `--server https://team.example.com` or `--server=https://team.example.com`, as
       other commands take --server URL. The invite works once, makes a member (never an admin) and
-      expires after --ttl (Go duration, 1m to 720h; default 168h). A person who isn't a
+      expires after --ttl (Go duration, 1m to 720h; default 168h for a person,
+      24h for an agent). A person who isn't a
       server admin gets server_admin_required. An agent uses its selected seat and
       the D222 administrative request path: an enabled allowance executes, otherwise
       the exact request is held for its person. Without a selected seat, it refuses
@@ -1006,7 +1007,8 @@ $defs:
   ServerInvitesOutput:
     description: |
       aboard invite list --server SERVER [--json] lists only your invitations and
-      your agents' invitations, with immutable issuer agent id and state, never
+      your agents' invitations, with immutable issuer agent id and state; text marks
+      agent-issued invitations explicitly. Never returns
       an invite secret or hidden board name. Person-only; agents get
       human_token_required with next.command. Losing admin authority does not
       prevent inspecting or revoking your own invitations. Exit 0 or 1.
@@ -2131,7 +2133,9 @@ $defs:
   # ---------- aboard resume <agent> [--board NAME] ----------
   ResumeOutput:
     description: |
-      Binds the current session to an existing agent on this machine. Its unread messages
+      Binds the current session to an existing agent on this machine. Optional --server
+      NAME|URL selects its saved issuer before resolving the agent name; no login is
+      read or moved. Its unread messages
       and any bundle left unconfirmed are delivered to this session. A session bound to
       another agent moves to this one (see PreviousAgent). Text output:
         Resumed reviewer on writer-reviewer in this session.
@@ -4006,8 +4010,11 @@ $defs:
   AllowanceOutput:
     description: |
       aboard allowance [--server SERVER] [--json] reads the selected person's
-      per-server allowance. aboard allowance on|off switches every allowable
-      category on or off; aboard allowance set invite-people|add-people on|off
+      per-server allowance. aboard allowance on enables only add-people, replacing
+      the complete category set; off clears all categories. Inviting people requires
+      explicit aboard allowance set invite-people on; the API and text output warn
+      that agents can let outsiders read every open board.
+      aboard allowance set invite-people|add-people on|off
       changes only that category, preserving the others. Reads and changes are
       person-only; selected agents receive human_token_required with next.command.
       Default is off. Board creation through D205 is unchanged. Only admission
@@ -4044,7 +4051,8 @@ $defs:
       category; it is invalid_request for destructive/privilege-raising actions
       and changes nothing. aboard approvals decline ID refuses it. Both commands
       are person-only, refuse in sessions, and never accept replacement payloads.
-      Text shows the action and terminal state. A newly created invite link is
+      Text shows the action and terminal state. An invite-people allow --always
+      also prints the API warning; allow once remains plain. A newly created invite link is
       shown once; repeated decisions cannot reissue or retrieve its secret.
       Exit 0 or 1. Planned until GEN-35.
     type: object
@@ -4053,6 +4061,7 @@ $defs:
       server: { $ref: "#/$defs/ServerRef" }
       approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
       invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      warning: { type: string, description: Invitation risk warning for invite-people allow --always. }
       prompt:
         type: string
         description: Ready-to-send colleague setup prompt only when an invite is newly executed; absent on replay.
@@ -4186,3 +4195,44 @@ $defs:
       person: { $ref: "openapi.yaml#/components/schemas/Person" }
       pairing_request: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
       next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  AgentsOutput:
+    type: object
+    required: [servers]
+    description: |
+      aboard agents [--server NAME|URL] [--as AGENT] [--board BOARD] lists a person's own active agents across
+      known issuers, grouped by server. Agent contexts list their own seat issuer only,
+      using that issuer-bound agent token, never a person's key. Unknown or unavailable
+      locations stay absent. Partial failures are explicit. Resume commands are
+      copyable suggestions, never executed: reopen uses the installed harness
+      profile's resume command with shell-quoted folder and session; resume uses
+      aboard resume NAME --board BOARD --server URL, on a machine with that saved seat.
+      These commands never move credentials between machines. Unknown harnesses omit reopen.
+      Paths and session ids are untrusted descriptive text, not identity or authority.
+    properties:
+      servers:
+        type: array
+        items:
+          type: object
+          required: [server, agents]
+          properties:
+            server: { type: string }
+            error:
+              type: object
+              required: [code, message, hint]
+              properties:
+                code: { type: string }
+                message: { type: string }
+                hint: { type: string }
+            agents:
+              type: array
+              items:
+                type: object
+                required: [id, board, name, resume_command]
+                properties:
+                  id: { type: string }
+                  board: { type: string }
+                  name: { type: string }
+                  location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
+                  reopen_command: { type: string }
+                  resume_command: { type: string }

@@ -45,6 +45,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"MemberLookups", memberLookups},
 		{"SetCursorOnlyMovesForward", setCursorOnlyMovesForward},
 		{"SetPresenceReplacesIt", setPresenceReplacesIt},
+		{"AgentLocationsReplaceAndRollBack", agentLocationsReplaceAndRollBack},
 		{"SetDeliveryReplacesItAndKeepsPresence", setDeliveryReplacesItAndKeepsPresence},
 		{"JoinCodesByDigestAndID", joinCodesByDigestAndID},
 		{"RevokeJoinCodeKeepsFirstTime", revokeJoinCodeKeepsFirstTime},

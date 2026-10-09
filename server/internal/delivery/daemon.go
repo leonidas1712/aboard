@@ -197,6 +197,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 		if s == nil {
 			continue
 		}
+		s.folder, s.locationBoot = r.Folder, r.LocationBoot
 		s.boot, s.open, s.proc, s.lost, s.started, s.turned = r.Boot, r.Open, r.Process, r.Lost, true, r.Turned
 		s.inTurn, s.seenTurns = r.InTurn, r.SeenTurns
 		s.peerTurnActive, s.peerTurn, s.busyAt = r.PeerTurnActive, r.PeerTurn, r.BusyAt

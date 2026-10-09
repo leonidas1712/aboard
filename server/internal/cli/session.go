@@ -254,6 +254,7 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	use := usageOf("resume")
 	fs := a.flags("resume")
 	boardFlag := fs.String("board", "", "the board, when the agent's name is used on several")
+	serverFlag := fs.String("server", "", "the issuer of the saved agent seat")
 	pos, err := a.parse(fs, args, use, 1, 1)
 	if err != nil {
 		return err
@@ -267,6 +268,13 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	creds, err := a.readCredentials()
 	if err != nil {
 		return err
+	}
+	if *serverFlag != "" {
+		srv, err := a.namedServer(*serverFlag)
+		if err != nil {
+			return err
+		}
+		creds.Agents = slices.DeleteFunc(creds.Agents, func(c agentCredential) bool { return c.Server != srv.URL })
 	}
 	t, cred, err := a.agentByName(creds, strings.TrimPrefix(pos[0], "@"), *boardFlag)
 	if err != nil {

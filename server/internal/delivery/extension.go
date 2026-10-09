@@ -316,6 +316,7 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 		return
 	}
 	accepted = true
+	s.noteLocation(ctx, req)
 	s.waiter = c
 	s.refreshAll(true)
 	pid := 0
