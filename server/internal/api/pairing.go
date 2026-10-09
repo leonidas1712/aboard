@@ -39,11 +39,10 @@ func (h *handlers) pairingOf(ctx context.Context, r board.PairingRequest) map[st
 	}
 	if r.State == "awaiting_session" || r.State == "awaiting_endpoint" || r.State == "verifying" {
 		cfg := h.svc.Config()
-		scheme := "http://"
-		if cfg.Mode == "team" {
-			scheme = "https://"
+		issuer := cfg.IssuerURL
+		if issuer == "" {
+			return out
 		}
-		issuer := scheme + cfg.JoinHost
 		command := "aboard pairing list --server '" + issuer + "'"
 		resume := "Keep both selected sessions running. Resume pairing from this session; confirmed round trips complete it."
 		personID := callerPerson(principal(ctx))

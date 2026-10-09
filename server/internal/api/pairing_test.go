@@ -251,7 +251,7 @@ func TestPairingAnotherPersonCannotSelectTheRecipientAndBrowserDeclineNeedsCSRF(
 	mustStatus(t, b, err, 200)
 	created, err := s.client(at).CreatePairingRequestWithResponse(ctx, nil, api.CreatePairingRequest{BoardId: b.JSON200.Id, RecipientId: me.JSON200.Id, InitiatingAgentId: am.Id, Work: "Review together."})
 	mustStatus(t, created, err, 201)
-	if created.JSON201.Next == nil || !strings.Contains(created.JSON201.Next.Command, "pairing select ") {
+	if created.JSON201.Next == nil || !strings.Contains(created.JSON201.Next.Command, "pairing select ") || !strings.Contains(created.JSON201.Next.Command, "--server 'http://127.0.0.1:7400'") {
 		t.Fatalf("missing own endpoint handover: %s", created.Body)
 	}
 	token := "abp_" + strings.Repeat("t", 43)
