@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 	"time"
@@ -211,6 +214,9 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 		if err := action.FromInvitePeopleAction(api.InvitePeopleAction{Kind: api.InvitePeopleActionKindInvitePeople, Invite: req}); err != nil {
 			return err
 		}
+		if pairing != "" {
+			return requestAdmission(ctx, a, c, srv, board, action, func(result *api.AdminActionResult) { a.selectInvitedPairing(ctx, srv, result) })
+		}
 		return requestAdmission(ctx, a, c, srv, board, action)
 	}
 	command := "aboard invite --server"
@@ -276,6 +282,34 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 	}
 	a.emit(out, text)
 	return nil
+}
+
+func (a *app) selectInvitedPairing(ctx context.Context, srv serverRef, result *api.AdminActionResult) {
+	if result.Invite == nil || result.Invite.PairingRequestId == nil || *result.Invite.PairingRequestId == "" {
+		return
+	}
+	id := *result.Invite.PairingRequestId
+	next := invitedPairingNext(srv, id)
+	var captured bytes.Buffer
+	worker := *a
+	worker.json = true
+	worker.env.Stdout = &captured
+	worker.env.Stderr = io.Discard
+	if err := runPairing(ctx, &worker, []string{"select", id, "--here", "--server", srv.URL}); err != nil {
+		result.Next = next
+		return
+	}
+	var selected struct {
+		Server  serverRef          `json:"server"`
+		Request api.PairingRequest `json:"request"`
+	}
+	if json.Unmarshal(captured.Bytes(), &selected) != nil || selected.Server.URL != srv.URL || selected.Request.Id != id || selected.Request.ServerId == "" {
+		result.Next = next
+	}
+}
+
+func invitedPairingNext(srv serverRef, id string) *api.NextStep {
+	return &api.NextStep{Command: "aboard pairing select " + commandWord(id) + " --here --server " + commandWord(srv.URL), Resume: "The invite was issued. Continue this same pairing in its original initiating session; do not create another invite."}
 }
 
 func serverInvitePrompt(link string) string {

@@ -10,7 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 )
@@ -360,5 +363,89 @@ func TestSetupPairingNeedsTheIntendedSessionBeforeAuthenticatedHTTP(t *testing.T
 	}
 	if requests != 0 || result.State != "pending" || result.Steps[4].State != "pending" || result.Steps[5].State != "pending" || result.Next == nil || !strings.Contains(result.Next.Command, "pairing accept prq_exact --here") {
 		t.Fatalf("setup bypassed the intended session: requests=%d result=%+v", requests, result)
+	}
+}
+
+func TestExecutedBundledInviteSelectsItsOriginalSessionWithoutReissuing(t *testing.T) {
+	for _, state := range []string{"selected", "failed", "held"} {
+		t.Run(state, func(t *testing.T) {
+			fail := state == "failed"
+			held := state == "held"
+			var issued, selected atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if r.Header.Get("Authorization") != "Bearer own-seat" {
+					t.Error("human or other-seat credential used")
+				}
+				switch r.URL.Path {
+				case "/v1/boards/work":
+					_, _ = w.Write([]byte(`{"id":"brd_work","name":"work"}`))
+				case "/v1/me":
+					_, _ = w.Write([]byte(`{"id":"mem_scout","name":"scout","kind":"agent","board":"work","owner":"owner"}`))
+				case "/v1/me/admin-requests":
+					issued.Add(1)
+					if held {
+						w.WriteHeader(202)
+						_, _ = w.Write([]byte(`{"state":"pending","approval":{"id":"apr_one","state":"pending","agent_id":"mem_scout"},"next":{"command":"aboard approvals allow apr_one","resume":"Continue after approval."}}`))
+						return
+					}
+					_, _ = w.Write([]byte(`{"state":"executed","approval":{"id":"apr_one","state":"executed","agent_id":"mem_scout"},"invite":{"id":"inv_one","invite":"abi_once","expires_at":"2026-10-15T00:00:00Z","server_role":"member","pairing_request_id":"prq_exact"}}`))
+				default:
+					t.Errorf("unexpected API %s", r.URL.Path)
+					w.WriteHeader(404)
+				}
+			}))
+			defer srv.Close()
+			e := lifecycleMachine(t, srv.URL, "never-human", agentCredential{Server: srv.URL, Board: "work", Name: "scout", MemberID: "mem_scout", Token: "own-seat"})
+			e.env["ABOARD_AGENT"] = "scout"
+			e.env["ABOARD_SESSION"] = "claude-code:original"
+			var out bytes.Buffer
+			a := &app{env: e.environment(&out, &out), json: true, localChecked: true}
+			fakeDaemonAnswering(t, a, func(req delivery.Request) delivery.Response {
+				resp := delivery.Response{V: delivery.ProtocolVersion}
+				if req.Harness != "claude-code" || req.Session != "original" {
+					t.Errorf("wrong session %+v", req)
+				}
+				if req.Op == delivery.OpAgents {
+					resp.Agents = []delivery.AgentRef{{Server: srv.URL, Board: "work", Name: "scout", MemberID: "mem_scout"}}
+				}
+				if req.Op == delivery.OpPairing {
+					selected.Add(1)
+					if req.PairingAction != "select" || req.PairingID != "prq_exact" || req.Server != srv.URL {
+						t.Errorf("wrong selection %+v", req)
+					}
+					if fail {
+						resp.Error = &delivery.WireError{Code: "pairing_changed", Message: "The session changed.", Hint: "Select the original endpoint."}
+					} else {
+						resp.Server = srv.URL
+						resp.PairingBoard = "work"
+						resp.Pairing = &delivery.PairingRequest{ID: "prq_exact", ServerID: "srv_one", BoardID: "brd_work", State: "awaiting_account", Generation: 1}
+					}
+				}
+				return resp
+			})
+			if err := runInvite(context.Background(), a, []string{"--server", srv.URL, "--board", "work", "--pairing", "Review this change"}); err != nil {
+				t.Fatal(err)
+			}
+			var result struct {
+				Invite *api.ServerInvite `json:"invite"`
+				Next   *api.NextStep     `json:"next"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if held {
+				if issued.Load() != 1 || selected.Load() != 0 || result.Invite != nil || result.Next == nil || !strings.Contains(result.Next.Resume, "original session") {
+					t.Fatalf("held selected an endpoint: %s", out.String())
+				}
+				return
+			}
+			if issued.Load() != 1 || selected.Load() != 1 || result.Invite == nil || result.Invite.Invite != "abi_once" {
+				t.Fatalf("issued=%d selected=%d output=%s", issued.Load(), selected.Load(), out.String())
+			}
+			if fail && (result.Next == nil || !strings.Contains(result.Next.Command, "pairing select prq_exact --here --server")) {
+				t.Fatalf("missing same-invite recovery: %s", out.String())
+			}
+		})
 	}
 }
