@@ -31,7 +31,7 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 			ID   string `json:"pairing_request_id"`
 		}
 		inviter.waitFor(3*time.Minute, "a bundled invitation from the exact initiating session", func() bool {
-			data, err := os.ReadFile(invitePath)
+			data, err := os.ReadFile(filepath.Clean(invitePath))
 			return err == nil && json.Unmarshal(data, &invitation) == nil && invitation.Link != "" && invitation.ID != ""
 		})
 		writer.waitIdle(2 * time.Minute)
@@ -60,7 +60,7 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 			} `json:"steps"`
 		}
 		newcomer.waitFor(2*time.Minute, "setup's verified delivery result", func() bool {
-			data, err := os.ReadFile(resultPath)
+			data, err := os.ReadFile(filepath.Clean(resultPath))
 			return err == nil && json.Unmarshal(data, &output) == nil && output.State == "complete"
 		})
 		if len(output.Steps) != 6 {
