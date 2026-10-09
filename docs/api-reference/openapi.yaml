@@ -3879,8 +3879,11 @@ paths:
           $ref: "#/components/responses/Error"
         401:
           $ref: "#/components/responses/Error"
-        403:
-          $ref: "#/components/responses/Error"
+        "403":
+          description: Person-only refusal; agent tokens get human_token_required with a runnable handover
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
         404:
           $ref: "#/components/responses/Error"
         409:
@@ -3892,7 +3895,7 @@ paths:
       operationId: "setAllowance"
       summary: "Replace the person allowance"
       description: |
-        Person key/browser only; agents cannot set their own authority. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
+        Person key/browser only; agent tokens get 403 human_token_required and next.command, never authority to set their allowance. Browser writes require Origin and CSRF. Off by default. The complete set replaces atomically; duplicate/unknown categories are invalid_request.
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
@@ -3916,8 +3919,11 @@ paths:
           $ref: "#/components/responses/Error"
         401:
           $ref: "#/components/responses/Error"
-        403:
-          $ref: "#/components/responses/Error"
+        "403":
+          description: Person-only refusal; agent tokens get human_token_required with a runnable handover
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
         404:
           $ref: "#/components/responses/Error"
         409:
@@ -3960,7 +3966,7 @@ paths:
       operationId: "requestAdminAction"
       summary: "Request an exact administrative action"
       description: |
-        Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
+        Agent seat token only, bound to its current owner and parent key. The person must currently have the underlying authority before a request is held. An active matching allowance executes ordinary-member admission; everything else creates a pending approval, without performing the action. Existing person-only endpoints remain unchanged. A bundled invite requires invite-people plus add-people allowance or current per-board agent-add authority for each board; otherwise hold its complete exact payload for approval. Reject any action above current person authority. Record requester agent and authorizing person/allowance or approval with the existing action event; server-level actions remain auditable without leaking secrets.
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
@@ -3974,6 +3980,11 @@ paths:
             schema:
               $ref: "#/components/schemas/AdminAction"
       responses:
+        "200":
+          description: Executed or previously executed; nonsecret replay only
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminActionResult" }
         201:
           description: "Success"
           content:
@@ -3997,14 +4008,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminActionResult"
+                $ref: "#/components/schemas/HeldAdminActionResult"
   /v1/me/approvals/{approval}/allow:
     post:
       tags: ["onboarding"]
       operationId: "allowApproval"
       summary: "Allow and execute an exact approval"
       description: |
-        Only the approving person key/browser. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
+        Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. No action may be edited here. One transaction checks current authority, consumes the pending approval and performs its frozen action; concurrent decisions serialize. always additionally enables only the admissible category in that transaction. On repeat recheck authority and return the nonsecret outcome, never execute or reveal a secret again. Declined/expired conflicts; forbidden always changes nothing.
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
@@ -4034,8 +4045,11 @@ paths:
           $ref: "#/components/responses/Error"
         401:
           $ref: "#/components/responses/Error"
-        403:
-          $ref: "#/components/responses/Error"
+        "403":
+          description: Person-only refusal; agent tokens get human_token_required with a runnable handover
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
         404:
           $ref: "#/components/responses/Error"
         409:
@@ -4048,7 +4062,7 @@ paths:
       operationId: "declineApproval"
       summary: "Decline a pending approval"
       description: |
-        Only the approving person key/browser. Declining a pending request is idempotent. An executed approval cannot be declined.
+        Only the approving person key/browser; agent tokens get 403 human_token_required with next.command. Browser writes require Origin and CSRF. Declining a pending request is idempotent. An executed approval cannot be declined.
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
@@ -4072,8 +4086,11 @@ paths:
           $ref: "#/components/responses/Error"
         401:
           $ref: "#/components/responses/Error"
-        403:
-          $ref: "#/components/responses/Error"
+        "403":
+          description: Person-only refusal; agent tokens get human_token_required with a runnable handover
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingForbidden" }
         404:
           $ref: "#/components/responses/Error"
         409:
@@ -4145,7 +4162,7 @@ paths:
       operationId: "createPairingRequest"
       summary: "Request a pairing with a person"
       description: |
-        Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance.
+        Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
@@ -4671,6 +4688,7 @@ components:
                 - pairing_not_found
                 - pairing_changed
                 - pairing_closed
+                - pairing_ambiguous
             message: { type: string, description: "What went wrong, in one sentence." }
             hint: { type: string, description: "The next thing to do, ideally a command." }
             next: { $ref: "#/components/schemas/NextStep" }
@@ -5134,7 +5152,7 @@ components:
           uniqueItems: true
           items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
           description: |
-            Optional ordinary-member admissions by immutable board id. Issuer needs
+            Optional ordinary-member admissions by immutable board id. invite-people alone never grants board admission: each board additionally requires add-people allowance or current per-board agent-add authority (otherwise exact approval), as well as the person’s current add-member permission. Issuer needs
             current add-member authority for each board at issue and redemption, in
             addition to invite authority. Hidden boards return only board_not_found;
             server admin alone grants no access to another private board.
@@ -8081,10 +8099,11 @@ components:
     NextStep:
       type: "object"
       additionalProperties: false
-      required: ["resume"]
+      required: ["command", "resume"]
       properties:
         command:
           type: "string"
+          minLength: 1
           description: "An exact, shell-quoted command with actual immutable ids and issuer URL; no placeholders or secrets."
         board_view:
           type: "string"
@@ -8575,7 +8594,7 @@ components:
         The daemon holds it for the selected runtime only. Bound to issuer, parent key,
         person, request, side, seat, exact session binding and current generation.
         It expires after 10 minutes or earlier with parent revocation/expiry, removal,
-        endpoint replacement or terminal request. It grants only getPairingRequest,
+        endpoint replacement or terminal request. While still verifying against an offline peer, the daemon re-mints its own short-lived credential for the same exact session and generation after fresh authority checks; renewal neither replaces endpoints nor resets generation/evidence. Parent revocation, expiry, removal and terminal states never renew. It grants only getPairingRequest,
         acceptPairingRequest and verifyPairingRoundTrip for this one request; every
         other operation refuses. It cannot invite, change allowances, add people or
         post arbitrary messages. Its valid possession authenticates the runtime's
@@ -8588,3 +8607,41 @@ components:
           not:
             required: [token]
       description: Access-key metadata that must not contain a token property.
+
+    OnboardingError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            error:
+              type: object
+              required: [next]
+              properties:
+                next: { $ref: "#/components/schemas/NextStep" }
+      description: Person-only onboarding refusal with a concrete safe command for the person's terminal.
+    HeldAdminActionResult:
+      allOf:
+        - $ref: "#/components/schemas/AdminActionResult"
+        - type: object
+          required: [next]
+          properties:
+            state: { type: string, enum: [pending] }
+            next: { $ref: "#/components/schemas/NextStep" }
+      description: No side effect; exact approval and runnable command handover are required.
+
+    OnboardingForbidden:
+      anyOf:
+        - $ref: "#/components/schemas/OnboardingError"
+        - allOf:
+            - $ref: "#/components/schemas/Error"
+            - type: object
+              not:
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code: { type: string, enum: [human_token_required] }
+      description: |
+        A human_token_required refusal requires next.command. Existing authentication
+        and permission failures, including removed-seat agent_removed before dispatch,
+        retain the ordinary error shape and do not invent onboarding authority.

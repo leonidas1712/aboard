@@ -1733,3 +1733,9 @@ seat token cannot acquire or impersonate the replacement runtime's private proof
 Selection/replacement of either side uses createPairingCredential with last-read
 CAS; only that side's person can authorize it. Replacement revokes both credentials
 and both directions' old evidence, requiring fresh proofs under the new generation.
+
+While a request remains verifying against an offline peer, the daemon can re-mint
+its own expired 10-minute endpoint credential for the same vouched session and
+request generation, with fresh parent/owner/access checks. This is renewal, not
+endpoint replacement: it neither discards earlier valid evidence nor increments
+the generation. Removed/revoked authority and terminal requests cannot renew.
