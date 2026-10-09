@@ -75,7 +75,6 @@ func TestPairingNonmemberWaitsForItsExactAdmissionApproval(t *testing.T) {
 	if len(finalApprovals.JSON200.Approvals) != len(approvals.JSON200.Approvals) {
 		t.Fatal("pairing replay created another admission approval")
 	}
-
 }
 
 func TestPairingAllowanceAdmitsTheRecipientWithoutSelectingTheirSession(t *testing.T) {
