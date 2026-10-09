@@ -43,6 +43,7 @@ func TestUrgentPeerFeedbackExplainsEligibilityAndOwnerPolicy(t *testing.T) {
 		t.Fatalf("owner policy feedback: %s", second.stdout)
 	}
 	e.run("delivery", "off", "--as", "reviewer")
+	e.presenceIs("writer-reviewer", "reviewer", "working", "off")
 	quiet := writer.run("say", "--to", "@reviewer", "--urgent", "do not wake", "--json").json(t)
 	if field(t, quiet, "recipients").([]any)[0].(map[string]any)["outcome"] != "not_woken" {
 		t.Fatalf("policy hint overrode delivery off: %v", quiet)
