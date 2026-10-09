@@ -969,7 +969,9 @@ A fresh zero-seat session lists its own person's requests through the daemon's
 issuer-bound parent key, then uses the existing D197 join before endpoint selection.
 It cannot use this operation to widen the delegation. A selected endpoint is bound
 to the issuer, request, side, permanent seat and a hash of the exact harness session,
-boot and local binding generation. Its private client-generated credential is saved
+boot, a random daemon-instance nonce and local binding generation.
+A daemon restart requires deliberate endpoint replacement; it never silently
+acquires the old runtime's private proof. Its private client-generated credential is saved
 before minting and is never placed on this socket, hooks or model output.
 
 Only a confirmed journal handoff for this exact session and binding can supply
