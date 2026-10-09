@@ -111,6 +111,30 @@ type setupLostResponseTransport struct {
 	dropped  atomic.Bool
 }
 
+func TestOwnInviteCommandsListMetadataAndRevokeOnce(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	link := field(t, invite, "link").(string)
+	listed := tm.admin.run("invite", "list", "--server", tm.url(), "--json")
+	matchesCLISpec(t, "ServerInvitesOutput", listed.json(t))
+	id := field(t, listed.json(t), "invites.0.id").(string)
+	if strings.Contains(listed.stdout+listed.stderr, link) {
+		t.Fatal("invite list omitted the issued invite or exposed its link")
+	}
+	for i, changed := range []bool{true, false} {
+		out := tm.admin.run("invite", "revoke", id, "--server", tm.url(), "--json").json(t)
+		matchesCLISpec(t, "ServerInviteRevocationOutput", out)
+		if field(t, out, "changed") != changed || field(t, out, "id") != id {
+			t.Fatalf("revocation %d: %v", i, out)
+		}
+	}
+	listed = tm.admin.run("invite", "list", "--server", tm.url(), "--json")
+	if field(t, listed.json(t), "invites.0.state") != "revoked" {
+		t.Fatal("revocation is not reflected in invite metadata")
+	}
+}
+
 func (p *setupLostResponseTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if r.Method == http.MethodPost && r.URL.Path == "/v1/connect" {
 		p.connects.Add(1)
