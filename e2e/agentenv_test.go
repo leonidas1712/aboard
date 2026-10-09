@@ -58,7 +58,7 @@ func TestPersonCommandsRefuseUnderABOARDAGENT(t *testing.T) {
 			}
 			if args[0] == "invite" && len(args) > 1 && args[1] == "--server" {
 				want = "agent_session_required"
-				if field(t, r.json(t), "error.next.command") != "aboard help join" {
+				if field(t, r.json(t), "error.next.command") != "aboard boards --server '"+srv.URL+"'" {
 					t.Fatalf("missing join handover: %s", r)
 				}
 			}
