@@ -194,6 +194,31 @@ test("the brief shows under the Now line with its version, author and what happe
   await expect(brief.locator(".brief-summary")).toHaveText("Last updated 2026-10-08 by @claude-2. Staging is on v2; see the runbook, as in snake_case_notes.");
 });
 
+test("a person copies a prompt asking an agent to write the brief, then to bring it up to date", async ({ page }) => {
+  const board = "brief-ask";
+  await openBoard(page, board);
+  const brief = page.getByRole("region", { name: "Brief" });
+  // No brief: the prompt asks an agent to write the first one.
+  await brief.getByRole("button", { name: "ask an agent to" }).click();
+  const ask = brief.getByRole("region", { name: "Ask an agent" });
+  await expect(ask.getByLabel("Prompt for the agent's session")).toHaveText(
+    `On the Aboard board ${board}, write the board's brief. Read the board first (aboard read, aboard task list), then write brief.md: what the board is for, who is here and what each does, how we work, where things stand, and what's next. Save it with aboard brief put brief.md.`,
+  );
+  await expect(ask.getByRole("button", { name: "Copy prompt" })).toBeVisible();
+  await ask.getByRole("button", { name: "Close Ask an agent" }).click();
+  await expect(ask).toHaveCount(0);
+
+  // With a brief: the same place asks an agent to update it from the version shown.
+  const first = await putBrief(board, "brief.md", v1);
+  await putBrief(board, "brief.md", v2, { id: first.id, version: 1 });
+  await expect(brief.locator(".brief-byline")).toContainText("brief.md v2");
+  await brief.getByRole("button", { name: "Show full brief" }).click();
+  await brief.getByRole("button", { name: "Ask an agent to update" }).click();
+  await expect(brief.getByRole("region", { name: "Ask an agent" }).getByLabel("Prompt for the agent's session")).toHaveText(
+    `On the Aboard board ${board}, bring the brief up to date. Run aboard brief get brief.md, read what happened since v2 (aboard read, aboard task list), update where things stand and what's next, keep what is still true, then save it with aboard brief put brief.md.`,
+  );
+});
+
 test("Show less stays in reach while a long brief scrolls", async ({ page }) => {
   const board = "brief-long";
   await openBoard(page, board);
