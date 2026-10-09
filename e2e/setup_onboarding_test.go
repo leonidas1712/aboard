@@ -3,8 +3,13 @@
 package e2e
 
 import (
+	"errors"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -63,4 +68,57 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	if status != http.StatusOK || len(field(t, directory, "people").([]any)) != 2 {
 		t.Fatalf("setup created more than one newcomer: %d %v", status, directory)
 	}
+}
+
+// The proxy drops the committed account response, then allows the original saved
+// key to recover its receipt. It never simulates an uncommitted server failure.
+func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	name := tm.newBoard(tm.admin, "private")
+	invite := tm.admin.run("invite", "--server", tm.url(), "--board", name, "--json").json(t)
+	target, err := url.Parse(tm.url())
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := &setupLostResponseTransport{next: http.DefaultTransport}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = transport
+	proxy.ErrorLog = nil
+	server := httptest.NewServer(proxy)
+	t.Cleanup(server.Close)
+	link := strings.Replace(field(t, invite, "link").(string), tm.url(), server.URL, 1)
+	person := newPersonHome(t, "recoverer")
+	session := person.claudeSession("recovering-setup")
+	first := session.runExit("setup", link, "--handle", "recoverer", "--json")
+	if first.json(t)["state"] != "uncertain" || !transport.dropped.Load() {
+		t.Fatalf("lost commit response did not remain uncertain: %s", first)
+	}
+	recovered := session.run("setup", link, "--handle", "recoverer", "--json").json(t)
+	matchesCLISpec(t, "SetupOutput", recovered)
+	if field(t, recovered, "steps.1.state") != "complete" || transport.connects.Load() != 1 {
+		t.Fatalf("recovery repeated redemption instead of authenticating its saved key: %v", recovered)
+	}
+	status, people := tm.call("GET", "/v1/people", tm.key(tm.admin), nil)
+	if status != http.StatusOK || len(field(t, people, "people").([]any)) != 2 {
+		t.Fatalf("recovery created another account: %d %v", status, people)
+	}
+}
+
+type setupLostResponseTransport struct {
+	next     http.RoundTripper
+	connects atomic.Int64
+	dropped  atomic.Bool
+}
+
+func (p *setupLostResponseTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.Method == http.MethodPost && r.URL.Path == "/v1/connect" {
+		p.connects.Add(1)
+	}
+	response, err := p.next.RoundTrip(r)
+	if err == nil && r.Method == http.MethodPost && r.URL.Path == "/v1/connect" && response.StatusCode == http.StatusOK && p.dropped.CompareAndSwap(false, true) {
+		_ = response.Body.Close()
+		return nil, errors.New("test dropped the committed connection response")
+	}
+	return response, err
 }
