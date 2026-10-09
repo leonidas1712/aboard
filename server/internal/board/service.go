@@ -22,10 +22,11 @@ import (
 
 // Config describes the server a Service runs in.
 type Config struct {
-	Blobs    Blobs
-	ServerID string
-	Mode     string // "local" or "team"
-	JoinHost string // how join lines name this server: "localhost", "localhost:7411", a domain
+	Blobs     Blobs
+	ServerID  string
+	Mode      string // "local" or "team"
+	IssuerURL string // exact configured issuer URL used by credential-qualified handovers
+	JoinHost  string // how join lines name this server: "localhost", "localhost:7411", a domain
 }
 
 // Service implements every board operation.

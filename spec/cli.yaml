@@ -957,8 +957,11 @@ $defs:
       server admin gets server_admin_required. An agent uses its selected seat and
       the D222 administrative request path: an enabled allowance executes, otherwise
       the exact request is held for its person. Without a selected seat, it refuses
-      with agent_session_required and next.command `aboard boards` (with --server
-      when known); join one with `aboard join --board NAME`, then retry. It never uses the person's login.
+      with agent_session_required. In a trusted session, the daemon first checks for
+      an open own-person pairing request on the chosen issuer; when one exists,
+      next.command is `aboard pairing list --server SERVER`. Otherwise it is
+      `aboard boards` (with --server when known); join one with
+      `aboard join --board NAME`, then retry. It never uses the person's login.
       The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
           aboard connect http://127.0.0.1:7400/join#abi_K8s2…
@@ -4022,7 +4025,7 @@ $defs:
       An agent uses only its issuer-bound onboarding/seat authority, never the
       person's CLI client. Text shows id, board, other person and state; no token,
       invitation secret or private board outside current access. Exit 0 or 1.
-      Planned until GEN-37; machine delegation powers are not extended.
+      Machine delegation powers are not extended.
     type: object
     required: [server, requests]
     properties:
@@ -4039,6 +4042,14 @@ $defs:
       current access before writing. Proposed work is content, not control over the
       recipient's session. Self-pairing changes no allowance or existing D205 behavior.
       aboard pairing accept [ID] --here selects this exact, verified harness session.
+      aboard pairing select ID --here selects the inviter's exact initiating session,
+      including deliberate recovery after its daemon restarts. It uses the same
+      private endpoint mint and generation CAS; only the inviter may select it.
+      This never accepts on behalf of the recipient. --replace explicitly replaces
+      an existing initiating endpoint. A person-terminal request or a selected-seat
+      request outside a real session remains awaiting this selection; recent
+      activity never fills it in. --as may name that request's initiating seat,
+      but select and accept always use the verified current session, not --as.
       If ID is omitted, exactly one accessible pending request must exist; otherwise
       refuse with pairing_ambiguous (details.requests contains only visible ids).
       Never guess from activity. --replace is explicit endpoint replacement using
@@ -4055,7 +4066,7 @@ $defs:
       or recipient self-join on an open board. Pairing becomes ready only after both
       real-session round trips at the current generation. Offline peers stay pending.
       Text shows board, request state, awaited endpoint and precise next step.
-      Exit 0 for accepted/pending/ready, 1 for refusal, 2 for usage. Planned GEN-37.
+      Exit 0 for accepted/pending/ready, 1 for refusal, 2 for usage.
     type: object
     required: [server, board, request]
     properties:

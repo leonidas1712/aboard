@@ -63,7 +63,7 @@ func newTestServer(t *testing.T, opts ...func(*api.Options)) *testServer {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = blobs.Close() })
-	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), key, board.Config{Blobs: blobs, ServerID: "srv_01M3W33B00TESTSERVER000000", Mode: "local", JoinHost: "localhost"}, log)
+	svc := board.New(st, notify.NewInProcess(), clk, ids.New(rand.Reader), key, board.Config{Blobs: blobs, ServerID: "srv_01M3W33B00TESTSERVER000000", Mode: "local", JoinHost: "localhost", IssuerURL: "http://127.0.0.1:7400"}, log)
 	owner, err := svc.BootstrapOwner(ctx, "alex", "laptop")
 	if err != nil {
 		t.Fatal(err)

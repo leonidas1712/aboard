@@ -26,6 +26,11 @@ type BookkeepingStore interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	PairingByCreation(scope, key string) (PairingRequest, error)
+	PairingByInvite(inviteID string) (PairingRequest, error)
+	PairingByID(id string) (PairingRequest, error)
+	PairingsOf(personID string) ([]PairingRequest, error)
+	PairingCredentialByDigest(digest string) (PairingCredential, error)
 	Allowance(personID string) (Allowance, error)
 	Approval(id string) (Approval, error)
 	ApprovalByRequest(agentID, key string) (Approval, error)
@@ -198,6 +203,9 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SavePairing(PairingRequest) error
+	SavePairingCredential(PairingCredential) error
+	DeletePairingCredentials(requestID string) error
 	SaveAllowance(Allowance) error
 	SaveApproval(Approval) error
 	ExpireAdminRequestKeys(before string) error

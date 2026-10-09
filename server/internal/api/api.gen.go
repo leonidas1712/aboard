@@ -12955,7 +12955,6 @@ type ClientInterface interface {
 	// All lifecycle checks and idempotent replays occur in the same transaction.
 	// Old runtime credentials cannot report evidence for a new session/generation.
 	// The key is never read or returned by a model-facing hook/socket path.
-	// Contract-first: 501 not_implemented until the pairing slice is provided.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -12971,7 +12970,6 @@ type ClientInterface interface {
 	// All lifecycle checks and idempotent replays occur in the same transaction.
 	// Old runtime credentials cannot report evidence for a new session/generation.
 	// The key is never read or returned by a model-facing hook/socket path.
-	// Contract-first: 501 not_implemented until the pairing slice is provided.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -12984,8 +12982,6 @@ type ClientInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
 	ListPairingRequests(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -12994,8 +12990,6 @@ type ClientInterface interface {
 	// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -13008,8 +13002,6 @@ type ClientInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
@@ -13021,8 +13013,6 @@ type ClientInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Corresponds with GET /v1/pairing-requests/{pairing} (the `GetPairingRequest` operationId).
 	GetPairingRequest(ctx context.Context, pairing string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -13031,8 +13021,6 @@ type ClientInterface interface {
 	// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -13045,8 +13033,6 @@ type ClientInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
@@ -13058,8 +13044,6 @@ type ClientInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
 	CancelPairingRequest(ctx context.Context, pairing string, params *CancelPairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -13069,8 +13053,6 @@ type ClientInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Corresponds with POST /v1/pairing-requests/{pairing}/decline (the `DeclinePairingRequest` operationId).
 	DeclinePairingRequest(ctx context.Context, pairing string, params *DeclinePairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -13079,8 +13061,6 @@ type ClientInterface interface {
 	// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -13092,8 +13072,6 @@ type ClientInterface interface {
 	// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -17444,7 +17422,6 @@ func (c *Client) ListReplies(ctx context.Context, message MessageParam, params *
 // All lifecycle checks and idempotent replays occur in the same transaction.
 // Old runtime credentials cannot report evidence for a new session/generation.
 // The key is never read or returned by a model-facing hook/socket path.
-// Contract-first: 501 not_implemented until the pairing slice is provided.
 //
 // Takes any type of body and a specified content type.
 //
@@ -17470,7 +17447,6 @@ func (c *Client) CreatePairingCredentialWithBody(ctx context.Context, params *Cr
 // All lifecycle checks and idempotent replays occur in the same transaction.
 // Old runtime credentials cannot report evidence for a new session/generation.
 // The key is never read or returned by a model-facing hook/socket path.
-// Contract-first: 501 not_implemented until the pairing slice is provided.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -17493,8 +17469,6 @@ func (c *Client) CreatePairingCredential(ctx context.Context, params *CreatePair
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
 func (c *Client) ListPairingRequests(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListPairingRequestsRequest(c.Server)
@@ -17513,8 +17487,6 @@ func (c *Client) ListPairingRequests(ctx context.Context, reqEditors ...RequestE
 // Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Takes any type of body and a specified content type.
 //
@@ -17537,8 +17509,6 @@ func (c *Client) CreatePairingRequestWithBody(ctx context.Context, params *Creat
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
@@ -17560,8 +17530,6 @@ func (c *Client) CreatePairingRequest(ctx context.Context, params *CreatePairing
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Corresponds with GET /v1/pairing-requests/{pairing} (the `GetPairingRequest` operationId).
 func (c *Client) GetPairingRequest(ctx context.Context, pairing string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPairingRequestRequest(c.Server, pairing)
@@ -17580,8 +17548,6 @@ func (c *Client) GetPairingRequest(ctx context.Context, pairing string, reqEdito
 // Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Takes any type of body and a specified content type.
 //
@@ -17604,8 +17570,6 @@ func (c *Client) AcceptPairingRequestWithBody(ctx context.Context, pairing strin
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
@@ -17627,8 +17591,6 @@ func (c *Client) AcceptPairingRequest(ctx context.Context, pairing string, param
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
 func (c *Client) CancelPairingRequest(ctx context.Context, pairing string, params *CancelPairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCancelPairingRequestRequest(c.Server, pairing, params)
@@ -17648,8 +17610,6 @@ func (c *Client) CancelPairingRequest(ctx context.Context, pairing string, param
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Corresponds with POST /v1/pairing-requests/{pairing}/decline (the `DeclinePairingRequest` operationId).
 func (c *Client) DeclinePairingRequest(ctx context.Context, pairing string, params *DeclinePairingRequestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeclinePairingRequestRequest(c.Server, pairing, params)
@@ -17668,8 +17628,6 @@ func (c *Client) DeclinePairingRequest(ctx context.Context, pairing string, para
 // Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Takes any type of body and a specified content type.
 //
@@ -17691,8 +17649,6 @@ func (c *Client) VerifyPairingRoundTripWithBody(ctx context.Context, pairing str
 // Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -26799,7 +26755,6 @@ type ClientWithResponsesInterface interface {
 	// All lifecycle checks and idempotent replays occur in the same transaction.
 	// Old runtime credentials cannot report evidence for a new session/generation.
 	// The key is never read or returned by a model-facing hook/socket path.
-	// Contract-first: 501 not_implemented until the pairing slice is provided.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -26815,7 +26770,6 @@ type ClientWithResponsesInterface interface {
 	// All lifecycle checks and idempotent replays occur in the same transaction.
 	// Old runtime credentials cannot report evidence for a new session/generation.
 	// The key is never read or returned by a model-facing hook/socket path.
-	// Contract-first: 501 not_implemented until the pairing slice is provided.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -26828,8 +26782,6 @@ type ClientWithResponsesInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
@@ -26840,8 +26792,6 @@ type ClientWithResponsesInterface interface {
 	// Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -26854,8 +26804,6 @@ type ClientWithResponsesInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
@@ -26866,8 +26814,6 @@ type ClientWithResponsesInterface interface {
 	// The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -26880,8 +26826,6 @@ type ClientWithResponsesInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
@@ -26892,8 +26836,6 @@ type ClientWithResponsesInterface interface {
 	// Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -26906,8 +26848,6 @@ type ClientWithResponsesInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
@@ -26918,8 +26858,6 @@ type ClientWithResponsesInterface interface {
 	// Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -26932,8 +26870,6 @@ type ClientWithResponsesInterface interface {
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
@@ -26944,8 +26880,6 @@ type ClientWithResponsesInterface interface {
 	// Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
 	//
 	// Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-	//
-	// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -33710,6 +33644,8 @@ type CreatePairingCredentialResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -33742,6 +33678,11 @@ func (r CreatePairingCredentialResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r CreatePairingCredentialResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CreatePairingCredentialResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -33793,6 +33734,8 @@ type ListPairingRequestsResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -33825,6 +33768,11 @@ func (r ListPairingRequestsResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r ListPairingRequestsResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r ListPairingRequestsResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -33876,6 +33824,8 @@ type CreatePairingRequestResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -33908,6 +33858,11 @@ func (r CreatePairingRequestResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r CreatePairingRequestResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CreatePairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -33959,6 +33914,8 @@ type GetPairingRequestResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -33991,6 +33948,11 @@ func (r GetPairingRequestResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r GetPairingRequestResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r GetPairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -34042,6 +34004,8 @@ type AcceptPairingRequestResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -34074,6 +34038,11 @@ func (r AcceptPairingRequestResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r AcceptPairingRequestResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r AcceptPairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -34125,6 +34094,8 @@ type CancelPairingRequestResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -34157,6 +34128,11 @@ func (r CancelPairingRequestResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r CancelPairingRequestResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r CancelPairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -34208,6 +34184,8 @@ type DeclinePairingRequestResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -34240,6 +34218,11 @@ func (r DeclinePairingRequestResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r DeclinePairingRequestResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r DeclinePairingRequestResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -34291,6 +34274,8 @@ type VerifyPairingRoundTripResponse struct {
 	JSON404 *Error
 	// JSON409 the response for an HTTP 409 `application/json` response
 	JSON409 *Error
+	// JSON422 the response for an HTTP 422 `application/json` response
+	JSON422 *Error
 	// JSON501 the response for an HTTP 501 `application/json` response
 	JSON501 *Error
 }
@@ -34323,6 +34308,11 @@ func (r VerifyPairingRoundTripResponse) GetJSON404() *Error {
 // GetJSON409 returns the response for an HTTP 409 `application/json` response
 func (r VerifyPairingRoundTripResponse) GetJSON409() *Error {
 	return r.JSON409
+}
+
+// GetJSON422 returns the response for an HTTP 422 `application/json` response
+func (r VerifyPairingRoundTripResponse) GetJSON422() *Error {
+	return r.JSON422
 }
 
 // GetJSON501 returns the response for an HTTP 501 `application/json` response
@@ -38523,7 +38513,6 @@ func (c *ClientWithResponses) ListRepliesWithResponse(ctx context.Context, messa
 // All lifecycle checks and idempotent replays occur in the same transaction.
 // Old runtime credentials cannot report evidence for a new session/generation.
 // The key is never read or returned by a model-facing hook/socket path.
-// Contract-first: 501 not_implemented until the pairing slice is provided.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -38545,7 +38534,6 @@ func (c *ClientWithResponses) CreatePairingCredentialWithBodyWithResponse(ctx co
 // All lifecycle checks and idempotent replays occur in the same transaction.
 // Old runtime credentials cannot report evidence for a new session/generation.
 // The key is never read or returned by a model-facing hook/socket path.
-// Contract-first: 501 not_implemented until the pairing slice is provided.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -38564,8 +38552,6 @@ func (c *ClientWithResponses) CreatePairingCredentialWithResponse(ctx context.Co
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with GET /v1/pairing-requests (the `ListPairingRequests` operationId).
@@ -38582,8 +38568,6 @@ func (c *ClientWithResponses) ListPairingRequestsWithResponse(ctx context.Contex
 // Person key/browser or initiating seat token. Ownership is derived from authentication. Recheck board access and any proposed ordinary-member admission; admission above authority is forbidden, without a request or membership. Self-pairing on own board needs no allowance. An existing board member reuses their seat/membership with no admission or membership change. A nonmember is admitted only as an ordinary member under the inviter’s current per-board add authority and matching allowance/approval, or their own permitted open-board join.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -38602,8 +38586,6 @@ func (c *ClientWithResponses) CreatePairingRequestWithBodyWithResponse(ctx conte
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/pairing-requests (the `CreatePairingRequest` operationId).
@@ -38620,8 +38602,6 @@ func (c *ClientWithResponses) CreatePairingRequestWithResponse(ctx context.Conte
 // The current pairing credential can read only its bound request. Otherwise only the current inviter/recipient or their selected board seat with current board access. Missing/hidden requests return uniform pairing_not_found.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -38640,8 +38620,6 @@ func (c *ClientWithResponses) GetPairingRequestWithResponse(ctx context.Context,
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/pairing-requests/{pairing}/accept (the `AcceptPairingRequest` operationId).
@@ -38658,8 +38636,6 @@ func (c *ClientWithResponses) AcceptPairingRequestWithBodyWithResponse(ctx conte
 // Requires the selected recipient runtime’s current pairing credential. Only the current recipient selects their own seat. Server validates ownership, board participation and CAS before accepting. Accepting an already minted endpoint does not select or replace it again. An inviter cannot choose another person’s endpoint. Acceptance of proposed work does not delegate control.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -38678,8 +38654,6 @@ func (c *ClientWithResponses) AcceptPairingRequestWithResponse(ctx context.Conte
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/pairing-requests/{pairing}/cancel (the `CancelPairingRequest` operationId).
@@ -38696,8 +38670,6 @@ func (c *ClientWithResponses) CancelPairingRequestWithResponse(ctx context.Conte
 // Only the recipient may decline. Repeat decline is idempotent; terminal ready/cancelled/expired transitions conflict.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -38716,8 +38688,6 @@ func (c *ClientWithResponses) DeclinePairingRequestWithResponse(ctx context.Cont
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 //
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
-//
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /v1/pairing-requests/{pairing}/verify (the `VerifyPairingRoundTrip` operationId).
@@ -38734,8 +38704,6 @@ func (c *ClientWithResponses) VerifyPairingRoundTripWithBodyWithResponse(ctx con
 // Requires the current pairing credential, not a person/browser/seat token. Only a current selected endpoint may report its own evidence. Look up all message and receipt evidence with current access. Ready is derived only after both directions under the same generation; stale evidence returns pairing_changed without altering state. Timeout/offline leaves verifying with awaiting and next.
 //
 // Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
-//
-// Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -44320,6 +44288,13 @@ func ParseCreatePairingCredentialResponse(rsp *http.Response) (*CreatePairingCre
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -44387,6 +44362,13 @@ func ParseListPairingRequestsResponse(rsp *http.Response) (*ListPairingRequestsR
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
@@ -44456,6 +44438,13 @@ func ParseCreatePairingRequestResponse(rsp *http.Response) (*CreatePairingReques
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -44523,6 +44512,13 @@ func ParseGetPairingRequestResponse(rsp *http.Response) (*GetPairingRequestRespo
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
@@ -44592,6 +44588,13 @@ func ParseAcceptPairingRequestResponse(rsp *http.Response) (*AcceptPairingReques
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -44659,6 +44662,13 @@ func ParseCancelPairingRequestResponse(rsp *http.Response) (*CancelPairingReques
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
@@ -44728,6 +44738,13 @@ func ParseDeclinePairingRequestResponse(rsp *http.Response) (*DeclinePairingRequ
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -44795,6 +44812,13 @@ func ParseVerifyPairingRoundTripResponse(rsp *http.Response) (*VerifyPairingRoun
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
 		var dest Error
@@ -58192,6 +58216,20 @@ func (response CreatePairingCredential409JSONResponse) VisitCreatePairingCredent
 	return err
 }
 
+type CreatePairingCredential422JSONResponse Error
+
+func (response CreatePairingCredential422JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreatePairingCredential501JSONResponse Error
 
 func (response CreatePairingCredential501JSONResponse) VisitCreatePairingCredentialResponse(w http.ResponseWriter) error {
@@ -58293,6 +58331,20 @@ func (response ListPairingRequests409JSONResponse) VisitListPairingRequestsRespo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPairingRequests422JSONResponse Error
+
+func (response ListPairingRequests422JSONResponse) VisitListPairingRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -58404,6 +58456,20 @@ func (response CreatePairingRequest409JSONResponse) VisitCreatePairingRequestRes
 	return err
 }
 
+type CreatePairingRequest422JSONResponse Error
+
+func (response CreatePairingRequest422JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreatePairingRequest501JSONResponse Error
 
 func (response CreatePairingRequest501JSONResponse) VisitCreatePairingRequestResponse(w http.ResponseWriter) error {
@@ -58506,6 +58572,20 @@ func (response GetPairingRequest409JSONResponse) VisitGetPairingRequestResponse(
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPairingRequest422JSONResponse Error
+
+func (response GetPairingRequest422JSONResponse) VisitGetPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -58618,6 +58698,20 @@ func (response AcceptPairingRequest409JSONResponse) VisitAcceptPairingRequestRes
 	return err
 }
 
+type AcceptPairingRequest422JSONResponse Error
+
+func (response AcceptPairingRequest422JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type AcceptPairingRequest501JSONResponse Error
 
 func (response AcceptPairingRequest501JSONResponse) VisitAcceptPairingRequestResponse(w http.ResponseWriter) error {
@@ -58721,6 +58815,20 @@ func (response CancelPairingRequest409JSONResponse) VisitCancelPairingRequestRes
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelPairingRequest422JSONResponse Error
+
+func (response CancelPairingRequest422JSONResponse) VisitCancelPairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -58832,6 +58940,20 @@ func (response DeclinePairingRequest409JSONResponse) VisitDeclinePairingRequestR
 	return err
 }
 
+type DeclinePairingRequest422JSONResponse Error
+
+func (response DeclinePairingRequest422JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeclinePairingRequest501JSONResponse Error
 
 func (response DeclinePairingRequest501JSONResponse) VisitDeclinePairingRequestResponse(w http.ResponseWriter) error {
@@ -58936,6 +59058,20 @@ func (response VerifyPairingRoundTrip409JSONResponse) VisitVerifyPairingRoundTri
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyPairingRoundTrip422JSONResponse Error
+
+func (response VerifyPairingRoundTrip422JSONResponse) VisitVerifyPairingRoundTripResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -64184,86 +64320,86 @@ var swaggerSpec = []string{
 	"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",
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
