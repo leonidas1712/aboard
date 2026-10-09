@@ -899,3 +899,24 @@ keep the seven-day default. Explicit lifetimes and existing revocation rules rem
 D222 invitation opt-in also includes `approvals allow ID --always` for an
 invite-people action: its API response and CLI output carry the same warning.
 Allow-once remains the default handover and enables no invitation allowance.
+
+**D223 (proposed). Server selection belongs to the machine or the acting seat,
+never the working directory (supersedes folder selection in D203 and the
+one-server-per-session restriction; requested for #279).** A person uses an explicit
+`--server NAME|URL`, otherwise the machine's saved default. Existing folder links
+are ignored and left untouched; doctor identifies legacy regular files without
+reading the state directory as a link. With known servers and no default, return
+choices before credentials or writes. Fresh local bootstrap establishes the initial
+local default, and adding a server never changes an existing default. Person board
+selection uses `--board`, or the sole accessible active board, otherwise choices.
+`--server` selects an issuer; `invite --person` selects person invitation, while
+bare `invite --server` remains a deprecated compatibility alias. A session can keep
+seats on several issuers. Agent commands select issuer-bound seats and never use a
+person's default to move a bound agent or fall back to a person's login. Ambiguous
+names require issuer qualification. Combined deliveries label issuer and board,
+and confirmations, presence, receipts, pairing and peer permissions remain scoped
+to the original issuer and immutable seat. Existing single-issuer delivery text
+remains compatible. The design and migration are in
+[server-selection.md](explorations/server-selection.md).
+Why: a directory must not silently redirect a command, and one conversation can
+work on several servers without changing identities or sharing credentials.
