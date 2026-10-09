@@ -7285,6 +7285,7 @@ components:
         - $ref: "#/components/schemas/PersonRemovedEvent"
         - $ref: "#/components/schemas/PersonLeftEvent"
         - $ref: "#/components/schemas/PersonMadeOwnerEvent"
+        - $ref: "#/components/schemas/PersonRoleChangedEvent"
         - $ref: "#/components/schemas/BoardArchivedEvent"
         - $ref: "#/components/schemas/BoardRestoredEvent"
         - $ref: "#/components/schemas/BoardDeletedEvent"
@@ -7323,6 +7324,7 @@ components:
           person.removed: "#/components/schemas/PersonRemovedEvent"
           person.left: "#/components/schemas/PersonLeftEvent"
           person.made_owner: "#/components/schemas/PersonMadeOwnerEvent"
+          person.role_changed: "#/components/schemas/PersonRoleChangedEvent"
           board.archived: "#/components/schemas/BoardArchivedEvent"
           board.restored: "#/components/schemas/BoardRestoredEvent"
           board.deleted: "#/components/schemas/BoardDeletedEvent"
@@ -7677,6 +7679,25 @@ components:
           properties:
             type: { type: string, enum: [person.made_owner] }
             data: { $ref: "#/components/schemas/PersonEventData" }
+    PersonRoleChangedEvent:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelope"
+        - type: object
+          properties:
+            type: { type: string, enum: [person.role_changed] }
+            data:
+              type: object
+              required: [member_id, person_id, before, after, authorization]
+              properties:
+                member_id:
+                  type: string
+                  pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$"
+                person_id:
+                  type: string
+                  pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$"
+                before: { $ref: "#/components/schemas/BoardRole" }
+                after: { $ref: "#/components/schemas/BoardRole" }
+                authorization: { $ref: "#/components/schemas/AdminAuthorization" }
     BoardLifecycleEventData:
       type: object
       required: [person_id, before, after]
