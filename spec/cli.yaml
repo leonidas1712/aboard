@@ -957,8 +957,11 @@ $defs:
       server admin gets server_admin_required. An agent uses its selected seat and
       the D222 administrative request path: an enabled allowance executes, otherwise
       the exact request is held for its person. Without a selected seat, it refuses
-      with agent_session_required and next.command `aboard boards` (with --server
-      when known); join one with `aboard join --board NAME`, then retry. It never uses the person's login.
+      with agent_session_required. In a trusted session, the daemon first checks for
+      an open own-person pairing request on the chosen issuer; when one exists,
+      next.command is `aboard pairing list --server SERVER`. Otherwise it is
+      `aboard boards` (with --server when known); join one with
+      `aboard join --board NAME`, then retry. It never uses the person's login.
       The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
           aboard connect http://127.0.0.1:7400/join#abi_K8s2…
