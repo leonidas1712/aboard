@@ -104,7 +104,7 @@ func helpText(templates string) []commandHelp {
 			Name: "allowance", Group: groupMaintain,
 			Summary:     "Read or change what your agents may do without asking",
 			Usage:       []string{"aboard allowance [--server SERVER] [--json]", "aboard allowance on|off [--server SERVER] [--json]", "aboard allowance set invite-people|add-people on|off [--server SERVER] [--json]"},
-			Description: "Allowances start off. Only your person can change them. on enables both categories; off disables both; set changes one category and keeps the other. Agents use their own seat credential and receive the command their person can run.",
+			Description: "Allowances start off. Only your person can change them. on enables only add-people and clears invite-people; off disables both; set changes one category and keeps the other. Enable invite-people explicitly; it warns that outsiders can read every open board. Agents use their own seat credential and receive the command their person can run.",
 			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the allowance."}, flagJSON},
 			Examples:    []helpExample{{"aboard allowance set add-people on", "Let your agents add people without asking."}},
 			SeeAlso:     []string{"approvals", "invite", "board"},

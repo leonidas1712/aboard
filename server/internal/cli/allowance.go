@@ -78,7 +78,7 @@ func runAllowance(ctx context.Context, a *app, args []string) error {
 	if len(pos) > 0 {
 		cats := []api.AllowanceCategory{}
 		if len(pos) == 1 && pos[0] == "on" {
-			cats = []api.AllowanceCategory{api.AllowanceCategoryInvitePeople, api.AllowanceCategoryAddPeople}
+			cats = []api.AllowanceCategory{api.AllowanceCategoryAddPeople}
 		}
 		if len(pos) == 3 {
 			cats = append(cats, out.Categories...)
@@ -105,7 +105,11 @@ func runAllowance(ctx context.Context, a *app, args []string) error {
 	if len(names) > 0 {
 		state = strings.Join(names, ", ")
 	}
-	a.emit(map[string]any{"server": srv, "allowance": out}, fmt.Sprintf("Allowance on %s: %s\n", srv.URL, state))
+	text := fmt.Sprintf("Allowance on %s: %s\n", srv.URL, state)
+	if out.Warning != nil {
+		text += *out.Warning + "\n"
+	}
+	a.emit(map[string]any{"server": srv, "allowance": out}, text)
 	return nil
 }
 

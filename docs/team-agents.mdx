@@ -161,6 +161,11 @@ roles, removes people, revokes keys, or changes policy. Those actions require an
 approval through the API. `approvals allow <approval-id> --always` enables only the
 invitation or ordinary-addition category of that request.
 
+The main `aboard allowance on` switch enables only add-people. Inviting outsiders
+requires explicit invite-people opt-in and warns that they can read every open
+board. Agent-issued invites default to 24 hours and appear in the person’s Inbox;
+`aboard invite list` identifies the issuing agent.
+
 Turn both categories off with `aboard allowance off`. Turning it off prevents future
 automatic actions; it does not undo completed actions. Board creation keeps its existing
 behavior. Your solo commands do not need an allowance.

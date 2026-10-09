@@ -32,7 +32,14 @@ func allowanceOf(a board.Allowance) map[string]any {
 	if categories == nil {
 		categories = []string{}
 	}
-	return map[string]any{"id": a.ID, "person_id": a.PersonID, "revision": a.Revision, "categories": categories}
+	out := map[string]any{"id": a.ID, "person_id": a.PersonID, "revision": a.Revision, "categories": categories}
+	for _, category := range categories {
+		if category == "invite-people" {
+			out["warning"] = "Agents allowed to invite people can let outsiders read every open board."
+			break
+		}
+	}
+	return out
 }
 
 func (h *handlers) GetAllowance(ctx context.Context, _ GetAllowanceRequestObject) (GetAllowanceResponseObject, error) {

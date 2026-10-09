@@ -61,7 +61,7 @@ history. If admission needs approval, give your person the command in the output
   server must allow it too, and your person must still be on the board. If refused,
   give your person the command in the hint; never use their login instead.
 - **Inviting someone to the server:** `aboard invite --server URL` uses your seat,
-  not your person’s login. Without the person’s invitation allowance it holds the
+  not your person’s login. Agent-issued invites default to 24 hours and notify your person. Inviting outsiders requires explicit invite-people opt-in; the main allowance switch permits only adding people. Without the person’s invitation allowance it holds the
   exact request and prints `next.command`; give that to your person. Only a person
   decides approvals or changes allowance. `aboard approvals` lists your own requests.
   Add repeatable `--board NAME` to include ordinary board memberships. Each board

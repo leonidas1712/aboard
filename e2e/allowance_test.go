@@ -52,6 +52,10 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if field(t, automatic, "approval.state") != "executed" || field(t, automatic, "approval.execution.authorization.via") != "allowance" {
 		t.Fatalf("automatic admission: %v", automatic)
 	}
+	inventory := tm.admin.run("invite", "list")
+	if !strings.Contains(inventory.stdout, "issued by agent ") {
+		t.Fatalf("agent-issued invites not identified: %s", inventory)
+	}
 	tm.admin.run("allowance", "set", "invite-people", "off", "--json")
 	pending := session.run("invite", "--server", tm.url(), "--json").json(t)
 	pendingID := field(t, pending, "approval.id").(string)
@@ -60,7 +64,18 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if field(t, declined, "approval.state") != "declined" {
 		t.Fatalf("decline: %v", declined)
 	}
-	tm.admin.run("allowance", "on", "--json")
+	on := tm.admin.run("allowance", "on", "--json").json(t)
+	if categories := field(t, on, "allowance.categories").([]any); len(categories) != 1 || categories[0] != "add-people" {
+		t.Fatalf("main switch permitted invites: %v", on)
+	}
+	explicit := tm.admin.run("allowance", "set", "invite-people", "on", "--json").json(t)
+	if !strings.Contains(field(t, explicit, "allowance.warning").(string), "every open board") {
+		t.Fatalf("explicit opt-in has no warning: %v", explicit)
+	}
+	text := tm.admin.run("allowance", "set", "invite-people", "on")
+	if !strings.Contains(text.stdout, "every open board") {
+		t.Fatalf("text opt-in has no warning: %s", text)
+	}
 	tm.admin.run("allowance", "set", "add-people", "off", "--json")
 	tm.admin.run("allowance", "off", "--json")
 	matchesCLISpec(t, "ApprovalsOutput", tm.admin.run("approvals", "--json").json(t))

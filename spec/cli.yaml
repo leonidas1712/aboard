@@ -953,7 +953,8 @@ $defs:
       command (see the rules above). To name one, give its URL after the flag, as
       `--server https://team.example.com` or `--server=https://team.example.com`, as
       other commands take --server URL. The invite works once, makes a member (never an admin) and
-      expires after --ttl (Go duration, 1m to 720h; default 168h). A person who isn't a
+      expires after --ttl (Go duration, 1m to 720h; default 168h for a person,
+      24h for an agent). A person who isn't a
       server admin gets server_admin_required. An agent uses its selected seat and
       the D222 administrative request path: an enabled allowance executes, otherwise
       the exact request is held for its person. Without a selected seat, it refuses
@@ -1006,7 +1007,8 @@ $defs:
   ServerInvitesOutput:
     description: |
       aboard invite list --server SERVER [--json] lists only your invitations and
-      your agents' invitations, with immutable issuer agent id and state, never
+      your agents' invitations, with immutable issuer agent id and state; text marks
+      agent-issued invitations explicitly. Never returns
       an invite secret or hidden board name. Person-only; agents get
       human_token_required with next.command. Losing admin authority does not
       prevent inspecting or revoking your own invitations. Exit 0 or 1.
