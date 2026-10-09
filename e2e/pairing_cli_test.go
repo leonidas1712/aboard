@@ -75,3 +75,27 @@ func TestPairingWrongSideAcceptanceDoesNotJoinAFreshSession(t *testing.T) {
 		t.Fatalf("refused wrong-side acceptance joined a new seat: before=%v after=%v", before, after)
 	}
 }
+
+func TestPairingCLIRequestHoldsNonmemberAdmission(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	tm.person("maya")
+	board := tm.newBoard(tm.admin, "private")
+	tm.link(tm.admin, board)
+	s := tm.admin.claudeSession("s-pairing-held-admission")
+	s.run("join", "--board", board, "--server", tm.url(), "--json")
+	created := s.run("pairing", "request", "@maya", "--board", board, "Review the private change", "--json").json(t)
+	matchesCLISpec(t, "PairingOutput", created)
+	request := field(t, created, "request").(map[string]any)
+	if request["state"] != "awaiting_endpoint" || request["initiator"] != nil || request["recipient"] != nil {
+		t.Fatalf("held admission selected an endpoint: %v", created)
+	}
+	status, people := tm.call("GET", "/v1/boards/"+board+"/people", tm.key(tm.admin), nil)
+	if status != 200 || len(people["people"].([]any)) != 1 {
+		t.Fatalf("held admission added the recipient: status=%d people=%v", status, people)
+	}
+	status, approvals := tm.call("GET", "/v1/me/approvals", tm.key(tm.admin), nil)
+	if status != 200 || len(approvals["approvals"].([]any)) != 1 {
+		t.Fatalf("held admission lost its exact approval: status=%d approvals=%v", status, approvals)
+	}
+}
