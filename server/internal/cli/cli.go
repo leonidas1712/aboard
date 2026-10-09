@@ -122,6 +122,7 @@ func commands() []command {
 		{"up", runUp},
 		{"down", runDown},
 		{"pair", runPair},
+		{"pairing", runPairing},
 		{"join", runJoin},
 		{"invite", runInvite},
 		{"connect", runConnect},

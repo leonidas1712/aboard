@@ -80,6 +80,20 @@ func nonNil[T any](s []T) []T {
 func helpText(templates string) []commandHelp {
 	return []commandHelp{
 		{
+			Name: "pairing", Group: groupStart,
+			Summary:     "Propose work and pair two exact agent sessions",
+			Usage:       []string{pairingUsage},
+			Description: "List requests addressed to you, propose work from your agent's board, or accept in the exact session that should take part. Ready means both real sessions have exchanged verified replies.",
+			Flags: []helpFlag{
+				{"--board", "BOARD", "The initiating agent's board"},
+				{"--server", "SERVER", "The issuer server's name or URL"},
+				{"--as", "AGENT", "The initiating seat for a request; never a replacement for --here"},
+				{"--here", "", "Select this exact session for accept or select"},
+				{"--replace", "", "Explicitly replace this side's endpoint and invalidate old proof"},
+				flagJSON,
+			},
+		},
+		{
 			Name: "init", Group: groupStart,
 			Summary: "Add the Aboard skill and delivery hooks to Claude Code and Codex",
 			Usage:   []string{"aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery focused|all|humans|off] [--allow-commands] [--json]"},
