@@ -14,7 +14,7 @@ import (
 
 type (
 	options struct {
-		Binary                         string
+		Binary, Server, AdminKeyFile   string
 		People, Agents, Boards, Rounds int
 		Writers, WritesPerWriter       int
 		Soak                           time.Duration
@@ -50,6 +50,8 @@ func main() { os.Exit(execute()) }
 func execute() int {
 	var o options
 	flag.StringVar(&o.Binary, "binary", "", "existing aboard binary; otherwise build it")
+	flag.StringVar(&o.Server, "server", "", "origin of a disposable remote server; requires --admin-key-file")
+	flag.StringVar(&o.AdminKeyFile, "admin-key-file", "", "private file containing that remote server admin key")
 	flag.IntVar(&o.People, "people", 50, "people, each with an isolated home and daemon")
 	flag.IntVar(&o.Agents, "agents", 10, "agent seats per person")
 	flag.IntVar(&o.Boards, "boards", 20, "boards")
