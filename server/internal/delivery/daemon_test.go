@@ -567,8 +567,8 @@ func TestFailuresBackOffAndStopForAttentionAfterFiveAttempts(t *testing.T) {
 	if n := r.codex.Attempts(); n != delivery.MaxAttempts {
 		t.Fatalf("%d attempts, want %d", n, delivery.MaxAttempts)
 	}
-	// 2 s gathering, then waits of 1, 2, 4 and 8 seconds.
-	if took := r.clock.Now().Sub(start); took < 17*time.Second {
+	// 2 s gathering, then jittered waits with ceilings of 1, 2, 4 and 8 seconds.
+	if took := r.clock.Now().Sub(start); took < delivery.QueueGather+7500*time.Millisecond {
 		t.Fatalf("five attempts took %s of clock time; the waits between them didn't back off", took)
 	}
 	r.clock.Advance(10 * time.Minute)

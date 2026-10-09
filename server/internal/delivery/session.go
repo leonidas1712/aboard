@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/deliverytext"
+	"github.com/leonidas1712/aboard/server/internal/retry"
 )
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
@@ -175,6 +176,8 @@ type session struct {
 	gatherUntil time.Time
 	// prepareFailures counts the handoffs in a row that failed to prepare.
 	prepareFailures int
+	recheckFailures int
+	recheckAt       time.Time
 	// forward holds agents released while still being adopted: once the adoption
 	// arrives, it is passed on to the session that took them.
 	forward map[AgentKey]*session
@@ -1393,7 +1396,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 		// The server is the authority on what the agent has read: check just before
 		// handing, in case a read the stream reports hasn't arrived yet.
 		if !s.recheck(ctx) {
-			s.gatherUntil = s.now().Add(QueueGather)
+			s.gatherUntil = s.recheckAt
 			return
 		}
 		offers = s.offers(s.queueFilter())
@@ -1693,6 +1696,11 @@ func (s *session) failed(ctx context.Context, ds []*Delivery, err error) {
 	case errors.Is(err, ErrSubAgent):
 		reason = ReasonSubAgent
 	}
+	delay := time.Duration(0)
+	for _, dl := range ds {
+		delay = max(delay, backoff(dl.Attempts+1))
+	}
+	retryAt := s.now().Add(retry.Delay(delay))
 	for _, dl := range ds {
 		dl.Attempts++
 		dl.Reason = reason
@@ -1700,7 +1708,7 @@ func (s *session) failed(ctx context.Context, ds []*Delivery, err error) {
 			s.setState(ctx, dl, StateAttention)
 			continue
 		}
-		dl.RetryAt = s.now().Add(backoff(dl.Attempts))
+		dl.RetryAt = retryAt
 		s.setState(ctx, dl, StateRetry)
 	}
 	s.d.log.Warn("delivery failed", "session", s.key.String(), "reason", reason, "error", err)
@@ -2032,8 +2040,8 @@ func (s *session) anyToAnnounce() bool {
 }
 
 // recheckTimeout bounds the read of an agent's inbox just before a hand or a notice. It
-// holds up the session, and a tool hook waiting for its answer, so it is short; a read
-// that fails goes by what the server's stream reported.
+// holds up the session and a tool hook waiting for its answer, so it is short. A
+// failed read never admits cached messages.
 const recheckTimeout = 5 * time.Second
 
 // recheck reads each agent's inbox and read position from its server now, in the
@@ -2041,7 +2049,11 @@ const recheckTimeout = 5 * time.Second
 // through any client a moment ago, before the stream's report of it arrived. It costs
 // one request per agent, made only when there is something to hand or announce.
 func (s *session) recheck(ctx context.Context) bool {
+	if s.now().Before(s.recheckAt) {
+		return false
+	}
 	if !s.ensureShown(ctx) {
+		s.deferRecheck()
 		return false
 	}
 	fresh := true
@@ -2059,7 +2071,19 @@ func (s *session) recheck(ctx context.Context) bool {
 		}
 		s.onInbox(ctx, inboxResult{agent: ref, msgs: msgs, cursor: cursor, mode: mode, err: err})
 	}
+	if fresh {
+		s.recheckFailures = 0
+		s.recheckAt = time.Time{}
+	} else {
+		s.deferRecheck()
+	}
 	return fresh
+}
+
+func (s *session) deferRecheck() {
+	s.recheckFailures = min(s.recheckFailures+1, 6)
+	ceiling := min(2*backoff(s.recheckFailures), time.Minute)
+	s.recheckAt = s.now().Add(retry.Delay(ceiling))
 }
 
 func newAgentState(ref AgentRef, adopting bool) *agentState {

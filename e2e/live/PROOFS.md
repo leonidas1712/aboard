@@ -453,3 +453,19 @@ passed the same checks for Codex: idle wake through the queue, the exchange with
 Code, urgent at the next tool call once the hooks were trusted (after a fix: urgent
 messages wait for the next tool call while a turn runs, instead of going to the queue),
 restarts and doctor.
+
+## Admission retry scheduling (#265)
+
+At runtime head `55f5cac`, the bounded ping-pong, cross-harness ping-pong,
+held-mode and restart scenarios passed collectively on Claude Code, Codex and omp.
+The initial run passed 11 of 12 cases in 125 seconds. Codex's restart case stopped
+at “Waiting for startup”, before binding or receiving any bundle; its isolated
+retry passed in 52 seconds with the same assertions and timeouts. This is not a
+claim of one clean initial run. Protected harness config and auth files were
+unchanged in both runs; retained artifacts contained no actual login values.
+
+The deterministic failed-read regression failed first when repeated hooks issued
+new admission reads without waiting. It now retains unread text, shares the retry
+deadline across hooks and resets after recovery. Delivery and retry package races
+passed, including existing terminal, generation, frozen-bundle and cursor checks.
+These proofs validate delivery behavior, not a new load-capacity or latency claim.
