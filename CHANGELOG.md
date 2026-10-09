@@ -79,7 +79,9 @@ reach each other mid-turn, and a server handles several times the load.
 - spec/delivery.md and spec/control.md: turn-end bundles checked fresh and combined,
   Codex Stop continuation with idle-only queue wake, same-owner peer messages at tool
   boundaries with explicit receipts, queued and shown observations, and age framing for
-  messages older than a minute. Additive; affects delivery daemons and harness adapters.
+  messages older than a minute, and bounded jittered retries for failed inbox reads and
+  harness handovers, with the five-attempt limit unchanged. Additive; affects delivery
+  daemons and harness adapters.
 - spec/harness-profile.schema.json: delivery capabilities `turn-end-hook` and
   `midturn-peer`, and an `until` bound for a hook another hook replaces. Additive;
   affects harness adapters.

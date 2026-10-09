@@ -1101,7 +1101,16 @@ Rules:
   or skipped. An owner's message confirmed mid-turn ahead of an older one doesn't move the
   read position past the ordinary one. Read positions only move forward.
 - **Busy is backpressure, not failure.** Waiting for a busy session never counts as an
-  attempt. Only harness errors count, with backoff of 1, 2, 4 … up to 60 seconds.
+  attempt. Only harness errors count, with backoff ceilings of 1, 2, 4 … up to
+  60 seconds. Each delay is independently jittered between half its ceiling and
+  the ceiling; the existing five-attempt attention limit is unchanged.
+- **Failed fresh reads back off.** A failed inbox admission read never hands cached
+  messages. Each session retries after a jittered delay with ceilings of 2, 4,
+  8 … up to 60 seconds. Tool and turn hooks share that deadline instead of
+  bypassing it. A successful fresh admission read resets this backoff. Read
+  failures do not consume harness attempts, discard messages or advance cursors.
+  The read timeout stays five seconds; retry scheduling is local to the running
+  daemon and starts over after a daemon restart.
 - **In order.** Messages for one agent are delivered in sequence order. A message that
   can't be delivered automatically is marked `skipped` and the read position moves past
   it, so it never blocks the ones after it; `aboard doctor` lists it.
