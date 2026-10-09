@@ -249,8 +249,12 @@ func TestTeamWorkPersonOptsPrivateBoardIntoAgentAdditionsFromTheCLI(t *testing.T
 		t.Fatal("private creation enabled agent additions")
 	}
 	refused := s.runExit("board", "add", "@sam", "--board", "work-private-cli", "--json")
-	if refused.code != 1 || errorCode(t, refused.json(t)) != "add_people_not_allowed" {
-		t.Fatal("agent added a person before its owner opted in")
+	if refused.code != 0 || field(t, refused.json(t), "state") != "pending" || field(t, refused.json(t), "approval.state") != "pending" {
+		t.Fatal("agent addition did not wait for explicit approval before opt-in")
+	}
+	status, current := tm.call("GET", "/v1/boards/work-private-cli/people", tm.key(tm.admin), nil)
+	if status != 200 || len(current["people"].([]any)) != 1 {
+		t.Fatalf("pending addition changed membership: %d %v", status, current)
 	}
 	tm.admin.run("board", "agents-add-people", "on", "--board", "work-private-cli", "--yes", "--json")
 	added := s.run("board", "add", "@sam", "--board", "work-private-cli", "--json").json(t)
@@ -259,8 +263,12 @@ func TestTeamWorkPersonOptsPrivateBoardIntoAgentAdditionsFromTheCLI(t *testing.T
 	}
 	tm.admin.run("board", "agents-add-people", "off", "--board", "work-private-cli", "--json")
 	refused = s.runExit("board", "add", "@kim", "--board", "work-private-cli", "--json")
-	if refused.code != 1 || errorCode(t, refused.json(t)) != "add_people_not_allowed" {
-		t.Fatal("agent added a person after its owner turned additions off")
+	if refused.code != 0 || field(t, refused.json(t), "state") != "pending" || field(t, refused.json(t), "approval.state") != "pending" {
+		t.Fatal("agent addition did not wait for explicit approval after opt-out")
+	}
+	status, current = tm.call("GET", "/v1/boards/work-private-cli/people", tm.key(tm.admin), nil)
+	if status != 200 || len(current["people"].([]any)) != 2 {
+		t.Fatalf("pending addition changed membership after opt-out: %d %v", status, current)
 	}
 }
 

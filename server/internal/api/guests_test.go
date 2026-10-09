@@ -99,7 +99,7 @@ func TestAGuestJoinsWithNoTokenAndSeesOneBoard(t *testing.T) {
 	if c := errorCode(t, jc, err, 403); c != "guest_not_allowed" {
 		t.Fatalf("the guest's agent making a pairing code: %s", c)
 	}
-	people, err := s.client(kim).ListServerPeopleWithResponse(ctx)
+	people, err := s.client(kim).ListServerPeopleWithResponse(ctx, nil)
 	if c := errorCode(t, people, err, 403); c != "human_token_required" {
 		t.Fatalf("the guest's agent listing the server's people: %s", c)
 	}
@@ -175,9 +175,13 @@ func TestServerPeopleRolesAndRemoval(t *testing.T) {
 	j := s.joinBoard(maya, boardName, "writer", nil)
 	mayaAgent, mayaBrowser := j.JSON201.Token, s.browserToken(maya)
 
-	people, err := s.client(maya).ListServerPeopleWithResponse(ctx)
+	people, err := s.client(maya).ListServerPeopleWithResponse(ctx, nil)
 	mustStatus(t, people, err, 200)
-	if len(people.JSON200.People) != 2 || people.JSON200.People[0].ServerRole != api.ServerRoleAdmin || people.JSON200.People[1].ServerRole != api.ServerRoleMember {
+	directory, decodeErr := people.JSON200.AsServerPeople()
+	if decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	if len(directory.People) != 2 || directory.People[0].ServerRole != api.ServerRoleAdmin || directory.People[1].ServerRole != api.ServerRoleMember {
 		t.Fatalf("the server's people: %s", bodyOf(people))
 	}
 	admin := api.ServerRoleChange{ServerRole: api.ServerRoleChangeServerRoleAdmin}

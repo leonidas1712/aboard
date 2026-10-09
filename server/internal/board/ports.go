@@ -26,6 +26,10 @@ type BookkeepingStore interface {
 // ReadTx is everything the domain reads. Lookups of one record return ErrNotFound when
 // it doesn't exist.
 type ReadTx interface {
+	Allowance(personID string) (Allowance, error)
+	Approval(id string) (Approval, error)
+	ApprovalByRequest(agentID, key string) (Approval, error)
+	Approvals(personID string) ([]Approval, error)
 	QueueReport(memberID string) (QueueReport, error)
 	FileBySelector(boardID, selector string) (File, error)
 	FileByName(boardID, name string) (File, error)
@@ -194,6 +198,9 @@ type TimelineQuery struct {
 
 // Tx adds the writes. They are kept only if the Write that runs them commits.
 type Tx interface {
+	SaveAllowance(Allowance) error
+	SaveApproval(Approval) error
+	ExpireAdminRequestKeys(before string) error
 	SaveQueueReport(QueueReport) error
 	SetHumanMidturn(humanID, policy string) error
 	SetAgentMidturn(memberID string, policy *string) error

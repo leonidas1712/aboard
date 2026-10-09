@@ -42,6 +42,7 @@ const (
 	PersonRemoved          = "person.removed"
 	PersonLeft             = "person.left"
 	PersonMadeOwner        = "person.made_owner"
+	PersonRoleChanged      = "person.role_changed"
 	BoardVisibilityChanged = "board.visibility_changed"
 	// AgentDeliveryChanged is an agent's person changing its delivery mode.
 	AgentDeliveryChanged = "agent.delivery_changed"

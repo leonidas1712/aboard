@@ -62,12 +62,16 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	r, err := c.api.ListServerPeopleWithResponse(ctx)
+	r, err := c.api.ListServerPeopleWithResponse(ctx, nil)
 	if err != nil {
 		return c.unreachable(err)
 	}
 	if r.JSON200 == nil {
 		return keyRejected(srv, r.StatusCode(), r.Body)
+	}
+	people, err := r.JSON200.AsServerPeople()
+	if err != nil {
+		return err
 	}
 	var text string
 	if started {
@@ -75,8 +79,8 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 	}
 	st := a.out()
 	text += fmt.Sprintf("People on %s:\n", srv.URL)
-	rows := make([][]string, 0, len(r.JSON200.People))
-	for _, p := range r.JSON200.People {
+	rows := make([][]string, 0, len(people.People))
+	for _, p := range people.People {
 		name := ""
 		if p.DisplayName != nil {
 			name = *p.DisplayName
@@ -95,7 +99,7 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 		}
 		return st.dim(c)
 	})
-	a.emit(map[string]any{"server": srv, "people": r.JSON200.People}, text)
+	a.emit(map[string]any{"server": srv, "people": people.People}, text)
 	return nil
 }
 

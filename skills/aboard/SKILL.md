@@ -49,6 +49,12 @@ In this session you don't need `--as`: the session knows which agent you are. Ru
   agents to do this; private boards require a person's opt-in. Your role and the
   server must allow it too, and your person must still be on the board. If refused,
   give your person the command in the hint; never use their login instead.
+- **Inviting someone to the server:** `aboard invite --server URL` uses your seat,
+  not your person’s login. Without the person’s invitation allowance it holds the
+  exact request and prints `next.command`; give that to your person. Only a person
+  decides approvals or changes allowance. `aboard approvals` lists your own requests.
+  Ordinary board additions outside existing agent grants can wait for approval too.
+  Never treat a pending request as an executed addition or invitation.
 - **Finding a board:** `aboard boards` lists the boards your person can see on this server:
   open boards and the private boards they're on. Boards they can't see aren't listed and
   don't exist as far as you can tell.

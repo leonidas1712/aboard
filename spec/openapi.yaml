@@ -3883,26 +3883,26 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Allowance"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
     put:
       tags: ["onboarding"]
@@ -3923,26 +3923,26 @@ paths:
             schema:
               $ref: "#/components/schemas/SetAllowanceRequest"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Allowance"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/approvals:
     get:
@@ -3956,23 +3956,23 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Approvals"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/admin-requests:
     post:
@@ -3999,25 +3999,25 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AdminActionResult" }
-        201:
+        "201":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminActionResult"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
-        202:
+        "202":
           description: "Held; exact payload retained, no action executed"
           content:
             application/json:
@@ -4049,26 +4049,26 @@ paths:
             schema:
               $ref: "#/components/schemas/AllowApprovalRequest"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminActionResult"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/approvals/{approval}/decline:
     post:
@@ -4090,26 +4090,26 @@ paths:
             pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Approval"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
         "403":
           description: Person-only refusal; agent tokens get human_token_required with a runnable handover
           content:
             application/json:
               schema: { $ref: "#/components/schemas/OnboardingForbidden" }
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/me/onboarding:
     get:
@@ -4123,23 +4123,23 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/OnboardingReceipt"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests:
     get:
@@ -4153,23 +4153,23 @@ paths:
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequests"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
     post:
       tags: ["onboarding"]
@@ -4190,23 +4190,23 @@ paths:
             schema:
               $ref: "#/components/schemas/CreatePairingRequest"
       responses:
-        201:
+        "201":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/accept:
     post:
@@ -4234,23 +4234,23 @@ paths:
             schema:
               $ref: "#/components/schemas/AcceptPairingRequest"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/decline:
     post:
@@ -4272,23 +4272,23 @@ paths:
             pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/cancel:
     post:
@@ -4310,23 +4310,23 @@ paths:
             pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}/verify:
     post:
@@ -4354,23 +4354,23 @@ paths:
             schema:
               $ref: "#/components/schemas/PairingRoundTrip"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
   /v1/pairing-requests/{pairing}:
     get:
@@ -4391,23 +4391,23 @@ paths:
             type: "string"
             pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
       responses:
-        200:
+        "200":
           description: "Success"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PairingRequest"
-        400:
+        "400":
           $ref: "#/components/responses/Error"
-        401:
+        "401":
           $ref: "#/components/responses/Error"
-        403:
+        "403":
           $ref: "#/components/responses/Error"
-        404:
+        "404":
           $ref: "#/components/responses/Error"
-        409:
+        "409":
           $ref: "#/components/responses/Error"
-        501:
+        "501":
           $ref: "#/components/responses/Error"
 
   /v1/pairing-credentials:

@@ -3947,11 +3947,10 @@ $defs:
       per-server allowance. aboard allowance on|off switches every allowable
       category on or off; aboard allowance set invite-people|add-people on|off
       changes only that category, preserving the others. Reads and changes are
-      person-only, refusing agent sessions with human_command_in_session.
+      person-only; selected agents receive human_token_required with next.command.
       Default is off. Board creation through D205 is unchanged. Only admission
       as an ordinary member is allowable; roles, removals, keys and policy never
       become automatic. Text lists each category and on/off. Exit 0 or 1.
-      Planned commands until GEN-35 implements them.
     type: object
     required: [server, allowance]
     properties:
