@@ -1679,3 +1679,63 @@ current policy eligibility only: verified transport capability and the logical-t
 cap still apply. It never says the message has been delivered. `owner_only` explains
 why that peer waits for turn end. No hint is inferred from owner names or harness
 labels, and no private preference for unrelated recipients is disclosed.
+
+## Pairing handshake (D222; planned)
+
+A pairing request selects two exact sessions, each represented by its permanent
+board seat and a server-controlled endpoint generation. Recent activity does not
+select a session. The inviter cannot select an endpoint owned by another person.
+Accepting proposed work grants no control over that person's harness or commands.
+
+Both sides send an ordinary directly addressed ping and reply through the public
+message API and real harness delivery. Each ping names the request's immutable id,
+current generation and direction. A reply must link the exact ping and return that
+correlation. No handshake text overrides the sender's trust or the board's rules.
+The daemon reports the actual board message sequences through the verification API;
+the server checks both current endpoint identities, exact direct recipients, reply
+linkage, generation and delivery receipt evidence under current access. It derives
+ready only after both round trips, never from a client-provided success flag.
+
+Replacement of either runtime session is explicit, even if it reuses a permanent
+seat. It increments the request generation and invalidates all older evidence.
+Delayed replies, confirmations and reports from an old generation cannot mark the
+new request ready. A removed seat, revoked parent key, lost ownership, membership
+or access ends its authority; recovery never resurrects it or bypasses admission.
+
+An offline endpoint leaves the request verifying with the awaited side identified.
+A bounded timeout remains recoverable and supplies next with the precise step and
+resume words. Retrying under the same generation reuses its existing messages and
+evidence; it does not claim that a hook return alone proves a real round trip.
+This flow neither starts agents nor runs commands on the server, nor moves a read
+cursor without the existing confirmed-prefix delivery acknowledgement.
+
+The CLI receives only nonsecret progress and handovers from the trusted daemon.
+Onboarding/allowance authority is issuer- and parent-key-bound and separate from
+D197. No token, invitation secret or person login enters hook/socket/model output.
+These are contract requirements for the later pairing slice, not a live-proof
+claim or a change to the current delivery adapter.
+
+The trusted runtime obtains a separate pairing credential using its issuer-bound
+parent key, after vouching for its own exact selected harness session. This does not
+extend a D197 delegation. The runtime alone saves the client-generated endpoint
+secret and sends it to the server over HTTPS; the server returns only metadata.
+For a fresh zero-seat session, own-person pending request lookup and the existing
+D197 join remain trusted-daemon operations; the agent CLI receives only progress.
+There is no agent CLI person-client fallback and no parent secret on its socket.
+
+Each endpoint credential is bound to one side, exact session and generation. The
+server rejects permanent seat/person/browser credentials as verification authority.
+A confirmed handoff report names the received message sequence and journal handoff
+id. The runtime submits it only after that exact selected harness confirmed delivery;
+its endpoint credential authenticates the evidence. Both directions require the
+reply linkage and this receipt evidence. A stale runtime that retains a permanent
+seat token cannot acquire or impersonate the replacement runtime's private proof.
+Selection/replacement of either side uses createPairingCredential with last-read
+CAS; only that side's person can authorize it. Replacement revokes both credentials
+and both directions' old evidence, requiring fresh proofs under the new generation.
+
+While a request remains verifying against an offline peer, the daemon can re-mint
+its own expired 10-minute endpoint credential for the same vouched session and
+request generation, with fresh parent/owner/access checks. This is renewal, not
+endpoint replacement: it neither discards earlier valid evidence nor increments
+the generation. Removed/revoked authority and terminal requests cannot renew.

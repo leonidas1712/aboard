@@ -16,6 +16,13 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- Define D222 onboarding contracts: person allowances, exact-payload approvals,
+  bundled invite boards/pairing, client-generated connect tokens and nonsecret
+  recovery, pairing requests/generations, setup progress and next-step handovers.
+  Additive for API/CLI clients and delivery daemons. Existing connect responses,
+  D188 approvals and D197/D205 delegation behavior remain unchanged; planned
+  operations return 501 until their implementation slices land.
+
 - Add optional serve --test-server and ABOARD_TEST_SERVER for temporary load-test
   operators. Additive CLI settings; production defaults and API authority stay unchanged.
 

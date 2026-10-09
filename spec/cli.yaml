@@ -3939,3 +3939,172 @@ $defs:
       board: { type: string }
       agent: { type: string }
       changed: { type: boolean }
+
+  # ---------- D222 onboarding (planned; not implemented in this slice) ----------
+  AllowanceOutput:
+    description: |
+      aboard allowance [--server SERVER] [--json] reads the selected person's
+      per-server allowance. aboard allowance on|off switches every allowable
+      category on or off; aboard allowance set invite-people|add-people on|off
+      changes only that category, preserving the others. Reads and changes are
+      person-only, refusing agent sessions with human_command_in_session.
+      Default is off. Board creation through D205 is unchanged. Only admission
+      as an ordinary member is allowable; roles, removals, keys and policy never
+      become automatic. Text lists each category and on/off. Exit 0 or 1.
+      Planned commands until GEN-35 implements them.
+    type: object
+    required: [server, allowance]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      allowance: { $ref: "openapi.yaml#/components/schemas/Allowance" }
+
+  ApprovalsOutput:
+    description: |
+      aboard approvals [--server SERVER] [--json] lists only the caller's approvals:
+      a person sees their agents' requests, an agent sees its own immutable agent
+      identity's requests. Agents use their selected seat credential, never the
+      person's login. With several seats, --board selects a seat; server selection
+      never changes a seat's issuer. Text shows id, action, requester and state,
+      pending first. An inaccessible board's name or payload is never printed.
+      Exit 0 or 1. Planned until GEN-35.
+    type: object
+    required: [server, approvals]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      approvals:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/Approval" }
+
+  ApprovalDecisionOutput:
+    description: |
+      aboard approvals allow ID [--always] [--server SERVER] [--json] executes the
+      frozen action once, subject to current authority. --always also enables that
+      category; it is invalid_request for destructive/privilege-raising actions
+      and changes nothing. aboard approvals decline ID refuses it. Both commands
+      are person-only, refuse in sessions, and never accept replacement payloads.
+      Text shows the action and terminal state. A newly created invite link is
+      shown once; repeated decisions cannot reissue or retrieve its secret.
+      Exit 0 or 1. Planned until GEN-35.
+    type: object
+    required: [server, approval]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
+      invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  HeldAdminOutput:
+    description: |
+      An agent admin command outside its allowance returns this shape with exit 0:
+      the request was held, not performed. Text says Pending approval and prints
+      next.command for the person's terminal, plus next.board_view and next.resume
+      when present. The exact command includes the actual approval id and issuer,
+      safely quoted, without placeholders or secrets. This is distinct from an
+      API refusal (exit 1). Existing D188 approve remains a separate person command.
+      Planned until GEN-35; existing refusal behavior stays until implementation.
+    type: object
+    required: [server, state, approval, next]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      state: { const: pending }
+      approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  PairingListOutput:
+    description: |
+      aboard pairing [list] [--server SERVER] [--json] lists the person's visible
+      requests, addressed to that person rather than a guessed active session.
+      An agent uses only its issuer-bound onboarding/seat authority, never the
+      person's CLI client. Text shows id, board, other person and state; no token,
+      invitation secret or private board outside current access. Exit 0 or 1.
+      Planned until GEN-37; machine delegation powers are not extended.
+    type: object
+    required: [server, requests]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      requests:
+        type: array
+        items: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
+
+  PairingOutput:
+    description: |
+      aboard pairing request @person|me --board BOARD "proposed work" creates a
+      person-directed request. Resolve the person and board to immutable ids under
+      current access before writing. Proposed work is content, not control over the
+      recipient's session. Self-pairing changes no allowance or existing D205 behavior.
+      aboard pairing accept [ID] --here selects this exact, verified harness session.
+      If ID is omitted, exactly one accessible pending request must exist; otherwise
+      refuse with pairing_ambiguous (details.requests contains only visible ids).
+      Never guess from activity. --replace is explicit endpoint replacement using
+      the current generation; a different endpoint without it gets pairing_changed.
+      The trusted daemon mints the selected endpoint credential privately with its
+      issuer-bound parent key after checking the exact session; no key reaches the CLI.
+      For a fresh zero-seat session, own-person request lookup is a trusted daemon
+      read, followed by existing D197 join and scoped endpoint selection.
+      Same endpoint repeat is idempotent. Missing trusted session gets agent_session_required.
+      aboard pairing decline ID declines as the recipient; cancel ID as the inviter.
+      Acceptance reuses a board seat or joins through the existing authorized path;
+      it never resurrects a removed seat or extends D197. Cross-person ordinary
+      membership admission needs the inviter's authority plus allowance/approval,
+      or recipient self-join on an open board. Pairing becomes ready only after both
+      real-session round trips at the current generation. Offline peers stay pending.
+      Text shows board, request state, awaited endpoint and precise next step.
+      Exit 0 for accepted/pending/ready, 1 for refusal, 2 for usage. Planned GEN-37.
+    type: object
+    required: [server, board, request]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      request: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
+  SetupOutput:
+    description: |
+      aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE]
+      [--server SERVER] [--json] resumes the first incomplete setup step.
+      A pasted one-use invite is consent for setup in this session; an existing
+      account is never selected by an invite or a handle. Existing-account/new-machine
+      login uses D188 and still needs the person's approval. No human-client fallback.
+      --handle is the visible person name; --name names the machine's key.
+      With an invite, generate 256 random bits as a client token and save pending
+      state durably mode 0600, bound to issuer and invite, before /v1/connect.
+      Save failure stops before redemption. Never show the token or invite secret
+      in hook output, the socket, the model's context, progress logs or --json.
+      HTTPS except this machine's loopback server; never follow redirects or use
+      another issuer. client_token chooses the nonsecret 200 response. After a lost
+      response, only authenticated GET /v1/me/onboarding with the same saved token
+      and matching result completes the account step. Every failed check, including
+      consumed invite, remains uncertain: preserve pending state, do not generate a
+      replacement key/account or interpret unauthorized as unused. Interrupted or
+      revoked-key recovery needs the person's action named in next.
+      Report all six steps, without claiming completion from process startup alone:
+      installed, account, memberships, harness, pairing, delivery. Trust/restart
+      waits have precise harness actions and the words Continue Aboard setup.
+      A rerun reuses completed memberships/seats and rechecks current authority;
+      removed access is never recreated. Text names completed steps, first pending
+      step, and next. JSON progress goes to stderr, one result to stdout.
+      Exit 0 for complete or waiting on a stated person/harness step, 1 for errors,
+      2 for usage. Planned GEN-36/37; does not claim implementation in this slice.
+    type: object
+    required: [server, state, steps]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      state: { enum: [complete, pending, uncertain] }
+      steps:
+        type: array
+        minItems: 6
+        maxItems: 6
+        items:
+          type: object
+          required: [step, state]
+          properties:
+            step: { enum: [installed, account, memberships, harness, pairing, delivery] }
+            state: { enum: [complete, pending, uncertain] }
+            message: { type: string }
+          additionalProperties: false
+      person: { $ref: "openapi.yaml#/components/schemas/Person" }
+      pairing_request: { $ref: "openapi.yaml#/components/schemas/PairingRequest" }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
