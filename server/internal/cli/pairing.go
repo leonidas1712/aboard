@@ -69,7 +69,8 @@ func runPairing(ctx context.Context, a *app, args []string) error {
 	var srv serverRef
 	var c *client
 	var create api.CreatePairingRequest
-	if action == "request" {
+	switch {
+	case action == "request":
 		if !a.agentSelected(*as) {
 			return newError("agent_not_selected", "Choose the agent that starts this pairing.", "Run this command in that agent's session, or name its seat with --as and --board.")
 		}
@@ -127,7 +128,7 @@ func runPairing(ctx context.Context, a *app, args []string) error {
 			return newError("person_not_found", "That person is not visible on this board.", "Check aboard board people before making the request.")
 		}
 		create = api.CreatePairingRequest{BoardId: b.JSON200.Id, RecipientId: personID, InitiatingAgentId: me.JSON200.Id, Work: pos[1]}
-	} else if inSession {
+	case inSession:
 		seats, err := a.sessionAgents(ctx, key)
 		if err != nil {
 			return err
@@ -140,7 +141,7 @@ func runPairing(ctx context.Context, a *app, args []string) error {
 		if err != nil {
 			return err
 		}
-	} else {
+	default:
 		if a.agentSelected(*as) {
 			t, cred, err := a.agentTarget(ctx, *board, *as)
 			if err != nil {
@@ -278,7 +279,7 @@ func (a *app) emitPairing(srv serverRef, board string, r api.PairingRequest) err
 	return nil
 }
 
-func decodePairingMetadata(value any, target any) error {
+func decodePairingMetadata(value, target any) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err

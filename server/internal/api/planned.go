@@ -66,4 +66,3 @@ func (h *handlers) DeclineApproval(context.Context, DeclineApprovalRequestObject
 func (h *handlers) GetOnboardingReceipt(context.Context, GetOnboardingReceiptRequestObject) (GetOnboardingReceiptResponseObject, error) {
 	return nil, notProvided("onboarding")
 }
-
