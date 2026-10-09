@@ -125,6 +125,7 @@ func commands() []command {
 		{"join", runJoin},
 		{"invite", runInvite},
 		{"connect", runConnect},
+		{"setup", runSetup},
 		{"approve", runApprove},
 		{"allowance", runAllowance},
 		{"approvals", runApprovals},
