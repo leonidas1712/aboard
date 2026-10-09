@@ -21,6 +21,12 @@
           "version": "2.1.294 (Claude Code)",
           "test": "TestBriefGetEditPutFromTheHarness/claude-code"
         },
+        "InvitedSetupVerifiesTwoPeopleExactSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
+          "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/claude-code"
+        },
         "JoinsAndTalks": {
           "result": "pass",
           "date": "2026-10-09",
@@ -173,9 +179,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2012,
-        "harness_ms": 2737,
-        "deliveries": 29,
+        "aboard_ms": 2033,
+        "harness_ms": 2889,
+        "deliveries": 38,
         "date": "2026-10-09"
       }
     },
@@ -204,6 +210,12 @@
           "date": "2026-10-09",
           "version": "codex-cli 0.160.0",
           "test": "TestBriefGetEditPutFromTheHarness/codex"
+        },
+        "InvitedSetupVerifiesTwoPeopleExactSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "codex-cli 0.160.0",
+          "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/codex"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -263,7 +275,7 @@
           "result": "pass",
           "date": "2026-10-09",
           "version": "codex-cli 0.160.0",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
+          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -363,9 +375,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2018,
-        "harness_ms": 132,
-        "deliveries": 32,
+        "aboard_ms": 2019,
+        "harness_ms": 526,
+        "deliveries": 39,
         "date": "2026-10-09"
       }
     },
@@ -389,6 +401,12 @@
           "date": "2026-10-09",
           "version": "omp/18.5.1",
           "test": "TestBriefGetEditPutFromTheHarness/omp"
+        },
+        "InvitedSetupVerifiesTwoPeopleExactSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "omp/18.5.1",
+          "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/omp"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -542,9 +560,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2016,
-        "harness_ms": 3,
-        "deliveries": 31,
+        "aboard_ms": 2029,
+        "harness_ms": 11,
+        "deliveries": 38,
         "date": "2026-10-09"
       }
     }

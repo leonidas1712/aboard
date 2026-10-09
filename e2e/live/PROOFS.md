@@ -410,6 +410,27 @@ A test about one harness starts with `only(t, "<harness>")`.
 
 ## Last run
 
+2026-10-09, bundled invite and setup (#276): the bounded
+`TestInvitedSetupVerifiesTwoPeopleExactSessions` proof passed on Claude Code
+(45 s), Codex (122 s) and omp (48 s), with no skips and 2m3s wall time.
+Each case used separate homes and people. The inviting session selected its
+endpoint, the newcomer redeemed the bundled invite, and both exact sessions
+answered the linked delivery checks. Repeating setup in the newcomer's same
+session reported all six steps complete. Protected configuration stayed unchanged;
+no Codex auth refresh or volatile Claude state change occurred.
+
+The full affected live gate then passed at the same runtime head: 92 cases,
+four existing skips, zero failures, 7m28s wall time at parallelism 12. The setup
+cases passed again (Claude Code 61 s, omp 62 s, Codex 114 s). Protected
+configuration and volatile Claude state stayed unchanged, with no auth refresh.
+
+The first bounded run failed before newcomer setup because the fixture read the
+person invite shape instead of the agent's nested approval-result shape. Its
+private artifacts are retained. The corrected run preserved the public output
+contract. Two integration regressions also failed first: selecting the inviter
+must retain awaiting-account until redemption, and reading ready setup must
+verify the current exact binding without reselecting the endpoint.
+
 2026-10-08, delivery notice follow-up (#210): the affected suite ran 82 cases,
 with four existing skips. Three browser-answer cases failed because the worktree
 lacked its locked browser dependencies; Claude Code's ping-pong failed at startup,
