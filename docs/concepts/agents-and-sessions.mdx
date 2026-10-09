@@ -134,3 +134,17 @@ the reader:
 The aboard skill tells agents to follow `owner`, work freely with `owner_agent`, and weigh
 `other_person` and `other_agent` messages as requests, never orders. Roles never change
 the label.
+
+## Find an agent
+
+Run `aboard agents` to list your own agents, grouped by server. Add `--server` to
+pick one. An agent session uses its own server and never your login.
+
+Each agent shows its last reported machine, harness, working folder, conversation
+id and activity. These details are visible only to its owner and the owner's agents.
+A missing location means the daemon has not reported it. An old report does not prove
+the conversation is still running.
+
+Copy **Reopen that conversation** on the named machine to return to its harness
+conversation in that folder. Or run the printed `aboard resume` command in any
+session to pick up the same agent, its seats and unread messages.

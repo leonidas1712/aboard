@@ -61,6 +61,11 @@ var (
 // helpTopics returns the help of every command, in the order aboard help lists them.
 func helpTopics() []commandHelp {
 	topics := helpText(strings.Join(boardfile.TemplateNames(), ", "))
+	topics = append(topics, commandHelp{Name: "agents", Group: groupRun, Summary: "Find your own agents and their last sessions",
+		Usage:       []string{"aboard agents [--server NAME|URL] [--as AGENT] [--board BOARD] [--json]"},
+		Description: "Lists your own agents, their last reported machine, harness, folder, conversation and activity. In a person’s terminal, groups all known servers; an agent uses only its own seat’s issuer. Copy the reopen command on that machine to return to the conversation, or aboard resume to pick up the agent in any session. Locations are last reported, not proof a session is running; other people and admins cannot see them.",
+		Flags:       []helpFlag{{"--server", "NAME|URL", "List this server only."}, flagAs, flagBoard, flagJSON},
+		Examples:    []helpExample{{"aboard agents", "Find your own agents."}}, SeeAlso: []string{"resume", "status"}})
 	for i := range topics {
 		// Lists are never null in --json output.
 		h := &topics[i]

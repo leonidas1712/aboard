@@ -4127,9 +4127,9 @@ $defs:
     type: object
     required: [servers]
     description: |
-      aboard agents [--server NAME|URL] lists the caller's own active agents across
-      known issuers, grouped by server. Agent contexts use only issuer-bound seat or
-      daemon delegation authority, never a person's key. Unknown or unavailable
+      aboard agents [--server NAME|URL] [--as AGENT] [--board BOARD] lists a person's own active agents across
+      known issuers, grouped by server. Agent contexts list their own seat issuer only,
+      using that issuer-bound agent token, never a person's key. Unknown or unavailable
       locations stay absent. Partial failures are explicit. Resume commands are
       copyable suggestions, never executed: reopen uses the installed harness
       profile's resume command with shell-quoted folder and session; resume uses
