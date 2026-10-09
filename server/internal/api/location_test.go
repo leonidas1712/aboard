@@ -154,6 +154,14 @@ func TestOwnLocationsDisappearWhenAccessOrTheIssuingKeyEnds(t *testing.T) {
 	mustStatus(t, saved, err, 200)
 	removed, err := s.client(s.owner).RemovePersonWithResponse(ctx, first, "maya", nil)
 	mustStatus(t, removed, err, 200)
+	removedCaller, err := s.client(a.JSON201.Token).ListOwnAgentsWithResponse(ctx)
+	if errorCode(t, removedCaller, err, 403) != "agent_removed" {
+		t.Fatalf("caller outlived owner membership: %s", removedCaller.Body)
+	}
+	removedReport, err := s.client(a.JSON201.Token).SetAgentLocationWithResponse(ctx, nil, report)
+	if errorCode(t, removedReport, err, 403) != "agent_removed" {
+		t.Fatalf("report outlived owner membership: %s", removedReport.Body)
+	}
 	found, err := s.client(b.JSON201.Token).ListOwnAgentsWithResponse(ctx)
 	mustStatus(t, found, err, 200)
 	if len(found.JSON200.Agents) != 1 || found.JSON200.Agents[0].Board != second || strings.Contains(string(found.Body), report.Folder) {
@@ -161,8 +169,14 @@ func TestOwnLocationsDisappearWhenAccessOrTheIssuingKeyEnds(t *testing.T) {
 	}
 	keys, err := s.client(maya).ListKeysWithResponse(ctx, nil)
 	mustStatus(t, keys, err, 200)
+	_, otherKey := s.newKey(maya, "other-machine")
 	revoked, err := s.client(maya).RevokeKeyWithResponse(ctx, keys.JSON200.Keys[0].Id, nil)
 	mustStatus(t, revoked, err, 200)
+	stillOwner, err := s.client(otherKey).ListOwnAgentsWithResponse(ctx)
+	mustStatus(t, stillOwner, err, 200)
+	if len(stillOwner.JSON200.Agents) != 0 {
+		t.Fatalf("revoked issuing key's seats remain findable: %s", stillOwner.Body)
+	}
 	ended, err := s.client(b.JSON201.Token).ListOwnAgentsWithResponse(ctx)
 	if errorCode(t, ended, err, 401) != "unauthorized" {
 		t.Fatalf("revoked lookup: %s", ended.Body)
@@ -170,5 +184,79 @@ func TestOwnLocationsDisappearWhenAccessOrTheIssuingKeyEnds(t *testing.T) {
 	reportDenied, err := s.client(b.JSON201.Token).SetAgentLocationWithResponse(ctx, nil, report)
 	if errorCode(t, reportDenied, err, 401) != "unauthorized" {
 		t.Fatalf("revoked report: %s", reportDenied.Body)
+	}
+}
+
+func TestLocationReportsRejectControlsAndPresenceKeepsTheActivityStamp(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	_, writer, _ := s.pair("starter")
+	valid := api.AgentLocationReport{Harness: "codex", SessionId: "codex:conversation", Folder: "C:\\work\\project"}
+	for _, bad := range []api.AgentLocationReport{
+		{Harness: "codex\nforged", SessionId: valid.SessionId, Folder: valid.Folder},
+		{Harness: valid.Harness, SessionId: "codex:\x00secret", Folder: valid.Folder},
+		{Harness: valid.Harness, SessionId: valid.SessionId, Folder: "/work/\tprivate"},
+	} {
+		rejected, err := s.client(writer).SetAgentLocationWithResponse(ctx, nil, bad)
+		if errorCode(t, rejected, err, 400) != "invalid_request" {
+			t.Fatalf("control accepted: %s", rejected.Body)
+		}
+	}
+	saved, err := s.client(writer).SetAgentLocationWithResponse(ctx, nil, valid)
+	mustStatus(t, saved, err, 200)
+	s.clock.Advance(time.Minute)
+	s.setPresence(writer, api.PresenceWorking)
+	found, err := s.client(writer).ListOwnAgentsWithResponse(ctx)
+	mustStatus(t, found, err, 200)
+	var current *api.AgentLocation
+	for _, agent := range found.JSON200.Agents {
+		if agent.Location != nil {
+			current = agent.Location
+		}
+	}
+	if current == nil || !current.LastActive.Equal(s.clock.Now()) || current.Folder != valid.Folder {
+		t.Fatalf("presence did not renew reported activity: %s", found.Body)
+	}
+	active := current.LastActive
+	s.clock.Advance(time.Minute)
+	s.setPresence(writer, api.PresenceNoSession)
+	ended, err := s.client(writer).ListOwnAgentsWithResponse(ctx)
+	mustStatus(t, ended, err, 200)
+	for _, agent := range ended.JSON200.Agents {
+		if agent.Location != nil && !agent.Location.LastActive.Equal(active) {
+			t.Fatalf("no_session renewed activity: %s", ended.Body)
+		}
+	}
+}
+
+func TestPrivateAgentLocationsDoNotRevealTheirBoardToAnotherAdmin(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := context.Background()
+	maya := s.addHuman("maya")
+	name, template := "private-work", "writer-reviewer"
+	visibility := api.BoardVisibilityPrivate
+	created, err := s.client(maya).CreateBoardWithResponse(ctx, nil, api.CreateBoardRequest{Name: &name, Template: &template, Visibility: &visibility})
+	mustStatus(t, created, err, 201)
+	_, seat := s.joinAs(maya, name, "writer", "codex")
+	report := api.AgentLocationReport{Harness: "codex", SessionId: "codex:hidden-conversation", Folder: "/work/hidden"}
+	saved, err := s.client(seat).SetAgentLocationWithResponse(ctx, nil, report)
+	mustStatus(t, saved, err, 200)
+	own, err := s.client(seat).ListOwnAgentsWithResponse(ctx)
+	mustStatus(t, own, err, 200)
+	if len(own.JSON200.Agents) != 1 || own.JSON200.Agents[0].Board != name || own.JSON200.Agents[0].Location == nil {
+		t.Fatalf("own private agent missing: %s", own.Body)
+	}
+	admin, err := s.client(s.owner).ListOwnAgentsWithResponse(ctx)
+	mustStatus(t, admin, err, 200)
+	for _, secret := range []string{name, report.SessionId, report.Folder} {
+		if strings.Contains(string(admin.Body), secret) {
+			t.Fatalf("private agent leaked to admin: %s", admin.Body)
+		}
+	}
+	foreign, err := s.client(s.owner).ListMembersWithResponse(ctx, name, nil)
+	if errorCode(t, foreign, err, 404) != "board_not_found" {
+		t.Fatalf("admin learned private board: %s", foreign.Body)
 	}
 }

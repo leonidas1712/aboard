@@ -108,11 +108,11 @@ func (s *Service) SetAgentLocation(ctx context.Context, p Principal, in AgentLoc
 		limit int
 	}{{in.Harness, 40}, {in.SessionID, 512}, {in.Folder, 4096}} {
 		if field.value == "" || !utf8.ValidString(field.value) || utf8.RuneCountInString(field.value) > field.limit {
-			return AgentLocation{}, invalid("The agent location is incomplete or too long.", "Report a harness, conversation id and working folder.")
+			return AgentLocation{}, apierr.New(400, "invalid_request", "The agent location is incomplete or too long.", "Report a harness, conversation id and working folder.")
 		}
 		for _, r := range field.value {
 			if unicode.IsControl(r) {
-				return AgentLocation{}, invalid("An agent location cannot contain control characters.", "Remove control characters from the location report.")
+				return AgentLocation{}, apierr.New(400, "invalid_request", "An agent location cannot contain control characters.", "Remove control characters from the location report.")
 			}
 		}
 	}
