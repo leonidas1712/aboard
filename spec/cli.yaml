@@ -959,6 +959,16 @@ $defs:
       the exact request is held for its person. Without a selected seat, it refuses
       with agent_session_required and next.command `aboard boards` (with --server
       when known); join one with `aboard join --board NAME`, then retry. It never uses the person's login.
+      Repeatable --board NAME|ID carries ordinary memberships; resolve each selector
+      to an immutable board id with current access before writing. --pairing "work"
+      adds a pairing proposal from this session's selected initiating agent and needs
+      exactly one board. --role and --guest remain incompatible with --server.
+      Both invite authority and current add-member authority on every board are
+      checked at issue and redemption. Agent automatic execution also needs each
+      admission's allowance or existing per-board grant; otherwise hold the whole
+      exact payload without creating a partial invite. The response includes the
+      bundled immutable board ids and pairing_request_id when supplied. Existing
+      ordinary invites are unchanged.
       The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
           aboard connect http://127.0.0.1:7400/join#abi_K8s2…
@@ -973,6 +983,10 @@ $defs:
         description: The server's URL, then /join#, then the invite. Works once.
         examples: ["http://127.0.0.1:7400/join#abi_K8s2Lq9Zt3mW0x1Yb2Vc4Nd5Pe6Rf7Sg8Th9Ui0Vj"]
       expires_at: { type: string, format: date-time }
+      boards:
+        type: array
+        items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
+      pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
 
   # ---------- aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] ----------
   # ---------- aboard connect <server URL> [--handle NAME] [--name MACHINE] ----------
