@@ -57,6 +57,12 @@
           "version": "2.1.294 (Claude Code)",
           "test": "TestOwnerTargetsWakeEachCurrentAgent/claude-code"
         },
+        "PairingVerifiesBothExactHarnessSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
+          "test": "TestPairingVerifiesBothExactHarnessSessions/claude-code"
+        },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
           "date": "2026-10-09",
@@ -234,6 +240,12 @@
           "date": "2026-10-09",
           "version": "codex-cli 0.160.0",
           "test": "TestOwnerTargetsWakeEachCurrentAgent/codex"
+        },
+        "PairingVerifiesBothExactHarnessSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "codex-cli 0.160.0",
+          "test": "TestPairingVerifiesBothExactHarnessSessions/codex"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "n/a",
@@ -413,6 +425,12 @@
           "date": "2026-10-09",
           "version": "omp/18.5.1",
           "test": "TestOwnerTargetsWakeEachCurrentAgent/omp"
+        },
+        "PairingVerifiesBothExactHarnessSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "omp/18.5.1",
+          "test": "TestPairingVerifiesBothExactHarnessSessions/omp"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
