@@ -61,6 +61,7 @@ type (
 		ctx               context.Context
 		workers           sync.WaitGroup
 		throttles         atomic.Int64
+		monitor           *resourceMonitor
 	}
 	headLog struct {
 		mu      sync.Mutex
@@ -100,6 +101,9 @@ func run(ctx context.Context, o options) (r report, err error) {
 	if o.People < 1 || o.Agents < 1 || o.Boards < 1 || o.Rounds < 1 || o.Boards > o.People*o.Agents {
 		return r, errors.New("positive topology and rounds required; each board needs a seat")
 	}
+	if o.Writers < 0 || (o.Writers > 0 && o.WritesPerWriter < 1) || o.Soak < 0 {
+		return r, errors.New("nonnegative writers and soak required; enabled writers need positive messages")
+	}
 	root, err := os.MkdirTemp("/tmp", "aboard-load-")
 	if err != nil {
 		return r, err
@@ -107,7 +111,14 @@ func run(ctx context.Context, o options) (r report, err error) {
 	defer func() { _ = os.RemoveAll(root) }()
 	f := &fixture{root: root, binary: o.Binary, ctx: ctx, client: &http.Client{Timeout: 65 * time.Second, Transport: loadTransport((&net.Dialer{}).DialContext, 16)}}
 	progress := runProgress{Stage: "build"}
-	defer func() { f.finishReport(&r, progress, err); cancel(); f.close() }()
+	defer func() {
+		if f.monitor != nil {
+			r.Resources = f.monitor.stop(ctx)
+		}
+		f.finishReport(&r, progress, err)
+		cancel()
+		f.close()
+	}()
 	if f.binary == "" {
 		f.binary = filepath.Join(root, "aboard")
 		// #nosec G204 -- builds a fixed repository command into its private scratch directory.
@@ -129,20 +140,24 @@ func run(ctx context.Context, o options) (r report, err error) {
 	}
 	r.Setup = time.Since(start).Seconds()
 	r.Daemons = len(f.people)
+	r.ConfiguredStreams = 2 * len(f.people)
 	checks := deliveryCheck{Expected: map[string][]messageKey{}, Seen: map[string][]messageKey{}}
 	start = time.Now()
 	progress.MeasurementStart = start
 	progress.Stage = "round"
-	for round := range o.Rounds {
+	f.monitor.setPhase("delivery")
+	for round := 0; moreRounds(round, o.Rounds, time.Since(start), o.Soak); round++ {
 		if err := f.round(ctx, round, &checks, &progress.Stream, &progress.Poll, &progress.Handover, &progress.Write, &r); err != nil {
 			return r, err
 		}
+		r.Rounds++
 	}
 	r.Measurement = time.Since(start).Seconds()
 	r.Throughput = float64(r.Posts) / r.Measurement
 	r.Throttles = int(f.throttles.Load())
 	progress.Stage = "confirmation"
-	if err := f.finishExtensions(o.Rounds); err != nil {
+	f.monitor.setPhase("confirmation")
+	if err := f.finishExtensions(r.Rounds); err != nil {
 		return r, err
 	}
 	if err := checks.validate(); err != nil {
@@ -155,7 +170,16 @@ func run(ctx context.Context, o options) (r report, err error) {
 			}
 		}
 	}
+	if o.Writers > 0 {
+		progress.Stage = "concurrent_writers"
+		f.monitor.setPhase("concurrent_writers")
+		r.Concurrent, err = f.concurrentWrites(ctx, o.Writers, o.WritesPerWriter)
+		if err != nil {
+			return r, err
+		}
+	}
 	progress.Stage = "audit"
+	f.monitor.setPhase("audit")
 	for _, b := range f.boards {
 		if err := f.cli(f.admin, "", "audit", "verify", "--board", b.Name, "--json"); err != nil {
 			return r, fmt.Errorf("chain verification: %w", err)
@@ -168,9 +192,9 @@ func run(ctx context.Context, o options) (r report, err error) {
 		for _, seat := range person.seats {
 			boards[seat.board.ID] = true
 		}
-		wantStream += len(boards) * o.Rounds
+		wantStream += len(boards) * r.Rounds
 	}
-	if r.Posts != o.Boards*o.Rounds || r.Deliveries != o.People*o.Agents*o.Rounds || len(progress.Poll) != r.Deliveries || len(progress.Handover) != r.Deliveries || len(progress.Stream) != wantStream {
+	if r.Posts != o.Boards*r.Rounds || r.Deliveries != o.People*o.Agents*r.Rounds || len(progress.Poll) != r.Deliveries || len(progress.Handover) != r.Deliveries || len(progress.Stream) != wantStream {
 		return r, errors.New("measurement sample counts do not match the topology")
 	}
 	if r.Stream, err = summarize(progress.Stream); err != nil {
@@ -353,6 +377,7 @@ func (f *fixture) setup(o options) error {
 	if err := f.process(f.admin, "serve"); err != nil {
 		return err
 	}
+	f.monitor = startResources(f.ctx, f.admin.cmd.Process.Pid)
 	if err := wait(f.ctx, func() bool {
 		raw, e := os.ReadFile(filepath.Join(f.admin.home, "aboard", "config", "local-owner-token"))
 		if e != nil {
