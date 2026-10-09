@@ -47,8 +47,9 @@ measured post. This measures established-connection delivery, not cold-connectio
 capacity. Failed observations are not retried.
 Each independent inbox long poll reads its recipient before that extension confirms
 the message, so daemon acknowledgments cannot swallow that observation. Extensions
-validate and confirm independently; a delayed stream or another extension must not
-consume their harness response windows. All stream and poll checks still have to pass. At the
+validate and confirm independently as each board post returns; a delayed post on
+another board, a stream or another extension must not consume their harness response
+windows. Unknown or failed post outcomes never authorize a receipt. All stream and poll checks still have to pass. At the
 default topology this adds 500 observer inbox requests per round, alongside the
 daemons’ own traffic. The observers never acknowledge. HTTP request-write callbacks
 establish that all observer requests were transmitted before posting; the public
