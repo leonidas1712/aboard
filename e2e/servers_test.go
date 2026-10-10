@@ -48,15 +48,19 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 		t.Fatalf("login on a machine that uses its local server:\n%s", login)
 	}
 
-	// A machine that connected before defaults existed has none saved; it uses its local
-	// server, so that stays its default and nothing starts refusing.
+	// Known issuers do not substitute for a persisted machine default.
 	forgetDefault(t, maya)
-	if got := maya.run("servers", "--json").json(t); field(t, got, "default.url") != local {
-		t.Fatalf("servers with no saved default on a machine that uses its local server: %v", got)
+	if got := maya.run("servers", "--json").json(t); got["default"] != nil {
+		t.Fatalf("a missing saved default was inferred: %v", got)
 	}
-	if text := maya.run("keys", "create", "browser").stdout; !strings.HasPrefix(text, `Key "browser" for `+local+" (shown once") {
-		t.Fatalf("keys create with no saved default:\n%s", text)
+	refused := maya.runExit("keys", "create", "browser", "--json")
+	if refused.code != 1 || errorCode(t, refused.json(t)) != "server_not_selected" {
+		t.Fatalf("keys create guessed without a saved default: %s", refused)
 	}
+	if text := maya.run("keys", "create", "browser", "--server", local).stdout; !strings.HasPrefix(text, `Key "browser" for `+local+" (shown once") {
+		t.Fatalf("explicit local server did not work without a default: %s", text)
+	}
+	maya.run("servers", "use", "local")
 
 	// A machine with no local server, on two teams' servers and with no default, never
 	// guesses: keys, people, invite and board new refuse and name both servers.
@@ -92,7 +96,7 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	if !strings.HasPrefix(created, `Key "tablet" for `+tm.url()+" (shown once") {
 		t.Fatalf("keys create --server:\n%s", created)
 	}
-	for _, args := range [][]string{{"invite", "--server", tm.url(), "--json"}, {"invite", "--server=" + tm.url(), "--json"}} {
+	for _, args := range [][]string{{"invite", "--person", "--server", tm.url(), "--json"}, {"invite", "--person", "--server=" + tm.url(), "--json"}} {
 		inv := maya.runExit(args...)
 		// maya is a member, so the team's server refuses her an invite: what matters is
 		// which server was asked.
@@ -100,11 +104,11 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 			t.Fatalf("%v:\n%s", args, inv)
 		}
 	}
-	if r := maya.runExit("invite", "--server", tm.url(), "extra"); r.code != 2 {
+	if r := maya.runExit("invite", "--person", "--server", tm.url(), "extra"); r.code != 2 {
 		t.Fatalf("invite --server with two arguments:\n%s", r)
 	}
 
-	// A default answers for the machine; --server and .aboard still win over it.
+	// A persisted default answers for the machine; --server overrides it.
 	used := maya.run("servers", "use", tm.url(), "--json").json(t)
 	matchesCLISpec(t, "ServersUseOutput", used)
 	if field(t, used, "server.url") != tm.url() || field(t, used, "previous.url") != local {
@@ -144,8 +148,8 @@ func TestPersonCommandsChooseAmongSeveralServers(t *testing.T) {
 	}
 }
 
-// One server is enough to choose: a solo machine's commands act on its local server, and
-// a machine connected only to a team's server acts on that one, without --server.
+// Bootstrap and the first team connection save a default, so later commands do
+// not need an explicit server.
 func TestOneKnownServerNeedsNoChoice(t *testing.T) {
 	t.Parallel()
 	solo := newEnv(t)

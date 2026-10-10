@@ -18,7 +18,7 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if len(field(t, initial, "allowance.categories").([]any)) != 0 {
 		t.Fatal("allowance did not start off")
 	}
-	held := session.run("invite", "--server", tm.url(), "--json").json(t)
+	held := session.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	matchesCLISpec(t, "HeldAdminOutput", held)
 	id := field(t, held, "approval.id").(string)
 	if held["state"] != "pending" || !strings.Contains(field(t, held, "next.command").(string), tm.url()) {
@@ -58,7 +58,7 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if field(t, categories, "allowance.categories.0") != "invite-people" {
 		t.Fatalf("always category: %v", categories)
 	}
-	automatic := session.run("invite", "--server", tm.url(), "--json").json(t)
+	automatic := session.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	if field(t, automatic, "approval.state") != "executed" || field(t, automatic, "approval.execution.authorization.via") != "allowance" {
 		t.Fatalf("automatic admission: %v", automatic)
 	}
@@ -67,7 +67,7 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 		t.Fatalf("agent-issued invites not identified: %s", inventory)
 	}
 	tm.admin.run("allowance", "set", "invite-people", "off", "--json")
-	pending := session.run("invite", "--server", tm.url(), "--json").json(t)
+	pending := session.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	pendingID := field(t, pending, "approval.id").(string)
 	declined := tm.admin.run("approvals", "decline", pendingID, "--json").json(t)
 	matchesCLISpec(t, "ApprovalDecisionOutput", declined)

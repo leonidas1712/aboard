@@ -143,7 +143,7 @@ type setupLostResponseTransport struct {
 func TestOwnInviteCommandsListMetadataAndRevokeOnce(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	link := field(t, invite, "link").(string)
 	listed := tm.admin.run("invite", "list", "--server", tm.url(), "--json")
 	matchesCLISpec(t, "ServerInvitesOutput", listed.json(t))
