@@ -325,3 +325,49 @@ func TestNoticeDefersToMessageAtOrdinaryBundleLimit(t *testing.T) {
 		t.Fatal("deferred notice did not recover", notice)
 	}
 }
+
+func TestAllPendingNoticesPrecedeOneMessageHandoff(t *testing.T) {
+	reader := &approvalReader{decision: delivery.ApprovalDecision{ID: "apr_own", AgentID: "mem_own", State: "pending"}}
+	pairing := &readyPairingRuntime{row: delivery.PairingRequest{ID: "prq_own", BoardID: "brd_docs", InitiatingAgentID: "mem_own", RecipientID: "hum_maya", State: "awaiting_session", Display: []byte(`{"recipient_handle":"maya"}`)}}
+	r, _ := seatsRigWith(t, func(c *delivery.Config) {
+		c.ApprovalFor = func(string) delivery.ApprovalRuntime { return reader }
+		c.PairingFor = func(string) delivery.PairingRuntime { return pairing }
+	})
+	r.register("s1", "b1")
+	agent := delivery.AgentRef{Server: serverURL, Board: "docs", Name: "claude", MemberID: "mem_own"}
+	r.bind("claude-code", "s1", agent)
+	r.ok(delivery.Request{Op: delivery.OpApprovalWatch, Harness: "claude-code", Session: "s1", Server: serverURL, ApprovalID: "apr_own", Agent: &agent})
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	bindings, err := r.journal.Bindings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gen uint64
+	for _, b := range bindings {
+		if b.Agent.Key() == agent.Key() {
+			gen = b.Generation
+		}
+	}
+	if err := r.journal.SaveNotice(context.Background(), delivery.DurableNotice{ID: "arrival", Kind: "colleague_arrival", SourceID: "prq_own", BoardID: "brd_docs", Agent: agent, Session: delivery.SessionKey{Harness: "claude-code", ID: "s1"}, Boot: "b1", Generation: gen}); err != nil {
+		t.Fatal(err)
+	}
+	reader.set("executed", "", nil)
+	seq := r.post(agent, "HELLO-FROM-MAYA", false)
+	got := r.wait("s1", "b1", false).next()
+	message := strings.Index(got.Bundle, "HELLO-FROM-MAYA")
+	for _, text := range []string{"Aboard approval apr_own", "Aboard colleague maya joined board docs"} {
+		pos := strings.Index(got.Bundle, text)
+		if pos < 0 || message < 0 || pos > message {
+			t.Fatal("pending notices were split across handoffs", got.Bundle)
+		}
+	}
+	r.eventually("both notices handed", 0, func() bool {
+		rows, err := r.journal.Notices(context.Background(), agent)
+		return err == nil && len(rows) == 2 && rows[0].Handed && rows[1].Handed
+	})
+	if r.server.Cursor(agent) != 0 {
+		t.Fatal("notice handoff prematurely confirmed message")
+	}
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	r.eventually("normal message confirmation", 0, func() bool { return r.server.Cursor(agent) == seq })
+}

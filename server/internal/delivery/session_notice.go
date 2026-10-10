@@ -115,11 +115,25 @@ func (s *session) renderNotice(ctx context.Context, n DurableNotice, a *agentSta
 	return "", true
 }
 
+type renderedNotice struct {
+	notice DurableNotice
+	text   string
+}
+
 func (s *session) nextNotice(ctx context.Context) (notice DurableNotice, text string) {
-	j, ok := s.d.cfg.Journal.(NoticeJournal)
-	if !ok || !s.open {
+	notices := s.pendingNotices(ctx)
+	if len(notices) == 0 {
 		return DurableNotice{}, ""
 	}
+	return notices[0].notice, notices[0].text
+}
+
+func (s *session) pendingNotices(ctx context.Context) []renderedNotice {
+	j, ok := s.d.cfg.Journal.(NoticeJournal)
+	if !ok || !s.open {
+		return nil
+	}
+	var notices []renderedNotice
 	s.collectApprovalNotices(ctx)
 	rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -153,10 +167,10 @@ func (s *session) nextNotice(ctx context.Context) (notice DurableNotice, text st
 			if text == "" {
 				continue
 			}
-			return n, text
+			notices = append(notices, renderedNotice{notice: n, text: text})
 		}
 	}
-	return DurableNotice{}, ""
+	return notices
 }
 
 func (s *session) tryNotice(ctx context.Context) {

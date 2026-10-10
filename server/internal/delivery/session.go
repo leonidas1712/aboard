@@ -1436,10 +1436,9 @@ func (s *session) tryDeliver(ctx context.Context) {
 		offers = s.offers(s.queueFilter())
 	}
 	notes, told := s.modeNotes()
-	var notice DurableNotice
-	var noticeText string
+	var notices []renderedNotice
 	if len(offers) > 0 {
-		notice, noticeText = s.nextNotice(ctx)
+		notices = s.pendingNotices(ctx)
 	}
 	prefix := notes
 	limit := BundleLimit
@@ -1462,11 +1461,16 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.scheduleRetry()
 		return
 	}
-	if noticeText != "" && len(withNotes(withNotes(noticeText, prefix), c.text)) <= handoffLimit {
-		prefix = withNotes(noticeText, prefix)
-	} else {
-		notice = DurableNotice{}
+	var handedNotices []DurableNotice
+	var noticeText string
+	for _, n := range notices {
+		candidate := withNotes(noticeText, n.text)
+		if len(withNotes(withNotes(candidate, notes), c.text)) <= handoffLimit {
+			noticeText = candidate
+			handedNotices = append(handedNotices, n.notice)
+		}
 	}
+	prefix = withNotes(noticeText, notes)
 	c.text = withNotes(prefix, c.text)
 	handoff, handed, prepareErr := s.prepare(ctx, c, prefix, c.text)
 	if prepareErr != nil {
@@ -1490,7 +1494,9 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if err == nil {
 		s.accepted(ctx, handed, idle)
 		s.markTold(told)
-		s.markNoticeHanded(ctx, notice)
+		for _, notice := range handedNotices {
+			s.markNoticeHanded(ctx, notice)
+		}
 	}
 	if s.adapter.WaitsForIdle() || hookHand {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone

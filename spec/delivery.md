@@ -1797,9 +1797,9 @@ board and asks the inviter to greet them. Fresh issuer-bound reads recheck curre
 ownership, key, access and lifecycle before delivery. Removed authority cancels
 the notice. No invite secret, collected outcome or person credential is included.
 
-When a notice and board messages are pending, prepend the notice to their shared
-message bundle when it fits. Allocate messages first; if the notice would displace
-a valid message, leave the notice pending. Notice overhead never makes a message
+When notices and board messages are pending, prepend all fresh eligible notices
+that fit to their shared message bundle. Allocate messages first; if a notice would
+displace a valid message, leave that notice pending. Notice overhead never makes a message
 undeliverable or eligible for skipping. A standalone notice must not consume the waiting hook ahead of
 those messages. Message allocations, confirmation and read cursors retain their
 existing semantics.
