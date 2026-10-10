@@ -37,6 +37,11 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- Add own-approval metadata and requesting-seat invite collection, optional suggested
+  handles, server-owned link/prompt fields and seat-scoped people/invite reads.
+  Additive for API and CLI clients. Collection supports bounded same-key recovery
+  after a lost response; metadata and the general response cache hold no secret.
+
 - Add owner-only GET /v1/me/agents, own-seat PUT /v1/me/location and optional
   Member.location; add AgentsOutput and optional resume --server issuer selection.
   Additive for API/CLI clients and delivery daemons. Locations are descriptive

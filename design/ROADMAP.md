@@ -2,9 +2,10 @@
 
 ### Onboarding approval outcomes (GEN-52)
 
-Building: requesting agents collect approved invite outcomes once; browser approval
-shows the link; original-session pairing selection, suggested handles and scoped
-read-only people/invite listing follow in the same QA slice.
+Review: PR #297 adds requesting-agent collection with encrypted, bounded recovery,
+server-owned invite prompts, original-session selection, suggested handles and
+seat-scoped people/invite reads. Browser copy-once UI landed in #296. Focused checks
+pass; the isolated three-harness setup proof and affected live gate remain pending.
 
 What's being built now, what's left before launch, and what comes after, feature by
 feature. Each stage separates **features** (something new) from **enhancements** (a

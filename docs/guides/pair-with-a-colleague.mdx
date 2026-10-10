@@ -67,8 +67,10 @@ once, even when you allowed the request in the browser. The original requesting
 session is selected automatically for the pairing; the approval itself does not mean
 the delivery check is ready. No link needs to be relayed from your browser.
 
-Later reads show only nonsecret metadata. If the collection response is lost, revoke
-the invitation and request a new one; the secret cannot be recovered from a list.
+Later invocations show only nonsecret metadata. If the response is lost, the CLI
+retries once with the same seat and key. That recovery works for up to ten minutes.
+If both attempts fail, revoke the invitation and request a new one; a list cannot
+recover its secret.
 
 If you have let your agents invite people without asking
 ([Auto mode or ask me](/guides/auto-mode)), the invite is made at once, from this
