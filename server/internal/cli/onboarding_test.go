@@ -361,7 +361,7 @@ func TestSetupPairingNeedsTheIntendedSessionBeforeAuthenticatedHTTP(t *testing.T
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 0 || result.State != "pending" || result.Steps[4].State != "pending" || result.Steps[5].State != "pending" || result.Next == nil || !strings.Contains(result.Next.Command, "pairing accept prq_exact --here") {
+	if requests != 0 || result.State != "pending" || result.Steps[4].State != "pending" || result.Steps[5].State != "pending" || result.Steps[3].State != "pending" || result.Next == nil || result.Next.Command != "aboard init" || !strings.Contains(result.Next.Resume, "restart") {
 		t.Fatalf("setup bypassed the intended session: requests=%d result=%+v", requests, result)
 	}
 }
