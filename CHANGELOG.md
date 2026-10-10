@@ -30,6 +30,10 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+- Invite prompts explain sandbox approval. Sandboxed setup failures return a secret-free
+  continuation command that resumes the saved account and memberships. The CLI
+  error guidance is additive; setup does not change daemon startup or permissions.
+
 ### CLI onboarding polish (GEN-60)
 
 - `aboard join BOARD` uses the existing name-based join path; join codes retain
