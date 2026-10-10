@@ -4313,6 +4313,11 @@ $defs:
       installed, account, memberships, harness, pairing, delivery. Trust/restart
       waits have precise harness actions and the words Continue Aboard setup.
       A pending harness action takes precedence over pairing next until confirmed.
+      A current-boot hook observed by the trusted daemon or a live current-session
+      extension confirms the harness step after trust and restart. Installed files,
+      a standalone CLI registration or synthetic queue boot do not. An old daemon
+      omitting runtime_ready remains unconfirmed. Runtime confirmation alone never
+      marks the delivery step complete.
       After account authorization, setup persists the canonical invite issuer as the
       default only if the machine has none; an existing default is preserved.
       A new account message says it was created, not authorized for a pairing.

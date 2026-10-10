@@ -116,6 +116,7 @@ on a connection that stays open.
 | `notice` | string | The waiting notice: names waiting messages without their content |
 | `nudge` | string | On `turn_start` and `boundary`: Aboard's own reminder lines for the agent (a late pause, a stale line, a stale brief), which the caller adds before `bundle` and `notice`; never a sender's text (see "Reminders") |
 | `boot` | string | The session's boot id |
+| `runtime_ready` | boolean | On `agents`: the daemon observed a current-boot harness hook or has the current live extension connection. An omitted or false value is unconfirmed. A standalone CLI registration, synthetic queue boot, old boot, installed files or another session's activity cannot establish it. This confirms runtime setup only, never message delivery |
 | `agents` | array of agents | The agents bound to the session |
 | `seats` | array of seats | On `bind`, `join` and `agents` once multi-seat binding is on (see "Several seats"): every seat the session holds, each an agent with its `member_id`, `mode` and `unread` |
 | `joined` | agent | On `join` or `create_board`: the seat the session has on the board now, with its `member_id` |
