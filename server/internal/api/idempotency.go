@@ -67,7 +67,7 @@ func creationRequestHash(o Options, next http.Handler) http.Handler {
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
-		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join" ||
+		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/invites/preview" || r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join" ||
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost) ||

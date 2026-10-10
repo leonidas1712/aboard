@@ -140,7 +140,7 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 	ctx, cancel := a.requestContext(ctx)
 	defer cancel()
 	if len(pos) == 0 {
-		r, e := c.api.ListApprovalsWithResponse(ctx)
+		r, e := c.api.ListApprovalsWithResponse(ctx, nil)
 		if e != nil {
 			return c.unreachable(e)
 		}

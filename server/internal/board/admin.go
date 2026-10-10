@@ -372,6 +372,15 @@ func (s *Service) requestAdminTx(ctx context.Context, tx Tx, p Principal, action
 			if existing.PayloadHash != hash {
 				return AdminActionResult{}, apierr.New(http.StatusConflict, "idempotency_conflict", "This request key belongs to another exact action.", "Use a new key for a different action.")
 			}
+			if existing.State == "pending" {
+				deadline, err := approvalDeadline(existing)
+				if err != nil {
+					return AdminActionResult{}, err
+				}
+				if !s.clk.Now().Before(deadline) {
+					return AdminActionResult{}, approvalClosed()
+				}
+			}
 			if existing.State != "pending" && existing.State != "executed" {
 				return AdminActionResult{}, approvalClosed()
 			}
@@ -403,10 +412,10 @@ func (s *Service) requestAdminTx(ctx context.Context, tx Tx, p Principal, action
 	if err != nil {
 		return AdminActionResult{}, err
 	}
-	approval := Approval{ID: id, PersonID: owner.Human.ID, AgentID: m.ID, ParentKeyID: p.KeyID, Action: action, PayloadHash: hash, State: "pending", CreatedAt: stamp(now), RequestKey: key}
+	approval := Approval{ID: id, PersonID: owner.Human.ID, AgentID: m.ID, ParentKeyID: p.KeyID, Action: action, PayloadHash: hash, State: "pending", CreatedAt: stamp(now), ExpiresAt: ptr(stamp(now.Add(24 * time.Hour))), RequestKey: key}
 	out := AdminActionResult{State: "pending", Approval: approval}
 	if s.adminAllowanceCovers(tx, p, action, allowance) {
-		auth := AdminAuthorization{PersonID: approval.PersonID, AgentID: m.ID, ParentKeyID: p.KeyID, Via: "allowance", AllowanceID: allowance.ID, AllowanceRevision: allowance.Revision, PayloadHash: hash}
+		auth := AdminAuthorization{Kind: authorizationKind(action), PersonID: approval.PersonID, AgentID: m.ID, ParentKeyID: p.KeyID, Via: "allowance", AllowanceID: allowance.ID, AllowanceRevision: allowance.Revision, PayloadHash: hash}
 		invite, err := s.executeAdminTx(ctx, tx, owner, m, action, auth, notes)
 		if err != nil {
 			return AdminActionResult{}, err
@@ -424,9 +433,13 @@ func (s *Service) requestAdminTx(ctx context.Context, tx Tx, p Principal, action
 }
 
 // ListApprovals returns only the caller's requests whose payloads remain visible.
-func (s *Service) ListApprovals(ctx context.Context, p Principal) ([]Approval, error) {
+func (s *Service) ListApprovals(ctx context.Context, p Principal, states ...string) ([]Approval, error) {
+	state := "all"
+	if len(states) > 0 {
+		state = states[0]
+	}
 	out := []Approval{}
-	err := s.st.Read(ctx, func(tx ReadTx) error {
+	err := s.writeBookkeepingAs(ctx, p, func(tx Tx) error {
 		h, err := caller(tx, p, stamp(s.clk.Now()))
 		if err != nil {
 			return err
@@ -445,6 +458,40 @@ func (s *Service) ListApprovals(ctx context.Context, p Principal) ([]Approval, e
 			}
 			if err := s.approvalVisible(tx, owner, a); err != nil {
 				continue
+			}
+			deadline, err := approvalDeadline(a)
+			if err != nil {
+				return err
+			}
+			if a.ExpiresAt == nil {
+				a.ExpiresAt = ptr(stamp(deadline))
+			}
+			if a.State == "pending" && !s.clk.Now().Before(deadline) {
+				a.State = "expired"
+				a.DecidedAt = ptr(stamp(deadline))
+				if err := tx.SaveApproval(a); err != nil {
+					return err
+				}
+			}
+			if a.State == "pending" {
+				if state == "decided" {
+					continue
+				}
+			} else {
+				if state == "pending" {
+					continue
+				}
+				decided := a.CreatedAt
+				if a.DecidedAt != nil {
+					decided = *a.DecidedAt
+				}
+				at, err := time.Parse(time.RFC3339Nano, decided)
+				if err != nil {
+					return err
+				}
+				if !s.clk.Now().Before(at.Add(7 * 24 * time.Hour)) {
+					continue
+				}
 			}
 			out = append(out, a)
 		}
@@ -524,7 +571,11 @@ func (s *Service) AllowApproval(ctx context.Context, p Principal, id string, alw
 		if hash != a.PayloadHash {
 			return approvalClosed()
 		}
-		if a.ExpiresAt != nil && *a.ExpiresAt <= stamp(s.clk.Now()) {
+		deadline, err := approvalDeadline(a)
+		if err != nil {
+			return err
+		}
+		if a.State == "pending" && !s.clk.Now().Before(deadline) {
 			return approvalClosed()
 		}
 		if a.State == "executed" {
@@ -549,7 +600,7 @@ func (s *Service) AllowApproval(ctx context.Context, p Principal, id string, alw
 				}
 			}
 		}
-		auth := AdminAuthorization{PersonID: a.PersonID, AgentID: a.AgentID, ParentKeyID: a.ParentKeyID, Via: "approval", ApprovalID: a.ID, PayloadHash: a.PayloadHash}
+		auth := AdminAuthorization{Kind: authorizationKind(a.Action), PersonID: a.PersonID, AgentID: a.AgentID, ParentKeyID: a.ParentKeyID, Via: "approval", ApprovalID: a.ID, PayloadHash: a.PayloadHash}
 		invite, err := s.executeAdminTx(ctx, tx, owner, m, a.Action, auth, notes)
 		if err != nil {
 			return err
@@ -589,6 +640,13 @@ func (s *Service) DeclineApproval(ctx context.Context, p Principal, id string) (
 		}
 		if err := s.approvalVisible(tx, Principal{Human: &h, KeyID: p.KeyID}, a); err != nil {
 			return err
+		}
+		deadline, err := approvalDeadline(a)
+		if err != nil {
+			return err
+		}
+		if a.State == "pending" && !s.clk.Now().Before(deadline) {
+			return approvalClosed()
 		}
 		if a.State == "declined" {
 			out = a

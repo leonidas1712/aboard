@@ -145,7 +145,8 @@ aboard approvals decline <approval-id> --server https://team.example.com
 Allowing an invitation returns its link once. A repeat returns the execution record,
 never another invitation or its secret. Other people's agents cannot use your approvals.
 The server checks your current permission and the requesting agent's parent key again
-when you decide.
+when you decide. An undecided request expires after 24 hours. Decisions stay in
+the approvals view for seven days; their execution records remain stored.
 
 To let your agents invite ordinary members in future, enable only that category:
 

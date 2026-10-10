@@ -251,13 +251,18 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/v1/join" {
+		if r.URL.Path == "/v1/join" || r.URL.Path == "/v1/invites/preview" {
 			if !limiter.allow(host) {
 				w.Header().Set("Retry-After", "60")
 				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many join attempts from this address.",
 					"Wait a minute, then try again."))
 				return
 			}
+		}
+		if r.URL.Path == "/v1/invites/preview" && r.Method == http.MethodPost {
+			w.Header().Set("Cache-Control", "no-store")
+			next.ServeHTTP(w, r)
+			return
 		}
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if r.Header.Get("Authorization") == "" {

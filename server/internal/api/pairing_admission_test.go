@@ -35,7 +35,7 @@ func TestPairingNonmemberWaitsForItsExactAdmissionApproval(t *testing.T) {
 	if before.JSON200.OnBoard {
 		t.Fatal("held approval admitted the person")
 	}
-	approvals, err := s.client(s.owner).ListApprovalsWithResponse(ctx)
+	approvals, err := s.client(s.owner).ListApprovalsWithResponse(ctx, nil)
 	mustStatus(t, approvals, err, 200)
 	var exact *api.Approval
 	for _, approval := range approvals.JSON200.Approvals {
@@ -70,7 +70,7 @@ func TestPairingNonmemberWaitsForItsExactAdmissionApproval(t *testing.T) {
 	if repeated.JSON201.Id != created.JSON201.Id {
 		t.Fatal("replay created another pairing")
 	}
-	finalApprovals, err := s.client(s.owner).ListApprovalsWithResponse(ctx)
+	finalApprovals, err := s.client(s.owner).ListApprovalsWithResponse(ctx, nil)
 	mustStatus(t, finalApprovals, err, 200)
 	if len(finalApprovals.JSON200.Approvals) != len(approvals.JSON200.Approvals) {
 		t.Fatal("pairing replay created another admission approval")
