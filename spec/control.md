@@ -73,12 +73,13 @@ optional; each operation says which it reads.
 | `harness` | string | The session's harness, as in its profile: `claude-code`, `codex` |
 | `session` | string | The harness's own session id |
 | `boot` | string | The session's boot id: changes whenever the session's process does. Empty means the one the daemon has on record |
+| `runtime_hook` | boolean | The installed harness hook reports its runtime invocation. Only an accepted hook operation with a nonempty matching current boot can establish `runtime_ready`; ordinary CLI calls omit this marker. This local bookkeeping marker grants no server authority and cannot confirm message delivery |
 | `source` | string | What started the session: `startup`, `resume`, `clear` or `compact` |
 | `resumed` | boolean | The client reconnects after the daemon went away, so this isn't the session's next event |
 | `wake` | boolean | A prompt that is the bundle a waiting hook just woke the session with, not a later event |
 | `turn_id` | integer | On `turn_end`: the daemon's logical turn from `waiting`; when supplied it must match the current turn and requires the exact returned `boot` |
 | `started` | string | When the hook's or command's process started (RFC 3339); on `turn_end`, rejects completion older than the current turn's activity |
-| `agent` | object | An agent: `{"server","board","name","member_id"}` (see "Seats"). On `join`, the board to join: `server` and `board`, with `name` the name asked for, if any |
+| `agent` | object | An agent: `{"server","board","name","member_id"}` (see "Seats"). On `join`, the board to join: canonical `server` and `board` (name or immutable id), with `name` the name asked for, if any; the joined result names the actual immutable board identity |
 | `lifecycle` | string | On `boards`: `active` (default), `archived` or `all`; filters lifecycle without extending the delegation's access |
 | `role` | string | On `join` or `create_board`: the role to join as; `member` when left out |
 | `server` | string | On `boards` or `create_board`: the server URL; creation requires it |
@@ -116,6 +117,7 @@ on a connection that stays open.
 | `notice` | string | The waiting notice: names waiting messages without their content |
 | `nudge` | string | On `turn_start` and `boundary`: Aboard's own reminder lines for the agent (a late pause, a stale line, a stale brief), which the caller adds before `bundle` and `notice`; never a sender's text (see "Reminders") |
 | `boot` | string | The session's boot id |
+| `runtime_ready` | boolean | On `agents`: the daemon observed a current-boot harness hook or has the current live extension connection. An omitted or false value is unconfirmed. A standalone CLI registration, synthetic queue boot, old boot, installed files or another session's activity cannot establish it. This confirms runtime setup only, never message delivery |
 | `agents` | array of agents | The agents bound to the session |
 | `seats` | array of seats | On `bind`, `join` and `agents` once multi-seat binding is on (see "Several seats"): every seat the session holds, each an agent with its `member_id`, `mode` and `unread` |
 | `joined` | agent | On `join` or `create_board`: the seat the session has on the board now, with its `member_id` |
@@ -937,6 +939,10 @@ external harness queue entries. A command reports only after successful complete
 stdout emission, holds local delivery while reading when possible, and never starts
 or replaces a daemon to report. Failed emission records nothing; unseen gaps remain
 unread. An unsupported old daemon leaves the read successful without suppression.
+
+Everyday setup (D224) does not use shown-message observations as pairing proof.
+Its hello/reply check cannot grant access. The existing shown operation continues
+serving unread suppression; pairing's exact-endpoint API remains separate.
 
 `midturn-peer` on an extension's hello/welcome is a live negotiated capability. The
 same text on a profile alone cannot enable it. New combined peer context is delivered

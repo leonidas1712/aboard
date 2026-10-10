@@ -39,7 +39,7 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 		writer := d.start(inviter, "writer", writerDir)
 		writer.bind("writer")
 		invitePath := filepath.Join(writerDir, "invite.json")
-		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. If a later approval notice says this request executed, run its aboard approvals show command once and save that JSON outcome to the same private file. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
+		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. If a later approval notice says this request executed, run its aboard approvals show command once and save that JSON outcome to the same private file. When a setup hello arrives, reply to that message with aboard say --reply and the body SETUP-HELLO-REPLY, then end your turn. Do no other work.", inviter.addr, board, invitePath))
 		if held {
 			var pending struct {
 				State    string `json:"state"`
@@ -54,7 +54,7 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 			writer.waitIdle(2 * time.Minute)
 			inviter.approveInviteInBrowser(pending.Approval.ID)
 			// No invitation, outcome or approval id is relayed from the browser.
-			writer.submit("Continue with any Aboard next-turn notice, then end your turn. Do not request another invite or select a pairing endpoint manually.")
+			writer.submit(fmt.Sprintf("Continue with any Aboard next-turn notice. If it names an executed approval, run its aboard approvals show command with --json and save that JSON to %q, then end your turn. Do not request another invite or select a pairing endpoint manually.", invitePath))
 		}
 		var invitation struct {
 			Invite struct {
@@ -70,8 +70,20 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 		writer.waitIdle(2 * time.Minute)
 		newcomer := newLab(t)
 		d.setUp(newcomer)
-		reviewerDir := newcomer.project("setup-newcomer", d.p.Harness)
-		reviewer := d.start(newcomer, "reviewer", reviewerDir)
+		// Start with the global hooks setup will maintain already loaded. Installing
+		// another scope after startup correctly requires a harness restart instead.
+		newcomer.run("init", "--yes", "--scope", "global", "--harness", d.p.Harness, "--allow-commands")
+		reviewerDir := filepath.Join(newcomer.dir, "setup-newcomer")
+		if err := os.MkdirAll(reviewerDir, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		start := d.start
+		if d.p.Harness == "codex" {
+			// Global hooks are already installed; project instrumentation would
+			// add a second scope that setup would correctly require restarting.
+			start = d.startPlain
+		}
+		reviewer := start(newcomer, "reviewer", reviewerDir)
 		resultPath := filepath.Join(reviewerDir, "setup.json")
 		waitingPath := filepath.Join(reviewerDir, "waiting.json")
 		reviewer.submit(fmt.Sprintf("Run aboard setup %q --json > %q, then end your turn without choosing a handle or continuing setup. Keep the invitation out of board messages.", link, waitingPath))
@@ -90,18 +102,43 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 			t.Fatal("setup spent the invite or omitted its secret-free continuation")
 		}
 		reviewer.waitIdle(2 * time.Minute)
-		prompt := fmt.Sprintf("Your person chose newcomer as the visible handle. Run aboard setup --continue --handle newcomer --json > %q, then end your turn. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Keep the invitation out of board messages. Do no other work.", resultPath)
+		prompt := fmt.Sprintf("Your person chose newcomer as the visible handle. Run aboard setup --continue --handle newcomer --json > %q, then end your turn. When a setup hello arrives, reply to that message with aboard say --reply and the body SETUP-HELLO-REPLY, then end your turn. Keep the invitation out of board messages. Do no other work.", resultPath)
 		reviewer.submit(prompt)
-		var paired struct {
-			State string `json:"state"`
-		}
-		inviter.waitFor(4*time.Minute, "both newcomer setup round trips", func() bool {
-			inviter.multiSeatOwnerRequest(http.MethodGet, "/v1/pairing-requests/"+invitation.Invite.ID, nil, &paired)
-			return paired.State == "ready"
+		newcomer.waitFor(2*time.Minute, "setup joined the invited board", func() bool {
+			data, err := os.ReadFile(filepath.Clean(resultPath))
+			var result struct {
+				Steps []struct{ Step, State string } `json:"steps"`
+			}
+			if err != nil || json.Unmarshal(data, &result) != nil {
+				return false
+			}
+			for _, step := range result.Steps {
+				if step.Step == "pairing" && step.State == "complete" {
+					return true
+				}
+			}
+			return false
+		})
+		writer.waitIdle(2 * time.Minute)
+		writer.submit("Run aboard inbox, reply to the setup hello with aboard say --reply and the body SETUP-HELLO-REPLY, then end your turn. Do not create a pairing request or select an endpoint.")
+		inviter.waitFor(2*time.Minute, "an ordinary reply to the setup hello", func() bool {
+			var messages struct {
+				Messages []struct {
+					Body  string `json:"body"`
+					Reply *int   `json:"reply_to_seq"`
+				} `json:"messages"`
+			}
+			inviter.multiSeatOwnerRequest(http.MethodGet, "/v1/boards/"+board+"/messages?limit=100", nil, &messages)
+			for _, message := range messages.Messages {
+				if message.Body == "SETUP-HELLO-REPLY" && message.Reply != nil {
+					return true
+				}
+			}
+			return false
 		})
 		writer.waitIdle(2 * time.Minute)
 		reviewer.waitIdle(2 * time.Minute)
-		reviewer.submit(fmt.Sprintf("Run aboard setup --continue --handle newcomer --json > %q once more to read the verified result, then end your turn. Do not create another account or invitation.", resultPath))
+		reviewer.submit(fmt.Sprintf("Run aboard setup --continue --handle newcomer --json > %q once more to read the delivery result, then end your turn. Do not create another account or invitation.", resultPath))
 		var output struct {
 			State string `json:"state"`
 			Steps []struct {
@@ -109,7 +146,7 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 				State string `json:"state"`
 			} `json:"steps"`
 		}
-		newcomer.waitFor(2*time.Minute, "setup's verified delivery result", func() bool {
+		newcomer.waitFor(2*time.Minute, "setup's hello/reply result", func() bool {
 			data, err := os.ReadFile(filepath.Clean(resultPath))
 			return err == nil && json.Unmarshal(data, &output) == nil && output.State == "complete"
 		})

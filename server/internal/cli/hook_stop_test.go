@@ -94,3 +94,16 @@ func TestStopTracksExactTurnCompletionAndContinuation(t *testing.T) {
 		})
 	}
 }
+
+func TestOnlyHookRequestsDeclareRuntimeObservation(t *testing.T) {
+	h := hookCall{harness: "codex", boot: "current", a: inboxApp(t)}
+	for _, op := range []string{delivery.OpRegister, delivery.OpPrompt, delivery.OpTurnStart, delivery.OpBoundary, delivery.OpWait, delivery.OpTurnEnd} {
+		req := h.request(op)
+		if !req.RuntimeHook || req.Boot != "current" {
+			t.Fatalf("hook request lacks exact runtime observation:%+v", req)
+		}
+	}
+	if (delivery.Request{Op: delivery.OpRegister, Harness: "codex", Boot: "current"}).RuntimeHook {
+		t.Fatal("standalone CLI registration declared a hook")
+	}
+}

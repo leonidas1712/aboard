@@ -11,8 +11,8 @@ import (
 // The guide "Pair with a colleague's agent" (docs/guides/pair-with-a-colleague.mdx),
 // command by command, with stand-in Claude Code sessions: leo's agent makes a board and
 // a bundled invite that waits for leo's approval; leo allows it; maya's agent sets her up
-// from the one link and accepts the pairing in its own session; each session receives
-// the other's delivery check; the two agents talk. Then pairing again with maya, and
+// from the one link and joins its boards in that session; a hello and reply check
+// messages get through, then the two agents talk. Then pairing again with maya, and
 // with leo's own next session, and the invite and allowance commands the guide shows.
 // The verified ready state needs real harness sessions: e2e/live
 // TestInvitedSetupVerifiesTwoPeopleExactSessions.
@@ -30,8 +30,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	if !strings.HasPrefix(created.stdout, "Created board pairing-test on "+url+" and joined as claude (member, owner leo).\n") {
 		t.Fatalf("board new:\n%s", created)
 	}
-	work := "Check that our agents can message each other"
-	held := ls.run("invite", "--person", "--board", "pairing-test", "--pairing", work)
+	held := ls.run("invite", "--person", "--board", "pairing-test")
 	lines := held.lines()
 	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on "+url+" · pairing-test") ||
 		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server "+quoted) ||
@@ -52,9 +51,6 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		field(t, approved, "invite.prompt") != "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent." {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
-	if r := ls.run("pairing", "select", request, "--here"); !strings.HasPrefix(r.stdout, request+" · board pairing-test · awaiting_account") {
-		t.Fatalf("pairing select:\n%s", r)
-	}
 
 	// 3. maya's agent reads the skill and sets her up from the one link. It asks for her
 	// name before it uses the invite.
@@ -70,7 +66,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"account: pending · Your visible name needs your person's choice; the invite has not been used.",
 		"memberships: pending",
 		"harness: pending",
-		"pairing: pending",
+		"joining: pending",
 		"delivery: pending",
 		"aboard setup --continue --handle maya",
 		"Ask your person what name they'd like teammates to see. Suggested name: maya (availability is checked when you continue). Set --handle to their chosen name, then Continue Aboard setup.")
@@ -79,68 +75,39 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"Setup on "+url+": pending",
 		"installed: complete · Aboard is installed; its owner can update it.",
 		"account: complete · Your account was created and its saved key was verified.",
-		"memberships: complete · Pairing participation and current board access were checked.",
+		"memberships: complete · Current accessible memberships were checked; removed access was not recreated.",
 		"harness: pending · Harness configuration needs trust or restart confirmation.",
-		"pairing: complete · This exact session accepted the pairing request.",
-		"delivery: pending · Both current sessions' round trips are not yet verified.",
+		"joining: complete · This exact session joined the invited boards; existing seats were reused.",
+		"delivery: pending · Delivery has not been verified by a session round trip.",
 		"aboard init --harness claude-code",
 		"Run aboard skill now; it loads automatically in your next session. Run /hooks, approve Aboard's hooks, then restart Claude Code. Continue Aboard setup.")
 	if strings.Contains(set.stdout+set.stderr, link) || strings.Contains(set.stdout+set.stderr, tm.key(maya)) {
 		t.Fatal("setup printed the invite or the key")
 	}
 
-	// 4. Each session gets the other's delivery check and replies to it. Nothing is
-	// ready until both round trips are confirmed.
-	leoStop, mayaStop := ls.startHook("stop"), ms.startHook("stop")
-	toLeo, toMaya := leoStop.wait(10*time.Second), mayaStop.wait(10*time.Second)
-	for _, c := range []struct {
-		woke result
-		from string
-		dir  string
-	}{{toLeo, `from="@claude-2" owner="maya"`, "recipient_to_initiator"}, {toMaya, `from="@claude" owner="leo"`, "initiator_to_recipient"}} {
-		if c.woke.code != 2 || !strings.Contains(c.woke.stderr, c.from) || !strings.Contains(c.woke.stderr, `sender="other_agent"`) ||
-			!strings.Contains(c.woke.stderr, "ABOARD-PAIRING "+request+" generation=1 direction="+c.dir+" kind=ping") {
-			t.Fatalf("delivery check:\n%s", c.woke)
-		}
+	// Loading the installed hooks requires the documented harness restart. The
+	// resumed conversation keeps its seat, while setup binds the new exact boot.
+	ms = maya.claudeSessionFrom("s-maya", "resume")
+	continued := ms.run("setup", "--continue")
+	if !strings.Contains(continued.stdout, "harness: complete") || !strings.Contains(continued.stdout, "delivery: pending") {
+		t.Fatalf("setup after loading hooks in the resumed harness:\n%s", continued)
 	}
-	reply := func(s *session, woke result, to, dir string) {
-		t.Helper()
-		seq := strings.TrimSuffix(strings.Fields(woke.stderr[strings.Index(woke.stderr, ` seq="`):])[0][len(`seq="`):], `"`)
-		s.run("say", "--reply", seq, "--to", to, "ABOARD-PAIRING "+request+" generation=1 direction="+dir+" kind=reply")
+
+	// 4. The setup hello and an ordinary reply check messages get through.
+	leoStop := ls.startHook("stop")
+	hello := leoStop.wait(10 * time.Second)
+	if hello.code != 2 || !strings.Contains(hello.stderr, "Hello, I joined using your invitation.") {
+		t.Fatalf("setup hello did not reach the inviting agent:\n%s", hello)
 	}
-	if r := ls.run("pairing", "list"); !strings.Contains(r.stdout, request+" · ") || strings.Contains(r.stdout, "ready") {
-		t.Fatalf("pairing list before both sessions replied:\n%s", r)
+	seq := strings.TrimSuffix(strings.Fields(hello.stderr[strings.Index(hello.stderr, ` seq="`):])[0][len(`seq="`):], `"`)
+	ls.run("say", "--reply", seq, "Hello, messages get through.")
+	if got := ms.startHook("stop").wait(10 * time.Second); got.code != 2 || !strings.Contains(got.stderr, "Hello, messages get through.") {
+		t.Fatalf("the reply did not reach the newcomer:\n%s", got)
 	}
-	reply(ls, toLeo, "@claude-2", "recipient_to_initiator")
-	reply(ms, toMaya, "@claude", "initiator_to_recipient")
-	for _, s := range []*session{ls, ms} {
-		if got := s.startHook("stop").wait(10 * time.Second); got.code != 2 || !strings.Contains(got.stderr, "kind=reply") {
-			t.Fatalf("the other side's reply to the delivery check:\n%s", got)
-		}
+	verified := ms.run("setup", "--continue")
+	if !strings.Contains(verified.stdout, "Setup on "+url+": complete") || !strings.Contains(verified.stdout, "delivery: complete · Messages get through on the invited board.") {
+		t.Fatalf("setup did not report the ordinary reply:\n%s", verified)
 	}
-	// Each session's next turn end confirms the reply it was handed; then the request is
-	// ready, and setup says delivery is verified.
-	idle := []*proc{ls.startHook("stop"), ms.startHook("stop")}
-	eventually(t, 10*time.Second, "the pairing request ready once both round trips are confirmed", func() bool {
-		for _, line := range ls.run("pairing", "list").lines() {
-			if strings.HasPrefix(line, request+" · ") && strings.HasSuffix(line, " · ready") {
-				return true
-			}
-		}
-		return false
-	})
-	for _, p := range idle {
-		_ = p.cmd.Process.Kill()
-		<-p.done
-	}
-	expectLines(t, ms.run("setup", "--continue"),
-		"Setup on "+url+": complete",
-		"installed: complete · Aboard is installed; its owner can update it.",
-		"account: complete · Your account was created and its saved key was verified.",
-		"memberships: complete · Pairing participation and current board access were checked.",
-		"harness: complete · The current harness participated in the verified round trip.",
-		"pairing: complete · This exact session accepted the pairing request.",
-		"delivery: complete · Both current-generation session round trips were verified.")
 
 	// 5. The agents talk; each labels the other other_agent.
 	people := ms.run("board", "people").lines()
