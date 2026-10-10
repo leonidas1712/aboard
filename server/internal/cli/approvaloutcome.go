@@ -10,7 +10,15 @@ import (
 func (a *app) showApproval(ctx context.Context, c *client, srv serverRef, board, id string, collect bool) error {
 	var outcome *api.ApprovalOutcome
 	if collect {
-		r, err := c.api.CollectApprovalWithResponse(ctx, id, nil)
+		key, err := idempotencyKey(a.env.Rand)
+		if err != nil {
+			return err
+		}
+		params := &api.CollectApprovalParams{IdempotencyKey: &key}
+		r, err := c.api.CollectApprovalWithResponse(ctx, id, params)
+		if err != nil && ctx.Err() == nil {
+			r, err = c.api.CollectApprovalWithResponse(ctx, id, params)
+		}
 		if err != nil {
 			return c.unreachable(err)
 		}
@@ -40,8 +48,7 @@ func (a *app) showApproval(ctx context.Context, c *client, srv serverRef, board,
 	}
 	if outcome.Invite != nil {
 		out["invite"] = outcome.Invite
-		link := srv.URL + "/join#" + outcome.Invite.Invite
-		prompt := serverInvitePrompt(link, outcome.Invite.PairingRequestId != nil, deref(outcome.Invite.SuggestedHandle))
+		link, prompt := inviteHandover(srv, *outcome.Invite)
 		out["prompt"] = prompt
 		text += "Invite: " + link + "\n" + prompt + "\n"
 	}
@@ -51,4 +58,16 @@ func (a *app) showApproval(ctx context.Context, c *client, srv serverRef, board,
 	}
 	a.emit(out, text)
 	return nil
+}
+
+func inviteHandover(srv serverRef, invite api.ServerInvite) (link, prompt string) {
+	link = deref(invite.Link)
+	if link == "" {
+		link = srv.URL + "/join#" + invite.Invite
+	}
+	prompt = deref(invite.Prompt)
+	if prompt == "" {
+		prompt = serverInvitePrompt(link, invite.PairingRequestId != nil, deref(invite.SuggestedHandle))
+	}
+	return link, prompt
 }

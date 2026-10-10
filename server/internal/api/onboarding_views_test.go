@@ -26,8 +26,15 @@ func TestInvitePreviewDoesNotRedeemAndRefusesClosedInvitesUniformly(t *testing.T
 	body := `{"invite":"` + inv.Invite + `"}`
 	for range 2 {
 		status, raw = onboardingCall(t, s, "POST", "/v1/invites/preview", body, "")
-		if status != 200 || !strings.Contains(raw, `"inviter_handle":"alex"`) || strings.Contains(raw, inv.Invite) {
+		if status != 200 || !strings.Contains(raw, `"inviter_handle":"alex"`) {
 			t.Fatalf("preview: %d %s", status, raw)
+		}
+		var preview map[string]any
+		if err := json.Unmarshal([]byte(raw), &preview); err != nil {
+			t.Fatal(err)
+		}
+		if preview["invite"] != nil || preview["digest"] != nil || preview["credential"] != nil || !strings.Contains(preview["prompt"].(string), "/join#"+inv.Invite) {
+			t.Fatalf("preview exposed a credential beyond the caller-supplied invitation: %s", raw)
 		}
 	}
 	mustStatus(t, s.connect(inv.Invite, "newcomer"), nil, 201)
@@ -111,6 +118,9 @@ func TestInvitePreviewShowsOnlyTheValidBundleAndSharesJoinLimit(t *testing.T) {
 	mustStatus(t, preview, err, 200)
 	if len(preview.JSON200.Boards) != 1 || preview.JSON200.Boards[0].Name != name || preview.JSON200.Work == nil || *preview.JSON200.Work != "Review the brief together." {
 		t.Fatalf("bundle: %s", preview.Body)
+	}
+	if issued.JSON201.Link == nil || issued.JSON201.Prompt == nil || preview.JSON200.Prompt == nil || *preview.JSON200.Prompt != *issued.JSON201.Prompt || !strings.Contains(*preview.JSON200.Prompt, *issued.JSON201.Link) {
+		t.Fatalf("preview lost server-formatted colleague prompt: %s", preview.Body)
 	}
 	if preview.HTTPResponse.Header.Get("Cache-Control") != "no-store" {
 		t.Fatal("preview can be cached")

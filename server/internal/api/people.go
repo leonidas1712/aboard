@@ -26,7 +26,7 @@ func (h *handlers) CreateServerInvite(ctx context.Context, req CreateServerInvit
 	if err != nil {
 		return nil, err
 	}
-	return convert[CreateServerInvite201JSONResponse](serverInviteOf(inv))
+	return convert[CreateServerInvite201JSONResponse](h.serverInviteOf(inv))
 }
 
 // Connect redeems a server invite. It needs no token: the invite is the proof.

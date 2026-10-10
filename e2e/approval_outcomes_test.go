@@ -46,6 +46,9 @@ func TestRequestingAgentCollectsBrowserApprovedInviteOnce(t *testing.T) {
 		t.Fatalf("the original requesting session was not selected: %d %v", status, pairing)
 	}
 	link := tm.url() + "/join#" + secret
+	if field(t, collected, "invite.link") != link || field(t, collected, "invite.prompt") != collected["prompt"] {
+		t.Fatalf("CLI changed the server-owned handover: %v", collected)
+	}
 	if prompt, ok := collected["prompt"].(string); !ok || !strings.Contains(prompt, link) {
 		t.Fatalf("collected outcome lost its colleague prompt: %v", collected)
 	}

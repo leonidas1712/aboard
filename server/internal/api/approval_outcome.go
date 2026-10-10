@@ -12,7 +12,7 @@ func (h *handlers) approvalOutcomeOf(ctx context.Context, out board.ApprovalOutc
 		wire["pairing_request_id"] = out.PairingRequestID
 	}
 	if out.Invite != nil {
-		wire["invite"] = serverInviteOf(*out.Invite)
+		wire["invite"] = h.serverInviteOf(*out.Invite)
 	}
 	if out.Approval.State == "pending" {
 		wire["next"] = approvalNext(ctx, out.Approval.ID)

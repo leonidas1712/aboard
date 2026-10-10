@@ -286,14 +286,13 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 	if r.JSON201 == nil {
 		return apiError(r.StatusCode(), r.Body)
 	}
-	link := srv.URL + "/join#" + r.JSON201.Invite
+	link, prompt := inviteHandover(srv, *r.JSON201)
 	var text string
 	if started {
 		text = "Started local Aboard at " + srv.URL + "\n"
 	}
 	text += fmt.Sprintf("Invite for %s: one person, as a member, once, within %s. On their machine, run:\n  aboard connect %s\n",
 		srv.URL, durationText(time.Until(r.JSON201.ExpiresAt)), link)
-	prompt := serverInvitePrompt(link, r.JSON201.PairingRequestId != nil, deref(r.JSON201.SuggestedHandle))
 	text += "\n" + prompt + "\n"
 	out := map[string]any{"server": srv, "link": link, "expires_at": r.JSON201.ExpiresAt, "prompt": prompt}
 	if r.JSON201.SuggestedHandle != nil {

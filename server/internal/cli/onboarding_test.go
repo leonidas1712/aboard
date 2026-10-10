@@ -375,7 +375,7 @@ func TestExecutedBundledInviteSelectsItsOriginalSessionWithoutReissuing(t *testi
 		t.Run(state, func(t *testing.T) {
 			fail := state == "failed"
 			held := state == "held"
-			var issued, selected atomic.Int32
+			var issued, selected, watched atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				if r.Header.Get("Authorization") != "Bearer own-seat" {
@@ -413,6 +413,12 @@ func TestExecutedBundledInviteSelectsItsOriginalSessionWithoutReissuing(t *testi
 				if req.Op == delivery.OpAgents {
 					resp.Agents = []delivery.AgentRef{{Server: srv.URL, Board: "work", Name: "scout", MemberID: "mem_scout"}}
 				}
+				if req.Op == delivery.OpApprovalWatch {
+					watched.Add(1)
+					if req.Server != srv.URL || req.ApprovalID != "apr_one" || req.Agent == nil || req.Agent.MemberID != "mem_scout" || req.Agent.Board != "work" {
+						t.Errorf("wrong original approval watch %+v", req)
+					}
+				}
 				if req.Op == delivery.OpPairing {
 					selected.Add(1)
 					if req.PairingAction != "select" || req.PairingID != "prq_exact" || req.Server != srv.URL {
@@ -439,7 +445,7 @@ func TestExecutedBundledInviteSelectsItsOriginalSessionWithoutReissuing(t *testi
 				t.Fatal(err)
 			}
 			if held {
-				if issued.Load() != 1 || selected.Load() != 0 || result.Invite != nil || result.Next == nil || !strings.Contains(result.Next.Resume, "original session") {
+				if issued.Load() != 1 || selected.Load() != 0 || watched.Load() != 1 || result.Invite != nil || result.Next == nil || strings.Contains(result.Next.Resume, "pairing select") {
 					t.Fatalf("held selected an endpoint: %s", out.String())
 				}
 				return
