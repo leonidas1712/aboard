@@ -120,7 +120,8 @@
 #   roots, the PEM certificates in SSL_CERT_FILE when it is set, on every platform.
 # - Board for agent commands (say, inbox, read, react, task, ask, working, paused, file, brief; a task reference also names its board among the session's seats): the board of the agent they act as.
 #   Board for person board commands: --board, otherwise the selected issuer's only
-#   readable active board, otherwise board_not_selected with readable choices.
+#   readable active board; none returns board_not_selected, several return
+#   board_ambiguous with readable choices.
 #   A read never joins a board to make this selection work. open without --board
 #   opens the board list; server-wide commands need no board.
 # - D223 server selection: explicit --server NAME|URL, otherwise servers.json's
@@ -959,7 +960,8 @@ $defs:
       Repeatable --board NAME|ID carries ordinary memberships; resolve each selector
       to an immutable board id with current access before writing. --pairing "work"
       adds a pairing proposal from this session's selected initiating agent and needs
-      exactly one board. --role and --guest remain incompatible with --server.
+      exactly one board. --role and --guest are incompatible with --person; they
+      remain available for a board code on an explicitly selected server.
       When the agent request executes immediately, the CLI selects the initiating
       endpoint through this exact trusted session before returning the issued invite.
       If selection fails, return the issued invite once with a pending next.command
@@ -1857,7 +1859,8 @@ $defs:
       error (an agent's read position moves with aboard inbox). It can't be combined with
       the window flags, the filters, --thread, --threads, --receipts or --markdown (usage
       error). The board is --board, otherwise the selected issuer's only readable
-      active board, otherwise board_not_selected with readable choices.
+      active board; none returns board_not_selected, several return board_ambiguous
+      with readable choices.
 
       Text output: the header line "<board> · <n> unread" ("<board> · nothing unread"
       when there is none), the messages in read's format, then one line saying what moved:

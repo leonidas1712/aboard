@@ -29,7 +29,7 @@ never changes an existing default. Legacy machines with known servers but no sav
 default receive choices instead of an inferred local default.
 
 A person's board command uses `--board NAME|ID`. Without it, the selected server's
-only accessible active board can be used; several boards return `board_not_selected`
+only accessible active board can be used; several boards return `board_ambiguous`
 with readable choices. This preserves the simple one-board case without inventing
 a second machine or folder context. Reads never add membership to make a selection
 work. Server-wide commands do not need a board.
