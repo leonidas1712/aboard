@@ -115,7 +115,11 @@ test("an approval allowed once runs the agent's request and shows its command", 
   await expect(issued).toContainText("Shown once. Send both to the person you're inviting");
   await expect(issued).toContainText("Copy them now; they aren't shown again.");
   await expect(issued.locator("code").first()).toContainText(`${base()}/join#abi_`);
-  await expect(issued.locator("code").nth(1)).toContainText("Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup");
+  // The prompt is the server's text for that link, not built in the page.
+  const link = (await issued.locator("code").first().textContent())?.trim() ?? "";
+  expect(link).toMatch(/\/join#abi_/);
+  const prompt = (await issued.locator("code").nth(1).textContent()) ?? "";
+  expect(prompt).toContain(link);
   await expect(issued.getByRole("button", { name: "Copy the invite link" })).toBeVisible();
   await expect(issued.getByRole("button", { name: "Copy the prompt" })).toBeVisible();
   await issued.getByRole("button", { name: "Dismiss" }).click();
@@ -270,7 +274,11 @@ test("the invite page previews a real invite link without using it", async ({ pa
   const invite = String((await api(ownerToken(), "POST", "/v1/invites", {})).json.invite);
   await page.goto(`${base()}/join#${invite}`);
   await expect(page.getByRole("heading", { name: "alex invited you to aboard" })).toBeVisible();
-  await expect(page.getByLabel("Prompt for your agent")).toHaveText(`Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${base()}/join#${invite} --handle <name you'd like teammates to see>.`);
+  // The page shows the prompt the server's preview returns, word for word.
+  const preview = (await api(null, "POST", "/v1/invites/preview", { invite })).json;
+  expect(String(preview.prompt)).toContain(invite);
+  await expect(page.getByLabel("Prompt for your agent")).toHaveText(String(preview.prompt));
+  if (preview.suggested_handle) await expect(page.getByText(`Invited as @${preview.suggested_handle}`)).toBeVisible();
   // Previewing never spends the invite: it still makes an account.
   const connected = await api(null, "POST", "/v1/connect", { invite, handle: "dana", key_name: "laptop" });
   expect(connected.status).toBe(201);
