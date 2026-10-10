@@ -55,7 +55,7 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	}
 	checks := a.doctorServerChecks(ctx)
 	if info, err := os.Lstat(a.projectPath()); err == nil && info.Mode().IsRegular() {
-		checks = append(checks, problem("legacy_folder_link", levelWarning, "legacy_folder_link", "The old .aboard folder link is ignored", "choose a default with aboard servers use NAME, and name boards with --board"))
+		checks = append(checks, problem("legacy_folder_link", levelWarning, "legacy_folder_link", "The old .aboard folder link is ignored and can be deleted", "choose a default with aboard servers use NAME, and name boards with --board"))
 	}
 	status, daemonCheck := a.checkDaemon(ctx, p)
 	checks = append(checks, daemonCheck...)

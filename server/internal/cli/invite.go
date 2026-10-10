@@ -43,7 +43,7 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	guest := handleArg(*guestFlag)
-	if *personFlag || (serverFlag.set && len(boards) == 0 && *guestFlag == "") {
+	if *personFlag || (serverFlag.set && serverFlag.value == "" && len(pos) == 0 && len(boards) == 0 && *guestFlag == "" && *pairing == "") {
 		if *roleFlag != "" || guest != "" {
 			return usageError("aboard invite --server invites a person to the whole server, so it takes no --role or --guest.", inviteUsage)
 		}

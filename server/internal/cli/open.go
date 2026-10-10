@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -36,7 +37,18 @@ func runOpen(ctx context.Context, a *app, args []string) error {
 	inSession := a.actsForAgent()
 	srv, started, err := a.personServer(ctx, *serverFlag)
 	if err != nil {
-		return err
+		e := asError(err)
+		if e.Code == "server_not_selected" {
+			if choices, ok := e.Details["server_choices"].([]map[string]string); ok && len(choices) > 0 {
+				commands := make([]string, 0, len(choices))
+				for _, choice := range choices {
+					choice["command"] = "aboard open " + commandWord(choice["name"])
+					commands = append(commands, choice["command"])
+				}
+				e.Hint = "Choose a server: " + strings.Join(commands, "; ") + "."
+			}
+		}
+		return e
 	}
 	board := *boardFlag
 	if p, ok, err := a.readProject(); err != nil {
