@@ -277,3 +277,31 @@ func TestInvitePreviewRechecksIssuingSeatAndAdminAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestOwnAgentPickerUsesExistingLocationAndLivePresence(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	_, agent, _ := s.pair("starter")
+	report := api.AgentLocationReport{Harness: "codex", SessionId: "codex:picker", Folder: "/work/example"}
+	saved, err := s.client(agent).SetAgentLocationWithResponse(t.Context(), nil, report)
+	mustStatus(t, saved, err, 200)
+	s.setPresence(agent, api.PresenceIdle)
+	check := func(want string) {
+		t.Helper()
+		list, err := s.client(s.browserToken(s.owner)).ListOwnAgentsWithResponse(t.Context())
+		mustStatus(t, list, err, 200)
+		for _, a := range list.JSON200.Agents {
+			if a.Name != "writer" {
+				continue
+			}
+			if a.Location == nil || a.Location.Folder != report.Folder || a.Presence == nil || string(*a.Presence) != want {
+				t.Fatalf("picker location/presence: %s", list.Body)
+			}
+			return
+		}
+		t.Fatalf("own agent missing: %s", list.Body)
+	}
+	check("idle")
+	s.clock.Advance(board.PresenceTTL)
+	check("no_session")
+}
