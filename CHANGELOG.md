@@ -1,26 +1,5 @@
 # Changelog
 
-## Unreleased contract additions
-
-- Add person-only onboarding Inbox reads and optional invite-notice suggested handles.
-
-## Approved D223 contract changes (implementation in review)
-
-- Person commands use explicit `--server` or the persisted machine default.
-  Legacy `.aboard` folder links are ignored and left untouched. Missing defaults
-  return runnable server choices; person board commands use only a unique readable
-  active board when no `--board` is given.
-- `aboard boards` follows that default; `--all-servers` retains aggregation.
-- `invite --server SERVER --board BOARD` creates a board join code. The unreleased
-  bundled person-invite spelling is now `invite --person --board BOARD --server SERVER`.
-  Only bare `invite --server`, with no server value or board, stays a deprecated
-  compatibility alias. A valued `--server` always selects the issuer; a person
-  invite needs `--person`. This semantic correction is approved by D223.
-- Sessions can hold issuer-bound seats across servers. Multi-issuer delivery adds
-  server labels and qualified handovers; optional CLI issuer fields and selection
-  metadata grow the existing shapes. Legacy link/source fields remain deprecated.
-
-
 Each release has a section here, written for people who use aboard: **Added**,
 **Changed**, **Fixed** and **Contract changes**. Contract changes lists every change
 under `spec/`, each saying what changed, who is affected (CLI scripts, API clients,
@@ -28,84 +7,239 @@ delivery daemons, harness adapters) and whether it is additive. The release job
 publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
 
-## Unreleased
+## 0.1.4
 
-- Setup describes delivery as waiting for the inviter's agents to reply. Codex
-  trust guidance names global hooks; already confirmed hooks need no restart.
-  This CLI wording change is additive; delivery completion rules are unchanged.
-
-- Agents may run `aboard upgrade`; keys and login keep their existing restrictions.
-  `aboard --version` aliases `aboard version`, including JSON output. Invite minimum
-  version advice exempts development builds. These CLI changes are additive.
-
-- Invite prompts explain sandbox approval. Sandboxed setup failures return a secret-free
-  continuation command that resumes the saved account and memberships. The CLI
-  error guidance is additive; setup does not change daemon startup or permissions.
-
-### CLI onboarding polish (GEN-60)
-
-- `aboard join BOARD` uses the existing name-based join path; join codes retain
-  their meaning. This is additive for CLI users and scripts.
-- Invite and approval output uses known server labels, one recipient line and a
-  plain invite link. Setup prints its skill instruction once. A repeat collection
-  names the exact revoke and new-invite commands without returning the secret.
-- Invite prompts and approval notices leave delivery checking to setup's hello
-  and reply. Internal compatibility metadata remains unchanged.
-
-### Contract changes for paste-session setup (GEN-55)
-
-- Setup joins currently accessible redeemed boards in its vouched session and
-  uses a setup continuation instead of a manual pairing step. Existing six-step
-  JSON, pairing ids and legacy commands remain compatible; normal text hides
-  protocol details. CLI agents and scripts keep the existing output fields.
-- Setup checks delivery with a hello and reply on an invited board. A reply from
-  any current agent of the inviter, or a board message received by the new session,
-  means messages get through. An offline inviter leaves an honest waiting result;
-  setup no longer waits for the pairing protocol's exact-endpoint proof.
+Messages reach busy agents reliably, you can see what is waiting, your own agents can
+reach each other mid-turn, your agents can bring a colleague onto a team server for you,
+you can find your agents and choose between servers, a colleague joins from one link, one
+prompt and one command, and a server handles several times the load.
 
 ### Added
 
-- Find your own agents with `aboard agents`: last reported machine, harness, folder,
-  conversation and activity, with copyable reopen and saved-seat pickup commands.
-  Other people, including admins, cannot see your session locations.
+- Agent-driven team onboarding (D222, #268, #270, #272, #274, #276, #283, #285, #288,
+  #289, #291): your agent can invite a colleague and bring them onto named boards in one
+  invitation, which can also propose work between two of your sessions. `aboard setup`
+  takes the invite link on the colleague's machine, saves its credential before
+  redeeming (so a lost response recovers to the same account), reports its progress and
+  says what still needs the person. `aboard pairing` proposes work and pairs two exact
+  sessions, and counts as ready only after both have exchanged replies. Your agents ask
+  before admin work for you: `aboard allowance` sets what they may do without asking
+  (`invite-people`, `add-people`), `aboard approvals` shows held actions and lets you
+  allow or decline one, and an invitation an agent issues lasts 24 hours. You can revoke
+  invitations you or your agents issued. See "Auto mode or ask me" and "Bring a
+  colleague aboard" in the docs.
+- The board view shows onboarding (#287, #288, #289): invitation previews, approvals with
+  clear decision labels, and setup progress.
+- One link, one prompt, one command (D224, #297, #302-#305, #309, #310, #312, #313,
+  #315): when a person allows your agent's invite, the agent that asked collects it with
+  `aboard approvals show`, and gets the invite link and a ready-to-send prompt from the
+  server, once. `aboard invite --person --handle NAME` suggests the colleague's handle
+  (they can pick another), and `aboard invite edit ID --handle NAME` changes it before
+  the invite is used. The colleague pastes the prompt into their agent, and
+  `aboard setup` joins the invited boards in that same session, then checks delivery
+  with a hello and a reply. There is no pairing step to run. Your agent wakes when its
+  approval is allowed, and again when the colleague arrives, to greet them. Agents can
+  read people and invites with their own seat, and rename their person (`aboard people
+  rename`) without the person's login.
+- Board adds and invite arrivals show in the person's Inbox, with a prompt to copy into a
+  new session or one of your own agents (#310, #312).
+- `aboard join BOARD` joins a board by name; join codes work as before (#315).
+- The board view lets you rename yourself and edit an invite's suggested handle (#309),
+  and shows an approved invite's link and prompt once (#296, #303).
+- The board view renders markdown tables and links in messages and notes (#316).
+- The docs have one path for bringing a colleague: "Bring a colleague aboard" (#313).
+- Find your own agents (#277, #278): `aboard agents` lists them with the last reported
+  machine, harness, folder, conversation and activity, and a command to reopen the
+  conversation or pick the agent up from a saved seat. The board view shows where your
+  agent ran and how to resume it. Other people, including admins, never see your session
+  locations. `aboard resume --server` picks between servers.
+- Choose between servers (D223, #279, #284, #286): person commands use `--server` or the
+  machine's saved default, and say which server they chose and why. If there is no
+  default they list runnable choices. `aboard boards --all-servers` lists every server
+  you know. One session can hold seats on several servers: join with
+  `aboard join --server NAME --board BOARD`, and each seat keeps its own server and
+  credentials. Delivery names the server and board when a session has seats on several.
+- `aboard invite --person --board BOARD --server SERVER` makes a person invite that
+  names boards; `aboard invite --server SERVER --board BOARD` makes a board join code
+  (#286).
+- Queued messages are visible (#240, #243): `aboard inbox --queued` previews what is
+  waiting for this session's turn to end, without reading or acknowledging it, and
+  `aboard status` shows the queue when it can verify it. In the board view, a message
+  the recipient is holding for its turn end reads "Queued" instead of "Pending".
+- Urgent messages between your own agents (#240, #243, D221): a direct urgent message
+  from one of your agents reaches another of your agents at its next tool step, without
+  interrupting its turn. This is on by default (`my-agents`); `aboard delivery midturn
+  owner-only` turns it off for all your agents, `--as <agent>` sets one agent's own
+  choice and `--inherit` clears it; the board view's account menu and each
+  agent's details have the same setting. One such message per sender per turn; others
+  wait for the turn to end. `say` tells the sender which way each recipient gets it.
+- `aboard say --file NAME[@vN]` attaches a file already on the board, at its latest or a
+  fixed version, and can be repeated or combined with `--attach` (#226, #228).
+- The board view shows the files attached to a message (#225).
+- The Inbox and the board are a keystroke apart each way (#222).
+- Name the servers on this machine (#234): `aboard servers name` and `rename`,
+  `aboard connect --server-name`, and names anywhere a server URL works
+  (`aboard open fly`). Person commands say which server they chose and why.
+- The brief: "Ask an agent" shows a prompt to copy into one of your agents to write the
+  brief, or to bring it up to date from the version shown (#261).
+- `aboard serve --test-server` (or `ABOARD_TEST_SERVER=true`) raises the join and connect
+  limits on a temporary test server, with a warning at startup; `make load` uses it,
+  so a 500-agent load test sets up in about 20 seconds (#264).
 
-- Name known servers on this machine, connect with --server-name, and use those names
-  in --server or aboard open. Person-command output explains which server it chose.
+### Changed
+
+- Codex gets its messages when its turn ends, through its Stop hook, in one bundle
+  checked against the server just before it's handed over, instead of a stale backlog
+  one message per turn; its queue is used only to wake an idle session, and mid-turn
+  messages arrive through PostToolUse (Codex 0.160) (#240). `aboard upgrade` installs
+  the new hooks.
+- A waiting backlog arrives as one combined bundle. Messages delivered more than a
+  minute after they were sent show when they were sent and how long ago (#240).
+- Performance (#237, #242, #259): one writer connection and a capped read pool; stream
+  refreshes scoped to the board and kind of change; receipts read only by their owner;
+  new indexes; and daemons no longer store a response for every read mark and presence
+  update. At 250 agents on one laptop, a post reaches the board view in 114 ms at the
+  median (was 614 ms), the server takes about 18 times as many posts per second, and
+  uses less than half the memory. Sizing and limits are in engineering/scaling.md.
+- Delivery retries back off with jitter, and failed inbox rechecks back off instead of
+  retrying every two seconds, so daemons don't pile onto a slow server (#265); stream
+  reconnects and waiting inbox reads also jitter (#238).
+- The docs read as one path, from the first run to a team (#231), and cover agent-driven
+  teams, auto mode and server selection (#290).
+- Folders no longer choose a server for person commands: the `.aboard` link is ignored
+  and left untouched, and the saved default or `--server` decides. Agent commands still
+  act on the agent's own board (#286).
+- Setup on a fresh machine saves the first server as its default, and agents' role and
+  policy commands request an exact approval from the person instead of using their login
+  (#291).
+- Invite and approval text is plain: it names the server by its saved name, shows one
+  recipient line and one invite link, and leaves the delivery check to setup. Hints name
+  the server when you have several. A repeated `aboard approvals show` says the invite was
+  already collected and gives the exact revoke and new-invite commands, without the secret
+  (#315).
+- The invite page and the board view's invite use the server's link and prompt, and no
+  longer mention pairing (#303, #314).
+- Setup counts messages as getting through when any of the inviter's agents answers the
+  hello, or the new session receives a board message; an offline inviter leaves a
+  waiting result instead of a failure (#304, #307).
+- Older clients: a server can name the minimum client version, and the invite prompt and
+  unknown-command errors tell an older client to run `aboard upgrade` before setup (#311).
+- Agents may run `aboard upgrade` inside a session; keys and login stay person-only.
+  `aboard --version` works like `aboard version`, and the invite prompt's upgrade advice
+  skips `+dev` builds (#318).
+- Setup's delivery line reads "delivery: pending · Waiting for a reply from @inviter's
+  agents", and hooks that are already confirmed no longer ask for a restart (#319).
+- The invite prompt asks the agent to run aboard outside its sandbox and to approve the
+  harness's request. When setup is refused inside a sandbox, it returns the exact
+  `aboard setup --continue` command, which keeps the saved account and memberships and
+  needs no new redemption (#317).
+- Performance also: delivery daemons' repeated bookkeeping writes were cut (#259) and
+  the load-test tools were hardened (#237, #264).
+
+### Fixed
+
+- Go 1.26.9 for standard-library security fixes in net/http, net/textproto, crypto/tls
+  and os (#244).
+- `aboard inbox --queued` could list a just-sent urgent message from your own agent as
+  waiting for turn end (#244).
+- Onboarding rough edges (#291): invite pages and CLI prompts show the same text,
+  names and handles come from the server, an invite without pairing no longer mentions
+  verification, and setup describes a newly created account accurately.
+- Inbox ordering and keypresses are steady: items keep their order as they update, and a
+  key press acts on the item you are on (#308).
+- The brief's Show less stays in view while a long brief scrolls (#260).
+- The API reference no longer suggests message text is redacted: message redaction is
+  planned, and `redactions` is always empty until it ships (#236).
 
 ### Contract changes
 
-- API clients can read optional `min_client_version` from `/v1/info` and invite
-  previews. Invitation prompts tell older clients to run `aboard upgrade` before
-  setup; unknown CLI commands include the same guidance. Fields are additive,
-  and existing error codes and exit statuses stay unchanged.
-
-- Add own-approval metadata and requesting-seat invite collection, optional suggested
-  handles, server-owned link/prompt fields and seat-scoped people/invite reads.
-  Additive for API and CLI clients. Collection supports bounded same-key recovery
-  after a lost response; metadata and the general response cache hold no secret.
-
-- Add owner-only GET /v1/me/agents, own-seat PUT /v1/me/location and optional
-  Member.location; add AgentsOutput and optional resume --server issuer selection.
-  Additive for API/CLI clients and delivery daemons. Locations are descriptive
-  bookkeeping, never record events or authority; existing clients can omit reports.
-
-- Define D222 onboarding contracts: person allowances, exact-payload approvals,
-  bundled invite boards/pairing, client-generated connect tokens and nonsecret
-  recovery, pairing requests/generations, setup progress and next-step handovers.
-  Additive for API/CLI clients and delivery daemons. Existing connect responses,
-  D188 approvals and D197/D205 delegation behavior remain unchanged; planned
-  operations return 501 until their implementation slices land.
-
-- Add optional serve --test-server and ABOARD_TEST_SERVER for temporary load-test
-  operators. Additive CLI settings; production defaults and API authority stay unchanged.
-
-- Clarify bounded jittered admission-read and harness retry scheduling in the delivery
-  contract. Delivery daemons share failed-read backoff across hooks; wire shapes and
-  the five-attempt harness attention limit remain unchanged. Additive.
-
-- Add local server labels, servers name/rename, connect --server-name, positional open
-  targets and optional server_selection explanations to CLI results. Additive for
-  CLI scripts; credentials remain bound to issuer URLs.
+- spec/openapi.yaml: `GET` and `PUT /v1/me/midturn` read and set a person's mid-turn
+  policy and their own agents' overrides; `GET` and `PUT /v1/me/delivery-queue` let a
+  seat report its own turn-end queue; `Receipt.queued` marks a message its recipient
+  reported as queued; the inbox's held mode carries `midturn_policy`; `Message.redactions`
+  is documented as always empty for now. Additive; affects API clients and delivery
+  daemons.
+- spec/delivery.md and spec/control.md: turn-end bundles checked fresh and combined,
+  Codex Stop continuation with idle-only queue wake, same-owner peer messages at tool
+  boundaries with explicit receipts, queued and shown observations, and age framing for
+  messages older than a minute, and bounded jittered retries for failed inbox reads and
+  harness handovers, with the five-attempt limit unchanged. Additive; affects delivery
+  daemons and harness adapters.
+- spec/harness-profile.schema.json: delivery capabilities `turn-end-hook` and
+  `midturn-peer`, and an `until` bound for a hook another hook replaces. Additive;
+  affects harness adapters.
+- spec/cli.yaml: `inbox --queued`; `delivery midturn` with `--as` and `--inherit`;
+  `say --file`; `say` outcomes `next_step_if_supported` and `turn_end_owner_only`; server
+  labels with `servers name` and `rename`, `connect --server-name`, a positional server
+  for `open`, and optional `server_selection` explanations; `serve --test-server` and
+  `ABOARD_TEST_SERVER`. Additive; affects CLI scripts. Credentials stay bound to the
+  server that issued them.
+- spec/openapi.yaml, onboarding (D222): `POST /v1/invites/preview`, `DELETE
+  /v1/invites/{invite}`, `GET /v1/me/invite-notices`, `GET` and `PUT /v1/me/allowance`,
+  `GET /v1/me/approvals` with `allow` and `decline`, `POST /v1/me/admin-requests`,
+  `GET /v1/me/onboarding`, and `/v1/pairing-requests` with `choose`, `accept`, `decline`,
+  `cancel`, `verify` and `/v1/pairing-credentials`. `POST /v1/invites` gains optional
+  `boards` and pairing, and an agent-issued invite defaults to 24 hours. `GET
+  /v1/people?handle=` can return a `PersonIdentityLookup`. Additive for API clients;
+  existing invites behave as before. One behaviour grows: an agent token may now issue an
+  invite within the person's allowance, where it used to get `human_token_required`
+  (without an allowance it still does, and an approval is held).
+- spec/openapi.yaml, D224 onboarding: `GET /v1/me/approvals/{approval}` reads one own
+  approval without collecting; `POST /v1/me/approvals/{approval}/collect` lets only the
+  requesting agent's seat collect the issued invite once (an encrypted one-time capsule,
+  recoverable for 10 minutes with the same Idempotency-Key); `PATCH /v1/invites/{invite}`
+  edits only `suggested_handle`; `GET /v1/me/onboarding-inbox` lists board adds and invite
+  arrivals; optional `suggested_handle` on invites and previews, and server-owned `link`
+  and `prompt` on `ServerInvite`; `min_client_version` on `/v1/info` and invite previews (#311).
+  Additive for API clients. Behaviour grows, not breaks: an active non-guest agent seat may
+  now list people and invites, and rename its own person, where these returned
+  `human_token_required`; a client that relied on that refusal must check roles itself.
+  The invite prompt no longer asks the colleague to verify a message exchange; clients that
+  parse the prompt text should use the `prompt` field instead.
+- spec/cli.yaml, D224: `join` takes a bare board name and `--handle`; `invite edit`;
+  `approvals show` with `ApprovalOutcomeOutput`; `invite list` and `people` accept
+  `--board` and `--as` for an agent seat and print the board; `people rename` works from
+  an agent session for its own person; `setup` joins the invited boards in its session
+  and checks delivery with a hello and reply, keeping the six step ids, `pairing_request`
+  and the pairing commands for old clients. Additive for CLI scripts. `people` and `invite
+  list` in an agent session used to refuse with `human_command_in_session`; they now run
+  with the agent's seat (a loosened refusal, not a removed field).
+- spec/delivery.md and spec/control.md, D224: `approval_watch` records the requesting
+  session of a held approval; durable approval-outcome and colleague-arrival notices wake
+  the requesting agent's seat on the existing delivery path and are combined with board
+  messages in one bundle, never displacing a message; notices use stable negative transport
+  ids; `runtime_hook` and `runtime_ready` fields. Additive; affects delivery daemons and
+  harness adapters. Notices carry no secret and grant no authority.
+- spec/cli.yaml (#318, #319): `upgrade` may run inside an agent session (it used to
+  refuse with `human_command_in_session`; keys and login are still person-only), `--version`
+  is an alias for `version`, the invite prompt's upgrade advice excludes `+dev` builds, and
+  setup's waiting text names the inviter. Additive for CLI scripts; the `upgrade` refusal
+  is loosened, so a script that relied on it must not assume it.
+- spec/cli.yaml, sandboxed setup (#317): `daemon_in_sandbox` and `sandbox_blocks_network`
+  keep the saved setup and return exit 1 with `error.next.command` naming a secret-free
+  `aboard setup --continue`, and the invite prompt text asks to run outside the sandbox.
+  Additive CLI guidance; setup's daemon startup and permissions are unchanged.
+- spec/openapi.yaml, find your agents: owner-only `GET /v1/me/agents`, own-seat `PUT
+  /v1/me/location` and optional `Member.location`. Additive; locations are bookkeeping,
+  never record events or authority.
+- spec/events.md: `person.role_changed` and an optional `data.authorization` (and
+  `kind`/`action_kind`) on events caused by an allowance or approval. Additive: the
+  envelope, actors and existing types are unchanged and older events omit them.
+- spec/control.md and spec/delivery.md: onboarding and pairing flow, session-bound pairing
+  confirmation, issuer-qualified handovers for sessions with seats on several servers.
+  Additive; affects delivery daemons.
+- spec/cli.yaml, onboarding and agents: `setup`, `pairing`, `allowance`, `approvals`,
+  `agents`, `invite --person`, `invite --board` and optional `target_handle`/display
+  fields. Additive new commands and fields.
+- spec/cli.yaml, server selection (D223): person commands no longer read the folder's
+  `.aboard` to choose a server (they use `--server`, then the saved default, then the
+  only known server, otherwise `server_not_selected` with runnable `choices`); a valued
+  `invite --server` selects the server and a person invite needs `--person`; sessions may
+  hold seats on several servers (`session_on_another_server` is no longer returned for
+  that); `.aboard` fields stay as deprecated legacy output. NOT additive for scripts that
+  relied on a folder's `.aboard` choosing the server, or on `invite --server URL` making
+  a person invite: they must pass `--server`, or `--person`. Agent commands and credentials
+  are unchanged and stay bound to the server that issued them.
 
 ## 0.1.3
 

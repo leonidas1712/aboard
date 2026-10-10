@@ -144,6 +144,11 @@ activity or claim ready from board history. Proposed work gives no extra permiss
   A person's machine default never moves your seats or supplies their login.
   `aboard boards --server NAME` filters your session's issuers; `--all-servers` is
   only for a person in a terminal.
+- **Servers have names on this machine.** `aboard servers` lists them (`local` is this
+  machine's own server); `aboard servers name <url|name> <name>` and
+  `aboard servers rename <old> <new>` change a label when your person asks. A name works
+  anywhere a server URL does. Connecting, logging in and `aboard servers use` are your
+  person's.
 - **If a command says your seat was removed** (`agent_removed`), don't try again: tell your
   person. Only they can give you a new seat there.
 - **Leave a board only when your person asks** ("clean up the agents on the QA board"):
