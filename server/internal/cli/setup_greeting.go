@@ -20,19 +20,17 @@ type setupHello struct {
 }
 
 func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id string, pending *setupPending) error {
+	out.Steps[5].Message = "Waiting for a reply from the inviting person's agents."
 	key, ok := a.sessionKey()
 	if !ok {
 		return nil
 	}
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpPairing, Harness: key.Harness, Session: key.ID, Server: out.Server.URL, PairingAction: "get", PairingID: id})
-	if err != nil {
-		return err
-	}
-	if resp.Server != out.Server.URL || resp.Pairing == nil || resp.Pairing.ID != id || resp.Pairing.BoardID == "" || resp.Pairing.InviterID == "" {
-		return newError("internal", "The invitation's delivery information did not match its issuer.", "Continue Aboard setup on the original server.")
+	if err != nil || resp.Server != out.Server.URL || resp.Pairing == nil || resp.Pairing.ID != id || resp.Pairing.BoardID == "" || resp.Pairing.InviterID == "" {
+		return nil
 	}
 	if pending != nil && (pending.Receipt == nil || !slices.Contains(pending.Receipt.Boards, resp.Pairing.BoardID)) {
-		return newError("internal", "The delivery board was not in the authenticated invitation receipt.", "Continue the original saved setup.")
+		return nil
 	}
 	inviter := "the inviting person"
 	var display api.OnboardingDisplay

@@ -102,7 +102,9 @@ func TestSetupKeepsPendingHarnessAction(t *testing.T) {
 	fakeDaemonAnswering(t, a, func(req delivery.Request) delivery.Response {
 		resp := delivery.Response{V: delivery.ProtocolVersion}
 		if req.Op == delivery.OpPairing {
-			accepts.Add(1)
+			if req.PairingAction != "get" {
+				accepts.Add(1)
+			}
 			resp.Server = "https://issuer.example"
 			resp.PairingBoard = "work"
 			resp.Pairing = &delivery.PairingRequest{
