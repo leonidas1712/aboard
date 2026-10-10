@@ -866,7 +866,13 @@ test("aboard open for the person already signed in refreshes without asking", as
   aboard("up");
   await openLink(page, JSON.parse(aboard("open", "--json")).url);
   const sent = signIns(page);
+  // The old identity remains visible until the fragment change reloads the page.
+  const refreshed = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === "/v1/browser-sessions" &&
+    response.request().method() === "POST" && response.ok(),
+  );
   await page.goto(JSON.parse(aboard("open", "--json")).url);
+  await refreshed;
   await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Sign in to / })).toHaveCount(0);
   expect(sent).toEqual(["POST /v1/login-codes/preview", "POST /v1/browser-sessions"]);
