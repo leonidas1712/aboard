@@ -76,6 +76,10 @@ Only their approval executes it. Never use their login or approve it yourself.
   not your person’s login. Agent-issued invites default to 24 hours and notify your person. Inviting outsiders requires explicit invite-people opt-in; the main allowance switch permits only adding people. Without the person’s invitation allowance it holds the
   exact request and prints `next.command`; give that to your person. Only a person
   decides approvals or changes allowance. `aboard approvals` lists your own requests.
+  After your person allows an invitation, run `aboard approvals show ID` to collect
+  its link and colleague prompt once. Copy the prompt to your person; later reads
+  cannot recover that secret. Your person can revoke the invite and issue another
+  if the collection response is lost. Approval notices never contain the link.
   Add repeatable `--board NAME` to include ordinary board memberships. Each board
   needs add-person permission as well as permission to invite. With exactly one
   board, `--pairing "proposed work"` proposes work from this verified session. Send

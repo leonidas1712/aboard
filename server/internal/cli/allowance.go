@@ -128,8 +128,9 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 		pos = nil
 	}
 	validDecision := len(pos) == 2 && (pos[0] == "allow" || pos[0] == "decline")
-	if len(pos) > 0 && !validDecision {
-		return usageError("Use approvals, approvals allow ID, or approvals decline ID.", approvalsUsage)
+	validShow := len(pos) == 2 && pos[0] == "show"
+	if len(pos) > 0 && !validDecision && !validShow {
+		return usageError("Use approvals, approvals show ID, approvals allow ID, or approvals decline ID.", approvalsUsage)
 	}
 	if *always && (len(pos) != 2 || pos[0] != "allow") {
 		return usageError("--always requires approvals allow ID.", approvalsUsage)
@@ -140,6 +141,9 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, cancel := a.requestContext(ctx)
 	defer cancel()
+	if validShow {
+		return a.showApproval(ctx, c, srv, seatBoard, pos[1], a.agentSelected(*as))
+	}
 	if len(pos) == 0 {
 		r, e := c.api.ListApprovalsWithResponse(ctx, nil)
 		if e != nil {
