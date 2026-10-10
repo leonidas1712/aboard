@@ -4936,6 +4936,7 @@ components:
                 - server_admin_required
                 - invite_invalid
                 - invite_not_found
+                - invite_unavailable
                 - handle_taken
                 - handle_invalid
                 - key_name_taken
