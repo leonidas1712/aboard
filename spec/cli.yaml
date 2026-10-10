@@ -994,6 +994,7 @@ $defs:
       "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard
       version is older than 0.1.4, run aboard upgrade first. Run aboard skill, then
       run aboard setup <link> --handle <name you'd like teammates to see>."
+      The server prompt adds: "Run Aboard outside your agent's sandbox; approve it when your harness asks."
       Setup handles the hello and reply; the prompt contains no separate verification step.
       Automatic selection of the
       inviting session does not also ask it to run pairing select. This secret-bearing prompt is shown once with the invite,
@@ -4321,6 +4322,11 @@ $defs:
       An uncertain attempted proof never changes its handle, token or account.
       A saved pending account retains its original handle when omitted on recovery.
       Setup never prompts interactively in an agent session or without a terminal.
+      daemon_in_sandbox and sandbox_blocks_network preserve the saved setup and
+      return exit 1 with error.next.command naming its exact secret-free continuation.
+      The hint and next.resume ask the agent to rerun that command outside its sandbox
+      with escalated permissions and ask its person to approve the harness request.
+      Already verified account and memberships resume without a new redemption.
       Installed harness skills apply automatically to the next session; next asks
       the current session to run aboard skill now.
       With an invite, generate 256 random bits as a client token and save pending

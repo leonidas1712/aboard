@@ -49,5 +49,5 @@ func invitationPrompt(link, handle string, _ bool) string {
 		handle = "<name you'd like teammates to see>"
 	}
 	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than " + minimumSetupClient + ", run aboard upgrade first. Run aboard skill, then run aboard setup " + link + " --handle " + handle + "."
-	return prompt
+	return prompt + " Run Aboard outside your agent's sandbox; approve it when your harness asks."
 }

@@ -43,7 +43,7 @@ func newSetupOutput(srv serverRef) setupOutput {
 	return out
 }
 
-func runSetup(ctx context.Context, a *app, args []string) error {
+func runSetup(ctx context.Context, a *app, args []string) (result error) {
 	use := usageOf("setup")
 	flags := a.flags("setup")
 	handle := flags.String("handle", "", "your visible name on this server")
@@ -116,6 +116,30 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 	if err := a.stageSetupInvite(srv, invite); err != nil {
 		return err
 	}
+	sandboxNext := func() *api.NextStep {
+		command := a.setupContinueCommand(srv, invite)
+		if *handle != "" {
+			command += " --handle " + commandWord(*handle)
+		}
+		if *name != "" {
+			command += " --name " + commandWord(*name)
+		}
+		return &api.NextStep{Command: command, Resume: "Rerun this command outside your agent's sandbox with escalated permissions. Ask your person to approve the harness request; the saved setup resumes without pasting the invite again."}
+	}
+	defer func() {
+		if result == nil {
+			return
+		}
+		cause := asError(result)
+		if cause.Code != "daemon_in_sandbox" && cause.Code != "sandbox_blocks_network" {
+			return
+		}
+		refusal := *cause
+		refusal.Next = sandboxNext()
+		refusal.Hint = refusal.Next.Command + ". " + refusal.Next.Resume
+		result = &refusal
+	}()
+
 	h := strings.TrimSpace(*handle)
 	if h == "" {
 		path, err := a.setupPendingPath(srv, invite)
@@ -175,6 +199,9 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		out.Steps[1].State = "uncertain"
 		out.Steps[1].Message = "The original account proof is retained; this account has not been confirmed."
 		out.Next = setupRecoveryNext(srv)
+		if cause := asError(err); cause.Code == "daemon_in_sandbox" || cause.Code == "sandbox_blocks_network" {
+			out.Next = sandboxNext()
+		}
 		_ = emitSetup(a, out)
 		return errReportedFailure
 	}
