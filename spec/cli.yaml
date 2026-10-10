@@ -4124,6 +4124,7 @@ $defs:
       approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
       collected: { type: boolean }
       invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
       prompt: { type: string }
       next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
 

@@ -8799,6 +8799,10 @@ components:
           type: boolean
           description: Whether this call consumed the requesting seat's secret outcome. False for nonsecret reads and repeats.
         invite: { $ref: "#/components/schemas/ServerInvite" }
+        pairing_request_id:
+          type: string
+          pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: Visible pairing linked to the original invite; nonsecret and never permission to select another session.
         next: { $ref: "#/components/schemas/NextStep" }
     AllowApprovalRequest:
       type: "object"
