@@ -57,11 +57,8 @@ func (a *app) knownServers() ([]knownServer, *serverRef, error) {
 			known[i].Name = name
 		}
 	}
-	// A machine that uses its local server and has no saved default, such as one that
-	// connected to a team's server before defaults existed, keeps acting on the local
-	// server: an upgrade never makes a working machine start refusing (D203).
 	want := logins.Default
-	if want == localServerName || (want == "" && len(known) > 0 && known[0].Local) {
+	if want == localServerName {
 		want = local.URL
 	}
 	var def *serverRef
@@ -75,10 +72,7 @@ func (a *app) knownServers() ([]knownServer, *serverRef, error) {
 	return known, def, nil
 }
 
-// resolveServer is the server a person command acts on (D203): flag, else the server
-// this directory's .aboard names, else this machine's default server, else the only
-// server it knows, else the local server. With several and no default it refuses with
-// server_not_selected, naming --server and aboard servers use. It starts nothing.
+// resolveServer uses an explicit issuer or the persisted machine default.
 func (a *app) resolveServer(flag string) (serverRef, error) {
 	if flag = strings.TrimSpace(flag); flag != "" {
 		srv, err := a.namedServer(flag)
@@ -87,11 +81,6 @@ func (a *app) resolveServer(flag string) (serverRef, error) {
 		}
 		return a.selectedServer(srv, "flag"), nil
 	}
-	if p, ok, err := a.readProject(); err != nil {
-		return serverRef{}, err
-	} else if ok && p.Server.URL != "" {
-		return a.selectedServer(p.Server, "project"), nil
-	}
 	known, def, err := a.knownServers()
 	if err != nil {
 		return serverRef{}, err
@@ -99,10 +88,6 @@ func (a *app) resolveServer(flag string) (serverRef, error) {
 	switch {
 	case def != nil:
 		return a.selectedServer(*def, "default"), nil
-	case len(known) == 0:
-		return a.selectedServer(a.localServer(), "local"), nil
-	case len(known) == 1:
-		return a.selectedServer(known[0].ref(), "only"), nil
 	}
 	return serverRef{}, serverNotSelected(known)
 }
@@ -114,10 +99,12 @@ func serverNotSelected(known []knownServer) *Error {
 	for _, k := range known {
 		choices = append(choices, k.URL)
 	}
-	e := newError("server_not_selected",
-		"This machine knows several servers ("+strings.Join(choices, ", ")+"), none of them its default, and nothing here chooses one.",
-		"Pass --server, such as --server "+choices[len(choices)-1]+", or make one the default with aboard servers use <url|name>.")
-	e.Details = map[string]any{"choices": choices}
+	e := newError("server_not_selected", "No default server is selected.", "Run aboard servers use NAME, or pass --server NAME|URL. With no known server, run aboard up or aboard connect <invite link>.")
+	labelled := make([]map[string]string, 0, len(known))
+	for _, k := range known {
+		labelled = append(labelled, map[string]string{"name": k.Name, "url": k.URL, "command": "aboard servers use " + commandWord(k.Name)})
+	}
+	e.Details = map[string]any{"choices": choices, "server_choices": labelled}
 	return e
 }
 
@@ -187,7 +174,7 @@ func runServers(_ context.Context, a *app, args []string) error {
 			return c
 		})
 		if def == nil && len(known) > 1 {
-			text += "No default server: outside a linked folder, person commands need --server. Choose one with: aboard servers use <url|name>\n"
+			text += "No default server: person commands need --server. Choose one with: aboard servers use <url|name>\n"
 		} else {
 			text += "Change the default with: aboard servers use <url|name>\n"
 		}
@@ -284,7 +271,7 @@ func (a *app) offerDefault(srv serverRef) (isDefault bool, text string, err erro
 		return true, "The default server is now " + srv.URL + ".\n", nil
 	case def.URL != local.URL && a.interactive():
 		ok, err := a.asker().confirm("Make "+srv.URL+" this machine's default server instead of "+def.URL+"?",
-			"Person commands outside a linked folder act on the default server. Change it later with aboard servers use.", false)
+			"Person commands act on the default server. Change it later with aboard servers use.", false)
 		if errors.Is(err, errAborted) {
 			ok, err = false, nil
 		}
@@ -303,4 +290,26 @@ func (a *app) offerDefault(srv serverRef) (isDefault bool, text string, err erro
 		stays = "the local server"
 	}
 	return false, "Your default stays " + stays + "; use --server " + srv.URL + " or aboard servers use " + srv.URL + " to switch.\n", nil
+}
+
+// bootstrapServer establishes the first local default only on a machine with no server.
+func (a *app) bootstrapServer(ctx context.Context, flag string) (serverRef, bool, error) {
+	if flag == "" {
+		known, _, err := a.knownServers()
+		if err != nil {
+			return serverRef{}, false, err
+		}
+		if len(known) == 0 {
+			started, err := a.ensureLocal(ctx)
+			if err != nil {
+				return serverRef{}, false, err
+			}
+			srv := a.selectedServer(a.localServer(), "local")
+			if err := a.setDefaultServer(srv); err != nil {
+				return serverRef{}, false, err
+			}
+			return srv, started, nil
+		}
+	}
+	return a.personServer(ctx, flag)
 }

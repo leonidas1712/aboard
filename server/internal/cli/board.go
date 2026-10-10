@@ -65,14 +65,7 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 	if *newTitle != "" || *private {
 		return usageError("--title and --private work only with new.", boardUsage)
 	}
-	if *serverFlag != "" {
-		switch pos[0] {
-		case "policy", "add", "remove", "leave", "owner", "visibility", "agents-add-people", "prefix":
-			a.boardServerFlag = *serverFlag
-		default:
-			return usageError("--server works only with new, policy, add, remove, leave, owner and visibility.", boardUsage)
-		}
-	}
+	a.boardServerFlag = *serverFlag
 	if pos[0] == "prefix" {
 		if len(pos) != 2 || *yes {
 			return usageError("Name the prefix: aboard board prefix CHK.", boardUsage)
@@ -184,7 +177,7 @@ func runBoardTitle(ctx context.Context, a *app, boardFlag, asFlag, title string)
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		if t, err = a.humanBoard(boardFlag); err != nil {
+		if t, err = a.humanBoard(ctx, boardFlag); err != nil {
 			return err
 		}
 		c, err = a.humanClient(ctx, t)
@@ -227,7 +220,7 @@ func runBoardPolicy(ctx context.Context, a *app, boardFlag, presetArg string) er
 	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+commandWord(string(preset))+a.boardFlags(boardFlag)); err != nil {
 		return err
 	}
-	t, err := a.personBoard(boardFlag)
+	t, err := a.personBoard(ctx, boardFlag)
 	if err != nil {
 		return err
 	}

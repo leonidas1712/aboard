@@ -100,7 +100,7 @@ func runAudit(ctx context.Context, a *app, args []string) error {
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		t, err = a.humanBoard(*boardFlag)
+		t, err = a.humanBoard(ctx, *boardFlag)
 		if err != nil {
 			return err
 		}

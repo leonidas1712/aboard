@@ -56,11 +56,16 @@ func (a *app) runSessionBoardNew(ctx context.Context, key delivery.SessionKey, n
 	if err != nil {
 		return err
 	}
-	sessionServer := ""
-	if len(agents) > 0 {
-		sessionServer = agents[0].Server
+	sessionServer, err := sessionIssuer(agents, serverFlag)
+	if err != nil {
+		return err
 	}
-	srv, err := a.boardServer(ctx, serverFlag, sessionServer)
+	var srv serverRef
+	if sessionServer == "" {
+		srv, _, err = a.bootstrapServer(ctx, serverFlag)
+	} else {
+		srv, err = a.boardServer(ctx, serverFlag, sessionServer)
+	}
 	if err != nil {
 		return err
 	}
@@ -72,20 +77,8 @@ func (a *app) runSessionBoardNew(ctx context.Context, key delivery.SessionKey, n
 	if err != nil {
 		return err
 	}
-	project, found, err := a.readProject()
-	if err != nil {
-		return err
-	}
-	linked := !found
-	if linked {
-		if err := a.writeProject(projectFile{Server: srv, Board: joined.Board.Name}); err != nil {
-			return err
-		}
-	}
+	linked := false
 	var stays *staysLinked
-	if found && project.Server.URL != srv.URL {
-		stays = &staysLinked{Server: project.Server, Board: project.Board}
-	}
 	use := useFor(joined.Agent.Name)
 	use.BoundSession = optional(key.String())
 	mode := a.deliveryFor(ctx, delivery.AgentRef{Server: srv.URL, Board: joined.Board.Name, Name: joined.Agent.Name, MemberID: joined.Agent.Id}, string(resp.Mode))
@@ -95,7 +88,7 @@ func (a *app) runSessionBoardNew(ctx context.Context, key delivery.SessionKey, n
 		text += notice.Message + "\n"
 	}
 	text += a.seatBoardReminder(ctx, key, joined.Board.Name)
-	joinCommand := "aboard join --board " + joined.Board.Name
+	joinCommand := "aboard join --server " + commandWord(srv.URL) + " --board " + commandWord(joined.Board.Name)
 	if stays != nil {
 		joinCommand += " --server " + commandWord(srv.URL)
 	}

@@ -148,7 +148,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 			return resolveErr
 		}
 		out.Server = srv
-		t, err = a.humanBoard(*boardFlag)
+		t, err = a.humanBoard(ctx, *boardFlag)
 	}
 	switch {
 	case agentBoard != nil && (err != nil || t.board != agentBoard.board || t.server.URL != agentBoard.server.URL):

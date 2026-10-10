@@ -40,7 +40,7 @@ func runBoardArchive(ctx context.Context, a *app, sel, asFlag string, restore bo
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		if t, err = a.humanBoard(sel); err != nil {
+		if t, err = a.humanBoard(ctx, sel); err != nil {
 			return err
 		}
 		c, err = a.humanClient(ctx, t)
@@ -108,7 +108,7 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 	if err := a.refuseInSession("Deleting a board", command); err != nil {
 		return err
 	}
-	t, err := a.humanBoard(sel)
+	t, err := a.humanBoard(ctx, sel)
 	if err != nil {
 		return err
 	}

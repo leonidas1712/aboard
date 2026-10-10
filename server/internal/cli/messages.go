@@ -98,7 +98,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		if a.agentSelected(*as) {
 			return newError("human_command_in_session", "Only a person may use --to mine.", "An agent uses --to owner:<handle> with its own seat.")
 		}
-		if t, err = a.humanBoard(*boardFlag); err != nil {
+		if t, err = a.humanBoard(ctx, *boardFlag); err != nil {
 			return err
 		}
 		if cred.Token, err = a.readOwnerToken(t.server); err != nil {

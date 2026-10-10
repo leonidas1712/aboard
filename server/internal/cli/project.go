@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+
+	"github.com/leonidas1712/aboard/server/internal/api"
 	"path/filepath"
 )
 
-// projectFileName is the file in a project directory that names its server and board.
+// projectFileName is the deprecated folder-link filename.
 const projectFileName = ".aboard"
 
 // projectFile is the content of .aboard. It never holds a secret or an agent name.
@@ -16,33 +19,15 @@ type projectFile struct {
 
 func (a *app) projectPath() string { return filepath.Join(a.env.Dir, projectFileName) }
 
-// readProject reads .aboard in the working directory. ok is false if there is none.
-func (a *app) readProject() (p projectFile, ok bool, err error) {
-	ok, err = readJSONFile(a.projectPath(), &p)
-	return p, ok, err
-}
+// Legacy folder links are ignored. The machine default and explicit flags select servers.
+func (a *app) readProject() (projectFile, bool, error) { return projectFile{}, false, nil }
 
-// writeProject writes .aboard in the working directory.
+// writeProject remains for legacy test fixtures; commands no longer call it.
 func (a *app) writeProject(p projectFile) error {
 	return writeJSONFile(a.projectPath(), p, 0o644)
 }
 
-// linkProject points the working directory at p's board. If it pointed at a different
-// board before, it returns that board's name so the command can say so: a directory never
-// switches boards without the person seeing it.
-func (a *app) linkProject(p projectFile) (previous string, err error) {
-	old, found, err := a.readProject()
-	if err != nil {
-		return "", err
-	}
-	if err := a.writeProject(p); err != nil {
-		return "", err
-	}
-	if found && (old.Board != p.Board || old.Server.URL != p.Server.URL) {
-		return old.Board, nil
-	}
-	return "", nil
-}
+func (a *app) linkProject(_ projectFile) (string, error) { return "", nil }
 
 // relinkedText is the line a command prints after moving the directory to another board.
 func relinkedText(board, previous string) string {
@@ -56,11 +41,12 @@ func relinkedText(board, previous string) string {
 type target struct {
 	server serverRef
 	board  string
-	source string // where the board came from: boardFromFlag or boardFromProject
+	source string
 }
 
 // Where a command's board came from.
 const (
+	boardFromOnly    = "only"
 	boardFromFlag    = "flag"
 	boardFromProject = "project_file"
 )
@@ -68,6 +54,8 @@ const (
 // sourceText says in words where a board came from.
 func sourceText(source string) string {
 	switch source {
+	case boardFromOnly:
+		return "the only readable active board"
 	case boardFromFlag:
 		return "from --board"
 	case boardFromAgent:
@@ -76,45 +64,58 @@ func sourceText(source string) string {
 	return "from ./" + projectFileName
 }
 
-// humanBoard picks the board a person's command acts on, as selectBoard does, except
-// that in a directory with no .aboard the server is the one resolveServer picks: the
-// default server, else the only one this machine knows. With several and no default it
-// refuses with server_not_selected rather than guess (D203).
-func (a *app) humanBoard(boardFlag string) (target, error) {
-	t, err := a.selectBoard(boardFlag)
+// humanBoard uses an explicit board or the sole readable active board on the selected issuer.
+func (a *app) humanBoard(ctx context.Context, boardFlag string) (target, error) {
+	srv, err := a.resolveServer(a.boardServerFlag)
 	if err != nil {
 		return target{}, err
 	}
-	if _, ok, err := a.readProject(); err != nil || ok {
-		if err == nil {
-			t.server = a.selectedServer(t.server, "project")
-		}
-		return t, err
+	t := target{server: srv, board: boardFlag, source: boardFromFlag}
+	if boardFlag != "" {
+		return t, nil
 	}
-	if t.server, err = a.resolveServer(""); err != nil {
+	c, err := a.humanClient(ctx, t)
+	if err != nil {
 		return target{}, err
 	}
-	return t, nil
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	all := true
+	r, err := c.api.ListBoardsWithResponse(ctx, &api.ListBoardsParams{All: &all})
+	if err != nil {
+		return target{}, c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return target{}, apiError(r.StatusCode(), r.Body)
+	}
+	choices := []string{}
+	for _, b := range r.JSON200.Boards {
+		if b.Lifecycle != nil && *b.Lifecycle != api.BoardLifecycleActive {
+			continue
+		}
+		choices = append(choices, b.Name)
+	}
+	if len(choices) == 1 {
+		t.board, t.source = choices[0], boardFromOnly
+		return t, nil
+	}
+	code, message := "board_not_selected", "No readable active board is available on this server."
+	if len(choices) > 1 {
+		code, message = "board_ambiguous", "Several readable boards are available; name one with --board."
+	}
+	e := newError(code, message, "Run aboard boards --server "+commandWord(srv.URL)+", then repeat with --board NAME.")
+	e.Details = map[string]any{"boards": choices, "server": srv.URL}
+	return target{}, e
 }
 
-// selectBoard picks the board from --board, then .aboard. The server comes from .aboard
-// when it names one, otherwise it is the local server.
+// selectBoard resolves an explicit board without reading folder state.
 func (a *app) selectBoard(boardFlag string) (target, error) {
-	p, ok, err := a.readProject()
+	srv, err := a.resolveServer(a.boardServerFlag)
 	if err != nil {
 		return target{}, err
 	}
-	t := target{server: a.localServer(), board: boardFlag, source: boardFromFlag}
-	if ok && p.Server.URL != "" {
-		t.server = p.Server
+	if boardFlag == "" {
+		return target{}, newError("board_not_selected", "No board was named.", "Run aboard boards, then repeat with --board NAME.")
 	}
-	if t.board == "" && ok {
-		t.board, t.source = p.Board, boardFromProject
-	}
-	if t.board == "" {
-		return target{}, newError("board_not_selected",
-			"No board is selected in "+a.env.Dir+".",
-			"Run aboard pair to create a board, or aboard join with a join line, in this directory; or pass --board NAME.")
-	}
-	return t, nil
+	return target{server: srv, board: boardFlag, source: boardFromFlag}, nil
 }

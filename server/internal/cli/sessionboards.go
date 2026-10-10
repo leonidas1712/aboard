@@ -22,11 +22,11 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 	if err != nil {
 		return err
 	}
-	sessionServer := ""
-	if len(agents) > 0 {
-		sessionServer = agents[0].Server
+	sessionServer, err := sessionIssuer(agents, a.boardServerFlag)
+	if err != nil {
+		return err
 	}
-	srv, err := a.boardServer(ctx, "", sessionServer)
+	srv, err := a.boardServer(ctx, a.boardServerFlag, sessionServer)
 	if err != nil {
 		return err
 	}

@@ -185,7 +185,7 @@ func TestAgentBundledInviteRequiresItsTrustedCurrentSession(t *testing.T) {
 	e.env["ABOARD_AGENT"] = "scout"
 	e.env["ABOARD_SESSION"] = ""
 	var out bytes.Buffer
-	code := Run(context.Background(), []string{"invite", "--server", srv.URL, "--board", "work", "--pairing", "Review the change", "--json"}, e.environment(&out, &out))
+	code := Run(context.Background(), []string{"invite", "--person", "--server", srv.URL, "--board", "work", "--pairing", "Review the change", "--json"}, e.environment(&out, &out))
 	var result wireError
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)

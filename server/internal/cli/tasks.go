@@ -26,7 +26,7 @@ type taskOutput struct {
 // A reference can select a session's board, but cannot grant access to another seat.
 func (a *app) taskClient(ctx context.Context, board, as, selector string) (target, *client, error) {
 	if !a.agentSelected(as) {
-		t, err := a.personBoard(board)
+		t, err := a.personBoard(ctx, board)
 		if err != nil {
 			return target{}, nil, err
 		}

@@ -180,7 +180,7 @@ func lifecycleMachine(t *testing.T, url, key string, cred agentCredential) *life
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := writeJSONFile(p.servers(), serverLogins{Servers: []serverLogin{{URL: url, Handle: "alex", Key: key}}}, 0o600); err != nil {
+	if err := writeJSONFile(p.servers(), serverLogins{Default: url, Servers: []serverLogin{{URL: url, Handle: "alex", Key: key}}}, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.saveCredential(cred); err != nil {
