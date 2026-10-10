@@ -15,14 +15,18 @@ import (
 )
 
 func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
-	invitedSetupProof(t, "InvitedSetupVerifiesTwoPeopleExactSessions", false)
+	invitedSetupProof(t, "InvitedSetupVerifiesTwoPeopleExactSessions", false, false)
 }
 
 func TestBrowserApprovedInviteReachesItsOriginalSession(t *testing.T) {
-	invitedSetupProof(t, "BrowserApprovedInviteReachesItsOriginalSession", true)
+	invitedSetupProof(t, "BrowserApprovedInviteReachesItsOriginalSession", true, false)
 }
 
-func invitedSetupProof(t *testing.T, name string, held bool) {
+func TestApprovedInviteWakesIdleOrigin(t *testing.T) {
+	invitedSetupProof(t, "ApprovedInviteWakesIdleOrigin", true, true)
+}
+
+func invitedSetupProof(t *testing.T, name string, held, wakeOnly bool) {
 	t.Helper()
 	eachHarness(t, name, func(t *testing.T, d *driver, rec *recorder) {
 		if !d.p.Delivers() {
@@ -54,7 +58,9 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 			writer.waitIdle(2 * time.Minute)
 			inviter.approveInviteInBrowser(pending.Approval.ID)
 			// No invitation, outcome or approval id is relayed from the browser.
-			writer.submit(fmt.Sprintf("Continue with any Aboard next-turn notice. If it names an executed approval, run its aboard approvals show command with --json and save that JSON to %q, then end your turn. Do not request another invite or select a pairing endpoint manually.", invitePath))
+			if !wakeOnly {
+				writer.submit(fmt.Sprintf("Continue with any Aboard next-turn notice. If it names an executed approval, run its aboard approvals show command with --json and save that JSON to %q, then end your turn. Do not request another invite or select a pairing endpoint manually.", invitePath))
+			}
 		}
 		var invitation struct {
 			Invite struct {
@@ -68,6 +74,9 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 		})
 		link := "http://" + inviter.addr + "/join#" + invitation.Invite.Secret
 		writer.waitIdle(2 * time.Minute)
+		if wakeOnly {
+			return
+		}
 		newcomer := newLab(t)
 		d.setUp(newcomer)
 		// Start with the global hooks setup will maintain already loaded. Installing
