@@ -33,7 +33,54 @@ const shots: Shot[] = [
   { name: "inbox-ember", query: "lab=workspace&step=3&inbox=1&theme=ember" },
   { name: "solo", query: "lab=solo&step=2&board=blog-engine" },
   { name: "empty", query: "lab=empty&step=2&board=new-board" },
+  // Onboarding (GEN-41): the inviter's side, then the colleague's.
+  ...onboarding(),
 ];
+
+function onboarding(): Shot[] {
+  const alex = "lab=onboard-inviter";
+  const sam = "lab=onboard-joiner";
+  const invite = "#abi_k3Vq9XwZp2LmT8rB4nYc6HdJ0sFgQe1A";
+  const inviteApproval = "item=apr_01K7Q2M8ZC4T9V3XWHN6RB5JDE";
+  const both: Shot[] = [
+    { name: "ob-approval-invite", query: `${alex}&step=1&inbox=1&${inviteApproval}` },
+    { name: "ob-approval-invite-always", query: `${alex}&step=1&inbox=1&${inviteApproval}`, click: ".ob-approval button:has-text('Allow always')" },
+    { name: "ob-approval-allowed-once", query: `${alex}&step=1&inbox=1&${inviteApproval}`, click: ".ob-approval button:has-text('Allow once')" },
+    { name: "ob-approval-risky", query: `${alex}&step=1&inbox=1&item=apr_01K7Q2P4HS8WQ2NB6YT3MXK9RA` },
+    { name: "ob-approval-add-people", query: `${alex}&step=3&inbox=1&item=apr_01K7Q3B9GT2XV6PM4ZQ8NHJ5CW` },
+    { name: "ob-approval-declined", query: `${alex}&step=1&inbox=1&item=apr_01K7Q2P4HS8WQ2NB6YT3MXK9RA`, click: ".ob-approval button:has-text('Decline')" },
+    { name: "ob-notice-open", query: `${alex}&step=2&inbox=1&item=inv_01K7Q2R7XJ5NE4AD9M2TPW8BKS` },
+    { name: "ob-notice-revoked", query: `${alex}&step=2&inbox=1&item=inv_01K7Q2R7XJ5NE4AD9M2TPW8BKS`, click: ".ob-notice button:has-text('Revoke')" },
+    { name: "ob-notice-redeemed", query: `${alex}&step=3&inbox=1&item=inv_01K7Q2R7XJ5NE4AD9M2TPW8BKS` },
+    { name: "ob-notice-expired", query: `${alex}&step=3&inbox=1&item=inv_01K7NZ3WQ8T5HC2RV9MB6XJ4DP` },
+    { name: "ob-pairing-out-account", query: `${alex}&step=2&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD` },
+    { name: "ob-pairing-out-session", query: `${alex}&step=3&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD` },
+    { name: "ob-pairing-out-declined", query: `${alex}&step=3&inbox=1&item=prq_01K7P4K2TZ9BC6WM8XR3HQ5NJV` },
+    { name: "ob-pairing-in-expired", query: `${alex}&step=3&inbox=1&item=prq_01K7P1D5RW8KM3XT6HB9QZ2NC4` },
+    { name: "ob-settings-off", query: `${alex}&step=1&view=settings` },
+    { name: "ob-settings-auto-on", query: `${alex}&step=1&view=settings`, click: "#auto-mode" },
+    { name: "ob-settings-invite-confirm", query: `${alex}&step=1&view=settings`, click: ["#auto-mode", "#invite-people"] },
+    { name: "ob-settings-invite-on", query: `${alex}&step=1&view=settings`, click: ["#auto-mode", "#invite-people", "button:has-text('Turn on inviting')"] },
+    { name: "ob-account-menu", query: `${alex}&step=4&board=api-review`, click: "button.account" },
+    { name: "ob-board-waiting", query: `${alex}&step=4&board=api-review` },
+    { name: "ob-board-verifying", query: `${alex}&step=5&board=api-review` },
+    { name: "ob-board-ready", query: `${alex}&step=6&board=api-review` },
+    { name: "ob-join-page", query: `${sam}&step=1&join=1${invite}` },
+    { name: "ob-join-lab-panel", query: `${sam}&step=1&join=1${invite}`, click: "button[data-lab]" },
+    { name: "ob-join-terminal", query: `${sam}&step=1&join=1${invite}`, click: "button:has-text('Set it up in a terminal')" },
+    { name: "ob-pairing-in-new", query: `${sam}&step=2&inbox=1` },
+    { name: "ob-pairing-in-choose", query: `${sam}&step=2&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD`, click: ".ob-pairing button:has-text('Choose an agent')" },
+    { name: "ob-pairing-in-prompt", query: `${sam}&step=2&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD`, click: ".ob-pairing button:has-text('Copy prompt')" },
+    { name: "ob-pairing-in-sent", query: `${sam}&step=2&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD`, click: [".ob-pairing button:has-text('Choose an agent')", ".ob-choose button:has-text('Send it to this agent')"] },
+    { name: "ob-pairing-in-declined", query: `${sam}&step=2&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD`, click: ".ob-pairing button:has-text('Decline')" },
+    { name: "ob-pairing-in-verifying", query: `${sam}&step=4&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD` },
+    { name: "ob-pairing-in-ready", query: `${sam}&step=5&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD` },
+    { name: "ob-board-sam-waiting", query: `${sam}&step=3&board=api-review` },
+    { name: "ob-board-sam-ready", query: `${sam}&step=5&board=api-review` },
+  ];
+  // Each in dark (the shots' default) and in light.
+  return both.flatMap((s) => [s, { ...s, name: `${s.name}-light`, theme: "light" as const, query: s.query.replace(/(#|$)/, "&theme=light$1") }]);
+}
 
 const widths = [
   { label: "desktop", viewport: { width: 1440, height: 900 }, panel: "&panel=closed" },
@@ -143,7 +190,9 @@ for (const w of widths) {
       page.on("pageerror", (e) => errors.push(e.message));
       await page.setViewportSize(w.viewport);
       await page.emulateMedia({ colorScheme: s.theme ?? "dark" });
-      await page.goto(`/?${s.query}${w.panel}`);
+      // The address keeps its fragment (an invite link's) last.
+      const [query, hash] = s.query.split("#");
+      await page.goto(`/?${query}${w.panel}${hash ? `#${hash}` : ""}`);
       await settle(page);
       if (s.hover) {
         await page.locator(s.hover).first().scrollIntoViewIfNeeded();

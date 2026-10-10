@@ -3,7 +3,8 @@
 // Who you are, at the right of the top bar: your mark and name, opening a menu with
 // who you are on this board, which server this is, and this browser's settings.
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Settings2 } from "lucide-react";
+import { type Allowance, getAllowance } from "./onboarding-api";
 import { useEffect, useState } from "react";
 import {
   DropdownMenu,
@@ -55,6 +56,15 @@ export function Account({ admin, onSignOut, person }: Props) {
   const [loadedMe, setMe] = useState<Me | null>(null);
   const me = person ?? loadedMe;
   const [showPeople, setShowPeople] = useState(false);
+  // Settings shows once the server answers for the person's allowance (auto mode).
+  const [allowance, setAllowance] = useState<Allowance | null>(null);
+  useEffect(() => {
+    let live = true;
+    getAllowance().then((a) => live && setAllowance(a), () => {});
+    return () => {
+      live = false;
+    };
+  }, []);
   const [mode, setMode] = useState<"local" | "team" | null>(null);
   const [theme, setTheme] = useTheme();
   const signedIn = session();
@@ -103,6 +113,7 @@ export function Account({ admin, onSignOut, person }: Props) {
         </dl>
         <DropdownMenuSeparator />
         {showPeople && <><DropdownMenuItem asChild><a href="/?view=people">People</a></DropdownMenuItem><DropdownMenuSeparator /></>}
+        {allowance && <><DropdownMenuItem asChild><a href="/?view=settings" className="settings-item flex items-center gap-2"><Settings2 className="size-4 text-muted" strokeWidth={1.5} aria-hidden /><span className="flex-1">Settings</span><span className="text-meta text-muted">{allowance.categories.length > 0 ? "Auto mode on" : "Agents ask you"}</span></a></DropdownMenuItem><DropdownMenuSeparator /></>}
         {midturn.view && (
           <>
             <DropdownMenuLabel>Mid-turn messages from my agents</DropdownMenuLabel>

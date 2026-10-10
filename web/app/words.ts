@@ -264,7 +264,7 @@ export function addressedTo(m: Message, person: string | null): boolean {
  * eventLine is the short line a board event shows in the timeline, or null for events
  * the timeline doesn't show (join codes, messages, types this page doesn't know).
  */
-export function eventLine(e: BoardEvent, creator: string | null, solo: boolean): string | null {
+export function eventLine(e: BoardEvent, creator: string | null, solo: boolean, names?: AuthNames): string | null {
   if (e.data_withheld) return null;
   const who = e.actor.name ?? "The server";
   const d = (e.data ?? {}) as Record<string, unknown>;
@@ -279,7 +279,13 @@ export function eventLine(e: BoardEvent, creator: string | null, solo: boolean):
       }
       // The creator's own join follows the board's creation and adds nothing to it.
       if (name === creator) return null;
-      return solo ? `${name} joined` : `${name} joined as ${d.access === "admin" ? "admin" : "member"}`;
+      const joined = solo ? `${name} joined` : `${name} joined as ${d.access === "admin" ? "admin" : "member"}`;
+      return joined + authorizedBy(d.authorization, names);
+    }
+    case "person.added": {
+      // A person an agent brought in for its person, so the record says who acted on whose authority.
+      const by = authorizedBy(d.authorization, names);
+      return by ? `${String(d.name ?? "")} joined as member${by}` : null;
     }
     case "board.policy_changed": {
       const preset = d.preset_applied as string | null;
@@ -313,6 +319,23 @@ export function eventLine(e: BoardEvent, creator: string | null, solo: boolean):
     default:
       return null;
   }
+}
+
+/** AuthNames names the agent and person an event's authorization holds by id. */
+export type AuthNames = { agent: (id: string) => string | null; person: (id: string) => string | null };
+
+/**
+ * authorizedBy is how the record reads a join an agent did for its person:
+ * " · invited by writer, approved by alex", or " · added by writer, on alex's allowance".
+ * Empty for a join nobody's agent did.
+ */
+function authorizedBy(raw: unknown, names?: AuthNames): string {
+  const a = raw as { kind?: string; agent_id?: string; person_id?: string; via?: string } | undefined;
+  if (!a?.via || !a.agent_id || !a.person_id) return "";
+  const agent = names?.agent(a.agent_id) ?? "an agent";
+  const person = names?.person(a.person_id) ?? "its person";
+  const verb = a.kind === "invited" ? "invited" : a.kind === "role_changed" ? "changed" : "added";
+  return a.via === "allowance" ? ` · ${verb} by ${agent}, on ${person}'s allowance` : ` · ${verb} by ${agent}, approved by ${person}`;
 }
 
 /**

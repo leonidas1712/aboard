@@ -84,3 +84,8 @@ the server.
   a light page.
 - **In the conversation** (`experiments/message-footer.tsx`, `text.tsx`): an ask has
   buttons, a file shows as a card, and task ids are links.
+- **Agent-driven onboarding** is in the product now. The `onboard-inviter` and
+  `onboard-joiner` scenarios show the real Inbox, Settings (`view=settings`), invite
+  page (`join=1#abi_…`) and board on the fake API's onboarding routes
+  (`fake-onboarding.ts`), which serve `onboarding.ts`'s scenario data in the API's
+  shapes; `item=<id>` opens one Inbox item.

@@ -239,7 +239,7 @@ web-check: web
 # scenarios' and the fake API's words, must be absent from web/out (after make web).
 web-lab-check:
 	@test -d web/out || { echo "web/out is missing: run make web first"; exit 1; }
-	@if grep -rlE 'aboard-ui-lab|UI lab|fake-api|single-file\.mjs|Checkout v2' web/out; then \
+	@if grep -rlE 'aboard-ui-lab|UI lab|fake-api|single-file\.mjs|Checkout v2|onboard-inviter' web/out; then \
 		echo "web/out holds UI lab code (above); the lab must only enter through the aboard-lab alias"; exit 1; fi
 	@echo "web/out holds no UI lab code"
 
