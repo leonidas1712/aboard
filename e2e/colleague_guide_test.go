@@ -48,7 +48,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	}
 	link := strings.TrimPrefix(shown[1], "Invite: ")
 	if !strings.HasPrefix(shown[2], "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh") ||
-		!strings.Contains(shown[2], "If aboard version is older than 0.1.4, run aboard upgrade first.") ||
+		!strings.Contains(shown[2], "If aboard version is older than 0.1.4 and is not a +dev build, run aboard upgrade first.") ||
 		!strings.Contains(shown[2], "aboard skill") || !strings.Contains(shown[2], "aboard setup "+link+" --handle maya.") {
 		t.Fatalf("the prompt for maya:\n%s", allowed)
 	}
