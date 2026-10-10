@@ -25,11 +25,18 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	invite := tm.admin.run("invite", "--server", tm.url(), "--board", name, "--json").json(t)
 	matchesCLISpec(t, "ServerInviteOutput", invite)
 	link := field(t, invite, "link").(string)
+	wantPrompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent."
+	if field(t, invite, "prompt") != wantPrompt {
+		t.Fatalf("colleague JSON prompt: %v", invite)
+	}
 	person := newPersonHome(t, "newcomer")
 	session := person.claudeSession("newcomer-setup")
 	first := session.run("connect", link, "--handle", "newcomer", "--json")
 	out := first.json(t)
 	matchesCLISpec(t, "SetupOutput", out)
+	if !strings.Contains(field(t, out, "next.resume").(string), "Read the aboard skill now") {
+		t.Fatalf("pairing next lost current skill instruction: %v", out)
+	}
 	if out["state"] == "complete" {
 		t.Fatal("setup claimed delivery verified without a pairing handshake")
 	}
@@ -117,13 +124,13 @@ func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
 	server := httptest.NewServer(proxy)
 	t.Cleanup(server.Close)
 	link := strings.Replace(field(t, invite, "link").(string), tm.url(), server.URL, 1)
-	person := newPersonHome(t, "recoverer")
+	person := newPersonHome(t, "different-machine-user")
 	session := person.claudeSession("recovering-setup")
 	first := session.runExit("setup", link, "--handle", "recoverer", "--json")
 	if first.code != 1 || first.json(t)["state"] != "uncertain" || !transport.dropped.Load() {
 		t.Fatalf("lost commit response did not remain uncertain: %s", first)
 	}
-	recovered := session.run("setup", link, "--handle", "recoverer", "--json").json(t)
+	recovered := session.run("setup", link, "--json").json(t)
 	matchesCLISpec(t, "SetupOutput", recovered)
 	if field(t, recovered, "steps.1.state") != "complete" || transport.connects.Load() != 1 {
 		t.Fatalf("recovery repeated redemption instead of authenticating its saved key: %v", recovered)
@@ -174,4 +181,36 @@ func (p *setupLostResponseTransport) RoundTrip(r *http.Request) (*http.Response,
 		return nil, errors.New("test dropped the committed connection response")
 	}
 	return response, err
+}
+
+func TestSetupWaitsForThePersonsHandleWithoutSpendingInvite(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	link := field(t, invite, "link").(string)
+	person := newPersonHome(t, "newcomer")
+	session := person.claudeSession("missing-handle")
+	out := session.run("setup", link, "--json").json(t)
+	matchesCLISpec(t, "SetupOutput", out)
+	if out["state"] != "pending" || field(t, out, "steps.1.state") != "pending" || out["person"] != nil {
+		t.Fatalf("setup redeemed without a person-selected handle: %v", out)
+	}
+	if !strings.Contains(field(t, out, "next.resume").(string), "Ask your person") || !strings.Contains(field(t, out, "next.command").(string), "--handle") {
+		t.Fatalf("missing actionable name choice: %v", out)
+	}
+	ordinary := newPersonHome(t, "terminal-choice")
+	waiting := ordinary.run("setup", link, "--json").json(t)
+	if waiting["person"] != nil || field(t, waiting, "steps.1.state") != "pending" {
+		t.Fatalf("non-TTY setup redeemed: %v", waiting)
+	}
+	if strings.Contains(field(t, out, "next.command").(string), link) {
+		t.Fatal("setup repeated invite secret")
+	}
+	resumed := session.run("setup", link, "--handle", "newcomer", "--json").json(t)
+	if !strings.Contains(field(t, resumed, "next.resume").(string), "Read the aboard skill now") {
+		t.Fatalf("current session was not told to load skill: %v", resumed)
+	}
+	if field(t, resumed, "person.handle") != "newcomer" {
+		t.Fatalf("invite was spent or account changed: %v", resumed)
+	}
 }
