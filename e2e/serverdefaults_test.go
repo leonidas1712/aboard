@@ -44,4 +44,53 @@ func TestDefaultServerIgnoresLegacyFolderAndChoosesOnlyBoard(t *testing.T) {
 		t.Fatal(err)
 	}
 	person.run("status", "--board", "same", "--json")
+	person.run("board", "new", "another", "--server", second.url())
+	ambiguous := person.runExit("status", "--json")
+	if ambiguous.code != 1 || errorCode(t, ambiguous.json(t)) != "board_ambiguous" {
+		t.Fatalf("multiple boards must require a choice: %s", ambiguous)
+	}
+	person.run("status", "--server", second.url(), "--board", "same", "--json")
+
+}
+
+func TestKnownServerWithoutDefaultRequiresSelection(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	person := tm.person("sam")
+	path := filepath.Join(person.configDir(), "servers.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved map[string]any
+	if err := json.Unmarshal(raw, &saved); err != nil {
+		t.Fatal(err)
+	}
+	delete(saved, "default")
+	raw, err = json.Marshal(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r := person.runExit("boards", "--json")
+	if r.code != 1 || errorCode(t, r.json(t)) != "server_not_selected" {
+		t.Fatalf("implicit only-server fallback: %s", r)
+	}
+	person.run("boards", "--server", tm.url(), "--json")
+}
+
+func TestInviteServerAndPersonHaveSeparateMeanings(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	tm.admin.run("board", "new", "same", "--server", tm.url())
+	code := tm.admin.run("invite", "--server", tm.url(), "--board", "same", "--json").json(t)
+	if code["join_line"] == nil || code["link"] != nil {
+		t.Fatalf("board invite became a person invite: %v", code)
+	}
+	person := tm.admin.run("invite", "--person", "--server", tm.url(), "--board", "same", "--json").json(t)
+	if person["link"] == nil || person["join_line"] != nil {
+		t.Fatalf("explicit person invite lost its meaning: %v", person)
+	}
 }

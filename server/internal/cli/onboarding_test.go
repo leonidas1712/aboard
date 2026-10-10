@@ -424,7 +424,7 @@ func TestExecutedBundledInviteSelectsItsOriginalSessionWithoutReissuing(t *testi
 				}
 				return resp
 			})
-			if err := runInvite(context.Background(), a, []string{"--server", srv.URL, "--board", "work", "--pairing", "Review this change"}); err != nil {
+			if err := runInvite(context.Background(), a, []string{"--person", "--server", srv.URL, "--board", "work", "--pairing", "Review this change"}); err != nil {
 				t.Fatal(err)
 			}
 			var result struct {

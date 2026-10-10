@@ -66,7 +66,7 @@ func sourceText(source string) string {
 
 // humanBoard uses an explicit board or the sole readable active board on the selected issuer.
 func (a *app) humanBoard(ctx context.Context, boardFlag string) (target, error) {
-	srv, err := a.resolveServer(a.boardServerFlag)
+	srv, err := a.resolveServer(a.selectedServerFlag())
 	if err != nil {
 		return target{}, err
 	}
@@ -110,7 +110,7 @@ func (a *app) humanBoard(ctx context.Context, boardFlag string) (target, error) 
 
 // selectBoard resolves an explicit board without reading folder state.
 func (a *app) selectBoard(boardFlag string) (target, error) {
-	srv, err := a.resolveServer(a.boardServerFlag)
+	srv, err := a.resolveServer(a.selectedServerFlag())
 	if err != nil {
 		return target{}, err
 	}

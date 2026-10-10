@@ -149,7 +149,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 
 	t, err := a.selectBoard(*boardFlag)
 	if agentBoard == nil && !a.agentSelected(*as) {
-		srv, resolveErr := a.resolveServer("")
+		srv, resolveErr := a.resolveServer(a.selectedServerFlag())
 		if resolveErr != nil {
 			return resolveErr
 		}

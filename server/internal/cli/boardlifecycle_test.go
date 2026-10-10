@@ -243,7 +243,7 @@ func paymentsDesign() *lifecycleBoard {
 func TestBoardArchiveAndRestore(t *testing.T) {
 	srv := newLifecycleServer(t, paymentsDesign())
 	e := newLifecycleEnv(t, srv)
-	r := e.run("board", "archive")
+	r := e.run("board", "archive", "--board", "payments-design")
 	if r.code != 0 || r.stdout != "Archived payments-design. It's read-only now; restore with: aboard board restore payments-design.\n" {
 		t.Fatalf("archive: %d %q %q", r.code, r.stdout, r.stderr)
 	}
@@ -261,13 +261,13 @@ func TestBoardArchiveAndRestore(t *testing.T) {
 	if out.Server.URL != srv.URL || out.Board != "payments-design" || out.ID != "brd_01JB8Z2Y5X4W3V2T1S0R9Q8P7N" || out.Lifecycle != "archived" || out.Changed == nil || *out.Changed {
 		t.Fatalf("archive repeat: %+v", out)
 	}
-	if r := e.run("board", "archive"); r.stdout != "payments-design is already archived; restore with: aboard board restore payments-design.\n" {
+	if r := e.run("board", "archive", "--board", "payments-design"); r.stdout != "payments-design is already archived; restore with: aboard board restore payments-design.\n" {
 		t.Errorf("archive repeat, text: %q", r.stdout)
 	}
 	if r := e.run("board", "restore", "--board", "payments-design"); r.code != 0 || r.stdout != "Restored payments-design. New messages and joins work again.\n" {
 		t.Fatalf("restore: %d %q %q", r.code, r.stdout, r.stderr)
 	}
-	if r := e.run("board", "restore"); r.stdout != "payments-design isn't archived; nothing changed.\n" {
+	if r := e.run("board", "restore", "--board", "payments-design"); r.stdout != "payments-design isn't archived; nothing changed.\n" {
 		t.Errorf("restore repeat: %q", r.stdout)
 	}
 }
@@ -281,7 +281,7 @@ func TestAnAgentArchivesItsOwnBoard(t *testing.T) {
 		t.Fatalf("archive --as: %d %q %q", r.code, r.stdout, r.stderr)
 	}
 	e.env["ABOARD_AGENT"] = "claude"
-	if r := e.run("board", "restore"); r.code != 0 || !strings.HasPrefix(r.stdout, "Restored payments-design.") {
+	if r := e.run("board", "restore", "--board", "payments-design"); r.code != 0 || !strings.HasPrefix(r.stdout, "Restored payments-design.") {
 		t.Fatalf("restore as ABOARD_AGENT: %d %q %q", r.code, r.stdout, r.stderr)
 	}
 	for _, req := range srv.sent() {
@@ -328,7 +328,7 @@ func TestBoardDeleteNeedsAYesWithoutATerminal(t *testing.T) {
 	b.lifecycle = "archived"
 	srv := newLifecycleServer(t, b)
 	e := newLifecycleEnv(t, srv)
-	r := e.run("board", "delete", "--json")
+	r := e.run("board", "delete", "--board", "payments-design", "--json")
 	code, hint := r.errorCode(t)
 	if r.code != 1 || code != "confirmation_required" || !strings.Contains(hint, "aboard board delete payments-design --yes") {
 		t.Fatalf("no --yes: %d %s %q", r.code, code, hint)
@@ -336,7 +336,7 @@ func TestBoardDeleteNeedsAYesWithoutATerminal(t *testing.T) {
 	if got := srv.sent(); len(got) != 0 {
 		t.Fatalf("requests without a yes: %v", got)
 	}
-	r = e.run("board", "delete", "--yes")
+	r = e.run("board", "delete", "--board", "payments-design", "--yes")
 	if r.code != 0 || r.stdout != "Deleted payments-design. Its record is kept; nobody can open it again.\n" {
 		t.Fatalf("delete --yes: %d %q %q", r.code, r.stdout, r.stderr)
 	}
@@ -354,12 +354,12 @@ func TestBoardDeleteAsksForTheName(t *testing.T) {
 	e := newLifecycleEnv(t, srv)
 	e.env["ACCESSIBLE"] = "1"
 	e.stdin = "payments\n"
-	r := e.run("board", "delete")
+	r := e.run("board", "delete", "--board", "payments-design")
 	if r.code != 0 || !strings.Contains(r.stdout, "Nothing changed") || b.lifecycle != "archived" {
 		t.Fatalf("a wrong name: %d %q %q %s", r.code, r.stdout, r.stderr, b.lifecycle)
 	}
 	e.stdin = "payments-design\n"
-	r = e.run("board", "delete")
+	r = e.run("board", "delete", "--board", "payments-design")
 	if r.code != 0 || !strings.Contains(r.stdout, "Type the board's name") || !strings.HasSuffix(r.stdout, "Deleted payments-design. Its record is kept; nobody can open it again.\n") || b.lifecycle != "deleted" {
 		t.Fatalf("the right name: %d %q %q %s", r.code, r.stdout, r.stderr, b.lifecycle)
 	}
@@ -402,7 +402,7 @@ func TestBoardDeleteWaitsForASlowConfirmation(t *testing.T) {
 		}
 		return "payments-design", nil
 	}
-	if err := runBoard(context.Background(), a, []string{"delete"}); err != nil {
+	if err := runBoard(context.Background(), a, []string{"delete", "--board", "payments-design"}); err != nil {
 		t.Fatalf("delete after a slow confirmation: %v; output %q", err, out.String())
 	}
 	if b.lifecycle != "deleted" || !strings.HasSuffix(out.String(), "Deleted payments-design. Its record is kept; nobody can open it again.\n") {
@@ -438,7 +438,7 @@ func TestBoardDeleteOnAnActiveBoard(t *testing.T) {
 	e := newLifecycleEnv(t, srv)
 	e.env["ACCESSIBLE"] = "1"
 	e.stdin = "payments-design\n"
-	r := e.run("board", "delete")
+	r := e.run("board", "delete", "--board", "payments-design")
 	if r.code != 1 || !strings.Contains(r.stderr, "board_not_archived") || !strings.Contains(r.stderr, "aboard board archive payments-design") || strings.Contains(r.stdout, "Type") {
 		t.Fatalf("%d %q %q", r.code, r.stdout, r.stderr)
 	}
@@ -600,14 +600,14 @@ func TestBoardLifecycleOnARealServer(t *testing.T) {
 	if r := e.run("board", "restore", "--as", cred.Name); r.code != 0 || r.stdout != "Restored "+board+". New messages and joins work again.\n" {
 		t.Fatalf("restore as the agent: %d %q %q", r.code, r.stdout, r.stderr)
 	}
-	r = e.run("board", "delete", "--yes", "--json")
+	r = e.run("board", "delete", "--board", board, "--yes", "--json")
 	if code, _ := r.errorCode(t); r.code != 1 || code != "board_not_archived" {
 		t.Fatalf("delete an active board: %d %q", r.code, r.stdout)
 	}
 	if r := e.run("board", "archive", board); r.code != 0 {
 		t.Fatalf("archive again: %d %q", r.code, r.stderr)
 	}
-	r = e.run("board", "delete", "--yes", "--json")
+	r = e.run("board", "delete", "--board", board, "--yes", "--json")
 	var out boardLifecycleOutput
 	if err := json.Unmarshal([]byte(r.stdout), &out); err != nil || r.code != 0 || out.Lifecycle != "deleted" || !out.Changed || out.Board != board || out.Server.URL != url {
 		t.Fatalf("delete: %d %q %v", r.code, r.stdout, err)
@@ -615,7 +615,7 @@ func TestBoardLifecycleOnARealServer(t *testing.T) {
 	if r := e.run("boards", "--archived"); !strings.Contains(r.stdout, "  none\n") {
 		t.Errorf("after delete: %q", r.stdout)
 	}
-	r = e.run("board", "restore", "--json")
+	r = e.run("board", "restore", "--board", board, "--json")
 	if code, _ := r.errorCode(t); r.code != 1 || code != "board_not_found" {
 		t.Errorf("restore a deleted board: %d %q", r.code, r.stdout)
 	}

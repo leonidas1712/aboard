@@ -55,6 +55,7 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 			}
 			srv = pos[0]
 		}
+		a.agentServerFlag = srv
 		return runBundledServerInvite(ctx, a, srv, *ttl, boards, *pairing)
 	}
 	if len(boards) > 1 || *pairing != "" {
@@ -83,7 +84,10 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	if *roleFlag != "" {
 		command += " --role " + shellWord(*roleFlag)
 	}
-	if err := a.refuseInSession(what, command+boardArg(a.namedBoard(boardFlag))); err != nil {
+	if *ttl != 0 {
+		command += " --ttl " + commandWord(ttl.String())
+	}
+	if err := a.refuseInSession(what, command+a.boardFlags(boardFlag)); err != nil {
 		return err
 	}
 	t, err := a.humanBoard(ctx, boardFlag)
