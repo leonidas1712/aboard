@@ -981,8 +981,9 @@ $defs:
       bundled immutable board ids and pairing_request_id when supplied. Existing
       ordinary invites are unchanged.
       Bundled invites also include prompt, ready to paste into the colleague's agent:
-      "Set up Aboard and join using <link>. Verify you can exchange messages with the
-      inviting agent." This secret-bearing prompt is shown once with the invite,
+      "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard
+      skill, then run aboard setup <link> --handle <name you'd like teammates to see>.
+      Verify you can exchange messages with the inviting agent." This secret-bearing prompt is shown once with the invite,
       never in listings, approval replays, hooks or setup progress.
       The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
@@ -4153,6 +4154,14 @@ $defs:
       account is never selected by an invite or a handle. Existing-account/new-machine
       login uses D188 and still needs the person's approval. No human-client fallback.
       --handle is the visible person name; --name names the machine's key.
+      For a new account, an omitted handle waits before redemption or pending-token
+      creation, exits 0 and asks the person to choose their visible name. The next
+      command uses INVITE_LINK as a placeholder rather than repeating its secret.
+      A suggested handle is advisory; availability is checked at redemption.
+      A saved pending account retains its original handle when omitted on recovery.
+      Setup never prompts interactively in an agent session or without a terminal.
+      Installed harness skills apply automatically to the next session; next asks
+      the current session to read the aboard skill now.
       With an invite, generate 256 random bits as a client token and save pending
       state durably mode 0600, bound to issuer and invite, before /v1/connect.
       Save failure stops before redemption. Never show the token or invite secret
