@@ -339,6 +339,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 
 	dc := deliverytext.Context{BoardQualified: *boardFlag != ""}
 	if a.agentServerFlag != "" || a.qualifyAgentOutput {
+		dc.BoardQualified = true
 		dc.Server = t.server.URL
 	}
 	wrapped := make([]string, 0, len(msgs))

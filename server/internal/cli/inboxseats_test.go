@@ -349,7 +349,7 @@ func TestExplicitIssuerInboxKeepsIssuerInCopiedReply(t *testing.T) {
 	}
 	var output bytes.Buffer
 	a.env.Stdout, a.env.Stderr = &output, io.Discard
-	if code := Run(context.Background(), []string{"inbox", "--server", secondURL, "--as", second.Name, "--board", second.Board, "--peek", "--json"}, a.env); code != 0 {
+	if code := Run(context.Background(), []string{"inbox", "--server", secondURL, "--as", second.Name, "--peek", "--json"}, a.env); code != 0 {
 		t.Fatalf("inbox failed: %s", output.String())
 	}
 	var inbox struct {
