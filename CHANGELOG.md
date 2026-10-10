@@ -30,6 +30,10 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+- Agents may run `aboard upgrade`; keys and login keep their existing restrictions.
+  `aboard --version` aliases `aboard version`, including JSON output. Invite minimum
+  version advice exempts development builds. These CLI changes are additive.
+
 - Invite prompts explain sandbox approval. Sandboxed setup failures return a secret-free
   continuation command that resumes the saved account and memberships. The CLI
   error guidance is additive; setup does not change daemon startup or permissions.

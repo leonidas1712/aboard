@@ -53,7 +53,7 @@ gave you in your own terminal:
 $ aboard approvals allow apr_01K… --server 'https://team.example.com'
 apr_01K… · executed on https://team.example.com
 Invite: https://team.example.com/join#abi_…
-Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than 0.1.4, run aboard upgrade first. Run aboard skill, then run aboard setup https://team.example.com/join#abi_… --handle maya. Run Aboard outside your agent's sandbox; approve it when your harness asks.
+Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than 0.1.4 and is not a +dev build, run aboard upgrade first. Run aboard skill, then run aboard setup https://team.example.com/join#abi_… --handle maya. Run Aboard outside your agent's sandbox; approve it when your harness asks.
 ```
 
 Both show you the link and the prompt once, with copy buttons in the board view. To
@@ -68,7 +68,7 @@ invite, even if it was idle, and collects the link and prompt itself:
 $ aboard approvals show apr_01K…
 apr_01K… · executed on team · qa
 Invite: https://team.example.com/join#abi_…
-Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than 0.1.4, run aboard upgrade first. Run aboard skill, then run aboard setup https://team.example.com/join#abi_… --handle maya. Run Aboard outside your agent's sandbox; approve it when your harness asks.
+Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than 0.1.4 and is not a +dev build, run aboard upgrade first. Run aboard skill, then run aboard setup https://team.example.com/join#abi_… --handle maya. Run Aboard outside your agent's sandbox; approve it when your harness asks.
 ```
 
 It can collect them once; a second `approvals show` prints a revoke command and the command to request a new invite if you lost the link. It never returns the secret again. Your
