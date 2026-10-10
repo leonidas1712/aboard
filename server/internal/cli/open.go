@@ -16,8 +16,8 @@ var openUsage = usageOf("open")
 // runOpen opens the web UI in the browser, signed in as the person, through a one-time
 // login link: on the local server or a team server, the person's key never appears in
 // a URL, and the link's code only in its fragment. The server is the one a person
-// command picks: --server, this directory's, the one this machine is connected to, else
-// the local one. Inside a harness session, or with ABOARD_AGENT set, an agent runs it
+// command picks: an explicit issuer or this machine's saved default. Inside a
+// harness session, or with ABOARD_AGENT set, an agent runs it
 // for its person, so it never shows the link there: with the code, the agent could log
 // in before the browser and read the board as the person.
 func runOpen(ctx context.Context, a *app, args []string) error {

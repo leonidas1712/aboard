@@ -36,7 +36,7 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h for codes and agent invites, 168h for person invites")
 	personFlag := fs.Bool("person", false, "invite a person to this server")
 	var serverFlag optionalValue
-	fs.Var(&serverFlag, "server", "invite a person to the server instead of an agent to a board; --server URL names the server")
+	fs.Var(&serverFlag, "server", "select the issuer; only a bare flag retains the deprecated person-invite alias")
 	guestFlag := fs.String("guest", "", "make a guest code that lets this person, from outside the server, onto the board once")
 	pos, err := a.parse(fs, args, inviteUsage, 0, 1)
 	if err != nil {
@@ -45,7 +45,7 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	guest := handleArg(*guestFlag)
 	if *personFlag || (serverFlag.set && serverFlag.value == "" && len(pos) == 0 && len(boards) == 0 && *guestFlag == "" && *pairing == "") {
 		if *roleFlag != "" || guest != "" {
-			return usageError("aboard invite --server invites a person to the whole server, so it takes no --role or --guest.", inviteUsage)
+			return usageError("A person invite takes no --role or --guest; use a board code for those options.", inviteUsage)
 		}
 		// --server is a switch, so "--server URL" leaves the URL as an argument.
 		srv := serverFlag.value
