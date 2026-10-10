@@ -1018,6 +1018,11 @@ $defs:
 
   ServerInvitesOutput:
     description: |
+      `aboard invite list` uses an active non-guest agent's seat on the selected issuer
+      to read only its person's invitation metadata. --board and --as select that
+      credential when a session holds several seats; they grant no mutation authority.
+      Agent output includes the selected board. No link or person key is exposed.
+
       aboard invite list --server SERVER [--json] lists only your invitations and
       your agents' invitations, with immutable issuer agent id and state; text marks
       agent-issued invitations explicitly with the issuing agent display handle. Never returns
@@ -1028,6 +1033,7 @@ $defs:
     required: [server, invites]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string, description: "The selected agent seat's board; omitted for person reads." }
       invites:
         type: array
         items: { $ref: "openapi.yaml#/components/schemas/ServerInviteMetadata" }
@@ -3210,6 +3216,12 @@ $defs:
   # ---------- aboard people [--server URL] ----------
   PeopleOutput:
     description: |
+      `aboard people` accepts --board and --as to select a non-guest agent's current
+      seat credential within --server. With several matching seats it refuses
+      board_ambiguous until selected; it never guesses or uses a person's login.
+      Agent output includes the selected board. These selectors do not apply to
+      people role or remove.
+
       The people on the server (GET /v1/people), oldest first, each with their server
       role: admin, member or guest. The server is --server (one this machine holds a key
       for), otherwise the persisted default (D223); a fresh local bootstrap
@@ -3226,6 +3238,7 @@ $defs:
     required: [server, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string, description: "The selected agent seat's board; omitted for person reads." }
       people:
         type: array
         items: { $ref: openapi.yaml#/components/schemas/Person }

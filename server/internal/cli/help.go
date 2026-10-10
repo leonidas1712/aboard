@@ -383,7 +383,7 @@ func helpText(templates string) []commandHelp {
 			Name: "people", Group: groupStart,
 			Summary: "List the people on a server; admins change roles and remove people",
 			Usage: []string{
-				"aboard people [--server URL] [--json]",
+				"aboard people [--server URL] [--board BOARD] [--as AGENT] [--json]",
 				"aboard people rename @old new [--server URL] [--json]",
 				"aboard people role @handle admin|member [--server URL] [--json]",
 				"aboard people remove @handle [--yes] [--server URL] [--json]",
@@ -638,7 +638,7 @@ func helpText(templates string) []commandHelp {
 				"aboard invite [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --guest HANDLE [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --person [--handle NAME] [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]",
-				"aboard invite list [--server SERVER] [--json]",
+				"aboard invite list [--server SERVER] [--board BOARD] [--as AGENT] [--json]",
 				"aboard invite revoke ID [--server SERVER] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
