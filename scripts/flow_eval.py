@@ -35,8 +35,9 @@ def write_json(path, value):
 
 def clean_env():
     return {k: v for k, v in os.environ.items()
-            if not k.startswith(('ABOARD', 'CODEX', 'CLAUDE', 'OMP', 'PI_'))
-            or k == 'CLAUDE_CODE_OAUTH_TOKEN'}
+            if k not in ('ZDOTDIR', 'BASH_ENV', 'ENV') and
+            (not k.startswith(('ABOARD', 'CODEX', 'CLAUDE', 'OMP', 'PI_'))
+             or k == 'CLAUDE_CODE_OAUTH_TOKEN')}
 
 
 def install_shell_environment(home, env):
