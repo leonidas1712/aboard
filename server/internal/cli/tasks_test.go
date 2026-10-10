@@ -63,7 +63,7 @@ func TestTaskCreationUsesSelectedIdentity(t *testing.T) {
 			}))
 			t.Cleanup(srv.Close)
 			e := lifecycleMachine(t, srv.URL, "abh_person", agentCredential{Server: srv.URL, Board: "payments-design", Name: "claude", Token: "aba_agent"})
-			args := []string{"task", "new", "Rotate test key", "--json"}
+			args := []string{"task", "new", "Rotate test key", "--board", "payments-design", "--json"}
 			if agent {
 				args = append(args, "--as", "claude")
 			}

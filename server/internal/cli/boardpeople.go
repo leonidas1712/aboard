@@ -30,7 +30,7 @@ func (a *app) personClient(ctx context.Context, boardFlag, what, command string)
 	if err := a.refuseInSession(what, command+a.boardFlags(boardFlag)); err != nil {
 		return target{}, nil, err
 	}
-	t, err := a.personBoard(boardFlag)
+	t, err := a.personBoard(ctx, boardFlag)
 	if err != nil {
 		return target{}, nil, err
 	}
@@ -58,18 +58,8 @@ func (a *app) serverArg() string {
 
 // personBoard is the board a person's board command acts on: with --server, the board
 // --board names on that server; otherwise as humanBoard picks it.
-func (a *app) personBoard(boardFlag string) (target, error) {
-	if a.boardServerFlag == "" {
-		return a.humanBoard(boardFlag)
-	}
-	if boardFlag == "" {
-		return target{}, usageError("--server needs --board, naming a board on that server.", boardUsage)
-	}
-	srv, err := a.namedServer(a.boardServerFlag)
-	if err != nil {
-		return target{}, err
-	}
-	return target{server: a.selectedServer(srv, "flag"), board: boardFlag, source: boardFromFlag}, nil
+func (a *app) personBoard(ctx context.Context, boardFlag string) (target, error) {
+	return a.humanBoard(ctx, boardFlag)
 }
 
 // agentSelected reports whether a command that can act as a person or as an agent acts
@@ -96,7 +86,7 @@ func runBoardPeople(ctx context.Context, a *app, boardFlag, asFlag string) error
 		}
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		if t, err = a.humanBoard(boardFlag); err != nil {
+		if t, err = a.humanBoard(ctx, boardFlag); err != nil {
 			return err
 		}
 		c, err = a.humanClient(ctx, t)
@@ -261,6 +251,31 @@ func runBoardAddAs(ctx context.Context, a *app, boardFlag, handle, as string) er
 	}
 	if r.JSON201 == nil {
 		refusal := apiError(r.StatusCode(), r.Body)
+		if byAgent != "" && (refusal.Code == "add_people_not_allowed" || refusal.Code == "human_token_required" || refusal.Code == "human_command_in_session") {
+			board, err := c.board(ctx, t.board)
+			if err != nil {
+				return err
+			}
+			lookup, err := c.api.ListServerPeopleWithResponse(ctx, &api.ListServerPeopleParams{Handle: &handle})
+			if err != nil {
+				return c.unreachable(err)
+			}
+			if lookup.JSON200 == nil {
+				return apiError(lookup.StatusCode(), lookup.Body)
+			}
+			person, err := lookup.JSON200.AsPersonIdentityLookup()
+			if err != nil {
+				return err
+			}
+			if person.Id == "" {
+				return newError("internal", "The server did not return a person's immutable identity.", "Check that the server supports exact person lookup.")
+			}
+			var action api.AdminAction
+			if err := action.FromAddPeopleAction(api.AddPeopleAction{Kind: api.AddPeopleActionKindAddPeople, BoardId: board.Id, PersonId: person.Id}); err != nil {
+				return err
+			}
+			return requestAdmission(ctx, a, c, t.server, t.board, action)
+		}
 		if byAgent != "" {
 			var e *Error
 			if errors.As(refusal, &e) {

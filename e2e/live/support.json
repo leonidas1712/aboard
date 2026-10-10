@@ -3,6 +3,12 @@
     "claude-code": {
       "version": "2.1.294 (Claude Code)",
       "scenarios": {
+        "AgentLocationMatchesItsRealHarnessSession": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
+          "test": "TestAgentLocationMatchesItsRealHarnessSession/claude-code"
+        },
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
           "date": "2026-10-09",
@@ -20,6 +26,12 @@
           "date": "2026-10-09",
           "version": "2.1.294 (Claude Code)",
           "test": "TestBriefGetEditPutFromTheHarness/claude-code"
+        },
+        "InvitedSetupVerifiesTwoPeopleExactSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
+          "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/claude-code"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -56,6 +68,12 @@
           "date": "2026-10-09",
           "version": "2.1.294 (Claude Code)",
           "test": "TestOwnerTargetsWakeEachCurrentAgent/claude-code"
+        },
+        "PairingVerifiesBothExactHarnessSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "2.1.294 (Claude Code)",
+          "test": "TestPairingVerifiesBothExactHarnessSessions/claude-code"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
@@ -167,9 +185,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2011,
-        "harness_ms": 2279,
-        "deliveries": 15,
+        "aboard_ms": 2033,
+        "harness_ms": 2889,
+        "deliveries": 38,
         "date": "2026-10-09"
       }
     },
@@ -181,6 +199,12 @@
         "reconnect": "quitting Codex leaves its session open in Codex's app server, which still takes messages"
       },
       "scenarios": {
+        "AgentLocationMatchesItsRealHarnessSession": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "codex-cli 0.160.0",
+          "test": "TestAgentLocationMatchesItsRealHarnessSession/codex"
+        },
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
           "date": "2026-10-09",
@@ -198,6 +222,12 @@
           "date": "2026-10-09",
           "version": "codex-cli 0.160.0",
           "test": "TestBriefGetEditPutFromTheHarness/codex"
+        },
+        "InvitedSetupVerifiesTwoPeopleExactSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "codex-cli 0.160.0",
+          "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/codex"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -235,6 +265,12 @@
           "version": "codex-cli 0.160.0",
           "test": "TestOwnerTargetsWakeEachCurrentAgent/codex"
         },
+        "PairingVerifiesBothExactHarnessSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "codex-cli 0.160.0",
+          "test": "TestPairingVerifiesBothExactHarnessSessions/codex"
+        },
         "PeerWaitsButNoticeArrives": {
           "result": "n/a",
           "date": "2026-10-09",
@@ -251,7 +287,7 @@
           "result": "pass",
           "date": "2026-10-09",
           "version": "codex-cli 0.160.0",
-          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
+          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -351,15 +387,21 @@
         }
       },
       "handover": {
-        "aboard_ms": 2613,
-        "harness_ms": 36,
-        "deliveries": 2,
+        "aboard_ms": 2019,
+        "harness_ms": 526,
+        "deliveries": 39,
         "date": "2026-10-09"
       }
     },
     "omp": {
       "version": "omp/18.5.1",
       "scenarios": {
+        "AgentLocationMatchesItsRealHarnessSession": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "omp/18.5.1",
+          "test": "TestAgentLocationMatchesItsRealHarnessSession/omp"
+        },
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
           "date": "2026-10-09",
@@ -377,6 +419,12 @@
           "date": "2026-10-09",
           "version": "omp/18.5.1",
           "test": "TestBriefGetEditPutFromTheHarness/omp"
+        },
+        "InvitedSetupVerifiesTwoPeopleExactSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "omp/18.5.1",
+          "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/omp"
         },
         "JoinsAndTalks": {
           "result": "pass",
@@ -413,6 +461,12 @@
           "date": "2026-10-09",
           "version": "omp/18.5.1",
           "test": "TestOwnerTargetsWakeEachCurrentAgent/omp"
+        },
+        "PairingVerifiesBothExactHarnessSessions": {
+          "result": "pass",
+          "date": "2026-10-09",
+          "version": "omp/18.5.1",
+          "test": "TestPairingVerifiesBothExactHarnessSessions/omp"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
@@ -524,9 +578,9 @@
         }
       },
       "handover": {
-        "aboard_ms": 2026,
-        "harness_ms": 3,
-        "deliveries": 15,
+        "aboard_ms": 2029,
+        "harness_ms": 11,
+        "deliveries": 38,
         "date": "2026-10-09"
       }
     }

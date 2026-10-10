@@ -24,6 +24,7 @@ import { attentionCount } from "./asks";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
+import { AgentLocation } from "./location";
 import { changeMidturn, effectiveMidturn, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 import { Kbd } from "./keys-sheet";
 import { keyLabel } from "./keys";
@@ -33,9 +34,12 @@ import { LineText, StatusDot } from "./status";
 import { TaskChips, useAgentTasks, useStatus } from "./task-ui";
 import { appliedMode, boardLabel, charterBlocks, count, harnessName, relativeTime, rules } from "./words";
 import { VisibilityControl } from "./visibility";
+import { useOnboardingCount } from "./onboarding-data";
 
 /** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
 export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
+  // Approvals and pairing requests that wait on the person count toward the Inbox too.
+  const onboarding = useOnboardingCount();
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
   const recent = [...boards].sort((a, b) => {
     const activity = (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at);
@@ -49,7 +53,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
     <div className="flex flex-col gap-6">
       <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("-mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
         <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd>{keyLabel("inbox")}</Kbd>}</span>
-        {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), 0)}</span>}
+        {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding)}</span>}
       </a>
       {needs.length > 0 && (
         <section aria-label="Needs you">
@@ -600,6 +604,7 @@ export function AgentDetails({
   const midturn = useMidturn();
   const mid = mine && midturn.view ? effectiveMidturn(midturn.view, agent.id) : null;
   return (
+    <>
     <dl className="mt-1 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1">
       {showOwner && (
         <>
@@ -661,6 +666,8 @@ export function AgentDetails({
         </>
       )}
     </dl>
+    {mine && <AgentLocation agent={agent} board={board} />}
+    </>
   );
 }
 

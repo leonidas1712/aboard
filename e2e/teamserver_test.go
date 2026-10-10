@@ -257,7 +257,6 @@ func TestRefusedBoardCommandsKeepTheirFlags(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"board", "policy", "recommended", "--board", "pay", "--server", srv}, "aboard board policy recommended --board pay --server https://team.example.com"},
 		{[]string{"board", "agents-add-people", "off", "--board", "pay", "--server", srv}, "aboard board agents-add-people off --board pay --server https://team.example.com"},
 		{[]string{"board", "remove", "@maya", "--board", "pay", "--server", srv}, "aboard board remove @maya --board pay --server https://team.example.com"},
 		{[]string{"board", "leave", "--board", "pay", "--server", srv}, "aboard board leave --board pay --server https://team.example.com"},
@@ -274,6 +273,11 @@ func TestRefusedBoardCommandsKeepTheirFlags(t *testing.T) {
 			t.Errorf("aboard %v hands over:\n%s\nwant it to end with:\n%s", c.args, hint, c.want)
 		}
 	}
+
+	// Policy changes are exact approval requests, rather than person-command refusals.
+	s.run("pair", "--name", "writer", "--json")
+	held := s.run("board", "policy", "recommended", "--board", "general", "--server", "http://"+e.addr, "--json").json(t)
+	assertHeldBoardPolicy(t, e, held, "general")
 
 	// Outside a session, the command a confirmation asks for keeps --server too.
 	local := "http://" + e.addr
@@ -346,8 +350,8 @@ func TestATeamServerBehindAnHTTPSProxy(t *testing.T) {
 
 	created := alex.run("board", "new", "payments", "--title", "Payments retry design")
 	if want := "Created board payments on " + s.url + ", open to everyone on the server.\n" +
-		"Linked this directory to payments, so board commands run here act on it.\n" + starterNoticeLine +
-		"Next: from an agent's session, run aboard join --board payments; to bring a person onto it, aboard board add @handle\n"; created.stdout != want {
+		starterNoticeLine +
+		"Next: from an agent's session, run aboard join --server " + s.url + " --board payments; to bring a person onto it, aboard board add @handle --server " + s.url + " --board payments\n"; created.stdout != want {
 		t.Fatalf("board new:\n%s\nwant:\n%s", created, want)
 	}
 	board := "payments"
@@ -358,42 +362,37 @@ func TestATeamServerBehindAnHTTPSProxy(t *testing.T) {
 	private := desktop.run("board", "new", "maya-notes", "--private", "--server", s.url, "--json").json(t)
 	matchesCLISpec(t, "BoardNewOutput", private)
 	if field(t, private, "board.visibility") != "private" || field(t, private, "server.url") != s.url ||
-		private["join_command"] != "aboard join --board maya-notes" || field(t, private, "policy_notice.preset") != "starter" || private["linked"] != true {
+		private["join_command"] != "aboard join --server "+s.url+" --board maya-notes" || field(t, private, "policy_notice.preset") != "starter" || private["linked"] == true {
 		t.Fatalf("board new --private --json: %v", private)
 	}
-	// A linked directory keeps its board, and the next step names the new one.
+	// Each new board has explicit next steps and leaves the folder untouched.
 	other := desktop.run("board", "new", "maya-drafts")
-	if !strings.HasSuffix(other.stdout, "aboard board add @handle --board maya-drafts\n") || strings.Contains(other.stdout, "Linked") {
+	if !strings.HasSuffix(other.stdout, "aboard board add @handle --server "+s.url+" --board maya-drafts\n") || strings.Contains(other.stdout, "Linked") {
 		t.Fatalf("board new in a linked directory:\n%s", other)
 	}
 	desktop.run("board", "add", "@alex", "--board", "maya-notes")
 
-	// A board made on the team server from a folder linked to a local board: the folder
-	// keeps its board, and the next steps name the team server, which the board
-	// commands take with --server.
+	// A team board created from a machine with local state names its issuer in
+	// the next steps and never writes a folder link.
 	laptop.run("pair")
-	local := field(t, laptop.run("status", "--json").json(t), "board").(string)
-	linkedBefore, err := os.ReadFile(filepath.Join(laptop.dir, ".aboard"))
-	if err != nil {
-		t.Fatal(err)
+	if _, err := os.Stat(filepath.Join(laptop.dir, ".aboard")); !os.IsNotExist(err) {
+		t.Fatalf("pair wrote a folder link: %v", err)
 	}
 	cross := laptop.run("board", "new", "maya-cross", "--server", s.url)
-	localURL := "http://" + laptop.addr
 	if want := "Created board maya-cross on " + s.url + ", open to everyone on the server.\n" +
-		"This directory stays linked to " + local + " on " + localURL + ", so board commands for maya-cross need --server " + s.url + ".\n" +
 		starterNoticeLine +
-		"Next: from an agent's session, run aboard join --board maya-cross --server " + s.url +
-		"; to bring a person onto it, aboard board add @handle --board maya-cross --server " + s.url + "\n"; cross.stdout != want {
+		"Next: from an agent's session, run aboard join --server " + s.url + " --board maya-cross" +
+		"; to bring a person onto it, aboard board add @handle --server " + s.url + " --board maya-cross" + "\n"; cross.stdout != want {
 		t.Fatalf("board new across servers:\n%s\nwant:\n%s", cross, want)
 	}
 	crossJSON := laptop.run("board", "new", "maya-cross-2", "--server", s.url, "--json").json(t)
 	matchesCLISpec(t, "BoardNewOutput", crossJSON)
-	if crossJSON["linked"] != false || field(t, crossJSON, "stays_linked.board") != local || field(t, crossJSON, "stays_linked.server.url") != localURL ||
-		crossJSON["join_command"] != "aboard join --board maya-cross-2 --server "+s.url {
+	if crossJSON["linked"] == true || crossJSON["stays_linked"] != nil ||
+		crossJSON["join_command"] != "aboard join --server "+s.url+" --board maya-cross-2" {
 		t.Fatalf("board new across servers --json: %v", crossJSON)
 	}
-	if after, _ := os.ReadFile(filepath.Join(laptop.dir, ".aboard")); !bytes.Equal(after, linkedBefore) {
-		t.Fatalf("the folder's link changed:\n%s\nwas:\n%s", after, linkedBefore)
+	if _, err := os.Stat(filepath.Join(laptop.dir, ".aboard")); !os.IsNotExist(err) {
+		t.Fatalf("board creation wrote a folder link: %v", err)
 	}
 	laptop.run("board", "policy", "recommended", "--board", "maya-cross", "--server", s.url)
 	laptop.run("board", "add", "@alex", "--board", "maya-cross", "--server", s.url)

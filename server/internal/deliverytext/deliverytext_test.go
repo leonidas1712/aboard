@@ -12,6 +12,16 @@ func agentMessage() Message {
 	}
 }
 
+func TestRecoveryAndPreviewCommandsKeepTheirIssuer(t *testing.T) {
+	context := Context{Server: "https://second.example", BoardQualified: true}
+	if got := InboxCommand("docs", context); got != "aboard inbox --server https://second.example --board docs" {
+		t.Fatalf("preview command: %s", got)
+	}
+	if got := Lost("writer", "docs", context); !strings.Contains(got, "aboard resume writer --server https://second.example --board docs") {
+		t.Fatalf("lost seat command: %s", got)
+	}
+}
+
 func TestFormat(t *testing.T) {
 	tests := []struct {
 		name string

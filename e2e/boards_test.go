@@ -27,18 +27,18 @@ func TestBoardsListsWhatEachPersonCanSee(t *testing.T) {
 	out := maya.run("boards", "--json").json(t)
 	matchesCLISpec(t, "BoardsOutput", out)
 	if field(t, out, "boards.0.name") != secret || field(t, out, "boards.0.role") != "owner" ||
-		field(t, out, "boards.0.agents") != float64(1) || field(t, out, "boards.0.default") != true || len(out["boards"].([]any)) != 1 {
+		field(t, out, "boards.0.agents") != float64(1) || field(t, out, "boards.0.default") != false || len(out["boards"].([]any)) != 1 {
 		t.Fatalf("maya's boards: %v", out)
 	}
 	expectLines(t, maya.run("boards"),
 		"Your boards on "+tm.url()+":",
-		"  "+secret+` "Secret plans" · private · owner · 1 person · 1 agent · default`)
+		"  "+secret+` "Secret plans" · private · owner · 1 person · 1 agent`)
 
 	all := maya.run("boards", "--all", "--json").json(t)
 	matchesCLISpec(t, "BoardsOutput", all)
 	expectLines(t, maya.run("boards", "--all"),
 		"Boards you can see on "+tm.url()+":",
-		"  "+secret+` "Secret plans" · private · owner · 1 person · 1 agent · default`,
+		"  "+secret+` "Secret plans" · private · owner · 1 person · 1 agent`,
 		"  "+open+" · not joined · 1 person; join with aboard board add @me --board "+open)
 	if len(all["hidden_boards"].([]any)) != 0 {
 		t.Fatalf("a member's hidden boards: %v", all)
@@ -74,7 +74,7 @@ func TestBoardsInAnAgentsSessionListsThePersonsBoards(t *testing.T) {
 	hidden := tm.newBoard(tm.admin, "private")
 	tm.link(maya, first)
 	s := maya.claudeSession("s-boards")
-	s.run("join", field(t, maya.run("invite", "--json").json(t), "join_line").(string))
+	s.run("join", field(t, maya.run("invite", "--board", first, "--json").json(t), "join_line").(string))
 	r := s.e.exec(s.vars, "", "boards", "--json")
 	if r.code != 0 {
 		t.Fatalf("boards in a session:\n%s", r)
@@ -112,7 +112,7 @@ func TestABoardAgentFromTheEnvironmentNeverUsesThePersonsLogin(t *testing.T) {
 	first := tm.newBoard(maya, "private")
 	second := tm.newBoard(maya, "private")
 	tm.link(maya, first)
-	maya.run("join", field(t, maya.run("invite", "--json").json(t), "join_line").(string), "--name", "scout")
+	maya.run("join", field(t, maya.run("invite", "--board", first, "--json").json(t), "join_line").(string), "--name", "scout")
 	env := []string{"ABOARD_AGENT=scout"}
 
 	r := maya.exec(env, "", "boards", "--json")
@@ -144,5 +144,5 @@ func TestBoardsForASoloUserShowNoVisibility(t *testing.T) {
 	board := field(t, e.run("status", "--json").json(t), "board").(string)
 	expectLines(t, e.run("boards"),
 		"Your boards on "+field(t, e.run("status", "--json").json(t), "server.url").(string)+":",
-		"  "+board+` "Docs review" · owner · 1 person · 1 agent · default`)
+		"  "+board+` "Docs review" · owner · 1 person · 1 agent`)
 }

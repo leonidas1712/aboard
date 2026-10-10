@@ -17,6 +17,7 @@ type Error struct {
 	Message string
 	Hint    string
 	Details map[string]any
+	Next    map[string]any
 }
 
 func (e *Error) Error() string { return fmt.Sprintf("%s: %s", e.Code, e.Message) }

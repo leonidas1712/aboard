@@ -32,29 +32,25 @@ func TestRetainedBindingsEnforceServerAndBoardIsolation(t *testing.T) {
 			t.Fatal("ephemeral activation was persisted")
 		}
 	}
-	stranger := makeBinding("three", "mem_other")
+	stranger := makeBinding("one", "mem_one")
 	stranger.Agent.Server = "https://other.example"
-	if _, err := j.BindGeneration(ctx, stranger, false); err == nil {
-		t.Fatal("another server entered the session")
+	if _, err := j.BindGeneration(ctx, stranger, false); err != nil {
+		t.Fatal(err)
 	}
 	bs, err = j.Bindings(ctx)
-	if err != nil || len(bs) != 2 {
-		t.Fatalf("failed server switch changed bindings %+v %v", bs, err)
-	}
-	var count int
-	if err := j.db.QueryRowContext(ctx, `SELECT count(*) FROM seat_generations WHERE server = ?`, stranger.Agent.Server).Scan(&count); err != nil || count != 0 {
-		t.Fatalf("refused server advanced generation %d %v", count, err)
+	if err != nil || len(bs) != 3 {
+		t.Fatalf("another issuer displaced bindings %+v %v", bs, err)
 	}
 	replacement := makeBinding("one", "mem_replacement")
 	if _, err := j.BindGeneration(ctx, replacement, false); err != nil {
 		t.Fatal(err)
 	}
 	bs, err = j.Bindings(ctx)
-	if err != nil || len(bs) != 2 {
+	if err != nil || len(bs) != 3 {
 		t.Fatalf("same-board replacement lost other board %+v %v", bs, err)
 	}
 	for _, b := range bs {
-		if b.Agent.MemberID == one.Agent.MemberID {
+		if b.Agent.Server == one.Agent.Server && b.Agent.MemberID == one.Agent.MemberID {
 			t.Fatal("same-board original remained bound")
 		}
 		if b.Agent.MemberID == two.Agent.MemberID && b.Generation != two.Generation {
@@ -92,7 +88,7 @@ func TestDefaultBindingStillReplacesAllSiblings(t *testing.T) {
 	}
 }
 
-func TestConcurrentRetainedBindingsCannotChooseTwoServers(t *testing.T) {
+func TestConcurrentRetainedBindingsKeepTwoServers(t *testing.T) {
 	ctx := context.Background()
 	j := open(t, filepath.Join(t.TempDir(), "journal.db"))
 	start := make(chan struct{})
@@ -112,7 +108,7 @@ func TestConcurrentRetainedBindingsCannotChooseTwoServers(t *testing.T) {
 		}
 	}
 	bs, err := j.Bindings(ctx)
-	if err != nil || successes != 1 || len(bs) != 1 {
+	if err != nil || successes != 2 || len(bs) != 2 {
 		t.Fatalf("concurrent server selection successes=%d bindings=%+v error=%v", successes, bs, err)
 	}
 }

@@ -291,7 +291,8 @@ this section applies ([control.md](control.md#several-seats)).
 seat is keyed by its server and `member_id`, never its name or a message number, and
 has its own read position, acknowledgements, delivery mode and waiting messages. The
 session has the harness connection, whether it is busy, its boot and the one handoff in
-flight. A session's seats are all on one server.
+flight. D223 permits seats on several issuers; every seat is keyed by canonical
+issuer URL plus immutable member ID, not board or agent names.
 
 **What wakes it.** Each seat decides by its own mode whether its messages wake the
 session, and any seat's wake wakes it. A wake from one board never makes another
@@ -321,6 +322,28 @@ boards: the board considered first rotates, and a message is skipped as too larg
 when it exceeds the whole limit, never because another board used the space; what is
 left out stays unacknowledged for the next delivery. `off` adds nothing for its seat,
 not even a waiting notice.
+
+**Several issuers (D223).** When a session holds seats on several issuers, every
+message, digest, waiting notice and bundle wrapper also names `server`, the canonical
+issuer URL. Single-issuer text and attributes stay unchanged. Every suggested reply,
+read, task or other board command includes safely quoted `--server` and `--board`.
+Equal names, handles, IDs or sequence numbers on different issuers confer no shared
+identity, authority or acknowledgement. Fair gathering rotates issuer/board seats.
+
+A multi-issuer example (additive `server` attributes):
+
+```text
+<aboard-messages server="https://team.example.com" board="general" seat="claude" count="1">
+<aboard-message server="https://team.example.com" board="general" seat="claude" from="@maya" sender="owner" seq="14">…</aboard-message>
+</aboard-messages>
+Reply requested. Reply with: aboard say --server 'https://team.example.com' --board general --reply 14 "…"
+```
+
+Reconnect, rebind, retry, peer caps, queue receipts and pairing credentials retain
+their issuer and exact seat/session generation. Same-owner peer eligibility is
+issuer-local; an outage or revocation on one issuer never terminalizes unrelated
+sibling seats. A shared harness process ending still releases all of its seats.
+No CLI, hook or model output gains access to delegation or person-key secrets.
 
 **Confirming and acknowledging.** Each handoff has its own id and a fixed list of
 server, board, `member_id`, message numbers, binding and boot; the same id always means
@@ -1679,3 +1702,68 @@ current policy eligibility only: verified transport capability and the logical-t
 cap still apply. It never says the message has been delivered. `owner_only` explains
 why that peer waits for turn end. No hint is inferred from owner names or harness
 labels, and no private preference for unrelated recipients is disclosed.
+
+## Pairing handshake (D222; planned)
+
+A pairing request selects two exact sessions, each represented by its permanent
+board seat and a server-controlled endpoint generation. Recent activity does not
+select a session. The inviter cannot select an endpoint owned by another person.
+Accepting proposed work grants no control over that person's harness or commands.
+
+Both sides send an ordinary directly addressed ping and reply through the public
+message API and real harness delivery. Each ping names the request's immutable id,
+current generation and direction. A reply must link the exact ping and return that
+correlation. No handshake text overrides the sender's trust or the board's rules.
+The daemon reports the actual board message sequences through the verification API;
+the server checks both current endpoint identities, exact direct recipients, reply
+linkage, generation and delivery receipt evidence under current access. It derives
+ready only after both round trips, never from a client-provided success flag.
+
+Replacement of either runtime session is explicit, even if it reuses a permanent
+seat. It increments the request generation and invalidates all older evidence.
+Delayed replies, confirmations and reports from an old generation cannot mark the
+new request ready. A removed seat, revoked parent key, lost ownership, membership
+or access ends its authority; recovery never resurrects it or bypasses admission.
+
+An offline endpoint leaves the request verifying with the awaited side identified.
+A bounded timeout remains recoverable and supplies next with the precise step and
+resume words. Retrying under the same generation reuses its existing messages and
+evidence; it does not claim that a hook return alone proves a real round trip.
+This flow neither starts agents nor runs commands on the server, nor moves a read
+cursor without the existing confirmed-prefix delivery acknowledgement.
+
+The CLI receives only nonsecret progress and handovers from the trusted daemon.
+Onboarding/allowance authority is issuer- and parent-key-bound and separate from
+D197. No token, invitation secret or person login enters hook/socket/model output.
+These are contract requirements for the later pairing slice, not a live-proof
+claim or a change to the current delivery adapter.
+
+The trusted runtime obtains a separate pairing credential using its issuer-bound
+parent key, after vouching for its own exact selected harness session. This does not
+extend a D197 delegation. The runtime alone saves the client-generated endpoint
+secret and sends it to the server over HTTPS; the server returns only metadata.
+For a fresh zero-seat session, own-person pending request lookup and the existing
+D197 join remain trusted-daemon operations; the agent CLI receives only progress.
+There is no agent CLI person-client fallback and no parent secret on its socket.
+
+Each endpoint credential is bound to one side, exact session and generation. The
+server rejects permanent seat/person/browser credentials as verification authority.
+A confirmed handoff report names the received message sequence and journal handoff
+id. The runtime submits it only after that exact selected harness confirmed delivery;
+its endpoint credential authenticates the evidence. Confirmation evidence survives
+ordinary read-cursor acknowledgment and delivery cleanup. Queue admission or a
+read cursor alone never substitutes for that exact-session confirmation. Both directions require the
+reply linkage and this receipt evidence. A stale runtime that retains a permanent
+seat token cannot acquire or impersonate the replacement runtime's private proof.
+Selection/replacement of either side uses createPairingCredential with last-read
+CAS; only that side's person can authorize it. Replacement revokes both credentials
+and both directions' old evidence, requiring fresh proofs under the new generation.
+
+While a request remains verifying against an offline peer, the daemon can re-mint
+its own expired 10-minute endpoint credential for the same vouched session and
+request generation, with fresh parent/owner/access checks. This is renewal, not
+endpoint replacement: it neither discards earlier valid evidence nor increments
+the generation. Removed/revoked authority and terminal requests cannot renew.
+
+D223 multi-issuer rules above are contract-first pending the complete CLI/daemon
+implementation and isolated live proof. Existing single-issuer framing remains valid.

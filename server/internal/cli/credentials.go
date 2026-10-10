@@ -99,7 +99,7 @@ func (a *app) readCredentials() (credentials, error) {
 		return credentials{}, err
 	}
 	var c credentials
-	_, err = readJSONFile(p.credentials(), &c)
+	err = readJSONFile(p.credentials(), &c)
 	return c, err
 }
 

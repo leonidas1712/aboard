@@ -31,48 +31,39 @@ func sessionParam(key delivery.SessionKey, inSession bool) *string {
 	return &s
 }
 
-// boardServer is the server join --board and boards act on: the server of the session's
-// seats, else --server, else the one this directory's .aboard names, else this
-// machine's default server, else the one server this machine is connected to, else the local server. A machine connected to
-// several names one with --server.
+// boardServer preserves a bound session's issuer unless the caller names another.
 func (a *app) boardServer(ctx context.Context, flag, sessionServer string) (serverRef, error) {
 	if sessionServer != "" && flag == "" {
 		return a.serverRefFor(sessionServer), nil
 	}
-	if flag == "" {
-		p, ok, err := a.readProject()
-		if err != nil {
-			return serverRef{}, err
-		}
-		if !ok || p.Server.URL == "" {
-			logins, err := a.readServerLogins()
-			if err != nil {
-				return serverRef{}, err
-			}
-			_, def, err := a.knownServers()
-			if err != nil {
-				return serverRef{}, err
-			}
-			switch {
-			case def != nil:
-				flag = def.URL
-			case len(logins.Servers) == 0:
-			case len(logins.Servers) == 1:
-				flag = logins.Servers[0].URL
-			default:
-				choices := make([]string, 0, len(logins.Servers))
-				for _, s := range logins.Servers {
-					choices = append(choices, s.URL)
-				}
-				e := newError("server_not_selected", "This machine is connected to several servers, and the board is on one of them.",
-					"Name its server with --server, such as --server "+choices[0]+".")
-				e.Details = map[string]any{"choices": choices}
-				return serverRef{}, e
-			}
-		}
-	}
 	srv, _, err := a.personServer(ctx, flag)
 	return srv, err
+}
+
+func sessionIssuer(agents []delivery.AgentRef, flag string) (string, error) {
+	if flag != "" {
+		return "", nil
+	}
+	known := []knownServer{}
+	for _, agent := range agents {
+		found := false
+		for _, k := range known {
+			if k.URL == agent.Server {
+				found = true
+				break
+			}
+		}
+		if !found {
+			known = append(known, knownServer{Name: agent.Server, URL: agent.Server})
+		}
+	}
+	if len(known) > 1 {
+		return "", serverNotSelected(known)
+	}
+	if len(known) == 1 {
+		return known[0].URL, nil
+	}
+	return "", nil
 }
 
 // runJoinBoard is aboard join --board: in a session it gives the session a seat on the
@@ -94,9 +85,9 @@ func runJoinBoard(ctx context.Context, a *app, board, role, name, serverFlag str
 	if err != nil {
 		return err
 	}
-	sessionServer := ""
-	if len(agents) > 0 {
-		sessionServer = agents[0].Server
+	sessionServer, err := sessionIssuer(agents, serverFlag)
+	if err != nil {
+		return err
 	}
 	srv, err := a.boardServer(ctx, serverFlag, sessionServer)
 	if err != nil {

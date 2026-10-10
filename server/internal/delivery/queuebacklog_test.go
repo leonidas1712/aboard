@@ -151,10 +151,12 @@ func TestTurnEndDoesNotHandCachedMessagesWhenFreshReadFails(t *testing.T) {
 	r.ok(req(delivery.OpPrompt))
 	seq := r.post(reviewer, "now read elsewhere", false)
 	r.eventually("initial message observed", 0, func() bool { return strings.Contains(r.ok(req(delivery.OpBoundary)).Notice, fmt.Sprintf("#%d ", seq)) })
+	// Fail reads before the message is read elsewhere, so the daemon can't learn of the
+	// read through a refresh in between: its cache still holds the message at turn end.
+	remote.fail.Store(true)
 	if err := r.server.Ack(context.Background(), reviewer, seq); err != nil {
 		t.Fatal(err)
 	}
-	remote.fail.Store(true)
 	r.ok(req(delivery.OpTurnEnd))
 	// Advance on each poll: the gather timer may be armed after a single advance.
 	r.eventually("fresh read attempted", delivery.QueueGather, func() bool {

@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/deliverytext"
@@ -125,8 +126,11 @@ type session struct {
 	adapter     Adapter
 	mail        *mailbox[sessionMsg]
 
-	boot string
-	open bool
+	boot          string
+	folder        string
+	locationBoot  string
+	locationEpoch atomic.Uint64
+	open          bool
 	// started is true once the session has been open, so a register that opens it again
 	// is a resume, not a new session.
 	started bool
@@ -281,6 +285,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 		s.onRelease(ctx, *m.release, m.adopter)
 	case m.adopt != nil:
 		s.onAdopt(ctx, *m.adopt)
+		s.noteLocation(ctx, Request{Op: OpBind})
 	case m.checkAlive:
 		s.checkAlive(ctx)
 	case m.credentialChanged != nil:
@@ -482,6 +487,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 		ok.Capabilities = negotiatedCapabilities(s.ext)
 	}
+	s.noteLocation(ctx, req)
 	return ok
 }
 
@@ -602,6 +608,7 @@ func (s *session) unhand(ctx context.Context) {
 
 func (s *session) setOpen(ctx context.Context, open bool) {
 	if !open {
+		s.locationEpoch.Add(1)
 		// A session that closed starts no turn; what it was handed isn't stalled.
 		s.forgetAwaiting()
 	}
@@ -635,7 +642,7 @@ func (s *session) markTurned(ctx context.Context) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, BusyAt: s.busyAt, UpdatedAt: s.now()}
+	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, Folder: s.folder, LocationBoot: s.locationBoot, BusyAt: s.busyAt, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -737,7 +744,7 @@ func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
 	}
 	var previous *AgentRef
 	for _, ref := range s.agentRefs() {
-		if ref.Key() != agent.Key() && (!multiSeatEnabled || ref.Board == agent.Board) {
+		if ref.Key() != agent.Key() && (!multiSeatEnabled || ref.Server == agent.Server && ref.Board == agent.Board) {
 			s.unbind(ctx, ref)
 			previous = &ref
 		}
@@ -1931,7 +1938,7 @@ func (s *session) modeNotes() (notes string, told map[AgentRef]Mode) {
 		}
 		if m := s.d.mode(ref); a.told != m {
 			if a.told != "" {
-				lines = append(lines, deliverytext.ModeChanged(ref.Board, string(a.told), string(m)))
+				lines = append(lines, deliverytext.ModeChanged(ref.Board, string(a.told), string(m), s.textContext(ref)))
 			}
 			told[ref] = m
 		}
@@ -1967,7 +1974,7 @@ func (s *session) startNote(reopened, turnEnd bool) (mode Mode, note string) {
 	refs := s.agentRefs()
 	if len(refs) != 1 {
 		if len(refs) == 0 && s.lost != nil {
-			return "", deliverytext.Lost(s.lost.Name, s.lost.Board)
+			return "", deliverytext.Lost(s.lost.Name, s.lost.Board, deliverytext.Context{Server: s.lost.Server, BoardQualified: true})
 		}
 		return "", ""
 	}
@@ -1994,10 +2001,7 @@ func partSeqs(parts []offer) []int {
 func previewTextFor(m Message, renderContext deliverytext.Context) string {
 	cut := m
 	cut.Body, cut.Truncated, cut.ExpectsReply = strings.ToValidUTF8(m.Body[:min(previewLimit, len(m.Body))], ""), true, false
-	command := "aboard inbox"
-	if renderContext.BoardQualified {
-		command += " --board " + m.Board
-	}
+	command := deliverytext.InboxCommand(m.Board, renderContext)
 	return deliverytext.Bundle(m.Board, []Message{cut}, renderContext) +
 		fmt.Sprintf("\nMessage #%d is longer than fits here; all of it waits in your inbox: run %s to read it now.", m.Seq, command)
 }

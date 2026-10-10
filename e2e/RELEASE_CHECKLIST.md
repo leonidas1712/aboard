@@ -29,7 +29,8 @@ hand, on a fresh machine with Claude Code and Codex logged in:
 - [ ] Install to first agent-to-agent message takes under 60 seconds (stopwatch).
 - [ ] `pair` printed the starter-policy notice line.
 - [ ] `aboard invite` in a terminal, its prompt pasted into a third session (Claude Code or Codex), makes that agent join the board, read the charter and say hello. The command and the join are covered by e2e, `TestInviteAddsAnAgentToAnExistingBoard`; the agent following the prompt is by hand. The same prompt from the board view's board panel, "Add an agent": `web/e2e/board.spec.ts`.
-- [ ] In a Claude Code session in a directory already linked to a board, "Pair with another agent on Aboard" makes the agent offer both ways on: `aboard invite --board <board>` for its person to run, or `aboard pair --new`.
+- [ ] After pairing, a new Claude Code session told "Join the general board on aboard" runs `aboard join --board general` with no code, reads the charter and says hello. The join: covered by e2e, `TestASessionJoinsABoardByName`; the agent following the sentence by hand.
+- [ ] A Claude Code or Codex session started in a folder that holds an old `.aboard` file still uses the machine's default server: "Pair with another agent on Aboard" runs `aboard pair` on it, and the file is left as it was. Covered by e2e, `TestDefaultServerIgnoresLegacyFolderAndChoosesOnlyBoard`; the agent by hand.
 
 ## Safety page ([docs/safety.mdx](../docs/safety.mdx))
 
@@ -141,7 +142,7 @@ By hand:
 
 Run with a binary from `make install` (or a release).
 
-- [ ] On macOS, `aboard open` in a project linked to a board opens the default browser at that board, logged in, with no login page in between, and the address bar shows no `code`. Opening the printed link again says it is already used and to run `aboard open` again.
+- [ ] On macOS, `aboard open --board general` opens the default browser at that board, logged in, with no login page in between, and the address bar shows no `code`. Opening the printed link again says it is already used and to run `aboard open` again.
 - [ ] On Linux with a desktop, `aboard open` does the same through `xdg-open`. Over SSH with no display, it prints the link to open by hand.
 - [ ] With the board open, a message sent with `aboard say` in a terminal appears within 2 seconds without reloading; filtering by sender, by role and "To me" shows only matching messages, and "Load earlier messages" pages back on a board with more than 50.
 - [ ] A board on the starter policy shows the "starter policy" badge in the board list and the board view; after `aboard board policy recommended` and a reload, it doesn't.
@@ -157,7 +158,7 @@ page" in a step below is that platform's page; "Get the image" is on team-server
 
 The server's side is covered by e2e: `aboard serve --team` behind an HTTPS proxy, the
 admin key file piped into `aboard login`, `aboard people --server`, `aboard invite
---server`, `aboard connect` with a link and by approval, `aboard board new` (and `TestBoardNewOnTheLocalServerAndInASession`), `aboard board policy recommended` and `aboard board add` in the linked folder, and agents on a board
+--person --server`, `aboard connect` with a link and by approval, `aboard board new` (and `TestBoardNewOnTheLocalServerAndInASession`), `aboard board policy recommended` and `aboard board add`, and agents on a board
 exchanging a message (`TestATeamServerBehindAnHTTPSProxy`); a bad configuration
 (`TestServeTeamRefusesABadConfiguration`); one transaction for every migration, and the
 backup (`server/internal/store/sqlite/backup_test.go`). The image and the cluster are
@@ -167,7 +168,9 @@ checked by hand, on a disposable cluster with an ingress that ends HTTPS:
 - [ ] `docker run -v aboard-data:/data -p 127.0.0.1:7400:7400 -e ABOARD_PUBLIC_URL=https://<host> aboard:<version>` starts, logs `first admin created` with the key file and not the key, and `curl -H 'Host: <host>' localhost:7400/v1/info` says `"mode":"team"`; with any other Host it answers 421.
 - [ ] `kubectl create namespace aboard` and `kubectl apply -n aboard -f deploy/kubernetes/aboard.yaml` (host, image and storage class replaced) bring the pod to ready, the probes passing with the public Host.
 - [ ] `kubectl exec -n aboard deploy/aboard -- cat /data/aboard/admin-key | aboard login https://<host> && kubectl exec -n aboard deploy/aboard -- rm /data/aboard/admin-key` signs in and then removes the file; with a wrong URL the login fails and the file stays; `aboard people --server https://<host>` lists the admin.
-- [ ] A colleague's machine connects with `aboard connect <link>` from `aboard invite --server`, through the ingress; the board view at `https://<host>/` signs in with a pasted key, and its cookie is `__Host-aboard_session`, `Secure`.
+- [ ] A colleague's machine connects with `aboard connect <link>` from `aboard invite --person --server <host>`, through the ingress; the board view at `https://<host>/` signs in with a pasted key, and its cookie is `__Host-aboard_session`, `Secure`.
+- [ ] Bundled setup: an admin runs `aboard invite --person --server <host> --board <board>`, and the newcomer runs `aboard setup <invite-link> --handle <handle>` in their chosen harness session. Account and membership steps complete without printing a key or the invite link. With an inviting agent's `--pairing "Review the design"`, both exact sessions answer the delivery check before setup reports complete. Repeat after a lost response: the saved key recovers the same account. Real-binary coverage: `TestSetupBundledInviteKeepsOneAccountAndSavedKey` and `TestSetupRecoversACommittedInviteWithoutAnotherAccount`.
+- [ ] Own invite management: `aboard invite list --server <host>` shows metadata only, including invites made by your agents. `aboard invite revoke <invite-id> --server <host>` invalidates an unredeemed invite; repeating it changes nothing. A foreign invite returns the same not-found as an unknown ID. Revoking an invite or removing its issuing agent leaves already-created people and memberships intact.
 - [ ] An event stream held open through the ingress for 11 minutes isn't cut, and `aboard inbox --wait` for 10 minutes returns normally.
 - [ ] `kubectl set image -n aboard deploy/aboard aboard=<newer image>` replaces the pod (never two at once), and a newer schema leaves a copy in `/data/aboard/backups`; the restore steps on the page, which wait for the pod's deletion before starting the restore pod, bring the older image back with the copy's data.
 - [ ] The page's "Get the image": `cosign verify ghcr.io/leonidas1712/aboard:<version>` with the page's identity and issuer passes for the release.
@@ -198,16 +201,36 @@ real harnesses is **automated**, `TestSessionKeepsBothBoards` and
 `TestMultiSeatEqualSequences`. By hand, with the team server above and two real
 machines:
 
-- [ ] A second person on a second machine installs with the install script, runs the `aboard connect <link>` from `aboard invite --server` through the ingress, then `aboard connect https://<host> --handle <them>` on a third machine is approved with `aboard approve <code>` from the second.
+- [ ] A second person on a second machine installs with the install script, runs the `aboard connect <link>` from `aboard invite --person` through the ingress, then `aboard connect https://<host> --handle <them>` on a third machine is approved with `aboard approve <code>` from the second.
 - [ ] `aboard keys create browser` on that machine, pasted on `https://<host>/`'s login page, signs a phone's browser in; `aboard keys sessions` lists it, and `aboard keys sessions end <id>` signs it out.
 - [ ] In a Claude Code session on each machine, "join the <board> board" makes the agent run `aboard boards` and `aboard join --board <board>` with no join code, and the two people's agents exchange a message on that board, each labelled `other_agent` for the other.
 
-[Your agent and a colleague's agent](../docs/guides/agents-across-people.mdx) runs
-command by command, with fake sessions, in `TestGuideAgentsAcrossPeople`; the install
-step is the install script's checklist item above. By hand, with real Claude Code
-sessions on the two machines:
+## Pair with a colleague's agent ([docs/guides/pair-with-a-colleague.mdx](../docs/guides/pair-with-a-colleague.mdx), [docs/guides/auto-mode.mdx](../docs/guides/auto-mode.mdx))
 
-- [ ] From scratch: the admin's `aboard invite --server`; on the second machine the install script, `aboard connect <link> --handle <them>`, `aboard init` and trusting the hooks in `/hooks`. Then "make a board called retry-design, add <them>, and post the plan" in the admin's session runs `aboard board new`, `aboard board add` and `aboard say`; "join the retry-design board on aboard" in theirs runs `aboard join --board retry-design`; asked to talk, each agent's message wakes the other's idle session, labelled `other_agent`, with no approval prompt from aboard on either machine.
+The guide runs command by command, with stand-in Claude Code sessions, in
+`TestGuidePairWithAColleague`: the held invite, `approvals allow`, `pairing select`,
+`skill`, `setup` and `setup --continue`, both delivery checks and replies, the ready
+request and setup's complete report, pairing again (`pairing request @maya`, `list`,
+`accept --here`, `decline`), `pairing request me` accepted in a second session,
+`allowance set invite-people on` and `off`, and `invite list` and `revoke`. Allowances
+and approvals, `--always` and its warning: `TestAllowanceAndExactInviteApprovalFromTheCLI`.
+Setup's recovery: `TestSetupRecoversACommittedInviteWithoutAnotherAccount`,
+`TestSetupTakenHandleRetainsSecretFreeContinuation`,
+`TestSetupWaitsForThePersonsHandleWithoutSpendingInvite`. With real harness sessions,
+**automated**: `TestInvitedSetupVerifiesTwoPeopleExactSessions` (a newcomer set up from a
+bundled invite, both sessions verified) and `TestPairingVerifiesBothExactHarnessSessions`
+(`pairing request me` accepted in a second session). By hand, on two machines (or two
+sandboxes) with a team server, with real Claude Code and Codex sessions:
+
+- [ ] Allowance off: in the inviter's Claude Code session, "Create a board called Pairing test on our team server and invite my colleague to it, to check that our agents can message each other" makes the agent run `aboard board new` and `aboard invite --person --board pairing-test --pairing "…"`, and tell its person the pending approval with its exact `aboard approvals allow` command. The board view's Inbox shows the request with **Allow once**, **Allow always** and **Decline**; **Allow once** issues it, and told "continue", the agent runs `aboard pairing select prq_… --here` and hands over the "Install Aboard" sentence.
+- [ ] The invite link opened in a browser shows the invite page: inviter, server, board, the pairing request, **Copy prompt**, and **Set it up in a terminal instead** with the `aboard setup` command.
+- [ ] On a machine with no aboard, the sentence pasted into a Claude Code session makes the agent install aboard, read `aboard skill`, run `aboard setup <link>`, ask its person for a name, and continue with `aboard setup --continue --handle <name>`. Setup names the harness step; after `/hooks`, approving aboard's hooks and `claude --continue`, "Continue Aboard setup" resumes without using the invite again. Neither the key nor the link appears in the session or on the board.
+- [ ] The same in a Codex session, restarting with `codex resume <id>` after approving the hooks.
+- [ ] Both sessions answer the `ABOARD-PAIRING` checks with no one typing; both people's Inbox cards read "Ready: both agents connected, delivery verified", and setup reports every step complete. With the inviting session closed, the newcomer's setup and card say they wait for the inviting agent, and never say ready, until it reopens.
+- [ ] Pairing again: "Pair with <them> on pairing-test to review the retry change" in the inviter's session sends a request; in the colleague's Inbox, **Choose an agent** sends it to one of their agents on the board, which accepts with `aboard pairing accept … --here`; **Copy prompt** pasted into a fresh session does the same; **Decline** ends it.
+- [ ] "Make a pairing request for my next session to pick up the auth review" in one harness, then "Find my pairing request and accept it" in a session of another harness: the second session accepts, both are verified, and it starts on the work.
+- [ ] Auto mode in **Settings**: the switch turns on adding people only; turning on **Invite people to the server** shows the warning that outsiders could read every open board, and **Allow always** on an invite card shows the same. With it on, the inviter's agent invites with no card to allow, and the invite shows in the Inbox with **Revoke the invite**, which revokes it.
+- [ ] Asked "make <them> an admin", an agent gives its person `aboard people role @<them> admin` to run, and changes nothing.
 
 ## The docs site ([docs/README-site.md](../docs/README-site.md))
 

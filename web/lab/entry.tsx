@@ -15,6 +15,7 @@ import { Nav } from "./experiments/nav";
 import { Text } from "./experiments/text";
 import { Title, WorkPanel } from "./experiments/work";
 import { install } from "./fake-api";
+import { onboardingNeeds } from "./fake-onboarding";
 import "./lab.css";
 import { HarnessMark } from "./experiments/harness-mark";
 import { Panel } from "./panel";
@@ -33,9 +34,11 @@ if (typeof window !== "undefined") {
   // With nothing named, the lab opens where the person would: the Inbox when something
   // waits on them, else the scenario's board.
   const q = new URLSearchParams(window.location.search);
-  if (!q.has("board") && !q.has("inbox") && !q.has("list")) {
-    const asks = asksOf(current().snap, {}).length;
-    history.replaceState(null, "", labHref(asks > 0 ? { inbox: "1" } : { board: scenario.board.name }));
+  if (!q.has("board") && !q.has("inbox") && !q.has("list") && q.get("view") !== "settings" && !q.has("join")) {
+    const { snap } = current();
+    const asks = asksOf(snap, {}).length + onboardingNeeds();
+    const join = snap.onboarding.join;
+    history.replaceState(null, "", labHref(join ? { join: "1" } : asks > 0 ? { inbox: "1" } : { board: scenario.board.name }) + (join ? `#${join.secret}` : ""));
   }
   // The lab's colour schemes: ?theme= picks one for this load (screenshots use it), else
   // the one this browser chose. The page's first-paint script only knows light and dark.
@@ -58,7 +61,7 @@ if (typeof window !== "undefined") {
       if (!a || !href || !(href === "/" || href.startsWith("/?")) || e.defaultPrevented || e.metaKey || e.ctrlKey) return;
       e.preventDefault();
       const next = new URLSearchParams(href.slice(2));
-      const changes: Record<string, string | null> = { board: null, inbox: null, list: href === "/" ? "1" : null, view: null, task: null, artifact: null };
+      const changes: Record<string, string | null> = { board: null, inbox: null, list: href === "/" ? "1" : null, view: null, task: null, artifact: null, settings: null, join: null, item: null };
       for (const [k, v] of next) changes[k] = v;
       window.location.href = labHref(changes);
     },
@@ -66,9 +69,13 @@ if (typeof window !== "undefined") {
   );
 }
 
+// The onboarding scenarios show the real Inbox, Settings and invite page, on the fake
+// API's onboarding routes; the others keep the lab's own Inbox of asks.
+const onboarding = scenario.steps.some((s) => s.onboarding);
+
 export const lab: Lab | null = {
   Overlay: Panel,
-  place: () => (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("inbox") ? "inbox" : null),
+  place: () => (typeof window !== "undefined" && !onboarding && new URLSearchParams(window.location.search).has("inbox") ? "inbox" : null),
   Place: Inbox,
   Nav,
   Centre,

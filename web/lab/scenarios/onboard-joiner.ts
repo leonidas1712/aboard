@@ -1,0 +1,90 @@
+// (g) Onboarding, the colleague's side: sam opens alex's invite link in a browser, sets
+// up from a terminal, and lands in the Inbox with alex's pairing request. sam chooses
+// one of their sessions (or copies the prompt into any session); that session accepts,
+// the two agents check delivery, and only then does the board say "Ready".
+
+import type { Scenario } from "../scenario";
+import type { Pairing } from "../onboarding";
+
+const day = 60 * 24;
+
+const request: Pairing = {
+  id: "prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD",
+  board: "api-review",
+  inviter: "alex",
+  agent: "writer",
+  recipient: "sam",
+  work: "Review the auth change: the new session tokens and the refresh flow in PR 412.",
+  state: "awaiting_session",
+  invite: "inv_01K7Q2R7XJ5NE4AD9M2TPW8BKS",
+  t: -20,
+  expires: -20 + day,
+};
+
+export const onboardJoiner: Scenario = {
+  id: "onboard-joiner",
+  title: "Onboarding: sam joins",
+  summary: "The invite page, then an incoming pairing request: Choose an agent, Copy prompt, Decline, and the states up to Ready.",
+  me: "sam",
+  people: [{ name: "sam" }, { name: "alex", admin: true }],
+  // sam's agents joined api-review during setup; Choose an agent offers the ones whose sessions run.
+  agents: [
+    { name: "writer", harness: "claude-code", owner: "alex" },
+    { name: "claude", harness: "claude-code", joined: 2, location: { machine: "sam-laptop", folder: "~/src/api" } },
+    { name: "codex", harness: "codex", joined: 2, location: { machine: "sam-laptop", folder: "~/src/auth-service" } },
+    { name: "claude-2", harness: "claude-code", joined: 2, location: { machine: "sam-desktop", folder: "~/dotfiles", seen: -180 } },
+  ],
+  board: {
+    name: "api-review",
+    title: "API review",
+    charter: "Review changes to the public API before they ship. writer drafts, reviewer checks.",
+  },
+  steps: [
+    {
+      label: "Invite page (opened in a browser)",
+      at: 0,
+      onboarding: {
+        join: {
+          server: "aboard.example.team",
+          inviter: "alex",
+          agent: "writer",
+          boards: [{ name: "api-review", title: "API review" }],
+          pairing: { work: request.work },
+          expires: -20 + day,
+          secret: "abi_k3Vq9XwZp2LmT8rB4nYc6HdJ0sFgQe1A",
+        },
+      },
+    },
+    {
+      label: "Set up: alex's request waits in the Inbox",
+      at: 6,
+      now: { writer: { text: "Waiting for sam's agent", t: 5 } },
+      messages: [{ id: "j1", t: 5, from: "writer", to: ["@sam"], body: "Hi sam, I'm alex's agent. Once one of your sessions accepts the pairing request, we'll check that messages reach both of us and start on PR 412." }],
+      presence: { writer: "working", claude: "working", codex: "idle", "claude-2": "no_session" },
+      onboarding: { join: null, pairing: [request] },
+    },
+    {
+      label: "sam chose a session; it hasn't accepted yet",
+      at: 8,
+      onboarding: { pairing: [{ ...request, state: "awaiting_endpoint", awaiting: "recipient", recipientAgent: "claude" }] },
+    },
+    {
+      label: "Verifying delivery",
+      at: 10,
+      presence: { claude: "working" },
+      onboarding: { pairing: [{ ...request, state: "verifying", awaiting: "initiator", recipientAgent: "claude" }] },
+      messages: [{ id: "j2", t: 9.8, from: "claude", to: ["@writer"], body: "Pairing check for prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD: reply to this message to confirm you can see it." }],
+    },
+    {
+      label: "Ready: delivery verified",
+      at: 12,
+      presence: { claude: "working", writer: "working" },
+      now: { claude: { text: "Reading the new session token code", t: 11.5 }, writer: { text: "Reviewing the refresh flow in PR 412", t: 11.5 } },
+      onboarding: { pairing: [{ ...request, state: "ready", recipientAgent: "claude" }] },
+      messages: [
+        { id: "j3", t: 10.5, from: "writer", to: ["@claude"], replyTo: "j2", body: "Confirmed for prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD. Your check: reply to confirm." },
+        { id: "j4", t: 11, from: "claude", to: ["@writer"], replyTo: "j3", body: "Confirmed. I'll take the session tokens; you take the refresh flow." },
+      ],
+    },
+  ],
+};

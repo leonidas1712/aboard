@@ -58,3 +58,29 @@ func TestSeatAttributesCannotForgeMessageMarkup(t *testing.T) {
 		t.Fatalf("seat escaped incorrectly: %s", got)
 	}
 }
+
+func TestMultiIssuerRoutingAndEscaping(t *testing.T) {
+	m := Message{Board: "docs", FromName: "leo", FromHuman: true, Sender: "owner", Seq: 6, ExpectsReply: true, Body: "review"}
+	c := Context{Seat: "reviewer", BoardQualified: true, Server: "https://one.example"}
+	for name, got := range map[string]string{"bundle": Bundle(m.Board, []Message{m}, c), "quiet": Quiet(m.Board, []Message{m}, c), "digest": Digest(m.Board, nil, []Message{m}, c), "notice": Notice(m.Board, []Message{m}, c), "woken": Woken(m.Board, []Message{m}, nil, c)} {
+		if !strings.Contains(got, `server="https://one.example"`) || !strings.Contains(got, "--server https://one.example --board docs") {
+			t.Fatalf("%s lost issuer routing: %s", name, got)
+		}
+	}
+	full := Bundle(m.Board, []Message{m}, c)
+	if size := BundleSize([]Group{{Board: m.Board, Messages: []Message{m}, Context: c}}); size != len(full) {
+		t.Fatalf("size %d != %d", size, len(full))
+	}
+	c.Server = `https://one.example/'"><injected>`
+	got := Bundle(m.Board, []Message{m}, c)
+	if strings.Contains(got, `server="https://one.example/'"><`) || !strings.Contains(got, `&quot;&gt;&lt;injected&gt;`) || !strings.Contains(got, `--server 'https://one.example/'"'"'`) {
+		t.Fatalf("unsafe issuer rendering: %s", got)
+	}
+	mode := ModeChanged("docs", "focused", "off", Context{Server: "https://one.example", BoardQualified: true})
+	if !strings.Contains(mode, "https://one.example / docs") || !strings.Contains(mode, "aboard inbox --server https://one.example --board docs") {
+		t.Fatalf("mode lost routing: %s", mode)
+	}
+	if ModeChanged("docs", "focused", "off") != ModeChanged("docs", "focused", "off", Context{}) {
+		t.Fatal("empty context changed legacy mode text")
+	}
+}

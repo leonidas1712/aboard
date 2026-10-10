@@ -169,9 +169,18 @@ func Run(ctx context.Context, o Options) error {
 	}
 	defer func() { _ = blobs.Close() }()
 	o.Log.Info("storage", "db", "sqlite", "files", "disk")
-	cfg := board.Config{Blobs: blobs, ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr)}
+	ln := o.Listener
+	if ln == nil {
+		ln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
+	}
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", o.Addr, err)
+	}
+	defer func() { _ = ln.Close() }()
+	o.Addr = ln.Addr().String()
+	cfg := board.Config{Blobs: blobs, ServerID: serverID, Mode: "local", JoinHost: JoinHost(o.Addr), IssuerURL: "http://" + o.Addr}
 	if o.Team != nil {
-		cfg.Mode, cfg.JoinHost = "team", o.Team.PublicURL.Host
+		cfg.Mode, cfg.JoinHost, cfg.IssuerURL = "team", o.Team.PublicURL.Host, o.Team.PublicURL.Origin
 	}
 	svc := board.New(st, notify.NewInProcess(), o.Clock, ids.New(o.Rand), key, cfg, o.Log)
 	if o.Team != nil {
@@ -193,13 +202,6 @@ func Run(ctx context.Context, o Options) error {
 	// waits for active requests, and a stream never finishes on its own.
 	shutdown, startShutdown := context.WithCancel(context.WithoutCancel(ctx))
 	defer startShutdown()
-	ln := o.Listener
-	if ln == nil {
-		ln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", o.Addr)
-	}
-	if err != nil {
-		return fmt.Errorf("listen on %s: %w", o.Addr, err)
-	}
 	hosts, publicOrigin := api.LocalHosts(ln.Addr().String()), ""
 	if o.Team != nil {
 		hosts, publicOrigin = []string{o.Team.PublicURL.Host}, o.Team.PublicURL.Origin

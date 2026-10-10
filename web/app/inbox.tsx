@@ -18,6 +18,8 @@ import { usePref } from "./prefs";
 import { BoardNav } from "./sidebars";
 import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
+import { useOnboarding } from "./onboarding-data";
+import { type OnboardingItem, OnboardingDetail, OnboardingRow, onboardingGroups } from "./inbox-onboarding";
 
 export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const [boards, setBoards] = useState<Board[] | null>(null);
@@ -30,6 +32,18 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   // where it was. If that ask was answered meanwhile, the one now at its place opens.
   const [returned] = useState(takeInbox);
   const [picked, setPicked] = useState<string | null>(returned?.id ?? null);
+  // An onboarding item (an approval, an invite notice or a pairing request) picked in the
+  // list takes the detail's place; ?item=ID opens one.
+  // The Inbox has one stream; its events read onboarding again too.
+  const ob = useOnboarding({ follows: false });
+  const obRefresh = useRef(ob.refresh);
+  obRefresh.current = ob.refresh;
+  const [obPicked, setObPicked] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("item")));
+  const [askChosen, setAskChosen] = useState(returned !== null);
+  // On a phone, an address naming an item opens it to read, once the page has drawn.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("item")) setReading(true);
+  }, []);
   const [sent, setSent] = useState<{ to: string; body: string; at: number } | null>(null);
   const [fading, setFading] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
@@ -75,7 +89,8 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     };
     refresh.current = () => { void load(); };
     void load();
-    const stop = follow({ head: () => void load(), presence: () => void load(), unavailable: () => void load(), error: (e) => live && setError(e) });
+    const again = () => { void load(); obRefresh.current(); };
+    const stop = follow({ head: again, presence: again, unavailable: again, error: (e) => live && setError(e) });
     const changed = () => void load();
     window.addEventListener(askChanged, changed);
     const tick = setInterval(() => setNow(Date.now()), 30_000);
@@ -87,6 +102,14 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   // Answering or snoozing an ask advances in place: the ask now at its index opens.
   const current = waiting?.find((a) => a.id === picked) ?? waiting?.[Math.min(slot.current, waiting.length - 1)] ?? null;
   const index = current ? waiting!.indexOf(current) : -1;
+  const obGroups = onboardingGroups(ob);
+  const obAll = [...obGroups.needs, ...obGroups.pairing, ...obGroups.invites, ...obGroups.decided];
+  // What waits on the person opens first: an approval or request before an ask, unless an ask was picked.
+  const obItem = obAll.find((i) => i.id === obPicked) ?? (!askChosen && (obGroups.needs.length > 0 || (waiting?.length ?? 0) === 0) ? (obGroups.needs[0] ?? (waiting?.length === 0 ? obAll[0] : undefined) ?? null) : null);
+  // The item on screen stays there when deciding it moves it to another group.
+  useEffect(() => {
+    if (obItem && obPicked !== obItem.id) setObPicked(obItem.id);
+  }, [obItem, obPicked]);
   useEffect(() => {
     if (!current) return;
     slot.current = index;
@@ -128,7 +151,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const key = (e: KeyboardEvent) => {
       if (typing(e)) return;
       if (pressed("help", e)) setKeysOpen(true);
-      else if (!current) return;
+      else if (!current || obItem) return;
       else if (pressed("next", e)) move(Math.min(waiting!.length - 1, index + 1));
       else if (pressed("previous", e)) move(Math.max(0, index - 1));
       else if (pressed("snooze", e)) snooze(current);
@@ -138,14 +161,15 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [waiting, current, index, move, snooze, boardHref, leave]);
+  }, [waiting, current, index, move, snooze, boardHref, leave, obItem]);
   const notices = worthALook(facts, me, now);
   const working = facts.map((f) => ({ board: f.board, agents: f.members.filter((m) => m.kind === "agent" && (!m.status || m.status === "active") && m.presence === "working").length })).filter((f) => f.agents > 0);
   const busiest = working.reduce<(typeof working)[number] | null>((a, b) => (a && a.agents >= b.agents ? a : b), null);
   const workingCount = working.reduce((n, f) => n + f.agents, 0);
   const markRead = (b: Board) => { void ackBoard(b.name, b.head_seq).then(() => refresh.current(), setError); };
   const answered = (reply: Message) => { if (current) setSent({ to: current.from.name, body: reply.body, at: Date.now() }); setPicked(null); setReading(false); refresh.current(); };
-  const read = (m: Message) => { setPicked(m.id); setSent(null); if (!wide) { setReading(true); window.scrollTo({ top: 0 }); } };
+  const read = (m: Message) => { setPicked(m.id); setObPicked(null); setAskChosen(true); setSent(null); if (!wide) { setReading(true); window.scrollTo({ top: 0 }); } };
+  const readOb = (id: string) => { setObPicked(id); setAskChosen(false); setSent(null); if (!wide) { setReading(true); window.scrollTo({ top: 0 }); } };
   // The asker's status on its board, from the same facts Worth a look reads.
   const askerStatus = (m: Message) => {
     if (m.from.kind !== "agent") return null;
@@ -153,7 +177,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const agent = f?.members.find((x) => x.kind === "agent" && x.name === m.from.name);
     return f && agent ? agentStatus(agent, blocksOf(f.tasks).get(agent.name), me) : null;
   };
-  const phoneReading = !wide && reading && current !== null;
+  const phoneReading = !wide && reading && (current !== null || obItem !== null);
   const boardTitle = (name: string | null | undefined) => boards?.find((b) => b.name === name)?.title ?? name;
   const blocking = waiting?.filter((m) => m.ask?.blocking) ?? [];
   const going = waiting?.filter((m) => !m.ask?.blocking) ?? [];
@@ -174,6 +198,10 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     <h2 className={cn("glass glass-page z-[1] px-2.5 lg:sticky lg:top-0 pb-2 text-meta font-bold", first ? "pt-3" : "pt-7")}>{title}</h2>
     <ul aria-label={label} className="flex flex-col gap-1">{list.map(row)}</ul>
   </>;
+  const obGroup = (title: string, list: OnboardingItem[], first: boolean) => list.length > 0 && <>
+    <h2 className={cn("glass glass-page z-[1] px-2.5 lg:sticky lg:top-0 pb-2 text-meta font-bold", first ? "pt-3" : "pt-7 text-muted")}>{title}</h2>
+    <ul aria-label={title} className="flex flex-col gap-1">{list.map((i) => <OnboardingRow key={i.id} item={i} ob={ob} now={now} selected={wide && obItem?.id === i.id} onRead={() => readOb(i.id)} />)}</ul>
+  </>;
   const rest = current ? askDetail(current.body) : "";
   const sentLine = sent && <p role="status" key={sent.at} className={cn("max-w-[640px] truncate text-meta text-muted", wide ? "mb-5" : "px-2.5 pb-1", fading ? "animate-fade-out" : "animate-fade-in")}>Sent to @{sent.to}: &ldquo;{sent.body}&rdquo;</p>;
   const nav = <BoardNav current="" boards={boards} onMarkRead={markRead} />;
@@ -190,23 +218,28 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       {wide ? <aside aria-label="Boards" className="quiet-scroll border-rule bg-sidebar px-5 py-4 lg:overflow-y-auto lg:border-r">{nav}</aside>
         : <Sheet open={boardsOpen} onClose={() => setBoardsOpen(false)} side="left" title="Boards" back="Inbox">{nav}</Sheet>}
       <section ref={listing} aria-labelledby="inbox-title" className={cn("quiet-scroll flex flex-col gap-1 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:overflow-y-auto lg:border-r lg:border-rule", phoneReading && "hidden")}>
-        <h1 id="inbox-title" className="flex flex-wrap items-baseline gap-x-2 px-2.5 pt-6 pb-2 text-headline font-bold">Inbox<span className="text-meta font-normal text-muted tabular-nums">{waiting && `${waiting.length} ${waiting.length === 1 ? "needs" : "need"} you`}</span></h1>
+        <h1 id="inbox-title" className="flex flex-wrap items-baseline gap-x-2 px-2.5 pt-6 pb-2 text-headline font-bold">Inbox<span className="text-meta font-normal text-muted tabular-nums">{waiting && `${waiting.length + obGroups.needs.length} ${waiting.length + obGroups.needs.length === 1 ? "needs" : "need"} you`}</span></h1>
         {!wide && sentLine}
         {error !== null && <Problem error={error} />}
         {asks === null && error === null && <p role="status" className="px-2.5 text-muted">Loading asks…</p>}
+        {obGroups.needs.length > 0 && <div role="group" aria-label="Needs you approvals and requests" className="flex flex-col gap-1">{obGroup("Needs you", obGroups.needs, true)}</div>}
         <div role="group" aria-label="Needs you asks" className="flex flex-col gap-1">
-          {blocking.length > 0 && going.length > 0 ? <>{group("Blocking", "Blocking asks", blocking, true)}{group("Going ahead unless you say", "Asks going ahead unless you say", going, false)}</> : group("Needs you", "Asks", waiting ?? [], true)}
+          {blocking.length > 0 && going.length > 0 ? <>{group("Blocking", "Blocking asks", blocking, obGroups.needs.length === 0)}{group("Going ahead unless you say", "Asks going ahead unless you say", going, false)}</> : (waiting?.length ?? 0) > 0 || obGroups.needs.length === 0 ? group(obGroups.needs.length > 0 ? "Asks" : "Needs you", "Asks", waiting ?? [], obGroups.needs.length === 0) : null}
         </div>
-        {waiting?.length === 0 && <p className="px-2.5 text-meta text-muted">Nothing waits on you.</p>}
+        {waiting?.length === 0 && obGroups.needs.length === 0 && <p className="px-2.5 text-meta text-muted">Nothing waits on you.</p>}
         {resting > 0 && <p className="px-2.5 pt-2 text-meta text-muted tabular-nums">{resting} snoozed on this browser · <button type="button" className="text-link hover:underline" onClick={() => setSnoozed({})}>Show {resting === 1 ? "it" : "them"} now</button></p>}
         {more && <p className="px-2.5 text-meta text-muted">Showing the first {asks?.length ?? 0} asks.</p>}
+        {obGroup("Pairing", obGroups.pairing, false)}
+        {obGroup("Invites your agents made", obGroups.invites, false)}
+        {obGroup("Decided", obGroups.decided, false)}
+        {ob.error !== null && <p className="px-2.5 pt-4 text-meta text-muted">Approvals and pairing requests could not be read. They show again once the server answers.</p>}
         {notices.length > 0 && <><h2 className="px-2.5 pt-7 pb-2 text-meta font-bold text-muted">Worth a look</h2><ul aria-label="Worth a look" className="flex flex-col gap-1">{notices.map((n) => <li key={n.id}><a href={`/?board=${encodeURIComponent(n.board)}${n.task ? `&task=${encodeURIComponent(n.task)}` : ""}&from=inbox`} onClick={leave} className="block rounded-control px-2.5 py-3 text-ink no-underline transition-colors duration-[140ms] ease-out hover:bg-hover"><span className="block"><Clock className="mr-1.5 inline size-3.5 text-muted" aria-hidden />{n.text}</span><span className="text-meta text-muted">{n.title} · {n.detail}</span></a></li>)}</ul></>}
         {unavailable > 0 && <p className="px-2.5 pt-4 text-meta text-muted">Some board details could not be read. Refresh the Inbox to try again.</p>}
       </section>
       <section aria-label="The selected ask" className={cn("quiet-scroll px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:overflow-y-auto lg:px-10 lg:py-8", !wide && !phoneReading && "hidden")}>
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
-        {current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
+        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={readOb} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
           <p className="text-meta text-muted"><a href={boardHref} onClick={leave} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);

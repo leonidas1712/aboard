@@ -10,6 +10,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 )
 
 func unknownQueue() *Error {
@@ -17,7 +18,14 @@ func unknownQueue() *Error {
 }
 
 // observeQueued never starts a daemon or sends a prompt, claim or receipt.
-func (a *app) observeQueued(ctx context.Context) (delivery.Response, error) {
+func (a *app) observeQueued(ctx context.Context, servers ...string) (delivery.Response, error) {
+	issuer, err := a.agentIssuer()
+	if err != nil {
+		return delivery.Response{}, err
+	}
+	if len(servers) > 0 && servers[0] != "" {
+		issuer = servers[0]
+	}
 	key, ok := a.sessionKey()
 	if !ok {
 		return delivery.Response{}, unknownQueue()
@@ -34,7 +42,7 @@ func (a *app) observeQueued(ctx context.Context) (delivery.Response, error) {
 	}
 	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(daemonCallTimeout))
-	req := delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpQueued, Harness: key.Harness, Session: key.ID, Boot: a.env.Getenv("ABOARD_BOOT")}
+	req := delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpQueued, Server: issuer, Harness: key.Harness, Session: key.ID, Boot: a.env.Getenv("ABOARD_BOOT")}
 	var resp delivery.Response
 	if delivery.WriteFrame(conn, req) != nil || delivery.ReadFrame(bufio.NewReader(conn), &resp) != nil {
 		return resp, unknownQueue()
@@ -45,7 +53,7 @@ func (a *app) observeQueued(ctx context.Context) (delivery.Response, error) {
 	if resp.Queued == nil {
 		return resp, unknownQueue()
 	}
-	return resp, nil
+	return normalizeQueuedObservation(resp)
 }
 
 func queuedText(q *delivery.QueuedMessages) string {
@@ -53,8 +61,10 @@ func queuedText(q *delivery.QueuedMessages) string {
 		return ""
 	}
 	boards := map[string]bool{}
+	issuers := map[string]bool{}
 	for _, m := range q.Messages {
-		boards[m.BoardID] = true
+		issuers[m.Server] = true
+		boards[m.Server+"\x00"+m.BoardID] = true
 	}
 	names := make([]string, 0, len(q.Messages))
 	for _, m := range q.Messages {
@@ -66,6 +76,9 @@ func queuedText(q *delivery.QueuedMessages) string {
 			}
 			label = board + " " + label
 		}
+		if len(issuers) > 1 {
+			label = m.Server + " / " + label
+		}
 		names = append(names, label)
 	}
 	return fmt.Sprintf("%d queued, arriving at the end of this turn: %s\n", q.Count, strings.Join(names, ", "))
@@ -73,8 +86,19 @@ func queuedText(q *delivery.QueuedMessages) string {
 
 func (a *app) queuedPreview(ctx context.Context, observation delivery.Response, creds credentials, board, name string, limit int) (inboxSeatsOutput, error) {
 	out := inboxSeatsOutput{Seats: []inboxSeat{}, Queued: &delivery.QueuedMessages{Messages: []delivery.QueuedMessage{}}}
+	issuer, err := a.agentIssuer()
+	if err != nil {
+		return out, err
+	}
+	observation, err = normalizeQueuedObservation(observation)
+	if err != nil {
+		return out, err
+	}
 	selected := false
 	for _, ref := range observation.Agents {
+		if issuer != "" && ref.Server != issuer {
+			continue
+		}
 		if board != "" && ref.Board != board {
 			continue
 		}
@@ -104,7 +128,7 @@ func (a *app) queuedPreview(ctx context.Context, observation delivery.Response, 
 		}
 		seat := inboxSeat{Server: ref.Server, Board: ref.Board, Agent: ref.Name, MemberID: ref.MemberID, Messages: []cliMessage{}, Wrapped: []string{}}
 		for _, q := range observation.Queued.Messages {
-			if q.MemberID != ref.MemberID {
+			if q.Server != ref.Server || q.MemberID != ref.MemberID || q.Board != ref.Board {
 				continue
 			}
 			if q.BoardID != *in.JSON200.BoardId {
@@ -133,7 +157,7 @@ func (a *app) queuedPreview(ctx context.Context, observation delivery.Response, 
 				return out, unknownQueue()
 			}
 			seat.msgs = append(seat.msgs, m)
-			seat.Wrapped = append(seat.Wrapped, deliveryText(m))
+			seat.Wrapped = append(seat.Wrapped, deliverytext.Format(textMessage(m), a.queuedContext(observation, ref)))
 		}
 		seat.Messages = cliMessages(seat.msgs)
 		out.Seats = append(out.Seats, seat)
@@ -163,16 +187,22 @@ func (a *app) runQueuedInbox(ctx context.Context, board, name string, limit int)
 	}
 	text := "Queued preview; still scheduled for turn end. Nothing acknowledged.\n" + queuedText(out.Queued)
 	for _, seat := range out.Seats {
-		text += seat.Board + " · @" + seat.Agent + "\n" + strings.Join(seat.Wrapped, "\n\n") + "\n"
+		text += seat.Server + " / " + seat.Board + " · @" + seat.Agent + "\n" + strings.Join(seat.Wrapped, "\n\n") + "\n"
 	}
 	if len(out.Seats) == 1 {
 		seat := out.Seats[0]
 		var bundle *string
 		if len(seat.msgs) > 0 {
-			b := bundleText(seat.Board, seat.msgs)
+			var messages []deliverytext.Message
+			for _, msg := range seat.msgs {
+				messages = append(messages, textMessage(msg))
+			}
+			ref := delivery.AgentRef{Server: seat.Server, Board: seat.Board, Name: seat.Agent, MemberID: seat.MemberID}
+			b := deliverytext.Bundle(seat.Board, messages, a.queuedContext(observation, ref))
 			bundle = &b
 		}
 		a.emit(struct {
+			Server    serverRef                `json:"server"`
 			Board     string                   `json:"board"`
 			Agent     string                   `json:"agent"`
 			Messages  []cliMessage             `json:"messages"`
@@ -181,7 +211,7 @@ func (a *app) runQueuedInbox(ctx context.Context, board, name string, limit int)
 			Wrapped   []string                 `json:"wrapped"`
 			Bundle    *string                  `json:"bundle"`
 			Queued    *delivery.QueuedMessages `json:"queued"`
-		}{seat.Board, seat.Agent, seat.Messages, nil, seat.More, seat.Wrapped, bundle, out.Queued}, text)
+		}{a.serverRefFor(seat.Server), seat.Board, seat.Agent, seat.Messages, nil, seat.More, seat.Wrapped, bundle, out.Queued}, text)
 	} else {
 		a.emit(out, text)
 	}
@@ -189,17 +219,35 @@ func (a *app) runQueuedInbox(ctx context.Context, board, name string, limit int)
 }
 
 func (a *app) statusQueued(ctx context.Context, server, memberID string) *delivery.QueuedMessages {
-	observed, err := a.observeQueued(ctx)
+	observed, err := a.observeQueued(ctx, server)
 	if err != nil {
 		return nil
 	}
+	if server == "" {
+		server, err = a.agentIssuer()
+		if err != nil {
+			return nil
+		}
+	}
 	if memberID == "" {
-		return observed.Queued
+		if server == "" {
+			return observed.Queued
+		}
+		out := &delivery.QueuedMessages{Messages: []delivery.QueuedMessage{}}
+		for _, message := range observed.Queued.Messages {
+			if message.Server == server {
+				out.Messages = append(out.Messages, message)
+			}
+		}
+		out.Count = len(out.Messages)
+		return out
 	}
 	found := false
+	board := ""
 	for _, ref := range observed.Agents {
 		if ref.Server == server && ref.MemberID == memberID {
 			found = true
+			board = ref.Board
 			break
 		}
 	}
@@ -208,10 +256,62 @@ func (a *app) statusQueued(ctx context.Context, server, memberID string) *delive
 	}
 	out := &delivery.QueuedMessages{Messages: []delivery.QueuedMessage{}}
 	for _, message := range observed.Queued.Messages {
-		if message.MemberID == memberID {
+		if message.Server == server && message.Board == board && message.MemberID == memberID {
 			out.Messages = append(out.Messages, message)
 		}
 	}
 	out.Count = len(out.Messages)
 	return out
+}
+
+func normalizeQueuedObservation(resp delivery.Response) (delivery.Response, error) {
+	if resp.Queued == nil {
+		return resp, unknownQueue()
+	}
+	issuers := map[string]bool{}
+	for _, ref := range resp.Agents {
+		issuers[ref.Server] = true
+	}
+	queue := *resp.Queued
+	queue.Messages = append([]delivery.QueuedMessage(nil), queue.Messages...)
+	for i := range queue.Messages {
+		q := &queue.Messages[i]
+		if q.Server == "" {
+			if len(issuers) != 1 {
+				return resp, unknownQueue()
+			}
+			for issuer := range issuers {
+				q.Server = issuer
+			}
+		}
+		matched := false
+		for _, ref := range resp.Agents {
+			if ref.Server == q.Server && ref.MemberID == q.MemberID && (q.Board == "" || q.Board == ref.Board) {
+				q.Board = ref.Board
+				matched = true
+			}
+		}
+		if !matched {
+			return resp, unknownQueue()
+		}
+	}
+	resp.Queued = &queue
+	return resp, nil
+}
+
+func (a *app) queuedContext(observation delivery.Response, ref delivery.AgentRef) deliverytext.Context {
+	issuers := map[string]bool{}
+	for _, seat := range observation.Agents {
+		issuers[seat.Server] = true
+	}
+	issuer, _ := a.agentIssuer()
+	c := deliverytext.Context{}
+	if len(observation.Agents) > 1 || issuer != "" {
+		c.Seat = ref.Name
+		c.BoardQualified = true
+	}
+	if len(issuers) > 1 || issuer != "" {
+		c.Server = ref.Server
+	}
+	return c
 }

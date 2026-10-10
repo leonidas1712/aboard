@@ -62,12 +62,16 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
-	r, err := c.api.ListServerPeopleWithResponse(ctx)
+	r, err := c.api.ListServerPeopleWithResponse(ctx, nil)
 	if err != nil {
 		return c.unreachable(err)
 	}
 	if r.JSON200 == nil {
 		return keyRejected(srv, r.StatusCode(), r.Body)
+	}
+	people, err := r.JSON200.AsServerPeople()
+	if err != nil {
+		return err
 	}
 	var text string
 	if started {
@@ -75,8 +79,8 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 	}
 	st := a.out()
 	text += fmt.Sprintf("People on %s:\n", srv.URL)
-	rows := make([][]string, 0, len(r.JSON200.People))
-	for _, p := range r.JSON200.People {
+	rows := make([][]string, 0, len(people.People))
+	for _, p := range people.People {
 		name := ""
 		if p.DisplayName != nil {
 			name = *p.DisplayName
@@ -95,7 +99,7 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 		}
 		return st.dim(c)
 	})
-	a.emit(map[string]any{"server": srv, "people": r.JSON200.People}, text)
+	a.emit(map[string]any{"server": srv, "people": people.People}, text)
 	return nil
 }
 
@@ -109,6 +113,11 @@ func runPeopleRole(ctx context.Context, a *app, args []string) error {
 	handle, role := handleArg(pos[0]), pos[1]
 	if role != string(api.ServerRoleChangeServerRoleAdmin) && role != string(api.ServerRoleChangeServerRoleMember) {
 		return usageError(fmt.Sprintf("%q is not a role a person can be given; use admin or member.", role), peopleUsage)
+	}
+	if a.agentSelected("") {
+		a.boardServerFlag = *serverFlag
+		a.agentServerFlag = *serverFlag
+		return a.requestServerRole(ctx, *serverFlag, handle, role)
 	}
 	srv, _, c, err := a.peopleClient(ctx, *serverFlag, "Changing a person's role on the server", "aboard people role @"+handle+" "+role)
 	if err != nil {

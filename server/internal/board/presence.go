@@ -98,6 +98,18 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 		}
 		changed = cur.State != state || next.Delivery != me.Presence.Delivery
 		me.Presence = next
+		if state != PresenceNoSession {
+			location, err := ownLocation(tx, me)
+			if err != nil {
+				return err
+			}
+			if location != nil {
+				location.LastActive = stamp(now)
+				if err := tx.SetAgentLocation(me.ID, *location); err != nil {
+					return err
+				}
+			}
+		}
 		return tx.SetPresence(me.ID, next)
 	})
 	if err != nil {

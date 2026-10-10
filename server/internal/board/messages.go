@@ -29,12 +29,27 @@ type NewMessage struct {
 // PostMessage stores a message on the board and wakes anyone waiting for it. It returns
 // as soon as the message is stored.
 func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string, in NewMessage) (Message, error) {
+	var msg Message
+	err := s.writeAs(ctx, p, func(tx Tx) error {
+		var err error
+		msg, err = s.postMessageTx(tx, p, boardName, in)
+		return err
+	})
+	if err != nil {
+		return Message{}, err
+	}
+	s.notify.Changed(msg.BoardID)
+	return msg, nil
+}
+
+// postMessageTx shares the ordinary message write path with atomic onboarding notices.
+func (s *Service) postMessageTx(tx Tx, p Principal, boardName string, in NewMessage) (Message, error) {
 	to := in.To
 	if len(to) == 0 && in.ReplyTo == nil && in.Ask == nil {
 		to = []string{rules.TargetAll}
 	}
 	var msg Message
-	err := s.writeAs(ctx, p, func(tx Tx) error {
+	err := func() error {
 		b, me, err := s.access(tx, p, boardName)
 		if err != nil {
 			return err
@@ -158,11 +173,10 @@ func (s *Service) PostMessage(ctx context.Context, p Principal, boardName string
 			msg.SenderHarness = nil
 		}
 		return nil
-	})
+	}()
 	if err != nil {
 		return Message{}, err
 	}
-	s.notify.Changed(msg.BoardID)
 	return msg, nil
 }
 

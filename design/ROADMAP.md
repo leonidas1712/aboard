@@ -81,6 +81,7 @@ the board.
 | Agent status and audit use only the selected seat credential, including environment and session selection | in review (#158) | D27, D203 |
 | Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | in review: `aboard servers`, `servers use`, the default in server choice, `server_not_selected` with several and no default, and every person command naming its server; boards listed across servers and default-server status/watch/audit now have focused acceptance coverage | D172, D203 |
 | Named per-machine servers: connect labels, servers name/rename, names accepted as server targets and output explaining selection | building, #232 | D203 |
+| Server selection rework: ignore folder links, one machine default, explicit issuer selection, person invitations and several servers per session | design approved (#281); contracts in review (#284), implementation draft (#286) for #279 (GEN-43); [design](explorations/server-selection.md) | D223 |
 | A person's inbox across boards | later | D102 |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |
@@ -138,6 +139,9 @@ the board.
 | Task ordering and dependencies, right after the slices: an order on tasks, and a task waiting on another (`task.linked`, `waits_on`), which shows it Blocked until that task is done; no scheduling | next after slice 5; needs its own design | D214 |
 | GitHub links and watches, a priority after launch: PR and issue references as links and cards with no setup, tasks linked to PRs with a prompt to close on merge, `aboard watch` for CI runs, PRs and commands (checked client-side, the watch stored and shown on the board), then a GitHub integration as an extension; Slack and Linear later | exploring: design/explorations/coordination-and-integrations.md | |
 | Coordination UX from dogfooding: a turn-start digest per agent, fewer and better nudges, a coordinator role with no single current task, delegation states, a one-time brief prompt, `task done <ref>` fix | exploring: design/explorations/coordination-and-integrations.md | |
+| Keep the person's key out of the agent's reach: store access keys in the OS keychain instead of servers.json, plus recipes for running harnesses in sandboxes that can't read it (D106) | right after launch (maintainer, 2026-10-09): opt-in hardening that makes the approval boundary real | D222, D106 |
+| Agent-driven team onboarding (#268, D222): allowances and approvals for agent admin (board view, CLI and API), one invite that carries the board and a pairing request, resumable `aboard setup`, pairing requests a person accepts in a chosen session, and a verified two-way handshake | contracts, allowance/approvals, pairing and invite/setup landed (#270, #274, #272, #276); required for 0.1.4; onboarding display labels, invite preview, browser pairing choice and approval expiry/history landed (#288); board view wired to the API (#287); browser revocation and decision/recipient/key labels landed (#289); the colleague guide and auto-mode docs in review (GEN-40, GEN-44, #290) | D222 |
+| Colleague setup prompt includes installation and reading the skill; a new account waits for the person to choose their visible name before using the invite, and the current session is told to read its installed skill | in review | D222 |
 | Agents from the board (v2, with My agents #221): start agents from the board view or by asking an agent, through an opt-in runner on the person's machine; assign them to boards; a session view per own agent with direct messages; one switch turns it all off | exploring: design/explorations/agents-from-the-board.md | |
 | Notes, verified when citing a board file by hash | retired: files and the brief cover them | D14, D214 |
 | A brief for agents when they join; showing the charter after joining | later; the brief (slice 5) is part of it | D40, D213 |
@@ -192,6 +196,7 @@ the board.
 | Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | done (#77) | D178 |
 | Swarm records follow a renamed seat by immutable ID, preserving its launcher handle and resume state | later, with seat renaming. Slice 5a refuses an unsupported renamed record until its original process is explicitly stopped; it does not promise transparent renamed-swarm resume | D178, D197 |
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
+| Installable harness plugins: packages for Claude Code, Codex and omp; direct setup retained, with migration and upgrade ownership checked before switching | tabled (GEN-27 research complete): the binary is still required, so a plugin adds a second install step; [research and design](explorations/harness-plugins.md) | D86, D160, D164 |
 | `aboard doctor` and `aboard init` notice a terminal manager with a launcher (herdr) that is installed while its `aboard-launcher-<name>` is missing, and name the fix; release packages and Homebrew install the shipped launchers next to `aboard` | next | D178 |
 | `aboard doctor --fix`: repairs only safe problems, after one confirmation; doctor stays read-only by default | next | |
 | First-run guidance: `aboard skill` prints the instructions bundled with the installed binary without harness setup; guest invites distinguish the person from the agent name | done (#209; first-run follow-up #193) | |
@@ -426,3 +431,14 @@ bounded-Stop versus idle-wait distinction. This is collective evidence from the 
 run and focused retry, not one clean full run. Protected configuration and auth were
 unchanged. Final CI remains pending; the board-view setting is separate PR #243.
 This feature is not yet shipped.
+
+| Find your agent (#275): owner-only session location and profile-derived resume commands, `aboard agents` | API/CLI in review (#277, GEN-42); source pass and three-harness location/restart proof pass; board view owned separately | bookkeeping only |
+### D222 invitation safety (GEN-45)
+
+Building: explicit invite opt-in and warning, own-person Inbox notices, and a 24-hour
+agent-invite default. The notice API derives from existing records; the board-view
+warning and Inbox integration are owned by the UI lane.
+
+### Onboarding QA fixes (GEN-49)
+
+Setup defaults and harness next precedence, readable CLI labels, consistent invite prompts, skill/help, and agent role/policy approval requests: in review (#291) for 0.1.4. Existing API authority and person-only key/login boundaries stay unchanged.

@@ -14,11 +14,12 @@ import (
 )
 
 type sessionHandoff struct {
-	manifest HandoffManifest
-	parts    []offer
-	digests  map[AgentKey]bool
-	prefix   string
-	multi    bool
+	manifest    HandoffManifest
+	parts       []offer
+	digests     map[AgentKey]bool
+	prefix      string
+	multi       bool
+	multiIssuer bool
 }
 
 func (s *session) restoreHandoffs(manifests []HandoffManifest) {
@@ -37,13 +38,10 @@ func (s *session) preflightBinding(agent AgentRef) Response {
 		return Response{V: ProtocolVersion}
 	}
 	for _, a := range s.agents {
-		if a.ref.Server != agent.Server {
-			return errorResponse("session_on_another_server", "This session already has seats on another server.", "Use a session for that server.")
-		}
-		if a.ref.Board != agent.Board && a.ref.MemberID == "" {
+		if (a.ref.Server != agent.Server || a.ref.Board != agent.Board) && a.ref.MemberID == "" {
 			return errorResponse("agent_not_selected", "The existing seat identity could not be verified.", "Reconnect that seat before joining another board.")
 		}
-		if a.ref.Board != agent.Board && s.key.Harness == "omp" && !s.ext.SupportsHandoffs() {
+		if (a.ref.Server != agent.Server || a.ref.Board != agent.Board) && s.key.Harness == "omp" && !s.ext.SupportsHandoffs() {
 			return errorResponse("extension_outdated", "This extension cannot receive messages from several boards.", "Run aboard init in a terminal and restart the harness.")
 		}
 	}
@@ -51,7 +49,7 @@ func (s *session) preflightBinding(agent AgentRef) Response {
 }
 
 func (s *session) compositionOptions(limit int) composeOptions {
-	return composeOptions{Now: s.now(), MultiSeat: len(s.agents) > 1, First: s.firstSeat, WholeLimit: limit}
+	return composeOptions{Now: s.now(), MultiSeat: len(s.agents) > 1, MultiIssuer: s.multiIssuer(), First: s.firstSeat, WholeLimit: limit}
 }
 
 func handoffClass(parts []offer) Class {
@@ -114,7 +112,7 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 		renderedAt = s.now()
 	}
 	prefixHash := sha256.Sum256([]byte(prefix))
-	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt, RenderVersion: 1, PrefixHash: hex.EncodeToString(prefixHash[:]), MultiSeat: len(s.agents) > 1}
+	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt, RenderVersion: 1, PrefixHash: hex.EncodeToString(prefixHash[:]), MultiSeat: len(s.agents) > 1, MultiIssuer: s.multiIssuer()}
 	if c.peerBoundary {
 		manifest.Class, manifest.PeerTurn = ClassMidturnPeer, s.peerTurn
 		seen := map[AgentKey]bool{}
@@ -166,7 +164,7 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	if err != nil {
 		return nil, nil, err
 	}
-	h := &sessionHandoff{manifest: saved, parts: slices.Clone(c.parts), digests: c.digests, prefix: prefix, multi: len(s.agents) > 1}
+	h := &sessionHandoff{manifest: saved, parts: slices.Clone(c.parts), digests: c.digests, prefix: prefix, multi: len(s.agents) > 1, multiIssuer: s.multiIssuer()}
 	s.handoffs[saved.ID] = h
 	var deliveries []*Delivery
 	for _, part := range saved.Parts {
@@ -297,7 +295,7 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 		if h.parts == nil {
 			s.restoreRenderParts(h, offers, opts, prefix)
 		}
-		if h.parts == nil || h.prefix != prefix || h.multi != opts.MultiSeat || h.manifest.Boot != s.boot {
+		if h.parts == nil || h.prefix != prefix || h.multi != opts.MultiSeat || h.multiIssuer != opts.MultiIssuer || h.manifest.Boot != s.boot {
 			continue
 		}
 		valid := true
@@ -329,7 +327,7 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 				}
 			}
 		}
-		text := renderComposition(parts, opts.MultiSeat, h.digests, h.manifest.CreatedAt)
+		text := renderCompositionWithOptions(parts, opts, h.digests, h.manifest.CreatedAt)
 		if len(text) > limit {
 			continue
 		}
@@ -342,7 +340,7 @@ func (s *session) composePending(offers []offer, limit int, opts composeOptions,
 func (s *session) restoreRenderParts(h *sessionHandoff, offers []offer, opts composeOptions, prefix string) {
 	m := h.manifest
 	hash := sha256.Sum256([]byte(prefix))
-	if m.RenderVersion != 1 || m.Boot != s.boot || m.MultiSeat != opts.MultiSeat || m.PrefixHash != hex.EncodeToString(hash[:]) {
+	if m.RenderVersion != 1 || m.Boot != s.boot || m.MultiSeat != opts.MultiSeat || m.MultiIssuer != opts.MultiIssuer || m.PrefixHash != hex.EncodeToString(hash[:]) {
 		return
 	}
 	parts := make([]offer, 0, len(m.Parts))
@@ -372,14 +370,18 @@ func (s *session) restoreRenderParts(h *sessionHandoff, offers []offer, opts com
 		parts = append(parts, part)
 		digests[p.Agent.Key()] = p.Digest
 	}
-	h.parts, h.digests, h.prefix, h.multi = parts, digests, prefix, opts.MultiSeat
+	h.parts, h.digests, h.prefix, h.multi, h.multiIssuer = parts, digests, prefix, opts.MultiSeat, opts.MultiIssuer
 }
 
 func (s *session) textContext(agent AgentRef) deliverytext.Context {
+	c := deliverytext.Context{}
 	if len(s.agents) > 1 {
-		return deliverytext.Context{Seat: agent.Name, BoardQualified: true}
+		c.Seat, c.BoardQualified = agent.Name, true
 	}
-	return deliverytext.Context{}
+	if s.multiIssuer() {
+		c.Server = agent.Server
+	}
+	return c
 }
 
 // ensureBoot keeps validated queue sessions usable when their harness hooks were not
@@ -438,4 +440,16 @@ func (s *session) prepared() {
 	s.d.log.Info("handoff ready again", "session", s.key.String(), "failures", s.prepareFailures)
 	s.prepareFailures = 0
 	s.d.setHandoffProblem(s.key, false)
+}
+
+func (s *session) multiIssuer() bool {
+	var issuer string
+	for _, a := range s.agents {
+		if issuer == "" {
+			issuer = a.ref.Server
+		} else if a.ref.Server != issuer {
+			return true
+		}
+	}
+	return false
 }

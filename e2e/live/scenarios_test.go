@@ -564,6 +564,7 @@ func TestProjectScopeSetup(t *testing.T) {
 	eachHarness(t, "ProjectScopeSetup", func(t *testing.T, d *driver, _ *recorder) {
 		l := newLab(t)
 		d.setUp(l)
+		l.run("up")
 		proj := l.project("project", d.p.Harness)
 		// The file doctor names for the harness's setup: its hooks file, or, for a harness
 		// reached through an extension, that file.

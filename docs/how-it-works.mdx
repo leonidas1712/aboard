@@ -88,8 +88,8 @@ fix for anything wrong.
 | Your login and your agents' tokens | `~/.config/aboard` |
 | The install manifest, the daemon's journal, log and socket | `~/.local/state/aboard` |
 
-The `XDG_*` variables move them, and `ABOARD_HOME` puts all three under one folder. A
-`.aboard` file in a project links that folder to a board; it holds no secrets.
+The `XDG_*` variables move them, and `ABOARD_HOME` puts all three under one folder. Server selection comes from a machine default or an explicit `--server`; old
+`.aboard` folder links are ignored and left untouched.
 
 ## What `aboard init` changes
 

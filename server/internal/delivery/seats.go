@@ -151,7 +151,13 @@ func (d *Daemon) serveBoards(ctx context.Context, req Request) Response {
 	server := req.Server
 	if server == "" && len(agents) > 0 {
 		server = agents[0].Server
+		for _, a := range agents {
+			if a.Server != server {
+				return errorResponse("server_not_selected", "This session has seats on several issuers.", "Repeat the command with --server NAME|URL.")
+			}
+		}
 	}
+
 	if server == "" {
 		return errorResponse("invalid_request", "A boards request needs a server.", "Send the server the session's person is connected to.")
 	}
@@ -205,31 +211,19 @@ func (d *Daemon) serveJoin(ctx context.Context, req Request) Response {
 		return errorResponse("invalid_request", "A join request needs the board and its server.", "Send agent.server and agent.board.")
 	}
 	server, board := req.Agent.Server, req.Agent.Board
-	// One join at a time for the session: choosing the server, the server's answer and
-	// the binding happen under this turn, so two first joins can't both pass the
-	// one-server rule, and a reused seat's earlier token, which stops the moment the
-	// server answers, is never rotated by two joins at once. The session's seats are
-	// read only once the turn is held.
+	// Serialize joins so a reused seat token is never rotated by two joins at once.
+	// Read the session's seats only after acquiring the turn.
 	release, err := d.joinTurn(ctx, req.Key().String())
 	if err != nil {
 		return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again; it starts the daemon.")
 	}
 	defer release()
-	agents, werr := d.sessionAgents(ctx, req)
+	_, werr := d.sessionAgents(ctx, req)
 	if werr != nil {
 		return Response{V: ProtocolVersion, Error: werr}
 	}
 	if h := d.cfg.joinHooks; h != nil && h.seatsRead != nil {
 		h.seatsRead()
-	}
-	for _, a := range agents {
-		if a.Server != server {
-			r := errorResponse("session_on_another_server",
-				"This session's seats are on "+a.Server+", and a session's seats are all on one server.",
-				"Use a session for "+server+": start one and run the join there.")
-			r.Error.Details = map[string]any{"server": server, "session_server": a.Server}
-			return r
-		}
 	}
 	if r := d.bindingPreflight(ctx, req.Key(), *req.Agent); r.Error != nil {
 		return r
@@ -336,31 +330,19 @@ func (d *Daemon) serveCreateBoard(ctx context.Context, req Request) Response {
 	if req.Create != nil {
 		options = *req.Create
 	}
-	// One join at a time for the session: choosing the server, the server's answer and
-	// the binding happen under this turn, so two first joins can't both pass the
-	// one-server rule, and a reused seat's earlier token, which stops the moment the
-	// server answers, is never rotated by two joins at once. The session's seats are
-	// read only once the turn is held.
+	// Serialize joins so a reused seat token is never rotated by two joins at once.
+	// Read the session's seats only after acquiring the turn.
 	release, err := d.joinTurn(ctx, req.Key().String())
 	if err != nil {
 		return errorResponse("daemon_not_running", "The delivery daemon is stopping.", "Run the command again; it starts the daemon.")
 	}
 	defer release()
-	agents, werr := d.sessionAgents(ctx, req)
+	_, werr := d.sessionAgents(ctx, req)
 	if werr != nil {
 		return Response{V: ProtocolVersion, Error: werr}
 	}
 	if h := d.cfg.joinHooks; h != nil && h.seatsRead != nil {
 		h.seatsRead()
-	}
-	for _, a := range agents {
-		if a.Server != server {
-			r := errorResponse("session_on_another_server",
-				"This session's seats are on "+a.Server+", and a session's seats are all on one server.",
-				"Use a session for "+server+": start one and run the join there.")
-			r.Error.Details = map[string]any{"server": server, "session_server": a.Server}
-			return r
-		}
 	}
 	if r := d.bindingPreflight(ctx, req.Key(), AgentRef{Server: server}); r.Error != nil {
 		return r

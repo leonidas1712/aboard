@@ -40,7 +40,7 @@ type SavedResponse struct {
 // creationRequestHash keeps the incoming bytes before validation applies defaults.
 func creationRequestHash(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/v1/delegations/boards" {
+		if r.Method == http.MethodPost && (r.URL.Path == "/v1/delegations/boards" || r.URL.Path == "/v1/pairing-requests") {
 			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 			if err != nil {
 				writeError(w, o.Log, apierr.New(http.StatusBadRequest, "invalid_request", "The request body could not be read.", "Send the request again."))
@@ -67,7 +67,7 @@ func creationRequestHash(o Options, next http.Handler) http.Handler {
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
-		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join" ||
+		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/invites/preview" || r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join" ||
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost) ||
@@ -75,8 +75,15 @@ func idempotent(o Options, next http.Handler) http.Handler {
 				strings.HasSuffix(r.URL.Path, "/join-codes") && strings.Count(r.URL.Path, "/") == 4) ||
 			r.URL.Path == "/v1/machine-requests" || r.URL.Path == "/v1/machine-requests/collect" ||
 			r.URL.Path == "/v1/delegations" ||
+			r.URL.Path == "/v1/pairing-credentials" ||
+			r.URL.Path == "/v1/pairing-requests" ||
 			// Creation keeps its answer in the board transaction, with one expiry.
 			r.URL.Path == "/v1/delegations/boards" ||
+			// Administrative requests save their nonsecret receipt in the action's
+			// transaction; invite secrets must never enter this response cache.
+			r.URL.Path == "/v1/me/admin-requests" ||
+			(r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/me/approvals/") &&
+				(strings.HasSuffix(r.URL.Path, "/allow") || strings.HasSuffix(r.URL.Path, "/decline"))) ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
 			// call, which the server answers by finding the same seat.
 			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)
@@ -200,6 +207,69 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	in := board.Replay{}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case path == "/v1/pairing-credentials":
+		var input CreatePairingCredential
+		if err := json.Unmarshal(request, &input); err != nil {
+			return err
+		}
+		if principal(ctx).Browser || principal(ctx).Agent != nil || principal(ctx).Human == nil {
+			return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{})
+		}
+		var result PairingCredential
+		if saved.Status == http.StatusOK {
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			return svc.CheckPairingReplay(ctx, principal(ctx), input.RequestId, result.Request.Generation, string(input.Side))
+		}
+		return svc.CheckPairingReplay(ctx, principal(ctx), input.RequestId, input.Generation, string(input.Side))
+	case path == "/v1/pairing-requests" && method == http.MethodPost:
+		if saved.Status == http.StatusCreated {
+			var result PairingRequest
+			if err := json.Unmarshal(saved.Body, &result); err != nil {
+				return err
+			}
+			return svc.CheckPairingReplay(ctx, principal(ctx), result.Id, 0, "")
+		}
+		var input CreatePairingRequest
+		if err := json.Unmarshal(request, &input); err != nil {
+			return err
+		}
+		return svc.CheckBoardReplay(ctx, principal(ctx), board.Replay{ID: input.BoardId})
+	case strings.HasPrefix(path, "/v1/pairing-requests/"):
+		if len(parts) < 3 {
+			return fmt.Errorf("pairing replay has no id")
+		}
+		if strings.HasSuffix(path, "/choose") {
+			var input AcceptPairingRequest
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			return svc.CheckPairingChoiceReplay(ctx, principal(ctx), parts[2], input.AgentId, input.Generation)
+		}
+		side := ""
+		generation := 0
+		if strings.HasSuffix(path, "/cancel") {
+			side = "initiator"
+		}
+		if strings.HasSuffix(path, "/decline") {
+			side = "recipient"
+		}
+		if strings.HasSuffix(path, "/accept") {
+			var input AcceptPairingRequest
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			generation = input.Generation
+		}
+		if strings.HasSuffix(path, "/verify") {
+			var input PairingRoundTrip
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			generation = input.Generation
+		}
+		return svc.CheckPairingReplay(ctx, principal(ctx), parts[2], generation, side)
 	case method == http.MethodPut && path == "/v1/me/delivery-queue":
 		var body DeliveryQueueReport
 		if err := json.Unmarshal(request, &body); err != nil {

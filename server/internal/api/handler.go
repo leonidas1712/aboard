@@ -142,6 +142,9 @@ func writeError(w http.ResponseWriter, log *slog.Logger, err error) {
 	if e.Details != nil {
 		body["details"] = e.Details
 	}
+	if e.Next != nil {
+		body["next"] = e.Next
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(e.Status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": body})
@@ -248,13 +251,18 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/v1/join" {
+		if r.URL.Path == "/v1/join" || r.URL.Path == "/v1/invites/preview" {
 			if !limiter.allow(host) {
 				w.Header().Set("Retry-After", "60")
 				writeError(w, o.Log, apierr.New(http.StatusTooManyRequests, "rate_limited", "Too many join attempts from this address.",
 					"Wait a minute, then try again."))
 				return
 			}
+		}
+		if r.URL.Path == "/v1/invites/preview" && r.Method == http.MethodPost {
+			w.Header().Set("Cache-Control", "no-store")
+			next.ServeHTTP(w, r)
+			return
 		}
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if r.Header.Get("Authorization") == "" {
@@ -282,6 +290,10 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			writeError(w, o.Log, err)
 			return
 		}
+		if p.Pairing != nil && !pairingMay(r, p.Pairing.RequestID) {
+			writeError(w, o.Log, apierr.New(http.StatusForbidden, "forbidden", "This endpoint credential only reads and verifies its pairing.", "Use the trusted runtime pairing flow."))
+			return
+		}
 		if p.Delegation != nil && !delegationMay(r) {
 			writeError(w, o.Log, apierr.New(http.StatusForbidden, "forbidden",
 				"A machine's delegation only lists its person's boards, joins sessions and creates boards with session seats.",
@@ -293,6 +305,15 @@ func authenticate(o Options, limiter *rateLimiter, connects connectLimits, machi
 			return
 		}
 		ctx := context.WithValue(r.Context(), principalKey{}, p)
+		issuer := o.PublicOrigin
+		if issuer == "" {
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			issuer = scheme + "://" + r.Host
+		}
+		ctx = context.WithValue(ctx, onboardingIssuerKey{}, issuer)
 		ctx = context.WithValue(ctx, scopeKey{}, scopeOf(token))
 		session := requestSession{cookie: cookie}
 		if p.Browser {
@@ -397,3 +418,8 @@ func scopeOf(token string) string {
 }
 
 var errNoScope = errors.New("idempotent request without an authenticated caller")
+
+func pairingMay(r *http.Request, id string) bool {
+	path := "/v1/pairing-requests/" + id
+	return r.Method == http.MethodGet && r.URL.Path == path || r.Method == http.MethodPost && (r.URL.Path == path+"/accept" || r.URL.Path == path+"/verify")
+}

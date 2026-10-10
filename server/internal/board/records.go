@@ -80,13 +80,18 @@ type Delegation struct {
 // ServerInvite lets one new person onto the server, as a member, once, before it
 // expires. It is kept by the keyed digest of its secret.
 type ServerInvite struct {
-	ID        string
-	Digest    string
-	CreatedBy string // the admin's person id
-	CreatedAt string
-	ExpiresAt string
-	UsedAt    *string
-	UsedBy    *string
+	PairingRequestID            string
+	ParentKeyID, IssuingAgentID string
+	Authorization               *AdminAuthorization
+	RevokedAt                   *string
+	Boards                      []string
+	ID                          string
+	Digest                      string
+	CreatedBy                   string // the admin's person id
+	CreatedAt                   string
+	ExpiresAt                   string
+	UsedAt                      *string
+	UsedBy                      *string
 }
 
 // MachineRequest is a new machine asking for an access key, for a person to approve
@@ -188,6 +193,7 @@ const (
 
 // Member is a human or agent on a board.
 type Member struct {
+	Location        *AgentLocation
 	MidturnOverride *string
 	DisplayName     *string
 	CurrentTask     *TaskRef

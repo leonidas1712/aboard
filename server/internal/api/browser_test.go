@@ -274,6 +274,10 @@ func TestServerRefusesOtherHostsAndServesTheUI(t *testing.T) {
 		if w := do(http.MethodGet, host, "/v1/info"); w.Code != 200 {
 			t.Fatalf("info at %s: %d", host, w.Code)
 		}
+		// An invite link opens the same page, which reads the invite from its fragment.
+		if w := do(http.MethodGet, host, "/join"); w.Code != 200 || w.Body.String() != "the board list" {
+			t.Fatalf("invite page at %s: %d %q", host, w.Code, w.Body)
+		}
 	}
 	for _, host := range []string{"evil.example:7400", "127.0.0.1:7401", "evil.example"} {
 		for _, req := range [][2]string{{http.MethodGet, "/v1/info"}, {http.MethodPost, "/v1/browser-tokens"}, {http.MethodGet, "/"}} {

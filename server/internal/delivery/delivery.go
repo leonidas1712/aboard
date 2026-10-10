@@ -120,6 +120,9 @@ type Delivery struct {
 	// AcceptedAt is when the harness accepted the delivery: a waiting hook took it, its
 	// queue took it, or its extension added it. TurnStartedAt is when the session's next
 	// turn started after that. Both are zero until then.
+	// ConfirmedAt is set only by the journal's exact-handoff confirmation. It survives
+	// cursor acknowledgment; queue acceptance and history reads cannot set it.
+	ConfirmedAt   time.Time
 	AcceptedAt    time.Time
 	TurnStartedAt time.Time
 	// Stalled is set when the delivery was handed to an idle session that started no
@@ -129,9 +132,11 @@ type Delivery struct {
 
 // SessionRecord is what the journal keeps of a session.
 type SessionRecord struct {
-	Key  SessionKey
-	Boot string
-	Open bool
+	Folder       string
+	LocationBoot string
+	Key          SessionKey
+	Boot         string
+	Open         bool
 	// Process is the harness process the session runs in, or nil if it isn't known.
 	Process *Process
 	// Lost is the agent another session resumed while this one held it, or nil. The
@@ -332,6 +337,7 @@ type HandoffManifest struct {
 	RenderVersion int
 	PrefixHash    string
 	MultiSeat     bool
+	MultiIssuer   bool
 	ID            string
 	Session       SessionKey
 	Boot          string

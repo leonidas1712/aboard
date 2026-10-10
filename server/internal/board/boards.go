@@ -493,6 +493,20 @@ func (s *Service) ListMembers(ctx context.Context, p Principal, name string, rem
 		now := s.clk.Now()
 		for i, m := range out.Members {
 			out.Members[i].Presence = m.CurrentPresence(now)
+			out.Members[i].Location = nil
+			if m.Kind == "agent" && m.HumanID == person.ID {
+				working, err := agentKeyCurrent(tx, m, stamp(now))
+				if err != nil {
+					return err
+				}
+				if working {
+					out.Members[i].Location, err = ownLocation(tx, m)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
 			if m.Kind == "agent" && p.Human != nil {
 				_, err := removerOf(tx, b, me, person, m)
 				out.CanRemove[m.ID] = err == nil
@@ -502,6 +516,7 @@ func (s *Service) ListMembers(ctx context.Context, p Principal, name string, rem
 			for _, m := range all {
 				if m.Kind == "agent" && m.Status != StatusActive {
 					m.Presence = Presence{}
+					m.Location = nil
 					out.Members = append(out.Members, m)
 				}
 			}

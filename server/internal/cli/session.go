@@ -44,6 +44,9 @@ func (a *app) serverRefFor(url string) serverRef {
 // ABOARD_AGENT, then the agent bound to the current session. The agent decides the
 // board, since each agent belongs to one board.
 func (a *app) agentTarget(ctx context.Context, boardFlag, asFlag string) (target, agentCredential, error) {
+	if _, err := a.agentIssuer(); err != nil {
+		return target{}, agentCredential{}, err
+	}
 	creds, err := a.readCredentials()
 	if err != nil {
 		return target{}, agentCredential{}, err
@@ -54,7 +57,7 @@ func (a *app) agentTarget(ctx context.Context, boardFlag, asFlag string) (target
 	}
 	name = strings.TrimPrefix(strings.TrimSpace(name), "@")
 	if name != "" {
-		if err := a.oneSeat(ctx, boardFlag); err != nil {
+		if err := a.oneSeat(ctx, boardFlag, name); err != nil {
 			return target{}, agentCredential{}, err
 		}
 		return a.agentByName(creds, name, boardFlag)
@@ -65,50 +68,61 @@ func (a *app) agentTarget(ctx context.Context, boardFlag, asFlag string) (target
 			return t, cred, err
 		}
 	}
-	t, err := a.selectBoard(boardFlag)
+	issuer, err := a.agentIssuer()
 	if err != nil {
 		return target{}, agentCredential{}, err
 	}
-	cred, err := resolveAgent("", "", creds, t)
-	return t, cred, err
+	choices := []string{}
+	for _, cred := range creds.Agents {
+		if (issuer == "" || cred.Server == issuer) && (boardFlag == "" || cred.Board == boardFlag) {
+			choices = append(choices, cred.Name)
+		}
+	}
+	slices.Sort(choices)
+	e := newError("agent_not_selected", "No working agent seat matches this selection.", "Run aboard status to see bound seats, or name a saved seat with --as, --server and --board.")
+	e.Details = map[string]any{"choices": slices.Compact(choices), "board_source": selectedNone}
+	return target{}, agentCredential{}, e
 }
 
-// oneSeat refuses, with board_ambiguous, a command that acts on one board as an agent
-// it names (--as or ABOARD_AGENT) in a session with several seats and no --board:
-// naming the agent doesn't pick the board, --board does. It comes before
-// agent_ambiguous. Every entrypoint that acts as a named agent calls it.
-func (a *app) oneSeat(ctx context.Context, boardFlag string) error {
+// oneSeat checks remaining bound seats after explicit name, issuer and board filters.
+func (a *app) oneSeat(ctx context.Context, boardFlag, name string) error {
 	key, ok := a.sessionKey()
-	if !ok || boardFlag != "" {
+	if !ok {
 		return nil
 	}
 	seats, err := a.sessionAgents(ctx, key)
 	if err != nil {
-		return err // fail closed: the session's seats decide, so they must be known
+		return err
 	}
-	return boardAmbiguous(seats, boardFlag)
+	matching, err := a.filterAgentSeats(seats, boardFlag)
+	if err != nil {
+		return err
+	}
+	named := matching[:0]
+	for _, seat := range matching {
+		if seat.Name == name {
+			named = append(named, seat)
+		}
+	}
+	return qualifiedSeatAmbiguity(named)
 }
 
 // agentByName finds this machine's agent with a name. A name on several boards is
-// narrowed by --board, then by the board of this directory's .aboard file.
+// narrowed by explicit issuer and board, never by the working directory.
 func (a *app) agentByName(creds credentials, name, boardFlag string) (target, agentCredential, error) {
-	var cands []agentCredential
-	for _, c := range creds.Agents {
-		if c.Name == name && (boardFlag == "" || c.Board == boardFlag) {
-			cands = append(cands, c)
-		}
+	issuer, err := a.agentIssuer()
+	if err != nil {
+		return target{}, agentCredential{}, err
 	}
-	if len(cands) > 1 {
-		if p, ok, err := a.readProject(); err == nil && ok {
-			var here []agentCredential
-			for _, c := range cands {
-				if c.Board == p.Board && (p.Server.URL == "" || c.Server == p.Server.URL) {
-					here = append(here, c)
-				}
-			}
-			if len(here) == 1 {
-				return target{server: a.serverRefFor(here[0].Server), board: here[0].Board, source: boardFromProject}, here[0], nil
-			}
+	var cands []agentCredential
+	issuers := map[string]bool{}
+	for _, c := range creds.Agents {
+		issuers[c.Server] = true
+	}
+	a.qualifyAgentOutput = len(issuers) > 1
+	for _, c := range creds.Agents {
+		if c.Name == name && (boardFlag == "" || c.Board == boardFlag) && (issuer == "" || c.Server == issuer) {
+			cands = append(cands, c)
 		}
 	}
 	switch len(cands) {
@@ -117,38 +131,39 @@ func (a *app) agentByName(creds credentials, name, boardFlag string) (target, ag
 		if boardFlag != "" {
 			source = boardFromFlag
 		}
-		return target{server: a.serverRefFor(cands[0].Server), board: cands[0].Board, source: source}, cands[0], nil
+		server := a.serverRefFor(cands[0].Server)
+		a.selectedAgentServer = &server
+		return target{server: server, board: cands[0].Board, source: source}, cands[0], nil
 	case 0:
-		t, err := a.selectBoard(boardFlag)
-		if err != nil {
-			e := newError("agent_not_selected", "This machine has no agent named "+name+".",
-				"Join a board with aboard join and a join line, or pass --as with one of your agents.")
-			e.Details = map[string]any{"choices": []string{}, "board_source": selectedNone}
-			return target{}, agentCredential{}, e
-		}
-		cred, err := resolveAgent(name, "", creds, t)
-		return t, cred, err
+		e := newError("agent_not_selected", "This machine has no matching seat for "+name+".", "Choose a saved agent with --as, --server and --board; this command never uses a person's login.")
+		e.Details = map[string]any{"choices": []string{}, "board_source": selectedNone}
+		return target{}, agentCredential{}, e
 	}
 	boards := make([]string, 0, len(cands))
+	choices := make([]map[string]string, 0, len(cands))
 	for _, c := range cands {
 		boards = append(boards, c.Board)
+		choices = append(choices, map[string]string{"server": c.Server, "board": c.Board, "name": c.Name, "command": "aboard status --as " + commandWord(c.Name) + " --server " + commandWord(c.Server) + " --board " + commandWord(c.Board)})
 	}
 	slices.Sort(boards)
-	e := newError("agent_ambiguous",
-		fmt.Sprintf("This machine has an agent named %s on %d boards: %s.", name, len(boards), strings.Join(boards, ", ")),
-		"Pass --board with one of them.")
-	e.Details = map[string]any{"boards": boards}
+	e := newError("agent_ambiguous", fmt.Sprintf("This machine has %d matching seats for %s.", len(cands), name), "Choose one with --server and --board.")
+	e.Details = map[string]any{"boards": boards, "seats": choices}
 	return target{}, agentCredential{}, e
 }
 
 // sessionAgent returns the agent bound to the session. found is false when the session
-// holds no agent (on the --board board, if given). A session holds at most one agent.
+// holds no matching agent after issuer and board filters.
 func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.SessionKey, boardFlag string) (t target, cred agentCredential, found bool, err error) {
 	agents, err := a.sessionAgents(ctx, key)
 	if err != nil {
 		return target{}, agentCredential{}, false, err
 	}
-	if err := boardAmbiguous(agents, boardFlag); err != nil {
+	boundCount := len(agents)
+	agents, err = a.filterAgentSeats(agents, boardFlag)
+	if err != nil {
+		return target{}, agentCredential{}, false, err
+	}
+	if err := qualifiedSeatAmbiguity(agents); err != nil {
 		return target{}, agentCredential{}, false, err
 	}
 	var matching []delivery.AgentRef
@@ -158,6 +173,9 @@ func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.
 		}
 	}
 	if len(matching) == 0 {
+		if boundCount > 0 && (boardFlag != "" || a.agentServerFlag != "") {
+			return target{}, agentCredential{}, false, newError("agent_not_selected", "No bound agent seat matches this issuer and board.", "Run aboard status to see current seats, then pass their --server and --board.")
+		}
 		return target{}, agentCredential{}, false, nil
 	}
 	ag := matching[0]
@@ -171,7 +189,58 @@ func (a *app) sessionAgent(ctx context.Context, creds credentials, key delivery.
 	if boardFlag != "" {
 		source = boardFromFlag
 	}
+	server := a.serverRefFor(ag.Server)
+	a.selectedAgentServer = &server
 	return target{server: a.serverRefFor(ag.Server), board: ag.Board, source: source}, c, true, nil
+}
+
+func (a *app) agentIssuer() (string, error) {
+	if a.agentServerFlag == "" {
+		return "", nil
+	}
+	issuer, err := a.namedServer(a.agentServerFlag)
+	if err != nil {
+		return "", err
+	}
+	return issuer.URL, nil
+}
+
+func (a *app) filterAgentSeats(seats []delivery.AgentRef, board string) ([]delivery.AgentRef, error) {
+	issuer, err := a.agentIssuer()
+	if err != nil {
+		return nil, err
+	}
+	issuers := map[string]bool{}
+	for _, seat := range seats {
+		issuers[seat.Server] = true
+	}
+	a.qualifyAgentOutput = len(issuers) > 1
+	filtered := []delivery.AgentRef{}
+	for _, seat := range seats {
+		if (issuer == "" || seat.Server == issuer) && (board == "" || seat.Board == board) {
+			filtered = append(filtered, seat)
+		}
+	}
+	return filtered, nil
+}
+
+func qualifiedSeatAmbiguity(seats []delivery.AgentRef) error {
+	if len(seats) < 2 {
+		return nil
+	}
+	sorted := slices.Clone(seats)
+	slices.SortFunc(sorted, func(a, b delivery.AgentRef) int {
+		return strings.Compare(a.Server+"\x00"+a.Board, b.Server+"\x00"+b.Board)
+	})
+	boards := []string{}
+	choices := []map[string]string{}
+	for _, seat := range sorted {
+		boards = append(boards, seat.Board)
+		choices = append(choices, map[string]string{"server": seat.Server, "board": seat.Board, "name": seat.Name, "command": "aboard status --server " + commandWord(seat.Server) + " --board " + commandWord(seat.Board)})
+	}
+	e := newError("board_ambiguous", "This selection has several bound agent seats.", "Choose one with --server and --board, or run aboard status to see every seat.")
+	e.Details = map[string]any{"boards": boards, "seats": choices}
+	return e
 }
 
 // sessionAgents asks the daemon which agents are bound to the session.
@@ -231,7 +300,7 @@ func (a *app) bindSession(ctx context.Context, key delivery.SessionKey, agent de
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpBind, Harness: key.Harness, Session: key.ID, Agent: &agent})
 	if err != nil {
 		e := asError(err)
-		e.Hint = strings.TrimSpace(e.Hint + " The agent " + agent.Name + " exists; bind it to a session later with aboard resume " + agent.Name + ".")
+		e.Hint = strings.TrimSpace(e.Hint + " The agent " + agent.Name + " exists; bind it to a session later with aboard resume " + commandWord(agent.Name) + " --server " + commandWord(agent.Server) + " --board " + commandWord(agent.Board) + ".")
 		return nil, e
 	}
 	if resp.Previous == nil {
@@ -254,6 +323,7 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	use := usageOf("resume")
 	fs := a.flags("resume")
 	boardFlag := fs.String("board", "", "the board, when the agent's name is used on several")
+	serverFlag := fs.String("server", "", "the issuer of the saved agent seat")
 	pos, err := a.parse(fs, args, use, 1, 1)
 	if err != nil {
 		return err
@@ -267,6 +337,13 @@ func runResume(ctx context.Context, a *app, args []string) error {
 	creds, err := a.readCredentials()
 	if err != nil {
 		return err
+	}
+	if *serverFlag != "" {
+		srv, err := a.namedServer(*serverFlag)
+		if err != nil {
+			return err
+		}
+		creds.Agents = slices.DeleteFunc(creds.Agents, func(c agentCredential) bool { return c.Server != srv.URL })
 	}
 	t, cred, err := a.agentByName(creds, strings.TrimPrefix(pos[0], "@"), *boardFlag)
 	if err != nil {

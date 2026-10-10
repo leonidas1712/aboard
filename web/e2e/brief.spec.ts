@@ -91,7 +91,7 @@ function ownerToken(): string {
 
 async function openBoard(page: Page, board: string) {
   aboard("pair", "general", "--board", board, "--name", "writer", "--new");
-  const link = JSON.parse(aboard("open", "--json"));
+  const link = JSON.parse(aboard("open", "--board", board, "--json"));
   await page.goto(link.url);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();

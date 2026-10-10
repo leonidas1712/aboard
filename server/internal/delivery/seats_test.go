@@ -229,8 +229,8 @@ func TestAFailedJoinBindsNothing(t *testing.T) {
 	}
 }
 
-// The daemon vouches only for a session it knows, on the server its seats are on.
-func TestAJoinIsOnlyForAKnownSessionOnItsServer(t *testing.T) {
+// Only a known session can add seats through its issuer-bound delegation.
+func TestAJoinRequiresKnownSessionAndCanAddIssuer(t *testing.T) {
 	r, f := seatsRig(t)
 	if resp := r.join("unknown", "docs"); resp.Error == nil || resp.Error.Code != "session_unknown" {
 		t.Fatalf("unknown session: %+v", resp)
@@ -239,20 +239,16 @@ func TestAJoinIsOnlyForAKnownSessionOnItsServer(t *testing.T) {
 	r.bind("claude-code", "s1", reviewer)
 	elsewhere := delivery.AgentRef{Server: "https://team.example.com", Board: "docs"}
 	other := r.call(delivery.Request{Op: delivery.OpJoin, Harness: "claude-code", Session: "s1", Agent: &elsewhere})
-	if other.Error == nil || other.Error.Code != "session_on_another_server" || other.Error.Details["session_server"] != serverURL {
+	if other.Error != nil {
 		t.Fatalf("another server: %+v", other)
 	}
-	if f.joins != 0 {
+	if f.joins != 1 {
 		t.Errorf("the server was asked %d times", f.joins)
 	}
 }
 
-// Two first joins from one session to two servers, at once: exactly one gets a seat,
-// the other gets session_on_another_server, and only one seat is bound. Each join is
-// held where it has read the session's seats and not yet checked its server; both are
-// released together once both are there, or once the second is seen waiting for the
-// session's turn instead.
-func TestFirstJoinsToTwoServersAtOnceGiveOneSeat(t *testing.T) {
+// Concurrent first joins retain both issuer-bound seats after serialized admission.
+func TestFirstJoinsToTwoServersAtOnceRetainBothSeats(t *testing.T) {
 	arrived, waited, release := make(chan struct{}, 2), make(chan struct{}, 2), make(chan struct{})
 	r, f := seatsRigWith(t, func(cfg *delivery.Config) {
 		delivery.WithJoinHooks(cfg, delivery.JoinHooks{
@@ -286,21 +282,15 @@ func TestFirstJoinsToTwoServersAtOnceGiveOneSeat(t *testing.T) {
 	}
 	close(release)
 	wg.Wait()
-	ok, other := 0, 0
-	for _, a := range answers {
-		switch {
-		case a.Error == nil:
-			ok++
-		case a.Error.Code == "session_on_another_server":
-			other++
-		default:
-			t.Fatalf("join: %+v", a.Error)
+	for _, answer := range answers {
+		if answer.Error != nil {
+			t.Fatalf("join: %+v", answer.Error)
 		}
 	}
-	if ok != 1 || other != 1 || f.joins != 1 || len(f.saved) != 1 {
-		t.Fatalf("%d joined, %d refused, %d server joins, saved %v", ok, other, f.joins, f.saved)
+	if f.joins != 2 || len(f.saved) != 2 {
+		t.Fatalf("joins=%d saved=%v", f.joins, f.saved)
 	}
-	if got := r.agentsOf(); len(got) != 1 {
+	if got := r.agentsOf(); len(got) != 2 {
 		t.Fatalf("bound: %v", got)
 	}
 }

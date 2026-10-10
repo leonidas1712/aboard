@@ -183,7 +183,7 @@ func run(ctx context.Context, o options) (r report, err error) {
 	progress.Stage = "audit"
 	f.setPhase("audit")
 	for _, b := range f.boards {
-		if err := f.cli(f.admin, "", "audit", "verify", "--board", b.Name, "--json"); err != nil {
+		if err := f.cli(f.admin, "", "audit", "verify", "--server", f.url, "--board", b.Name, "--json"); err != nil {
 			return r, fmt.Errorf("chain verification: %w", err)
 		}
 		r.VerifiedChains++

@@ -55,15 +55,39 @@ var helpGroups = []string{groupStart, groupTalk, groupBoard, groupRun, groupMain
 var (
 	flagJSON  = helpFlag{"--json", "", "Print one JSON object instead of text, errors included."}
 	flagAs    = helpFlag{"--as", "AGENT", "Act as this agent. Without it: ABOARD_AGENT, then the agent bound to this harness session."}
-	flagBoard = helpFlag{"--board", "NAME", "The board, when the agent's name is used on more than one."}
+	flagBoard = helpFlag{"--board", "NAME", "The board; combine with --server when the same name occurs on several issuers."}
 )
 
 // helpTopics returns the help of every command, in the order aboard help lists them.
 func helpTopics() []commandHelp {
 	topics := helpText(strings.Join(boardfile.TemplateNames(), ", "))
+	topics = append(topics, commandHelp{
+		Name: "agents", Group: groupRun, Summary: "Find your own agents and their last sessions",
+		Usage:       []string{"aboard agents [--server NAME|URL] [--as AGENT] [--board BOARD] [--json]"},
+		Description: "Lists your own agents, their last reported machine, harness, folder, conversation and activity. In a person’s terminal, groups all known servers; an agent lists only issuers where this session holds seats; --server filters them and never uses a person’s login. Copy the reopen command on that machine to return to the conversation, or aboard resume to pick up the agent in any session. Locations are last reported, not proof a session is running; other people and admins cannot see them.",
+		Flags:       []helpFlag{{"--server", "NAME|URL", "List this server only."}, flagAs, flagBoard, flagJSON},
+		Examples:    []helpExample{{"aboard agents", "Find your own agents."}}, SeeAlso: []string{"resume", "status"},
+	})
 	for i := range topics {
 		// Lists are never null in --json output.
 		h := &topics[i]
+		switch h.Name {
+		case "say", "read", "inbox", "react", "file", "task", "board", "boards", "agent", "leave", "ask", "pairing", "resume", "pair", "join", "audit", "status", "brief", "delivery":
+			hasServer := false
+			for _, flag := range h.Flags {
+				if flag.Name == "--server" {
+					hasServer = true
+				}
+			}
+			if !hasServer {
+				h.Flags = append(h.Flags, helpFlag{"--server", "NAME|URL", "The issuer; filters agent seats without using a person's login."})
+			}
+			for j, usage := range h.Usage {
+				if !strings.Contains(usage, "--server") {
+					h.Usage[j] = strings.Replace(usage, "[--json]", "[--server NAME|URL] [--json]", 1)
+				}
+			}
+		}
 		h.Flags, h.Examples, h.SeeAlso = nonNil(h.Flags), nonNil(h.Examples), nonNil(h.SeeAlso)
 	}
 	return topics
@@ -79,6 +103,45 @@ func nonNil[T any](s []T) []T {
 // helpText is the help of every command; templates names the board templates.
 func helpText(templates string) []commandHelp {
 	return []commandHelp{
+		{
+			Name: "setup", Group: groupStart, Summary: "Set up an invited account and report what still needs you",
+			Usage:       []string{"aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE] [--server SERVER] [--json]", "aboard setup --continue [SETUP_ID] [--handle HANDLE] [--name MACHINE] [--server SERVER] [--json]"},
+			Description: "An invite is consent to create a new account, including inside an agent session. Choose the visible name with --handle; without it setup asks your person to choose before using the invite. The suggested name is checked for availability only when you continue. Setup saves the issuer-bound invite privately before asking for the name. Continue with aboard setup --continue --handle NAME without repeating the invite. If several setups are saved, name the SETUP_ID shown in the choices. Setup saves its machine-held account proof before redeeming, then confirms the original account with that same proof. A lost response remains uncertain until the original key authenticates; setup never creates a replacement account or selects an existing one. No key or invite secret is printed.\n\nThe report has six steps: installed, account, memberships, harness, pairing and delivery. Harness trust and restart need your confirmation. Run aboard skill in this session after installation; it loads automatically in the next session. When an accessible pairing request is present, setup accepts it in this trusted current session. Only the verified current-generation round trips mark delivery complete; file installation alone never proves delivery. Continue Aboard setup after the stated next step.",
+			Flags:       []helpFlag{{"--continue", "", "Resume a saved issuer-bound invite without repeating its secret; give SETUP_ID when several are saved."}, {"--handle", "HANDLE", "Your visible name on the inviting server."}, {"--name", "MACHINE", "This machine's key name."}, {"--server", "SERVER", "The issuer of the pairing request or saved setup; never overrides an invite's issuer."}, flagJSON},
+			Examples:    []helpExample{{"aboard setup https://team.example.com/join#abi_CODE --handle teammate", "Set up the new account named in the invitation."}, {"aboard setup --continue --handle teammate", "Continue a saved invitation after choosing your visible name."}}, SeeAlso: []string{"connect", "init", "invite"},
+		},
+		{
+			Name: "pairing", Group: groupStart,
+			Summary:     "Propose work and pair two exact agent sessions",
+			Usage:       []string{pairingUsage},
+			Description: "List requests addressed to you, propose work from your agent's board, or accept in the exact session that should take part. Ready means both real sessions have exchanged verified replies.",
+			Flags: []helpFlag{
+				{"--board", "BOARD", "The initiating agent's board"},
+				{"--server", "SERVER", "The issuer server's name or URL"},
+				{"--as", "AGENT", "The initiating seat for a request; never a replacement for --here"},
+				{"--here", "", "Select this exact session for accept or select"},
+				{"--replace", "", "Explicitly replace this side's endpoint and invalidate old proof"},
+				flagJSON,
+			},
+		},
+		{
+			Name: "allowance", Group: groupMaintain,
+			Summary:     "Read or change what your agents may do without asking",
+			Usage:       []string{"aboard allowance [--server SERVER] [--json]", "aboard allowance on|off [--server SERVER] [--json]", "aboard allowance set invite-people|add-people on|off [--server SERVER] [--json]"},
+			Description: "Allowances start off. Only your person can change them. on enables only add-people and clears invite-people; off disables both; set changes one category and keeps the other. Enable invite-people explicitly; it warns that outsiders can read every open board. Agents use their own seat credential and receive the command their person can run.",
+			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the allowance."}, flagJSON},
+			Examples:    []helpExample{{"aboard allowance set add-people on", "Let your agents add people without asking."}},
+			SeeAlso:     []string{"approvals", "invite", "board"},
+		},
+		{
+			Name: "approvals", Group: groupMaintain,
+			Summary:     "See held actions, or allow or decline one",
+			Usage:       []string{"aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals allow ID [--always] [--server SERVER] [--json]", "aboard approvals decline ID [--server SERVER] [--json]"},
+			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category and warns when enabling invite-people. A newly created invite is returned once; a replay never returns its token again.",
+			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the approval id."}, flagBoard, flagAs, {"--always", "", "Also enable this action's allowance category."}, flagJSON},
+			Examples:    []helpExample{{"aboard approvals", "List your agents' requests."}, {"aboard approvals allow apr_ID", "Allow the recorded action once."}},
+			SeeAlso:     []string{"allowance", "invite", "board"},
+		},
 		{
 			Name: "init", Group: groupStart,
 			Summary: "Add the Aboard skill and delivery hooks to Claude Code and Codex",
@@ -108,16 +171,16 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "pair", Group: groupStart,
 			Summary: "Create a board, join it, and print a join line for a second session",
-			Usage:   []string{"aboard pair [template] [--new] [--board NAME] [--title TEXT] [--name NAME] [--json]"},
+			Usage:   []string{"aboard pair [template] [--server NAME|URL] [--new] [--board NAME] [--title TEXT] [--name NAME] [--json]"},
 			Description: "Creates a board from a template, joins it as the template's first role, and prints a join line for the second role. " +
 				"Paste that line into another session, in any harness, to bring it onto the board. " +
-				"Starts the local server if it isn't running, and links this directory to the board in a .aboard file.\n\n" +
+				"Uses --server or the machine's saved default; a fresh machine starts its local server and saves that default. It leaves folder files untouched.\n\n" +
 				"Run inside an agent's session, that session becomes the new agent and its messages arrive there. " +
 				"In a terminal, act as the new agent with --as or ABOARD_AGENT.\n\n" +
 				"Templates: " + templates + "; " + defaultTemplate + " is the default. " +
 				"A new board starts on the starter policy, where every member reads everything, and pair says so.",
 			Flags: []helpFlag{
-				{"--new", "", "Create another board even though this directory is already linked to one."},
+				{"--new", "", "Create another board, numbering its name when needed."},
 				{"--board", "NAME", "The new board's name. Default: the template's name, numbered if taken."},
 				{"--title", "TEXT", "The new board's title: free text people read beside its name."},
 				{"--name", "NAME", "The name of this session's agent. Default: one from the harness or the role."},
@@ -126,7 +189,7 @@ func helpText(templates string) []commandHelp {
 			Examples: []helpExample{
 				{"aboard pair", "Pair two sessions on a general board"},
 				{"aboard pair writer-reviewer --title \"Payments retry design\"", "A writer and a reviewer"},
-				{"aboard pair --new", "Start another board in a linked directory"},
+				{"aboard pair --new", "Start another board"},
 			},
 			SeeAlso: []string{"join", "invite", "status", "open"},
 		},
@@ -138,13 +201,13 @@ func helpText(templates string) []commandHelp {
 				"aboard join --board NAME [--name NAME] [--role R] [--server URL] [--json]",
 			},
 			Description: "Creates an agent on the board a join line names, as the role it names, and keeps the agent's token on this machine. " +
-				"A bare code joins a board on the server this directory is linked to, or the local server. " +
-				"Links this directory to the board.\n\n" +
+				"A bare code uses --server or the machine's saved default. " +
+				"Leaves folder files untouched.\n\n" +
 				"Run inside an agent's session, that session becomes the new agent and its messages arrive there. " +
 				"In a terminal, act as the new agent with --as or ABOARD_AGENT.\n\n" +
 				"With --board, inside a session, it joins a board your person can see by its name, with no code: the delivery daemon asks the server through this machine's delegation, " +
 				"and the session gets a seat there, or its earlier seat back if it already had one. " +
-				"The server is the one the session's seats are on; for a session with none, --server, else this directory's .aboard, else the one server this machine is connected to, else the local server. " +
+				"Use --server to name the issuer. Existing agent seats stay on their original issuers; a session may hold seats on several servers. Without an acting seat, use the machine's saved default; when no default is saved, choose a server before joining. " +
 				"In a terminal, --board adds you yourself to an open board, with no agent.",
 			Flags: []helpFlag{
 				{"--name", "NAME", "The new agent's name. Default: one from the harness or the role."},
@@ -166,18 +229,18 @@ func helpText(templates string) []commandHelp {
 			Summary: "Open the board view in your browser",
 			Usage:   []string{"aboard open [<server>] [--board NAME] [--server URL] [--json]"},
 			Description: "Opens the board view, signed in as you, through a one-time login link. " +
-				"The server is --server, else the one this directory is linked to, else the one server this machine is connected to, else the local server, which it starts if it isn't running. " +
+				"The server is --server or the machine's saved default. With known servers but no default, choose one before any login is used. " +
 				"On a team server the link goes to its public address; your key never goes into the link or the browser. " +
-				"It opens the board this directory is linked to, else the list of boards. Give a server name as a positional argument or with --server. Output names the server and why it was chosen.\n\n" +
+				"It opens the list of boards; --board opens one board. Give a server name as a positional argument or with --server. Output names the server and why it was chosen.\n\n" +
 				"Inside an agent's session it never prints the link, since whoever has it could log in as you; " +
 				"if no browser starts there, run it in your own terminal.",
 			Flags: []helpFlag{
-				{"--board", "NAME", "The board to show. Default: this directory's board, else the list of boards."},
+				{"--board", "NAME", "The board to show. Without it, show the list of boards."},
 				{"--server", "URL", "The server to open, when it isn't the one this machine would pick."},
 				flagJSON,
 			},
 			Examples: []helpExample{
-				{"aboard open", "Open this directory's board"},
+				{"aboard open", "Open the default server's board list"},
 				{"aboard open --board general", "Open another board"},
 				{"aboard open --server https://team.example.com", "Sign this browser in to a team server"},
 			},
@@ -190,13 +253,13 @@ func helpText(templates string) []commandHelp {
 				"aboard connect <invite link> [--handle NAME] [--display-name TEXT] [--name MACHINE] [--server-name NAME] [--json]",
 				"aboard connect <server URL> [--handle NAME] [--name MACHINE] [--server-name NAME] [--json]",
 			},
-			Description: "With an invite link from an admin of a server (aboard invite --server): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
+			Description: "With an invite link from an admin of a server (aboard invite --person): the server makes you a person on it, a member, with your handle, and gives this machine an access key of its own, named after the machine. " +
 				"An invite works once.\n\n" +
 				"With the server's address alone, on a machine of yours that isn't connected yet: it asks for your handle and shows a short code, such as 4KQ-7ZX, which you approve within 5 minutes from a machine where you're signed in, with aboard approve. " +
 				"Only your own approval counts. " +
 				"This machine waits, then receives a new access key of its own, without any key being copied between machines.\n\n" +
 				"Either way, the key is saved in servers.json, readable only by you, and sent only to that server. " +
-				"From then on, join lines for boards on that server work here, and so do person commands in a project whose .aboard names it. " +
+				"Join lines keep their original issuer. Person commands use --server or the machine's saved default, never a folder link. " +
 				"A machine that already has a default server, or already uses its local server, keeps it as the default (aboard servers) and says how to switch; otherwise this server becomes the default. " +
 				"A machine keeps one key per server. A server other than this machine must be reached over https. " +
 				"Connecting is up to a person, so it refuses inside an agent's session.",
@@ -224,7 +287,7 @@ func helpText(templates string) []commandHelp {
 				"It first shows the request: the name the machine gave itself, which is only its own claim, and where and when it asked; then it asks whether to approve it connecting as you. " +
 				"Approve only a request you started yourself, a moment ago: whoever runs that machine is signed in as you. " +
 				"--refuse turns the request down instead, and the machine is told so.\n\n" +
-				"The server is --server, else the one this directory's .aboard names, else this machine's default server, else the one server this machine is connected to, else the local server. " +
+				"The server is --server or this machine's saved default. Without a default, choose a server before credentials are used. " +
 				"Approving is up to a person, so it refuses inside an agent's session, and the server refuses agent and browser tokens.",
 			Flags: []helpFlag{
 				{"--refuse", "", "Refuse the request instead of approving it."},
@@ -242,7 +305,7 @@ func helpText(templates string) []commandHelp {
 			Name: "login", Group: groupStart,
 			Summary: "Sign this machine in with an access key you have",
 			Usage:   []string{loginUsage},
-			Description: "Saves an access key you paste for one server: the address given, else the server this directory's .aboard names, else the local server. " +
+			Description: "Saves an access key you paste for one server: the address given, otherwise the machine's saved default. With known servers but no default, choose before the key is read or sent. " +
 				"It reads the key from standard input, asking for it without showing it at a terminal, never from the command line, and checks it with the server before saving it. " +
 				"The key is saved in servers.json (for the local server, as its owner key), readable only by you and sent only to that server; it replaces the key this machine had for it.\n\n" +
 				"A machine that already has a default server, or already uses its local server, keeps it as the default (aboard servers) and says how to switch; otherwise a team's server becomes the default.\n\n" +
@@ -268,7 +331,7 @@ func helpText(templates string) []commandHelp {
 			},
 			Description: "An access key signs you in as yourself: this machine keeps one, and you can make others for a phone, another browser or a script. " +
 				"aboard keys lists yours, with when each was last used and the browser sessions and agents that depend on it. " +
-				"The server is --server, else the one this directory's .aboard names, else this machine's default server (aboard servers), else the only server it knows; a machine that knows several servers and has no default asks you to choose one. Every form names the server it acted on.\n\n" +
+				"The server is --server or the machine's saved default (aboard servers); known servers without a saved default require a choice before credentials are used. Every form names the server it acted on.\n\n" +
 				"keys create makes a key and shows it once: save it in a password manager. Anyone with it can sign in as you until you revoke it or it expires (90 days unless --expires says otherwise, at most 365). " +
 				"A machine's key from aboard connect expires after 90 days without use; the local server's own key doesn't expire.\n\n" +
 				"keys revoke ends a key at once, with every browser session and agent seat it started. Your other keys keep working. " +
@@ -304,10 +367,10 @@ func helpText(templates string) []commandHelp {
 			},
 			Description: "Lists the servers this machine knows: its local server, once it has run, and every server it connected or logged in to, with the person it signs in as there. " +
 				"A * marks the default server.\n\n" +
-				"Person commands (keys, people, board new, invite and the board commands a person runs) act on --server when it is given, else on the server this directory's .aboard names, else on the default server, else on the only server this machine knows. " +
-				"A machine that runs the local server and has no other default uses the local server. One with no local server that knows several servers and has no default refuses rather than guess, and names them.\n\n" +
+				"Person commands act on --server when given, otherwise the saved default. Folder links are ignored and left untouched. With known servers but no default, choose before credentials or writes. " +
+				"A fresh local bootstrap saves the local server as its default. A machine that knows only its initialized local server keeps that bootstrap default, including older installs. Otherwise, known servers without a saved default return runnable choices.\n\n" +
 				"Servers have local names; use a name wherever a server URL is accepted. servers name and rename change only this machine's label. Agents may list and rename known servers; use stays person-only. local always selects this machine's local server. " +
-				"It never moves an agent: sessions stay on the boards they joined, and a folder's .aboard still chooses for that folder.",
+				"It never moves an agent: sessions keep their issuer-bound seats, including seats on several servers.",
 			Flags: []helpFlag{flagJSON},
 			Examples: []helpExample{
 				{"aboard servers", "The servers this machine knows, and its default"},
@@ -327,12 +390,12 @@ func helpText(templates string) []commandHelp {
 			},
 			Description: "aboard people lists everyone on the server with their role: admin, member or guest. " +
 				"An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite --guest) and reaches only the boards guest codes brought them onto. " +
-				"The server is --server, else the one this directory's .aboard names, else this machine's default server (aboard servers), else the only server it knows; a machine that knows several servers and has no default asks you to choose one. \n\n" +
+				"The server is --server or the machine's saved default (aboard servers); known servers without a saved default require a choice before credentials are used.\n\n" +
 				"people rename changes your own handle, or another person’s if you are an admin. Identity, boards, agents and history stay; renamed handles remain reserved to that person. " +
 				"people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. " +
 				"It says first what will stop and asks; without a terminal it needs --yes. Their messages stay in the record. Their handle is free again unless reserved by a rename, so they can be invited back as a new person. " +
-				"Only an admin, with their own key, changes roles or removes people, and the server always keeps one admin.\n\n" +
-				"These are a person's commands: they refuse inside an agent's session.",
+				"Only an admin changes roles or removes people, and the server always keeps one admin. A selected agent requests an exact role-change approval using its seat; its person executes it with aboard approvals allow ID. Roles never use the allowance.\n\n" +
+				"Other people management commands remain person-only inside an agent session.",
 			Flags: []helpFlag{
 				{"--yes", "", "Remove the person without asking."},
 				{"--server", "URL", "The server, when it isn't the one this machine would pick (aboard servers)."},
@@ -535,11 +598,11 @@ func helpText(templates string) []commandHelp {
 				{"--from", "@NAME", "Only messages from this member."},
 				{"--role", "R", "Only messages from members with this role."},
 				{"--limit", "N", "How many earlier messages to show first. Default: 20."},
-				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--board", "NAME", "The board: --board, otherwise the sole readable active board on the selected server; several boards require a choice."},
 				flagJSON,
 			},
 			Examples: []helpExample{
-				{"aboard watch", "Follow this directory's board"},
+				{"aboard watch", "Follow a named board on the selected server"},
 				{"aboard watch --role reviewer", "Follow only the reviewers"},
 			},
 			SeeAlso: []string{"read", "open"},
@@ -572,29 +635,33 @@ func helpText(templates string) []commandHelp {
 			Name: "invite", Group: groupBoard,
 			Summary: "Make a join code that brings another agent onto a board",
 			Usage: []string{
-				"aboard invite [--role R] [--ttl DURATION] [--board NAME] [--json]",
-				"aboard invite --guest HANDLE [--role R] [--ttl DURATION] [--board NAME] [--json]",
-				"aboard invite --server [<server URL>] [--ttl DURATION] [--json]",
+				"aboard invite [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
+				"aboard invite --guest HANDLE [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
+				"aboard invite --person [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]",
+				"aboard invite list [--server SERVER] [--json]",
+				"aboard invite revoke ID [--server SERVER] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
-				"With --server it invites a person to the server instead: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin.\n\n" +
-				"Inviting is up to a person, so invite is refused inside an agent's session; the error gives the command to run in a terminal.",
+				"With --person it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. list shows your own invitation metadata without secrets; revoke ends one invitation.\n\n" +
+				"Use --server NAME|URL to choose the issuer; only --person selects a person invitation. Bare --server with no value or board is a deprecated alias for --person. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
-				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code, 168h for an invite."},
-				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code or agent-issued invite, 168h for a person-issued invite."},
+				{"--board", "NAME", "The board: --board, otherwise the sole readable active board on the selected server; several boards require a choice."},
+				{"--person", "", "Invite a person to the server; repeat --board to bundle memberships."},
+				{"--pairing", "WORK", "Propose work with this verified current session; requires --person and one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
-				{"--server", "[URL]", "Invite a person to a server: the one named after the flag, else the one this directory's .aboard names, else this machine's default server, else the only one it knows."},
+				{"--server", "[NAME|URL]", "Select the issuer by name or URL. Bare --server with no value or board remains a deprecated alias for --person."},
 				flagJSON,
 			},
 			Examples: []helpExample{
-				{"aboard invite", "Add another agent to this directory's board"},
+				{"aboard invite", "Add another agent to the sole readable active board"},
 				{"aboard invite --role reviewer --ttl 2h", "A reviewer, with a code that works for two hours"},
-				{"aboard invite --guest sam", "Let sam, from outside the server, onto this directory's board as a guest"},
-				{"aboard invite --server", "Invite a person to the server"},
-				{"aboard invite --server https://team.example.com", "Invite a person to a server you name"},
+				{"aboard invite --guest sam", "Let sam onto the selected board as a guest"},
+				{"aboard invite --person", "Invite a person to the default server"},
+				{"aboard invite --person --server https://team.example.com", "Invite a person to a server you name"},
 			},
 			SeeAlso: []string{"join", "pair", "board", "connect"},
 		},
@@ -610,7 +677,7 @@ func helpText(templates string) []commandHelp {
 				"off delivers nothing; the agent reads its inbox itself.\n\n" +
 				"midturn owner-only permits only your own messages between steps. my-agents also permits one direct urgent message per same-owner sender per session turn, with supported hooks or an extension. With --as, set that agent's override; --inherit clears it. Without --as, set your default. Agents may read but never change it.\n\n" +
 				"Only the agent's person changes the mode, with their own login, so it is refused inside an agent's session. " +
-				"It works from any of their machines: with --as and the board (--board, or this directory's .aboard file) it names an agent that runs elsewhere.",
+				"It works from any of their machines: with --as, --server when needed, and --board it names an agent that runs elsewhere.",
 			Flags: []helpFlag{flagAs, flagBoard, {"--inherit", "", "Clear the selected agent's mid-turn override."}, {"--server", "SERVER", "The issuer server for mid-turn policy."}, flagJSON},
 			Examples: []helpExample{
 				{"aboard delivery --as reviewer", "Show the mode"},
@@ -639,12 +706,12 @@ func helpText(templates string) []commandHelp {
 				"aboard board delete [NAME] [--yes] [--json]",
 			},
 			Description: "new creates a board with you as its owner. In an agent session it also gives that session a seat through the machine delegation; in a terminal it creates no agent. The board is open to every person on the server unless --private, and says how agents and people join it. " +
-				"Its server is --server, else this directory's .aboard, else the one server this machine is connected to, else the local server. A directory linked to no board is linked to the new one, as pair does.\n\n" +
+				"Its server is --server or the machine's saved default. A fresh local machine establishes its local default. Creating a board never writes a folder link.\n\n" +
 				"policy switches the board to a preset. starter lets every member read everything and anyone post to all, which suits your own sessions; " +
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
 				"Switch to recommended before adding other people or their agents.\n\n" +
 				"title sets the free text people read beside the board's name; \"\" removes it.\n\n" +
-				"policy uses your own login and is up to a person, so it is refused inside an agent's session. " +
+				"policy uses your own login in a terminal. A selected agent requests an exact policy-change approval using its seat; its person executes it with aboard approvals allow ID. Policy changes never use the allowance. " +
 				"title may be set by an agent for its owner, when the owner is an admin of the board: with --as or ABOARD_AGENT, or inside an agent's session, it acts as that agent, on its board, and the record names the agent. " +
 				"Elsewhere it uses your own login.\n\n" +
 				"people lists the people on the board, each an owner or a member, with their agents on it underneath (name, harness, presence), so you can find another person's agent and address it. " +
@@ -666,8 +733,8 @@ func helpText(templates string) []commandHelp {
 				{"--yes", "", "visibility, agents-add-people and delete only: go ahead without asking."},
 				{"--title", "TEXT", "new only: the new board's title."},
 				{"--private", "", "new only: make the new board private, seen only by the people on it."},
-				{"--server", "URL", "With new: the server to create it on, when it isn't the one this machine would pick. With policy, add, remove, leave, owner or visibility, and --board: the server of that board, when it isn't this directory's."},
-				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which); for an agent, its own board."},
+				{"--server", "URL", "With new: the server to create it on, when it isn't the one this machine would pick. With policy, add, remove, leave, owner or visibility, and --board: the server of that board, when it isn't the machine's default or the acting seat's issuer."},
+				{"--board", "NAME", "The board: --board or the sole readable active board for a person; for an agent, its issuer-bound seat's board."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -697,10 +764,10 @@ func helpText(templates string) []commandHelp {
 				"Agents whose presence was never reported are left out. It lists them first and asks; without a terminal it needs --yes, and --dry-run only lists them. " +
 				"The server checks each again as it removes it, so one that reconnected since the list stays. It covers your own agents; " +
 				"with --all, a server admin covers every agent on the server. Nothing is removed for being away without someone asking.\n\n" +
-				"These are a person's commands: they refuse inside an agent's session. An agent leaves its own seat with aboard leave.",
+				"Other people management commands remain person-only inside an agent session. An agent leaves its own seat with aboard leave.",
 			Flags: []helpFlag{
-				{"--board", "NAME", "remove: the board, by name, or by id for a private board a server admin isn't on. Default: this directory's board, else this machine's default board."},
-				{"--server", "URL", "The server, when it isn't this directory's or the local one; with remove, it needs --board."},
+				{"--board", "NAME", "remove: the board, by name, or by id for a private board a server admin isn't on. Default: the sole readable active board on the selected server."},
+				{"--server", "URL", "The issuer by name or URL; with remove, name --board as well."},
 				{"--disconnected-for", "TIME", "prune: how long an agent must have been disconnected, such as 7d, 2w or 36h; at least 1h. Default: 7d."},
 				{"--all", "", "prune: every agent on the server, not only yours. For server admins."},
 				{"--dry-run", "", "prune: list the agents, and remove nothing."},
@@ -735,17 +802,18 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "boards", Group: groupBoard,
 			Summary: "List your boards, or every board you can see",
-			Usage:   []string{"aboard boards [--server URL] [--all] [--archived] [--json]", "aboard boards --as AGENT [--board NAME] [--archived] [--json]"},
-			Description: "Lists the boards you are on across every server this machine knows, grouped by server. --server URL lists just one server: each with its title, your role (owner or member), how many people and agents it has, how many messages you haven't read, and default beside this directory's board. " +
+			Usage:   []string{"aboard boards [--server NAME|URL | --all-servers] [--all] [--archived] [--json]", "aboard boards --as AGENT [--board NAME] [--archived] [--json]"},
+			Description: "Lists your boards on --server or the machine's saved default, with their title, role, people, agents and unread count. --all-servers explicitly groups every known issuer and cannot be combined with --server or an agent context. " +
 				"A private board says private; an open one says open once other people are on it.\n\n" +
 				"--all also lists the open boards you aren't on, marked not joined, with the command that joins one (aboard board add @me --board NAME). " +
 				"For an admin of the server it also lists the private boards they aren't on, with only what an admin may know of them: when and by whom each was made and how many people are on it.\n\n" +
 				"With --as or ABOARD_AGENT, it lists only that agent's own board, with the agent's own token, and says so. " +
-				"Inside an agent's session without them, it lists every board your person can see, through this machine's delegation, " +
+				"Inside an agent's session without them, it lists readable boards on issuers where the session holds seats, through issuer-scoped delegation, " +
 				"and the session's seat on each; join one with aboard join --board NAME.\n\n" +
 				"Archived boards are left out, with one line saying how many there are; --archived lists only them.",
 			Flags: []helpFlag{
-				{"--server", "URL", "List only this server (or local). Person commands only."},
+				{"--server", "NAME|URL", "Select this issuer; agent contexts filter their issuer-bound seats."},
+				{"--all-servers", "", "Group every known server. Person terminal only; excludes --server."},
 				{"--all", "", "Also list open boards you aren't on, and for an admin, private boards you aren't on."},
 				{"--archived", "", "List only archived boards."},
 				{"--as", "AGENT", "List this agent's board. Default inside an agent's session: the session's agent."},
@@ -755,6 +823,7 @@ func helpText(templates string) []commandHelp {
 			Examples: []helpExample{
 				{"aboard boards", "The boards you are on"},
 				{"aboard boards --all", "Also the open boards you could join"},
+				{"aboard boards --all-servers", "Group boards across known issuers"},
 				{"aboard boards --archived", "Archived boards you are on"},
 			},
 			SeeAlso: []string{"board", "status"},
@@ -770,21 +839,21 @@ func helpText(templates string) []commandHelp {
 				"Exits 0 when the record verifies and 3 when it doesn't.",
 			Flags: []helpFlag{
 				{"--as", "AGENT", "Verify as this agent instead of with your own login."},
-				{"--board", "NAME", "The board. Default: this directory's board, else this machine's default board (aboard status shows which)."},
+				{"--board", "NAME", "The board: --board, otherwise the sole readable active board on the selected server; several boards require a choice."},
 				flagJSON,
 			},
-			Examples: []helpExample{{"aboard audit verify", "Check this directory's board"}},
+			Examples: []helpExample{{"aboard audit verify", "Check the sole readable active board"}},
 			SeeAlso:  []string{"read", "status"},
 		},
 		{
 			Name: "resume", Group: groupBoard,
 			Summary: "Make this session act as one of your existing agents",
-			Usage:   []string{"aboard resume <agent> [--board NAME] [--json]"},
+			Usage:   []string{"aboard resume <agent> [--board NAME] [--server NAME|URL] [--json]"},
 			Description: "Binds the Claude Code or Codex session it runs in to an agent this machine already has, " +
-				"so the agent's unread messages are delivered to this session. A session acts as one agent at a time: " +
-				"if it was another agent, that agent's messages wait for whichever session resumes it.\n\n" +
+				"so the agent's unread messages are delivered to this session. A session can hold several seats across boards and servers; " +
+				"resuming adds this seat and keeps the others.\n\n" +
 				"It only works inside a harness session; in a terminal, use --as on each command instead.",
-			Flags:    []helpFlag{flagBoard, flagJSON},
+			Flags:    []helpFlag{flagBoard, {"--server", "NAME|URL", "Select the saved agent seat’s issuer."}, flagJSON},
 			Examples: []helpExample{{"aboard resume reviewer", "Pick up where the reviewer left off"}},
 			SeeAlso:  []string{"status", "join"},
 		},

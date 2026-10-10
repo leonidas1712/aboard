@@ -370,7 +370,6 @@ func TestPersonCommandsRefuseWhenActingForAnAgent(t *testing.T) {
 		{"approve", "AAA-AAA", "--yes", "--server", counter},
 		{"approve", "AAA-AAA", "--refuse", "--server", counter},
 		{"connect", counter},
-		{"connect", counter + "/join#abi_x"},
 		{"login", counter},
 		{"keys", "--server", counter},
 		{"keys", "create", "x", "--server", counter},
@@ -427,7 +426,17 @@ func TestPersonCommandsRefuseWhenActingForAnAgent(t *testing.T) {
 		{"uninstall", "--data", "--yes"},
 	} {
 		r := fresh.exec(agent, "", append(args, "--json")...)
-		if r.code != 1 || errorCode(t, r.json(t)) != "human_command_in_session" {
+		want := "human_command_in_session"
+		if args[0] == "board" && args[1] == "policy" {
+			want = "agent_not_selected"
+		}
+		if args[0] == "invite" && len(args) > 1 && args[1] == "--server" {
+			want = "agent_session_required"
+			if field(t, r.json(t), "error.next.command") != "aboard boards" {
+				t.Fatalf("missing join handover: %s", r)
+			}
+		}
+		if r.code != 1 || errorCode(t, r.json(t)) != want {
 			t.Fatalf("%v with ABOARD_AGENT set:\n%s", args, r)
 		}
 	}

@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -108,7 +109,17 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 			adapters = append(adapters, ad)
 		}
 	}
+	var pairingMu sync.Mutex
+	pairings := map[string]delivery.PairingRuntime{}
 	err = delivery.Run(ctx, delivery.Config{
+		PairingFor: func(server string) delivery.PairingRuntime {
+			pairingMu.Lock()
+			defer pairingMu.Unlock()
+			if pairings[server] == nil {
+				pairings[server] = apiserver.NewPairing(server, daemonTokens{a: a}, filepath.Join(p.state, "pairing-endpoints"))
+			}
+			return pairings[server]
+		},
 		AllowBriefNudge: a.allowBriefNudge,
 		Journal:         journal,
 		ResolveAgent:    (daemonTokens{a: a}).ResolveAgent,
@@ -392,7 +403,11 @@ func (a *app) callDaemon(ctx context.Context, req delivery.Request) (delivery.Re
 		return delivery.Response{}, daemonGone(err)
 	}
 	if resp.Error != nil {
-		return resp, &Error{Code: resp.Error.Code, Message: resp.Error.Message, Hint: resp.Error.Hint, Details: resp.Error.Details}
+		hint := resp.Error.Hint
+		if resp.Error.Code == "session_on_another_server" {
+			hint = "This daemon supports only one issuer per session; upgrade Aboard and restart the daemon before retrying. Existing seats were kept."
+		}
+		return resp, &Error{Code: resp.Error.Code, Message: resp.Error.Message, Hint: hint, Details: resp.Error.Details}
 	}
 	return resp, nil
 }

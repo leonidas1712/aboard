@@ -114,7 +114,7 @@ func TestRemovingAPersonFromTheServerFromTheCLI(t *testing.T) {
 		t.Fatalf("the new maya's id: %v", id)
 	}
 	tm.link(again, board)
-	if r := again.runExit("board", "people", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
+	if r := again.runExit("board", "people", "--board", board, "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
 		t.Fatalf("the new maya looking at the old maya's private board:\n%s", r)
 	}
 	sam.run("audit", "verify")
@@ -149,13 +149,13 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 	other := tm.newBoard(tm.admin, "open")
 	tm.link(maya, board)
 
-	inv := maya.run("invite", "--guest", "sam", "--json").json(t)
+	inv := maya.run("invite", "--guest", "sam", "--board", board, "--json").json(t)
 	matchesCLISpec(t, "GuestInviteOutput", inv)
 	line := inv["join_line"].(string)
 	if !strings.HasPrefix(line, "Join Aboard board "+board+" on localhost:"+tm.admin.port()+" as guest with code ") || inv["guest"] != "sam" {
 		t.Fatalf("the guest invite: %v", inv)
 	}
-	text := maya.run("invite", "--guest", "@lee")
+	text := maya.run("invite", "--guest", "@lee", "--board", board)
 	if !strings.HasPrefix(text.stdout, "Created a guest code for board "+board+" on "+tm.url()+": guest lee's agent joins it from outside the server, once, within 24 hours. The guest handle is the person, not the agent name; join without --name to choose an agent name. "+
 		"Anyone with the code can use it, so give it only to lee.\n\nGive this to lee, to paste into their agent's session:\n\nJoin Aboard board "+board) ||
 		!strings.HasSuffix(text.stdout, "\n"+invitePrompt+"\n") {
@@ -196,8 +196,8 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 	if woke.code != 2 || !strings.Contains(woke.stderr, `sender="other_person"`) || !strings.Contains(woke.stderr, "Welcome, sam.") {
 		t.Fatalf("the guest's session should wake with maya's message\n%s", woke)
 	}
-	expectLines(t, maya.run("board", "people"), board+" · private · 2 people", "  maya (owner)", "  sam (guest)", "    @claude · claude-code · working")
-	if got := field(t, maya.run("board", "people", "--json").json(t), "people.1.server_role"); got != "guest" {
+	expectLines(t, maya.run("board", "people", "--board", board), board+" · private · 2 people", "  maya (owner)", "  sam (guest)", "    @claude · claude-code · working")
+	if got := field(t, maya.run("board", "people", "--board", board, "--json").json(t), "people.1.server_role"); got != "guest" {
 		t.Fatalf("the guest's server role: %v", got)
 	}
 	expectLines(t, tm.admin.run("people"), "People on "+tm.url()+":", "  HANDLE  SERVER ROLE  NAME", "  @alex   admin", "  @maya   member", "  @sam    guest")
@@ -229,7 +229,7 @@ func TestAGuestJoinsFromTheCLI(t *testing.T) {
 	if again := s2.run("join", second, "--json").json(t); field(t, again, "board.name") != other || again["guest"] == true {
 		t.Fatalf("sam's second guest code: %v", again)
 	}
-	boards = guest.run("boards", "--json").json(t)
+	boards = guest.run("boards", "--server", "http://localhost:"+tm.admin.port(), "--json").json(t)
 	if list := boards["boards"].([]any); len(list) != 2 {
 		t.Fatalf("sam's boards in a terminal: %v", boards)
 	}
