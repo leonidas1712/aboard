@@ -35,7 +35,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	lines := held.lines()
 	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on "+url+" · pairing-test") ||
 		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server "+quoted) ||
-		!strings.Contains(lines[2], "aboard pairing select ID --here") {
+		lines[2] != "Continue after your person allows or declines this exact action." {
 		t.Fatalf("the held invite:\n%s", held)
 	}
 	approval := strings.Fields(lines[0])[2]
@@ -44,18 +44,12 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	if list := leo.run("approvals"); !strings.Contains(list.stdout, approval+" · invite people · @claude · board pairing-test · pending") {
 		t.Fatalf("approvals:\n%s", list)
 	}
-	allowed := leo.run("approvals", "allow", approval)
-	link, request := "", ""
-	for _, f := range strings.Fields(allowed.stdout) {
-		if strings.HasPrefix(f, url+"/join#abi_") {
-			link = f
-		}
-		if strings.HasPrefix(f, "prq_") {
-			request = f
-		}
-	}
-	if !strings.HasPrefix(allowed.stdout, approval+" · executed on "+url+"\n") || link == "" || request == "" ||
-		!strings.Contains(allowed.stdout, "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent.") {
+	allowed := leo.run("approvals", "allow", approval, "--json")
+	approved := allowed.json(t)
+	link := field(t, approved, "invite.link").(string)
+	request := field(t, approved, "invite.pairing_request_id").(string)
+	if field(t, approved, "approval.state") != "executed" || !strings.HasPrefix(link, url+"/join#abi_") || request == "" ||
+		field(t, approved, "invite.prompt") != "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent." {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
 	if r := ls.run("pairing", "select", request, "--here"); !strings.HasPrefix(r.stdout, request+" · board pairing-test · awaiting_account") {
