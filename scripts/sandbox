@@ -406,6 +406,8 @@ $state: $dir
   ABOARD_HOME: $ABOARD_HOME
   Board view:  $ui_url
 $notes
+This sandbox shell uses the dev build. Other terminals may use your installed aboard.
+Run aboard commands here; check the prompt starts with $prefix.
 Start claude, codex or omp here; each uses this sandbox's folder for it.
 To run a newer build in it: make sandbox-update NAME=$name. Remove everything with
 make sandbox-clean NAME=$name.
@@ -473,6 +475,7 @@ team-start)
 	ABOARD_SANDBOXES="$root" TEAM="$team" SANDBOX_CMD=: "$repo/scripts/sandbox" open leo >/dev/null
 	echo "Team $team: $(cat "$team_dir/url")"
 	echo "Open the admin: make sandbox NAME=leo TEAM=$team"
+	echo "Run aboard commands only in the (aboard:<person>@$team) shells; other terminals may use the installed binary."
 	;;
 team-stop)
 	team_tool stop

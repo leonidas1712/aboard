@@ -37,9 +37,15 @@ func TestSandboxTeamKeepsPeopleAndRealHomesSeparate(t *testing.T) {
 		}
 	}
 	t.Cleanup(func() { _ = sandboxCmd(home, extra, "team-clean", "qa").Run() })
-	sandboxScript(t, home, extra, "team-start", "qa")
+	banner := sandboxScript(t, home, extra, "team-start", "qa")
+	if !strings.Contains(banner, "(aboard:<person>@qa) shells") {
+		t.Fatalf("missing dev-build reminder: %s", banner)
+	}
 	for _, person := range []string{"leo", "maya"} {
 		out := sandboxScript(t, home, append(extra, "TEAM=qa", "SANDBOX_CMD=printf 'HOME=%s\\n' \"$HOME\"; aboard servers --json; aboard people --server \"$ABOARD_SANDBOX_TEAM_URL\" --json || true"), "open", person)
+		if !strings.Contains(out, "This sandbox shell uses the dev build. Other terminals may use your installed aboard.") {
+			t.Fatalf("missing binary distinction: %s", out)
+		}
 		if !strings.Contains(out, "HOME="+filepath.Join(home, ".aboard-sandboxes", "teams", "qa", "people", person, "home")) {
 			t.Fatalf("person home missing: %s", out)
 		}

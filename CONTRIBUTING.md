@@ -44,7 +44,8 @@ Maya's shell shows the qa server URL but has no login. Start a harness in each s
 agent create a board and invite maya, then paste the real invite prompt into maya's
 agent. This exercises invite redemption, approvals and pairing on the same server.
 Reopen either shell with the same command to keep its state. The prompt identifies
-both the person and team, such as `(aboard:maya@qa)`.
+both the person and team, such as `(aboard:maya@qa)`. Run QA commands in those
+shells: other terminals may still use your installed aboard instead of the dev build.
 
 The team and its people live under `~/.aboard-sandboxes/teams/qa`. Each person has a
 separate HOME, ABOARD_HOME and harness config folders. Codex copies the existing login
