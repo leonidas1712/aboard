@@ -100,8 +100,11 @@ func TestAGuestJoinsWithNoTokenAndSeesOneBoard(t *testing.T) {
 		t.Fatalf("the guest's agent making a pairing code: %s", c)
 	}
 	people, err := s.client(kim).ListServerPeopleWithResponse(ctx, nil)
-	if c := errorCode(t, people, err, 403); c != "human_token_required" {
+	if c := errorCode(t, people, err, 403); c != "guest_not_allowed" {
 		t.Fatalf("the guest's agent listing the server's people: %s", c)
+	}
+	if people.JSON200 != nil {
+		t.Fatal("the guest's agent received the server directory")
 	}
 	onBoard, err := s.client(s.owner).ListPeopleWithResponse(ctx, boardName)
 	mustStatus(t, onBoard, err, 200)
