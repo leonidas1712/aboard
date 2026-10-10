@@ -65,6 +65,7 @@ function onboarding(): Shot[] {
     { name: "ob-board-verifying", query: `${alex}&step=5&board=api-review` },
     { name: "ob-board-ready", query: `${alex}&step=6&board=api-review` },
     { name: "ob-join-page", query: `${sam}&step=1&join=1` },
+    { name: "ob-join-lab-panel", query: `${sam}&step=1&join=1`, click: "button[data-lab]" },
     { name: "ob-join-terminal", query: `${sam}&step=1&join=1`, click: "button:has-text('Set it up in a terminal')" },
     { name: "ob-pairing-in-new", query: `${sam}&step=2&inbox=1` },
     { name: "ob-pairing-in-choose", query: `${sam}&step=2&inbox=1&item=prq_01K7Q2R9MB4XH7TN2QW6KZ8CJD`, click: ".ob-pairing button:has-text('Choose an agent')" },

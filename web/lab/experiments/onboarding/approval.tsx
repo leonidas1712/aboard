@@ -14,11 +14,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { Approval } from "../../onboarding";
 import { inviteWarning } from "../../onboarding";
-import { at, labHref } from "../../store";
-import { ago, Mark, useNow } from "../common";
+import { at, labHref, scenario } from "../../store";
+import { ago, useNow } from "../common";
 import { Command, Done, Fields, Warning } from "./parts";
 import { decide, useOnboarding } from "./state";
-import { alwaysAsks, byline, commands, did, until, wants } from "./words";
+import { AgentTitle, agentRow, boardRow } from "./who";
+import { alwaysAsks, byline, commands, did, serverWide, until, wantsRest } from "./words";
 
 export function ApprovalDetail({ a, onShowInvite }: { a: Approval; onShowInvite?: (id: string) => void }) {
   const now = useNow();
@@ -26,40 +27,34 @@ export function ApprovalDetail({ a, onShowInvite }: { a: Approval; onShowInvite?
   const [confirming, setConfirming] = useState(false);
   const why = alwaysAsks(a.action);
   const invite = a.action.kind === "invite_people";
-  const rows: [string, React.ReactNode][] = [];
   const act = a.action;
+  // What it wants (the title), then Agent and Board, then the action's own fields.
+  const rows: [string, React.ReactNode][] = [agentRow(a.agent, scenario.me), boardRow(a.board, serverWide(act))];
   if (act.kind === "invite_people") {
     rows.push(["Invite", `One new person, as a member. The invite works once, for ${act.ttl_hours} hours.`]);
-    if (act.boards.length) rows.push(["Boards", `${act.boards.join(", ")}, as a member`]);
+    if (act.boards.length) rows.push(["Joins", `${act.boards.join(", ")}, as a member`]);
     if (act.pairing) rows.push(["Pairing", <span key="p">{a.agent} asks the new person&apos;s agent to pair on: &ldquo;{act.pairing.work}&rdquo;</span>]);
   } else if (act.kind === "add_people") {
-    rows.push(["Person", act.person]);
-    rows.push(["Board", `${act.board}, as a member`]);
+    rows.push(["Person", act.person], ["Change", `joins ${act.board} as a member`]);
   } else if (act.kind === "set_server_role") {
-    rows.push(["Person", act.person]);
-    rows.push(["Change", act.role === "admin" ? "member to server admin: can invite and remove people and manage every board's people" : "admin to member"]);
+    rows.push(["Person", act.person], ["Change", act.role === "admin" ? "member to server admin: can invite and remove people and manage every board's people" : "admin to member"]);
   } else if (act.kind === "set_board_role") {
-    rows.push(["Person", act.person], ["Board", act.board], ["Change", `member to ${act.role}`]);
+    rows.push(["Person", act.person], ["Change", `member to ${act.role} of ${act.board}`]);
   } else if (act.kind === "remove_person") {
-    rows.push(["Person", act.person], ["From", act.board ?? "the server, and every board on it"]);
+    rows.push(["Person", act.person], ["Change", act.board ? `leaves ${act.board}` : "leaves the server, and every board on it"]);
   } else if (act.kind === "revoke_key") {
-    rows.push(["Key", `${act.person}'s key ${act.key_name}`]);
+    rows.push(["Person", act.person], ["Change", `key ${act.key_name} stops working`]);
   } else {
-    rows.push(["Board", act.board], ["Change", act.change]);
+    rows.push(["Change", `${act.board}'s rules: ${act.change}`]);
   }
-  rows.push(["Asked by", <span key="b">{a.agent}, your agent on {a.board}</span>]);
   if (a.state === "pending") rows.push(["Expires", `This request ends ${until(at(a.expires))} if nobody decides`]);
 
   return (
     <article className="ob-approval flex max-w-[640px] flex-col gap-5" data-approval={a.id}>
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Mark name={a.agent} size="md" />
-        <strong>{a.agent}</strong>
-        <span className="text-meta text-muted">
-          {a.state === "pending" ? "asks you to approve" : "asked you to approve"} · {ago(a.t, now)}
-        </span>
+      <p className="text-meta text-muted">
+        {a.state === "pending" ? "Asks you to approve" : "Asked you to approve"} · {ago(a.t, now)}
       </p>
-      <h2 className="text-headline font-bold break-words">{wants(a.agent, a.action)}</h2>
+      <AgentTitle agent={a.agent} rest={wantsRest(a.action)} />
       <Fields rows={rows} />
 
       {a.state === "pending" && (

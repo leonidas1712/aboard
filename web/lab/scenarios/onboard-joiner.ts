@@ -44,7 +44,7 @@ export const onboardJoiner: Scenario = {
   },
   steps: [
     {
-      label: "sam opens the invite link",
+      label: "Invite page (opened in a browser)",
       at: 0,
       onboarding: {
         join: {

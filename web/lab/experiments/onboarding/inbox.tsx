@@ -182,8 +182,8 @@ function rowOf(i: Item, now: number, asked: Record<string, string>): { who: stri
   const mine = p.inviter === scenario.me;
   const waiting = !mine && p.state === "awaiting_session" && !asked[p.id];
   return {
-    who: mine ? p.agent : p.inviter,
-    title: mine ? `You asked ${p.recipient} to pair on ${p.board}` : `${p.inviter} wants your agents to pair on ${p.board}`,
+    who: p.agent,
+    title: mine ? `Your agent ${p.agent} asked ${p.recipient}'s agents to pair on ${p.board}` : `${p.inviter}'s agent ${p.agent} asks your agents to pair on ${p.board}`,
     meta: waiting ? `${p.board} · ${p.work}` : pairingRowLine(p, asked[p.id]),
     t: p.t,
   };

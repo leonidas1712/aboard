@@ -10,25 +10,31 @@ const me = scenario.me;
 /** whose is "your" for the viewer and "sam's" for anyone else. */
 export const whose = (person: string) => (person === me ? "your" : `${person}'s`);
 
-/** wants says what an agent asks to do, as the card's title: "writer wants to invite someone…". */
-export function wants(agent: string, a: AdminAction): string {
+/** wantsRest is what an agent asks to do, after its name: "wants to invite someone…". */
+export function wantsRest(a: AdminAction): string {
   switch (a.kind) {
     case "invite_people":
-      return `${agent} wants to invite someone to the server as a member`;
+      return "wants to invite someone to the server as a member";
     case "add_people":
-      return `${agent} wants to add ${a.person} to ${a.board} as a member`;
+      return `wants to add ${a.person} to ${a.board} as a member`;
     case "set_server_role":
-      return a.role === "admin" ? `${agent} wants to make ${a.person} a server admin` : `${agent} wants to make ${a.person} an ordinary member of the server`;
+      return a.role === "admin" ? `wants to make ${a.person} a server admin` : `wants to make ${a.person} an ordinary member of the server`;
     case "set_board_role":
-      return a.role === "owner" ? `${agent} wants to make ${a.person} an owner of ${a.board}` : `${agent} wants to make ${a.person} an ordinary member of ${a.board}`;
+      return a.role === "owner" ? `wants to make ${a.person} an owner of ${a.board}` : `wants to make ${a.person} an ordinary member of ${a.board}`;
     case "remove_person":
-      return a.board ? `${agent} wants to remove ${a.person} from ${a.board}` : `${agent} wants to remove ${a.person} from the server`;
+      return a.board ? `wants to remove ${a.person} from ${a.board}` : `wants to remove ${a.person} from the server`;
     case "revoke_key":
-      return `${agent} wants to revoke ${a.person}'s key ${a.key_name}`;
+      return `wants to revoke ${a.person}'s key ${a.key_name}`;
     case "set_board_policy":
-      return `${agent} wants to change the rules of ${a.board}`;
+      return `wants to change the rules of ${a.board}`;
   }
 }
+
+/** wants is the card's title in words: "Your agent reviewer wants to make priya a server admin". */
+export const wants = (agent: string, a: AdminAction) => `Your agent ${agent} ${wantsRest(a)}`;
+
+/** serverWide is true for an action that changes the whole server, not one board. */
+export const serverWide = (a: AdminAction) => a.kind === "invite_people" || a.kind === "set_server_role" || a.kind === "revoke_key" || (a.kind === "remove_person" && !a.board);
 
 /** alwaysAsks says why an action can't be allowed in advance, or null when it can. */
 export function alwaysAsks(a: AdminAction): string | null {

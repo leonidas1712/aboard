@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Pairing, Session } from "../../onboarding";
 import { at, labHref, scenario } from "../../store";
-import { ago, Mark, useNow } from "../common";
+import { ago, useNow } from "../common";
+import { AgentTitle, agentRow, boardRow } from "./who";
 import { Done, Fields, type Stage, Stages } from "./parts";
 import { askSession, declinePairing, useOnboarding } from "./state";
 import { acceptPrompt, live, pairingLine, until } from "./words";
@@ -48,12 +49,8 @@ export function PairingDetail({ p }: { p: Pairing }) {
   const [open, setOpen] = useState<"choose" | "prompt" | null>(null);
   return (
     <article className="ob-pairing flex max-w-[640px] flex-col gap-5" data-pairing={p.id}>
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Mark name={mine ? p.agent : p.inviter} size="md" />
-        <strong>{mine ? p.agent : p.inviter}</strong>
-        <span className="text-meta text-muted">{mine ? "asked for you" : "asks your agents to pair"} · {ago(p.t, now)}</span>
-      </p>
-      <h2 className="text-headline font-bold break-words">{mine ? `You asked ${p.recipient} to pair on ${p.board}` : `${p.inviter} wants your agents to pair on ${p.board}`}</h2>
+      <p className="text-meta text-muted">Pairing request · {ago(p.t, now)}</p>
+      <AgentTitle agent={p.agent} owner={p.inviter} rest={mine ? `asked ${p.recipient}'s agents to pair on ${p.board}` : `asks your agents to pair on ${p.board}`} />
       <figure className="flex flex-col gap-1.5">
         <figcaption className="text-meta font-bold text-muted">Proposed work, in {mine ? "your" : `${p.inviter}'s`} words</figcaption>
         <blockquote className="rounded-box border border-rule bg-surface px-3.5 py-3 text-now">{p.work}</blockquote>
@@ -61,8 +58,9 @@ export function PairingDetail({ p }: { p: Pairing }) {
       </figure>
       <Fields
         rows={[
-          ["With", mine ? <span key="w">your {p.agent} and {p.recipient}&apos;s {p.recipientAgent ?? "agent"}</span> : <span key="w">{p.agent}, {p.inviter}&apos;s agent</span>],
-          ["Board", <a key="b" href={labHref({ board: p.board, inbox: null, item: null, settings: null })}>{p.board}</a>],
+          agentRow(p.agent, p.inviter),
+          boardRow(p.board, false),
+          ["With", mine ? `${p.recipient}'s ${p.recipientAgent ? `agent ${p.recipientAgent}` : "agent, once they choose one"}` : p.recipientAgent ? `your agent ${p.recipientAgent}` : "the session you choose"],
           ...(live(p.state) ? ([["Expires", `Ends ${until(at(p.expires))} unless it is accepted`]] as [string, string][]) : []),
         ]}
       />

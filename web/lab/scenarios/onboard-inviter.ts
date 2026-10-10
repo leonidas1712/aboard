@@ -59,7 +59,7 @@ const pairSam: Pairing = {
 export const onboardInviter: Scenario = {
   id: "onboard-inviter",
   title: "Onboarding: alex invites sam",
-  summary: "Approvals (ask me), auto mode, invite notices, an outgoing pairing request and the board's pairing line, from the inviter's side.",
+  summary: "Approvals (ask me), auto mode, invite notices, an outgoing pairing request and the board's pairing line, from the inviter's side. The invite page sam opens is step 1 of \"Onboarding: sam joins\", or Invite page below.",
   me: "alex",
   people: [
     { name: "alex", admin: true },
@@ -109,7 +109,7 @@ export const onboardInviter: Scenario = {
       },
     },
     {
-      label: "Allowed once: the invite is out",
+      label: "Allowed once: the invite is out, sam opens the invite page",
       at: 14,
       presence: { writer: "idle" },
       now: { writer: null },

@@ -8,8 +8,9 @@
 
 import { Button } from "@/components/ui/button";
 import type { InviteNotice } from "../../onboarding";
-import { at } from "../../store";
-import { ago, Mark, useNow } from "../common";
+import { at, scenario } from "../../store";
+import { ago, useNow } from "../common";
+import { AgentTitle, agentRow, boardRow } from "./who";
 import { Command, Done, Fields } from "./parts";
 import { revoke } from "./state";
 import { commands, until } from "./words";
@@ -33,14 +34,12 @@ export function NoticeDetail({ n }: { n: InviteNotice }) {
   const now = useNow();
   return (
     <article className="ob-notice flex max-w-[640px] flex-col gap-5" data-notice={n.id}>
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Mark name={n.agent} size="md" />
-        <strong>{n.agent}</strong>
-        <span className="text-meta text-muted">your agent · {ago(n.t, now)}</span>
-      </p>
-      <h2 className="text-headline font-bold">Your agent {n.agent} invited someone</h2>
+      <p className="text-meta text-muted">Invite notice · {ago(n.t, now)}</p>
+      <AgentTitle agent={n.agent} rest="invited someone" />
       <Fields
         rows={[
+          agentRow(n.agent, scenario.me),
+          boardRow("not named in invite notices", true),
           ["State", noticeState[n.state]],
           ["Made", `${ago(n.t, now)} by ${n.agent}`],
           [n.state === "expired" ? "Ended" : "Works until", until(at(n.expires))],
