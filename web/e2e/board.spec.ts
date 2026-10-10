@@ -2446,6 +2446,24 @@ test("People shows shared boards and terminal-only server administration", async
   await expect(page.getByRole("alertdialog")).toContainText(`aboard invite --server ${base()}`);
   await page.getByRole("button", { name: "Close", exact: true }).click();
   expect(writes).toBe(0);
+  // Rename yourself: a handle held by someone else is refused in the server's words; a free one updates the page.
+  await page.getByRole("button", { name: /^You are alex/ }).click();
+  await page.getByRole("menuitem", { name: "Rename yourself" }).click();
+  const rename = page.getByRole("alertdialog");
+  await rename.getByLabel("New handle").fill("people-check");
+  await rename.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(rename.getByRole("alert")).toContainText(/taken|already/i);
+  await rename.getByLabel("New handle").fill("Bad Name");
+  await rename.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(rename.getByRole("alert")).toContainText("lowercase letters, digits and hyphens");
+  await rename.getByLabel("New handle").fill("alex-renamed");
+  await rename.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^You are alex-renamed/ })).toBeVisible();
+  await page.getByRole("button", { name: /^You are alex-renamed/ }).click();
+  await page.getByRole("menuitem", { name: "Rename yourself" }).click();
+  await page.getByRole("alertdialog").getByLabel("New handle").fill("alex");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^You are alex$|^You are alex\./ })).toBeVisible();
   await captureAdmin(page, "people");
   await page.route(`**/v1/boards/${b.name}/members`, (route) => route.fulfill({ status: 503, json: { error: { code: "server_unreachable", message: "Unavailable", hint: "Try again." } } }));
   await page.reload();

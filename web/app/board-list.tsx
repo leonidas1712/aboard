@@ -111,7 +111,7 @@ export default function BoardList({ onSignOut }: { onSignOut: () => void }) {
         )}
         {active?.length === 0 && archived.length === 0 && (
           <p>
-            You aren&apos;t on any board yet. Run <code>aboard pair</code> in a terminal to make one.
+            You aren&apos;t on any board yet. In an agent&apos;s session, run <code>aboard board new</code> to make one.
           </p>
         )}
         {active && active.length > 0 && (

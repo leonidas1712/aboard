@@ -109,7 +109,8 @@ test("an invite notice shows the suggested handle when it has one", async ({ pag
   await page.route("**/v1/me/invite-notices", (route) => route.fulfill({ json: { notices: [notice("inv_with", { suggested_handle: "maya" }), notice("inv_without", {})] } }));
   await openInbox(page, { board_adds: [], arrivals: [] });
   await page.goto(`${base()}/?inbox&item=inv_with`);
-  await expect(page.locator('[data-notice="inv_with"]')).toContainText("Invited as@maya");
+  await expect(page.locator('[data-notice="inv_with"]')).toContainText("Invited as @maya");
+  await expect(page.locator('[data-notice="inv_with"]').getByRole("button", { name: "Edit handle" })).toBeVisible();
   await page.goto(`${base()}/?inbox&item=inv_without`);
-  await expect(page.locator('[data-notice="inv_without"]')).not.toContainText("Invited as");
+  await expect(page.locator('[data-notice="inv_without"]')).toContainText("No suggested handle");
 });

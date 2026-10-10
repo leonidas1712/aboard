@@ -25,6 +25,8 @@ import {
   choosePairingAgent,
   declineApproval,
   declinePairing,
+  editInviteHandle,
+  handlePattern,
   revokeInvite,
 } from "./onboarding-api";
 import { type Names, acceptPrompt, agentLabel, alwaysAsks, allowable, byline, live, pairingLine, serverWide, until, wantsRest } from "./onboarding-words";
@@ -335,7 +337,7 @@ export function InviteIssued({ invite, onDismiss }: { invite: ServerInvite; onDi
     <section className="ob-invite-issued flex flex-col gap-3 rounded-box border border-field-border bg-selected px-3.5 py-3" aria-label="The invite you made">
       <p className="font-bold">The invite is ready</p>
       <Command label="Invite link" command={link} copyLabel="Copy the invite link" />
-      {invite.suggested_handle && <p className="text-meta text-muted">Invited as @{invite.suggested_handle}</p>}
+      <InviteHandle id={invite.id} initial={invite.suggested_handle} />
       {invite.prompt && <Command label="Prompt for the colleague's agent" command={invite.prompt} copyLabel="Copy the prompt" />}
       <p className="text-meta text-muted">Shown once. Send both to the person you&apos;re inviting; your agent can also collect them. Copy them now; they aren&apos;t shown again.</p>
       <div>
@@ -344,6 +346,53 @@ export function InviteIssued({ invite, onDismiss }: { invite: ServerInvite; onDi
         </Button>
       </div>
     </section>
+  );
+}
+
+/** InviteHandle shows the handle an invite suggests and lets its issuer change it; the invitee may still pick another. */
+export function InviteHandle({ id, initial }: { id: string; initial?: string }) {
+  const [handle, setHandle] = useState(initial ?? "");
+  const [draft, setDraft] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    const value = (draft ?? "").trim();
+    if (value && !handlePattern.test(value)) {
+      setError(new ApiError(400, "invalid_request", "A handle uses lowercase letters, digits and hyphens, up to 40, and starts with a letter or digit.", ""));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await editInviteHandle(id, value);
+      setHandle(r.suggested_handle ?? "");
+      setDraft(null);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (draft === null) {
+    return (
+      <p className="invite-handle text-meta text-muted">
+        {handle ? `Invited as @${handle}` : "No suggested handle"} ·{" "}
+        <button type="button" className="text-link underline underline-offset-[3px] hover:no-underline" onClick={() => setDraft(handle)}>
+          Edit handle
+        </button>
+      </p>
+    );
+  }
+  return (
+    <form className="invite-handle flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+      <label className="text-meta text-muted" htmlFor={`handle-${id}`}>Suggested handle (leave empty to clear)</label>
+      <div className="flex flex-wrap gap-2">
+        <input id={`handle-${id}`} className="min-h-11 rounded-control border border-field-border bg-surface px-3 text-ink" value={draft} maxLength={40} autoCapitalize="none" spellCheck={false} onChange={(e) => setDraft(e.target.value)} />
+        <Button type="submit" variant="secondary" disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+        <Button type="button" variant="quiet" onClick={() => { setDraft(null); setError(null); }}>Cancel</Button>
+      </div>
+      {error !== null && <Problem error={error} />}
+    </form>
   );
 }
 
@@ -386,7 +435,6 @@ export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
         rows={[
           agentRow(agent, n.display?.agent_harness, "your agent"),
           boardRow(n.display?.requested_on?.name, true),
-          ...(n.suggested_handle ? [["Invited as", `@${n.suggested_handle}`] as [string, ReactNode]] : []),
           ["State", noticeState[n.state]],
           ["Made", `${ago(n.created_at, now)} by ${agent}`],
           [n.state === "expired" ? "Ended" : "Works until", until(n.expires_at)],
@@ -395,6 +443,7 @@ export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
       />
       {n.state === "active" && (
         <div className="flex flex-col gap-3">
+          <InviteHandle id={n.id} initial={n.suggested_handle} />
           <p className="text-muted">The invite makes one new account on this server, as a member. Revoke it if you didn&apos;t expect it, or it went to the wrong person.</p>
           <div>
             <Button variant="secondary" disabled={busy} onClick={() => void revoke()}>

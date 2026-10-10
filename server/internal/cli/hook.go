@@ -128,7 +128,7 @@ type hookCall struct {
 }
 
 func (h hookCall) request(op string) delivery.Request {
-	req := delivery.Request{Op: op, Harness: h.harness, Session: h.in.SessionID, Boot: h.boot, Source: h.in.Source, Cwd: h.in.Cwd}
+	req := delivery.Request{Op: op, Harness: h.harness, Session: h.in.SessionID, Boot: h.boot, Source: h.in.Source, Cwd: h.in.Cwd, RuntimeHook: true}
 	if op == delivery.OpRegister {
 		// A session aboard swarm up started carries its launch ticket, which binds it to
 		// its agent as it starts.

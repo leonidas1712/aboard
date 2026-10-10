@@ -237,10 +237,7 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 		if err := action.FromInvitePeopleAction(api.InvitePeopleAction{Kind: api.InvitePeopleActionKindInvitePeople, Invite: req}); err != nil {
 			return err
 		}
-		if pairing != "" {
-			return requestAdmission(ctx, a, c, srv, board, action, func(result *api.AdminActionResult) { a.selectInvitedPairing(ctx, srv, result) })
-		}
-		return requestAdmission(ctx, a, c, srv, board, action)
+		return requestAdmission(ctx, a, c, srv, board, action, func(result *api.AdminActionResult) { a.selectInvitedPairing(ctx, srv, result) })
 	}
 	command := "aboard invite --server"
 	if serverFlag != "" {
@@ -318,7 +315,7 @@ func (a *app) selectInvitedPairing(ctx context.Context, srv serverRef, result *a
 		return
 	}
 	id := *result.Invite.PairingRequestId
-	next := invitedPairingNext(srv, id)
+	next := invitedPairingNext(srv)
 	var captured bytes.Buffer
 	worker := *a
 	worker.json = true
@@ -338,8 +335,8 @@ func (a *app) selectInvitedPairing(ctx context.Context, srv serverRef, result *a
 	}
 }
 
-func invitedPairingNext(srv serverRef, id string) *api.NextStep {
-	return &api.NextStep{Command: "aboard pairing select " + commandWord(id) + " --here --server " + commandWord(srv.URL), Resume: "The invite was issued. Continue this same pairing in its original initiating session; do not create another invite."}
+func invitedPairingNext(srv serverRef) *api.NextStep {
+	return &api.NextStep{Command: "aboard doctor --server " + commandWord(srv.URL), Resume: "The invite was issued, but this original session's delivery check is pending. Restore this session's connection; do not create another invite or claim that messages got through."}
 }
 
 func serverInvitePrompt(link string, pairing bool, suggested ...string) string {
