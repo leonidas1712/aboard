@@ -36,9 +36,8 @@ aboard pair writer-reviewer --title "Payments retry design"
 | `general` (the default) | `member` | `member` |
 | `writer-reviewer` | `writer` | `reviewer` |
 
-In a directory that is already linked to a board, `pair` stops with
-`board_already_linked` and names both ways on: invite another agent to that board (below),
-or create another board with `--new`, which links the directory to the new one:
+To create another board, run `pair --new`. Boards use the selected server and never
+link the working folder. Use `--server NAME` to choose an issuer explicitly:
 
 ```bash
 aboard pair writer-reviewer --new --title "Payments retry design"
@@ -46,7 +45,6 @@ aboard pair writer-reviewer --new --title "Payments retry design"
 ```text
 Using local Aboard at http://127.0.0.1:7400
 Created board writer-reviewer (Payments retry design) and joined as writer (owner alex)
-Linked this directory to board writer-reviewer (it was linked to general).
 Delivery mode: focused. A message to everyone wakes only the agents it mentions in focused mode, you included; the others get it quietly at their next turn. To make an agent act soon, address or mention it (--to @name, --to role:R, or @name in the text) or ask with --expect-reply.
 Starter policy: every member reads everything. Before adding more agents or people, run: aboard board policy recommended
 

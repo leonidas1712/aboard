@@ -9,7 +9,7 @@ description: "Sign this machine in with an access key you have."
 aboard login [<server URL>] [--json]   (the key on standard input)
 ```
 
-Saves an access key you paste for one server: the address given, else the server this directory's .aboard names, else the local server. It reads the key from standard input, asking for it without showing it at a terminal, never from the command line, and checks it with the server before saving it. The key is saved in servers.json (for the local server, as its owner key), readable only by you and sent only to that server; it replaces the key this machine had for it.
+Saves an access key you paste for one server: the address given, otherwise the machine's saved default. With known servers but no default, choose before the key is read or sent. It reads the key from standard input, asking for it without showing it at a terminal, never from the command line, and checks it with the server before saving it. The key is saved in servers.json (for the local server, as its owner key), readable only by you and sent only to that server; it replaces the key this machine had for it.
 
 A machine that already has a default server, or already uses its local server, keeps it as the default (aboard servers) and says how to switch; otherwise a team's server becomes the default.
 
