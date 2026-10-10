@@ -33,7 +33,8 @@ func TestInvitePreviewDoesNotRedeemAndRefusesClosedInvitesUniformly(t *testing.T
 		if err := json.Unmarshal([]byte(raw), &preview); err != nil {
 			t.Fatal(err)
 		}
-		if preview["invite"] != nil || preview["digest"] != nil || preview["credential"] != nil || !strings.Contains(preview["prompt"].(string), "/join#"+inv.Invite) {
+		prompt, ok := preview["prompt"].(string)
+		if !ok || preview["invite"] != nil || preview["digest"] != nil || preview["credential"] != nil || !strings.Contains(prompt, "/join#"+inv.Invite) {
 			t.Fatalf("preview exposed a credential beyond the caller-supplied invitation: %s", raw)
 		}
 	}
