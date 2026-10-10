@@ -7,7 +7,7 @@ import (
 )
 
 func queuedIdentity(ref AgentRef, m Message) QueuedMessage {
-	return QueuedMessage{Board: ref.Board, BoardID: m.BoardID, MemberID: ref.MemberID, MessageID: m.ID, Seq: m.Seq, From: "@" + m.FromName, Boundary: "turn_end"}
+	return QueuedMessage{Server: ref.Server, Board: ref.Board, BoardID: m.BoardID, MemberID: ref.MemberID, MessageID: m.ID, Seq: m.Seq, From: "@" + m.FromName, Boundary: "turn_end"}
 }
 
 func (s *session) queued(ctx context.Context, req Request) Response {
@@ -19,7 +19,12 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 	}
 	out := QueuedMessages{Messages: []QueuedMessage{}}
 	seen := map[string]bool{}
+	var selected []AgentRef
 	for _, ref := range s.agentRefs() {
+		if req.Server != "" && ref.Server != req.Server {
+			continue
+		}
+		selected = append(selected, ref)
 		a := s.agents[ref.Key()]
 		if a.adopting || a.problem != "" {
 			return queueUnknown()
@@ -70,6 +75,7 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 					if readErr != nil {
 						return queueUnknown()
 					}
+					identity.Server = ref.Server
 					identity.From = "@" + m.FromName
 					identity.Board = ref.Board
 					key := ref.Server + "/" + identity.MessageID
@@ -114,14 +120,20 @@ func (s *session) queued(ctx context.Context, req Request) Response {
 			}
 		}
 	}
+	if req.Server != "" && len(selected) == 0 {
+		return queueUnknown()
+	}
 	slices.SortFunc(out.Messages, func(a, b QueuedMessage) int {
+		if a.Server != b.Server {
+			return cmp.Compare(a.Server, b.Server)
+		}
 		if a.BoardID != b.BoardID {
 			return cmp.Compare(a.BoardID, b.BoardID)
 		}
 		return a.Seq - b.Seq
 	})
 	out.Count = len(out.Messages)
-	return Response{V: ProtocolVersion, Queued: &out, Agents: s.agentRefs()}
+	return Response{V: ProtocolVersion, Queued: &out, Agents: selected}
 }
 
 func queueUnknown() Response {
