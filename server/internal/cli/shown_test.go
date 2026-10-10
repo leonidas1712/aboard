@@ -23,9 +23,9 @@ func (failedReadOutput) Write([]byte) (int, error) { return 0, io.ErrClosedPipe 
 
 func TestReadReportsOnlySuccessfullyEmittedOwnSessionMessages(t *testing.T) {
 	for _, tc := range []struct {
-		name                               string
-		json, markdown, fail, inbox, multi bool
-	}{{name: "text"}, {name: "json", json: true}, {name: "markdown", markdown: true}, {name: "failed-output", fail: true}, {name: "inbox-text", inbox: true}, {name: "inbox-json", inbox: true, json: true}, {name: "inbox-failed-output", inbox: true, fail: true}, {name: "multi-inbox-text", inbox: true, multi: true}, {name: "multi-inbox-json", inbox: true, multi: true, json: true}, {name: "multi-inbox-failed-output", inbox: true, multi: true, fail: true}} {
+		name                                     string
+		json, markdown, fail, inbox, multi, peek bool
+	}{{name: "text"}, {name: "json", json: true}, {name: "markdown", markdown: true}, {name: "failed-output", fail: true}, {name: "inbox-text", inbox: true}, {name: "inbox-json", inbox: true, json: true}, {name: "inbox-failed-output", inbox: true, fail: true}, {name: "multi-inbox-text", inbox: true, multi: true}, {name: "multi-inbox-json", inbox: true, multi: true, json: true}, {name: "multi-inbox-failed-output", inbox: true, multi: true, fail: true}, {name: "inbox-peek", inbox: true, peek: true}, {name: "multi-inbox-peek", inbox: true, multi: true, peek: true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			issuer, owner := testServer(t)
 			a := inboxApp(t)
@@ -137,6 +137,9 @@ func TestReadReportsOnlySuccessfullyEmittedOwnSessionMessages(t *testing.T) {
 			if tc.multi {
 				args = nil
 			}
+			if tc.peek {
+				args = append(args, "--peek")
+			}
 			if tc.markdown {
 				args = append(args, "--markdown")
 			}
@@ -155,9 +158,9 @@ func TestReadReportsOnlySuccessfullyEmittedOwnSessionMessages(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if tc.fail {
+			if tc.fail || tc.peek {
 				if len(observed) != 0 {
-					t.Fatal("failed output recorded shown messages")
+					t.Fatal("peek or failed output recorded shown messages")
 				}
 			} else {
 				if len(observed) != len(expected) {
@@ -170,7 +173,7 @@ func TestReadReportsOnlySuccessfullyEmittedOwnSessionMessages(t *testing.T) {
 				}
 			}
 			_, in := do(t, "GET", issuer+"/v1/me/inbox", cred.Token, nil)
-			if !tc.inbox && in["cursor"] != before["cursor"] {
+			if (!tc.inbox || tc.peek) && in["cursor"] != before["cursor"] {
 				t.Fatalf("read moved cursor: %v", in)
 			}
 		})

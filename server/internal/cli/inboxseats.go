@@ -112,7 +112,9 @@ func (a *app) inboxSeatsHeld(ctx context.Context, seats []delivery.AgentRef, cre
 			continue
 		}
 		in := res.JSON200
-		out.observations = append(out.observations, a.inboxShown(r.ref, in, rd))
+		if ack {
+			out.observations = append(out.observations, a.inboxShown(r.ref, in, rd))
+		}
 		msgs := rd.unread(in.Messages)
 		seat := &inboxSeat{
 			Server: r.ref.Server, Board: in.Board, Agent: in.Agent, MemberID: r.cred.MemberID,

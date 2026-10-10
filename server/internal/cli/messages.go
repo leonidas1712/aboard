@@ -416,7 +416,7 @@ func (a *app) readInboxObserved(ctx context.Context, c *client, ref delivery.Age
 		return nil, nil, nil, apiError(r.StatusCode(), r.Body)
 	}
 	in := r.JSON200
-	if observed != nil {
+	if ack && observed != nil {
 		*observed = a.inboxShown(ref, in, rd)
 	}
 	msgs := rd.unread(in.Messages)
