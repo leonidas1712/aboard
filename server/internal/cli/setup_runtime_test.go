@@ -28,22 +28,28 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 			}
 			a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
 			var reads atomic.Int32
+			var currentBoot atomic.Pointer[string]
+			initialBoot := "current-boot"
+			currentBoot.Store(&initialBoot)
+			var expectedBoot atomic.Pointer[string]
+			initialCallerBoot := e.env["ABOARD_BOOT"]
+			expectedBoot.Store(&initialCallerBoot)
 			fakeDaemonAnswering(t, a, func(req delivery.Request) delivery.Response {
-				if req.Op != delivery.OpAgents || req.Harness != "claude-code" || req.Session != "setup-current" || req.Boot != e.env["ABOARD_BOOT"] {
+				if req.Op != delivery.OpAgents || req.Harness != "claude-code" || req.Session != "setup-current" || req.Boot != *expectedBoot.Load() {
 					t.Errorf("setup runtime read selected a different session: %+v", req)
 				}
 				reads.Add(1)
-				raw := `{"v":1,"boot":"current-boot"}`
+				raw := `{"v":1,"boot":"` + *currentBoot.Load() + `"}`
 				switch ready {
 				case "read-failed":
 					return delivery.Response{V: delivery.ProtocolVersion, Error: &delivery.WireError{Code: "session_not_registered", Message: "No actual current runtime.", Hint: "Restart the harness."}}
 				case "empty-boot":
-					raw = `{"v":1,"boot":"current-boot","runtime_ready":true}`
+					raw = `{"v":1,"boot":"` + *currentBoot.Load() + `","runtime_ready":true}`
 				case "old-boot":
 					raw = `{"v":1,"boot":"old-boot","runtime_ready":true}`
 				case "absent":
 				default:
-					raw = `{"v":1,"boot":"current-boot","runtime_ready":` + ready + `}`
+					raw = `{"v":1,"boot":"` + *currentBoot.Load() + `","runtime_ready":` + ready + `}`
 				}
 				var resp delivery.Response
 				if err := json.Unmarshal([]byte(raw), &resp); err != nil {
@@ -56,6 +62,18 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 			first, err := a.setupHarness(context.Background(), exe)
 			if err != nil || first == nil || !strings.Contains(first.Resume, "/hooks") {
 				t.Fatalf("new hooks lost their trust action: next=%v err=%v", first, err)
+			}
+			if ready == "true" || ready == "empty-boot" {
+				stillPending, err := a.setupHarness(context.Background(), exe)
+				if err != nil || stillPending == nil {
+					t.Fatalf("unchanged rerun bypassed the pending restart fence: next=%v err=%v", stillPending, err)
+				}
+				restartedBoot := "restarted-boot"
+				currentBoot.Store(&restartedBoot)
+				if ready != "empty-boot" {
+					e.env["ABOARD_BOOT"] = *currentBoot.Load()
+					expectedBoot.Store(&restartedBoot)
+				}
 			}
 			next, err := a.setupHarness(context.Background(), exe)
 			if err != nil {

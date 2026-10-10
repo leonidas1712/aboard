@@ -436,8 +436,21 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if !ok {
 		return &api.NextStep{Command: "aboard init", Resume: "Set up this harness and restart it, then Continue Aboard setup."}, nil
 	}
+	fencePath, err := a.setupRuntimeFencePath(key.Harness)
+	if err != nil {
+		return nil, err
+	}
+	lock, err := lockSetup(fencePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = lock.Close() }()
 	c := initChoices{scope: scopeGlobal, harnesses: []string{key.Harness}}
 	setups, err := a.planInit(ctx, c, []harnessSetup{{Name: key.Harness, Detected: h.Detected(a.henv())}}, exe)
+	if err != nil {
+		return nil, err
+	}
+	ready, err := a.guardSetupRuntime(ctx, key, setups, fencePath)
 	if err != nil {
 		return nil, err
 	}
@@ -447,15 +460,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if err := a.recordInit(setups, c.scope); err != nil {
 		return nil, err
 	}
-	changedRuntime := false
-	for _, setup := range setups {
-		for _, change := range setup.Changes {
-			if (change.Kind == "hooks" || change.Kind == "file") && change.Action != actionUnchanged {
-				changedRuntime = true
-			}
-		}
-	}
-	if !changedRuntime && a.setupRuntimeReady(ctx, key) {
+	if ready {
 		return nil, nil
 	}
 	trust := "Approve Aboard's hooks in your harness, then restart this session."
