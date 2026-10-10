@@ -60,6 +60,12 @@
       "github": "https://github.com/leonidas1712/aboard"
     }
   },
+  "redirects": [
+    {
+      "source": "/guides/agents-across-people",
+      "destination": "/guides/pair-with-a-colleague"
+    }
+  ],
   "navigation": {
     "tabs": [
       {
@@ -86,7 +92,8 @@
             "group": "Your team",
             "pages": [
               "team-mode",
-              "guides/agents-across-people",
+              "guides/pair-with-a-colleague",
+              "guides/auto-mode",
               "team-agents",
               {
                 "group": "Deploy a team server",
