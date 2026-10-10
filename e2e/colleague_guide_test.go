@@ -21,7 +21,6 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	leo.run("up")
 	tm := &team{t: t, admin: leo}
 	url := tm.url()
-	quoted := "'" + url + "'"
 
 	// 1. leo asks his agent to make the board and invite maya to it.
 	ls := leo.claudeSession("s-leo")
@@ -31,8 +30,8 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	}
 	held := ls.run("invite", "--person", "--handle", "maya", "--board", "qa")
 	lines := held.lines()
-	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on "+url+" · qa") ||
-		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server "+quoted) ||
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on local · qa") ||
+		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server local") ||
 		lines[2] != "Continue after your person allows or declines this exact action." {
 		t.Fatalf("the held invite:\n%s", held)
 	}
@@ -44,10 +43,10 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	}
 	allowed := leo.run("approvals", "allow", approval, "--server", url)
 	shown := allowed.lines()
-	if len(shown) != 3 || shown[0] != approval+" · executed on "+url || !strings.HasPrefix(shown[1], "Invite: aboard connect '"+url+"/join#abi_") {
+	if len(shown) != 3 || shown[0] != approval+" · executed on local" || !strings.HasPrefix(shown[1], "Invite: "+url+"/join#abi_") {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
-	link := strings.TrimSuffix(strings.TrimPrefix(shown[1], "Invite: aboard connect '"), "'")
+	link := strings.TrimPrefix(shown[1], "Invite: ")
 	if !strings.HasPrefix(shown[2], "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh") ||
 		!strings.Contains(shown[2], "aboard skill") || !strings.Contains(shown[2], "aboard setup "+link+" --handle maya.") {
 		t.Fatalf("the prompt for maya:\n%s", allowed)
@@ -63,7 +62,9 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		collected[1] != "Invite: "+link || collected[2] != shown[2] {
 		t.Fatalf("approvals show:\n%s", strings.Join(collected, "\n"))
 	}
-	if again := ls.run("approvals", "show", approval); again.stdout != collected[0]+"\n" {
+	if again := ls.run("approvals", "show", approval); !strings.HasPrefix(again.stdout, collected[0]+"\naboard invite revoke inv_") ||
+		!strings.Contains(again.stdout, " --server local\nAlready collected, revoked or expired.") ||
+		!strings.Contains(again.stdout, "aboard invite --person --server local --board qa") || strings.Contains(again.stdout, "abi_") {
 		t.Fatalf("a second approvals show:\n%s", again)
 	}
 
@@ -149,7 +150,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		"Allowance on "+url+": invite-people",
 		"Agents allowed to invite people can let outsiders read every open board.")
 	auto := ls.run("invite", "--person", "--handle", "sam-2", "--board", "qa")
-	if !strings.Contains(auto.stdout, " · executed on "+url+" · qa\n") {
+	if !strings.Contains(auto.stdout, " · executed on local · qa\n") {
 		t.Fatalf("an invite under the allowance:\n%s", auto)
 	}
 	invites := ls.run("invite", "list")

@@ -783,10 +783,11 @@ $defs:
         description: The new agent's delivery mode, as its server holds it (see DeliveryOutput).
       delivery_rule: { $ref: "#/$defs/DeliveryRule" }
 
-  # ---------- aboard join <code|join-line> [--name NAME] [--harness H] ----------
+  # ---------- aboard join <board|code|join-line> [--name NAME] [--harness H] ----------
   # ---------- aboard join --board NAME [--name NAME] [--role R] [--server URL], in a session ----------
   JoinOutput:
     description: |
+      A bare board name is equivalent to --board NAME unless it is a join code.
       In a session, aboard join --board NAME gives the session a seat on that board
       through the machine's delegation, which the delivery daemon holds (spec/control.md,
       "join"); the command never reads the person's key. Explicit --server selects
@@ -963,7 +964,8 @@ $defs:
       active board or returns board selection choices, as other board commands do.
       The unreleased bundled person spelling changes to --person --board (D223).
       --handle NAME suggests the recipient’s handle without reserving it. Setup
-      defaults to it, while an explicit setup --handle wins. Text uses @NAME when set.
+      defaults to it, while an explicit setup --handle wins. Text uses one Invite for @NAME on SERVER line when set, and uses the local server label.
+      The colleague prompt ends with the setup command; setup itself checks hello and reply.
       Lifetime is --ttl (1m to 720h): person default 168h, agent default 24h.
       Agents use their issuer-bound seat and D222 allowance/approval checks, never
       the person's login. No selected seat returns agent_session_required with a
@@ -991,7 +993,7 @@ $defs:
       Invites include prompt, identical to the invite page, ready to paste into the colleague's agent:
       "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard
       skill, then run aboard setup <link> --handle <name you'd like teammates to see>.
-      Verify you can exchange messages with the inviting agent." The verification sentence
+      " The verification sentence
       appears only when the invite includes a pairing. Automatic selection of the
       inviting session does not also ask it to run pairing select. This secret-bearing prompt is shown once with the invite,
       never in listings, approval replays, hooks or setup progress.
@@ -4150,6 +4152,8 @@ $defs:
       never replaces credentials or reissues the request. The server permits only
       that winning key to recover for 10 minutes, with current authority rechecked.
       A new approvals show invocation uses a new key and receives nonsecret metadata.
+      For a previously executed invite with no secret returned, next names the exact
+      revoke command and a new invitation command, qualified by the selected server.
       A person reads nonsecret metadata only, without consuming the agent's result.
       Missing, foreign and inaccessible approvals use approval_not_found. Lists,
       decision notifications and next steps never contain invite secrets.
@@ -4175,7 +4179,8 @@ $defs:
       are person-only, refuse in sessions, and never accept replacement payloads.
       Text shows the action and terminal state. An invite-people allow --always
       also prints the API warning; allow once remains plain. A newly created invite link is
-      shown once; repeated decisions cannot reissue or retrieve its secret.
+      shown once as Invite: <link>; repeated decisions cannot reissue or retrieve its secret.
+      Text and copied commands use the local server name when known.
       Exit 0 or 1. Planned until GEN-35.
     type: object
     required: [server, approval]

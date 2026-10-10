@@ -232,6 +232,9 @@ func setupRecoveryNext(srv serverRef) *api.NextStep {
 }
 
 func emitSetup(a *app, out setupOutput) error {
+	if out.skillInstalled && out.Next == nil {
+		out.Steps[3].Message += " Run aboard skill now; it loads automatically in your next session."
+	}
 	if out.skillInstalled && out.Next != nil && !strings.Contains(out.Next.Resume, "Run aboard skill now") {
 		next := *out.Next
 		next.Resume = "Run aboard skill now; it loads automatically in your next session. " + next.Resume

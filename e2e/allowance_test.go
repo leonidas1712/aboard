@@ -21,7 +21,7 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	held := session.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	matchesCLISpec(t, "HeldAdminOutput", held)
 	id := field(t, held, "approval.id").(string)
-	if held["state"] != "pending" || !strings.Contains(field(t, held, "next.command").(string), tm.url()) {
+	if held["state"] != "pending" || field(t, held, "next.command") != "aboard approvals allow "+id+" --server local" {
 		t.Fatalf("held command lost issuer or approval: %v", held)
 	}
 	listed := session.run("approvals", "--board", board, "--json").json(t)
@@ -38,7 +38,8 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if refused.code != 1 || errorCode(t, refused.json(t)) != "human_token_required" || !strings.Contains(field(t, refused.json(t), "error.next.command").(string), id) {
 		t.Fatalf("agent approved itself or lost handover: %s", refused)
 	}
-	allowed := tm.admin.run("approvals", "allow", id, "--always", "--json").json(t)
+	command := strings.Fields(field(t, held, "next.command").(string))
+	allowed := tm.admin.run(append(command[1:], "--always", "--json")...).json(t)
 	matchesCLISpec(t, "ApprovalDecisionOutput", allowed)
 	if warning, ok := allowed["warning"].(string); !ok || !strings.Contains(warning, "every open board") {
 		t.Fatalf("always invite approval has no warning: %v", allowed)
@@ -72,8 +73,8 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if _, next := paired["next"]; next {
 		t.Fatalf("auto-selected inviter still needs selection: %v", paired)
 	}
-	if !strings.HasSuffix(field(t, paired, "prompt").(string), "Verify you can exchange messages with the inviting agent.") {
-		t.Fatalf("pairing prompt lost its verification step: %v", paired)
+	if strings.Contains(field(t, paired, "prompt").(string), "Verify you can exchange messages with the inviting agent.") || !strings.Contains(field(t, paired, "prompt").(string), "aboard setup ") {
+		t.Fatalf("invite prompt should hand over setup without a separate verification step: %v", paired)
 	}
 	inventory := tm.admin.run("invite", "list")
 	if !strings.Contains(inventory.stdout, "issued by agent @"+agentName) || strings.Contains(inventory.stdout, "mem_") {

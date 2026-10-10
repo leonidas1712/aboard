@@ -274,6 +274,11 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 	if len(pos) == 0 {
 		return usageError("Missing arguments.", use)
 	}
+	if len(pos) == 1 && boardNamePattern.MatchString(pos[0]) {
+		if _, code := ids.NormalizeJoinCode(pos[0]); !code {
+			return runJoinBoard(ctx, a, pos[0], *role, *agentName, *serverFlag)
+		}
+	}
 	if *role != "" || *serverFlag != "" {
 		return usageError("--role and --server work only with --board; a join line names its role and server.", use)
 	}

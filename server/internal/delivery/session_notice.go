@@ -80,7 +80,7 @@ func (s *session) renderNotice(ctx context.Context, n DurableNotice, a *agentSta
 		if n.Session == s.key && n.Boot == s.boot && n.Generation == a.generation {
 			_, selected := s.selectApprovalPairing(ctx, row, ApprovalWatch{ID: n.SourceID, BoardID: n.BoardID, Agent: n.Agent, Session: n.Session, Boot: n.Boot, Generation: n.Generation})
 			if selected {
-				return fmt.Sprintf("Aboard approval %s on %s was %s. Run aboard approvals show %s --server %s --board %s --json to read its outcome.\nThe requesting session is selected as the initiating pairing endpoint; ready still requires the delivery check.", row.ID, a.ref.Server, row.State, shellWord(row.ID), shellWord(a.ref.Server), shellWord(a.ref.Board)), false
+				return fmt.Sprintf("Aboard approval %s on %s was %s. Run aboard approvals show %s --server %s --board %s --json to read its outcome.\nYour invite was approved. Collect its link with the command above.", row.ID, a.ref.Server, row.State, shellWord(row.ID), shellWord(a.ref.Server), shellWord(a.ref.Board)), false
 			}
 		}
 		cmd := "aboard approvals show " + shellWord(row.ID) + " --server " + shellWord(a.ref.Server) + " --board " + shellWord(a.ref.Board) + " --json"

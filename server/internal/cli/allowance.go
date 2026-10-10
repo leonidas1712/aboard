@@ -205,6 +205,9 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 }
 
 func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminActionResult) error {
+	if result.Next != nil {
+		result.Next.Command = labelOnboardingCommand(result.Next.Command, srv)
+	}
 	out := map[string]any{"server": srv, "approval": result.Approval}
 	if board != "" {
 		out["board"] = board
@@ -215,7 +218,7 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 	if result.Next != nil {
 		out["next"] = result.Next
 	}
-	text := fmt.Sprintf("%s · %s on %s", result.Approval.Id, result.State, srv.URL)
+	text := fmt.Sprintf("%s · %s on %s", result.Approval.Id, result.State, srv.Name)
 	if board != "" {
 		text += " · " + board
 	}
@@ -226,7 +229,7 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 	}
 	if result.Invite != nil && result.Invite.Invite != "" {
 		link, prompt := inviteHandover(srv, *result.Invite)
-		text += "Invite: aboard connect " + commandWord(link) + "\n"
+		text += "Invite: " + link + "\n"
 		out["prompt"] = prompt
 		text += prompt + "\n"
 	}
@@ -244,6 +247,7 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 	}
 	if r.JSON202 != nil {
 		held := r.JSON202
+		held.Next.Command = labelOnboardingCommand(held.Next.Command, srv)
 		if err := a.watchRequestedApproval(ctx, srv, held.Approval); err != nil {
 			held.Next.Resume += " The next-turn notice could not be registered. Check this approval with aboard approvals show " + commandWord(held.Approval.Id) + " --server " + commandWord(srv.Name) + " --board " + commandWord(board) + "; do not request another invite."
 		}
@@ -251,7 +255,7 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 		if board != "" {
 			out["board"] = board
 		}
-		text := "Pending approval " + held.Approval.Id + " on " + srv.URL
+		text := "Pending approval " + held.Approval.Id + " on " + srv.Name
 		if board != "" {
 			text += " · " + board
 		}
@@ -325,4 +329,8 @@ func approvalDisplay(v api.Approval) (kind, agent, target string) {
 		target += " · board " + d.RequestedOn.Name
 	}
 	return
+}
+
+func labelOnboardingCommand(command string, srv serverRef) string {
+	return strings.ReplaceAll(command, " --server '"+strings.ReplaceAll(srv.URL, "'", "'\\''")+"'", " --server "+commandWord(srv.Name))
 }
