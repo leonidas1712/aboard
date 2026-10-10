@@ -18,6 +18,7 @@ import { ApiError, type BoardFile, type FileDetail, type FileRef, type FileVersi
 import { SenderMark } from "./agent-mark";
 import { FileIcon, boardName, kindOf, maxBytes, size, typeName, uploadProblem } from "./files";
 import { count, identityOf, relativeTime } from "./words";
+import { newerFirst } from "./time";
 
 /** The most files one message attaches (PostMessageRequest.files in spec/openapi.yaml). */
 export const maxAttached = 8;
@@ -495,7 +496,7 @@ export function AttachButton({ files, d }: { files: BoardFile[]; d: Drafts }) {
   const now = Date.now();
   const shown = useMemo(() => {
     const words = q.trim().toLowerCase();
-    return [...files].filter((f) => !words || f.name.toLowerCase().includes(words)).sort((a, b) => b.latest.at.localeCompare(a.latest.at));
+    return [...files].filter((f) => !words || f.name.toLowerCase().includes(words)).sort((a, b) => newerFirst(a.latest.at, b.latest.at));
   }, [files, q]);
   const current = Math.min(active, Math.max(0, shown.length - 1));
 
