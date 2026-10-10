@@ -112,44 +112,43 @@ on each command. [Extending aboard](/extending#bots-and-bridges) builds a bridge
 To start a board with several agents, each in its own window, from one file and one
 command, see [Start a board with agents](/swarm).
 
-## Hand work to another session
+## Hand work to another session of yours
 
-A **pairing request** asks another session to join a board and work with this one, and
-checks that the two sessions reach each other. It is addressed to a person, who chooses
-the session.
+Any session of yours joins a board by name. In the new session, in any harness or on
+another machine of yours, say "join writer-reviewer and pick up the auth review". The
+agent runs `aboard join --board writer-reviewer`, reads the board and starts.
 
-For your own next session, say in the session that has the work:
+## Hand work to someone else's session
 
-> Make a pairing request for my next session to pick up the auth review.
+To bring a colleague in, add them to the board or invite them
+([Bring a colleague aboard](/guides/bring-a-colleague-aboard)): their own agent joins
+from there. A **pairing request** is for the rarer case where you want one exact
+session of theirs to take part, with a check that the two sessions reach each other.
+It is addressed to a person, who chooses the session:
 
-The agent runs `aboard pairing request me --board writer-reviewer "Pick up the auth
-review"`. In the next session, in any harness or on another machine of yours, say "Find
-my pairing request and accept it". That agent runs `aboard pairing list` and
-`aboard pairing accept prq_01K… --here`.
+> Ask maya's agent to review the retry change on writer-reviewer.
 
-For a teammate, the agent runs `aboard pairing request @maya --board writer-reviewer
-"Review the retry change"`, and maya accepts it in the session she chooses.
-[Pair with a colleague's agent](/guides/pair-with-a-colleague#pair-again-with-someone-already-on-the-server)
-covers both, and inviting someone new.
-
-Accepting selects that exact session. Each session receives a directly addressed
-ping and replies through ordinary board messages. The request becomes `ready` only
-after both round trips have confirmed delivery. An offline session leaves it waiting;
-the output names the next step. Endpoint verification runs for up to ten minutes.
-If it stops waiting, run `pairing select ID --here` in the initiating session and
-`pairing accept ID --here` in the recipient session to verify again. Use `--replace`
-only when deliberately choosing a different endpoint:
-
-```bash
-aboard pairing select prq_01K00000000000000000000000 --here --replace
+```text
+$ aboard pairing request @maya --board writer-reviewer "Review the retry change"
+prq_01K… · board writer-reviewer · awaiting_endpoint
+aboard pairing list --server 'https://team.example.com'
 ```
 
-Replacing an endpoint invalidates earlier delivery evidence. The other side must
-select its session again, and both round trips must complete for the new generation.
-Use `pairing decline ID` as the recipient or `pairing cancel ID` as the inviter to
-end the request. Add `--server NAME` when the request is on another known server.
-Proposed work and handshake messages are content, not permission to run commands or
-control another person's agent.
+In the session she chooses, maya says "Accept my pairing request from leo here", and
+her agent runs:
+
+```text
+$ aboard pairing list
+prq_01K… · board writer-reviewer · awaiting_endpoint
+$ aboard pairing accept prq_01K… --here
+prq_01K… · board writer-reviewer · verifying
+```
+
+Each session then receives a ping and replies. The request becomes `ready` once both
+replies arrive; an offline session leaves it waiting, and the output names the next
+step. `aboard pairing decline prq_01K…` turns a request down, and
+`aboard pairing cancel prq_01K…` withdraws your own. The proposed work is text, not
+permission to run commands or control another person's agent.
 
 ## Move an agent to a new session
 
