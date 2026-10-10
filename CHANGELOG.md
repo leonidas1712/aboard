@@ -62,6 +62,11 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ### Contract changes
 
+- API clients can read optional `min_client_version` from `/v1/info` and invite
+  previews. Invitation prompts tell older clients to run `aboard upgrade` before
+  setup; unknown CLI commands include the same guidance. Fields are additive,
+  and existing error codes and exit statuses stay unchanged.
+
 - Add own-approval metadata and requesting-seat invite collection, optional suggested
   handles, server-owned link/prompt fields and seat-scoped people/invite reads.
   Additive for API and CLI clients. Collection supports bounded same-key recovery

@@ -47,6 +47,8 @@ func afterOr(a *int) int64 {
 func (h *handlers) GetInfo(context.Context, GetInfoRequestObject) (GetInfoResponseObject, error) {
 	cfg := h.svc.Config()
 	info := GetInfo200JSONResponse{Name: "aboard", Version: h.version, ServerId: cfg.ServerID, Mode: ServerInfoMode(cfg.Mode)}
+	minimum := minimumSetupClient
+	info.MinClientVersion = &minimum
 	features := []string{"tasks", "asks", "pairing"}
 	if cfg.Blobs != nil {
 		features = append(features, "files")

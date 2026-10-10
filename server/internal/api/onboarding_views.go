@@ -46,6 +46,7 @@ func (h *handlers) PreviewServerInvite(ctx context.Context, req PreviewServerInv
 	}
 	cfg := h.svc.Config()
 	out := map[string]any{"server_id": cfg.ServerID, "server_url": cfg.IssuerURL, "server_name": "aboard", "inviter_handle": preview.InviterHandle, "boards": displayBoards(preview.Boards), "expires_at": preview.ExpiresAt}
+	out["min_client_version"] = minimumSetupClient
 	if issuer := strings.TrimRight(cfg.IssuerURL, "/"); issuer != "" {
 		out["prompt"] = invitationPrompt(issuer+"/join#"+req.Body.Invite, preview.SuggestedHandle, preview.Work != "")
 	}

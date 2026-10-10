@@ -127,6 +127,7 @@ the board.
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
+| Invitations name the minimum CLI version and how to upgrade; unknown commands explain that the installed CLI may be older than the server | in review (#311); unit/e2e and quick pass | D224 |
 | A backup of the database before every migration, keeping the last three, and every pending migration in one transaction | done (#118) | D148, D184, D199 |
 
 ### 3. The rest of the board
