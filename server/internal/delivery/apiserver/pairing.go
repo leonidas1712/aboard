@@ -310,24 +310,6 @@ func (p *Pairing) startPing(ctx context.Context, saved *pairingPrivate, current 
 
 // Progress submits only correlated replies supplied by confirmed exact-session handoffs.
 func (p *Pairing) Progress(ctx context.Context, current delivery.PairingRequest, agent delivery.AgentRef, binding string, confirmed []delivery.Delivery) (delivery.PairingRequest, error) {
-	receipts := []pairingReceipt{}
-	for _, dl := range confirmed {
-		if dl.Agent.Key() != agent.Key() || dl.State != delivery.StateConfirmed || dl.HandoffID == "" {
-			continue
-		}
-		for _, seq := range dl.Seqs {
-			receipts = append(receipts, pairingReceipt{id: dl.HandoffID, seq: seq})
-		}
-	}
-	return p.progressReceipts(ctx, current, agent, binding, receipts)
-}
-
-type pairingReceipt struct {
-	id, kind, messageID string
-	seq                 int
-}
-
-func (p *Pairing) progressReceipts(ctx context.Context, current delivery.PairingRequest, agent delivery.AgentRef, binding string, receipts []pairingReceipt) (delivery.PairingRequest, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	side := "initiator"
@@ -358,34 +340,35 @@ func (p *Pairing) progressReceipts(ctx context.Context, current delivery.Pairing
 		return current, err
 	}
 	marker := pairingMarker(current.ID, current.Generation, pairingDirection(side), "reply")
-	for _, receipt := range receipts {
-		seq := receipt.seq
-		if seq <= saved.PingSeq {
+	for _, dl := range confirmed {
+		if dl.Agent.Key() != agent.Key() || dl.State != delivery.StateConfirmed || dl.HandoffID == "" {
 			continue
 		}
-		var messages struct {
-			Messages []api.Message `json:"messages"`
-		}
-		if err := p.call(ctx, http.MethodGet, "/v1/boards/"+url.PathEscape(agent.Board)+"/messages?after="+strconv.Itoa(seq-1)+"&limit=1", token, "", nil, &messages); err != nil {
-			return current, err
-		}
-		if len(messages.Messages) != 1 {
-			continue
-		}
-		m := messages.Messages[0]
-		if (receipt.messageID != "" && m.Id != receipt.messageID) || m.Seq != seq || m.ReplyToSeq == nil || *m.ReplyToSeq != saved.PingSeq || !strings.Contains(m.Body, marker) {
-			continue
-		}
-		report := map[string]any{"generation": current.Generation, "direction": pairingDirection(side), "ping_seq": saved.PingSeq, "reply_seq": seq, "handoff_id": receipt.id}
-		if receipt.kind != "" {
-			report["receipt_kind"] = receipt.kind
-		}
-		if err := p.call(ctx, http.MethodPost, "/v1/pairing-requests/"+url.PathEscape(current.ID)+"/verify", saved.Token, pairingKey(current.ID+binding, receipt.id+strconv.Itoa(seq)), report, &current); err != nil {
-			var wire *delivery.WireError
-			if errors.As(err, &wire) && wire.Code == "pairing_changed" {
+		for _, seq := range dl.Seqs {
+			if seq <= saved.PingSeq {
 				continue
 			}
-			return current, err
+			var messages struct {
+				Messages []api.Message `json:"messages"`
+			}
+			if err := p.call(ctx, http.MethodGet, "/v1/boards/"+url.PathEscape(agent.Board)+"/messages?after="+strconv.Itoa(seq-1)+"&limit=1", token, "", nil, &messages); err != nil {
+				return current, err
+			}
+			if len(messages.Messages) != 1 {
+				continue
+			}
+			m := messages.Messages[0]
+			if m.Seq != seq || m.ReplyToSeq == nil || *m.ReplyToSeq != saved.PingSeq || !strings.Contains(m.Body, marker) {
+				continue
+			}
+			report := map[string]any{"generation": current.Generation, "direction": pairingDirection(side), "ping_seq": saved.PingSeq, "reply_seq": seq, "handoff_id": dl.HandoffID}
+			if err := p.call(ctx, http.MethodPost, "/v1/pairing-requests/"+url.PathEscape(current.ID)+"/verify", saved.Token, pairingKey(current.ID+binding, dl.HandoffID+strconv.Itoa(seq)), report, &current); err != nil {
+				var wire *delivery.WireError
+				if errors.As(err, &wire) && wire.Code == "pairing_changed" {
+					continue
+				}
+				return current, err
+			}
 		}
 	}
 	return current, nil
@@ -404,22 +387,4 @@ func (p *Pairing) PersonID(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("pairing parent response has no person id")
 	}
 	return person.ID, nil
-}
-
-// ProgressShown accepts only exact durable observations supplied by the current
-// session binding; it uses the same private endpoint credential as hook receipts.
-func (p *Pairing) ProgressShown(ctx context.Context, current delivery.PairingRequest, agent delivery.AgentRef, binding string, shown []delivery.ShownRecord) (delivery.PairingRequest, error) {
-	receipts := []pairingReceipt{}
-	for _, row := range shown {
-		if row.Agent.Key() != agent.Key() || row.Message.BoardID != current.BoardID || row.Message.MemberID != agent.MemberID || row.Message.MessageID == "" || row.Message.Seq <= 0 || row.Session.Harness == "" || row.Session.ID == "" || row.Boot == "" || row.Generation == 0 {
-			continue
-		}
-		raw, err := json.Marshal(row)
-		if err != nil {
-			return current, err
-		}
-		digest := sha256.Sum256(raw)
-		receipts = append(receipts, pairingReceipt{id: "shown:" + hex.EncodeToString(digest[:]), kind: "shown", messageID: row.Message.MessageID, seq: row.Message.Seq})
-	}
-	return p.progressReceipts(ctx, current, agent, binding, receipts)
 }

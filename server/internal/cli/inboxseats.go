@@ -15,10 +15,8 @@ import (
 // inboxSeatsOutput is aboard inbox in a session with several seats and no --board
 // (cli.yaml, InboxSeatsOutput): every seat's inbox, each read with its own token.
 type inboxSeatsOutput struct {
-	observations []*shownRead
-	holds        []*inboxRead
-	Queued       *delivery.QueuedMessages `json:"queued,omitempty"`
-	Seats        []inboxSeat              `json:"seats"`
+	Queued *delivery.QueuedMessages `json:"queued,omitempty"`
+	Seats  []inboxSeat              `json:"seats"`
 	// Unavailable counts the seats whose inbox couldn't be read; they acknowledged
 	// nothing and aren't named, since a refusal may come from a board they can't see.
 	Unavailable int `json:"unavailable"`
@@ -60,14 +58,8 @@ type seatReader struct {
 // shows; limit applies per seat. With wait (seconds) and nothing unread anywhere, it
 // waits until any seat has a message. A seat whose read is refused is counted in
 // Unavailable and acknowledges nothing.
-func (a *app) inboxSeatsHeld(ctx context.Context, seats []delivery.AgentRef, creds credentials, limit int, ack bool, wait int) (inboxSeatsOutput, error) {
+func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds credentials, limit int, ack bool, wait int) (inboxSeatsOutput, error) {
 	out := inboxSeatsOutput{Seats: []inboxSeat{}}
-	success := false
-	defer func() {
-		if !success {
-			out.done()
-		}
-	}()
 	issuers := map[string]bool{}
 	for _, seat := range seats {
 		issuers[seat.Server] = true
@@ -98,10 +90,15 @@ func (a *app) inboxSeatsHeld(ctx context.Context, seats []delivery.AgentRef, cre
 	var groups []deliverytext.Group
 	var read []*inboxSeat
 	var shown []api.Message
-
+	var holds []*inboxRead
+	defer func() {
+		for _, rd := range holds {
+			rd.done()
+		}
+	}()
 	for _, r := range readers {
 		rd := a.startInboxRead(ctx, r.ref, false)
-		out.holds = append(out.holds, rd)
+		holds = append(holds, rd)
 		params := &api.GetInboxParams{}
 		if limit > 0 {
 			params.Limit = &limit
@@ -112,9 +109,6 @@ func (a *app) inboxSeatsHeld(ctx context.Context, seats []delivery.AgentRef, cre
 			continue
 		}
 		in := res.JSON200
-		if ack {
-			out.observations = append(out.observations, a.inboxShown(r.ref, in, rd))
-		}
 		msgs := rd.unread(in.Messages)
 		seat := &inboxSeat{
 			Server: r.ref.Server, Board: in.Board, Agent: in.Agent, MemberID: r.cred.MemberID,
@@ -161,7 +155,6 @@ func (a *app) inboxSeatsHeld(ctx context.Context, seats []delivery.AgentRef, cre
 			return inboxSeatsOutput{}, readers[0].c.unreachable(err)
 		}
 	}
-	success = true
 	return out, nil
 }
 
@@ -241,24 +234,4 @@ func inboxSeatsText(out inboxSeatsOutput) string {
 		fmt.Fprintf(&b, "%s couldn't be marked read; their messages will come again.\n", counted(out.Unacknowledged, "seat"))
 	}
 	return b.String()
-}
-
-func (out *inboxSeatsOutput) done() {
-	for _, hold := range out.holds {
-		hold.done()
-	}
-}
-
-func (out *inboxSeatsOutput) report(ctx context.Context) {
-	for i, seat := range out.Seats {
-		if i < len(out.observations) {
-			out.observations[i].report(ctx, seat.msgs)
-		}
-	}
-}
-
-func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds credentials, limit int, ack bool, wait int) (inboxSeatsOutput, error) {
-	out, err := a.inboxSeatsHeld(ctx, seats, creds, limit, ack, wait)
-	out.done()
-	return out, err
 }
