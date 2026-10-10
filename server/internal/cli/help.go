@@ -394,8 +394,8 @@ func helpText(templates string) []commandHelp {
 				"people rename changes your own handle, or another person’s if you are an admin. Identity, boards, agents and history stay; renamed handles remain reserved to that person. " +
 				"people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. " +
 				"It says first what will stop and asks; without a terminal it needs --yes. Their messages stay in the record. Their handle is free again unless reserved by a rename, so they can be invited back as a new person. " +
-				"Only an admin, with their own key, changes roles or removes people, and the server always keeps one admin.\n\n" +
-				"These are a person's commands: they refuse inside an agent's session.",
+				"Only an admin changes roles or removes people, and the server always keeps one admin. A selected agent requests an exact role-change approval using its seat; its person executes it with aboard approvals allow ID. Roles never use the allowance.\n\n" +
+				"Other people management commands remain person-only inside an agent session.",
 			Flags: []helpFlag{
 				{"--yes", "", "Remove the person without asking."},
 				{"--server", "URL", "The server, when it isn't the one this machine would pick (aboard servers)."},
@@ -711,7 +711,7 @@ func helpText(templates string) []commandHelp {
 				"recommended shows each message only to its sender, its recipients and the people on the board, and lets only roles with the permission post to all or send urgent messages. " +
 				"Switch to recommended before adding other people or their agents.\n\n" +
 				"title sets the free text people read beside the board's name; \"\" removes it.\n\n" +
-				"policy uses your own login and is up to a person, so it is refused inside an agent's session. " +
+				"policy uses your own login in a terminal. A selected agent requests an exact policy-change approval using its seat; its person executes it with aboard approvals allow ID. Policy changes never use the allowance. " +
 				"title may be set by an agent for its owner, when the owner is an admin of the board: with --as or ABOARD_AGENT, or inside an agent's session, it acts as that agent, on its board, and the record names the agent. " +
 				"Elsewhere it uses your own login.\n\n" +
 				"people lists the people on the board, each an owner or a member, with their agents on it underneath (name, harness, presence), so you can find another person's agent and address it. " +
@@ -764,7 +764,7 @@ func helpText(templates string) []commandHelp {
 				"Agents whose presence was never reported are left out. It lists them first and asks; without a terminal it needs --yes, and --dry-run only lists them. " +
 				"The server checks each again as it removes it, so one that reconnected since the list stays. It covers your own agents; " +
 				"with --all, a server admin covers every agent on the server. Nothing is removed for being away without someone asking.\n\n" +
-				"These are a person's commands: they refuse inside an agent's session. An agent leaves its own seat with aboard leave.",
+				"Other people management commands remain person-only inside an agent session. An agent leaves its own seat with aboard leave.",
 			Flags: []helpFlag{
 				{"--board", "NAME", "remove: the board, by name, or by id for a private board a server admin isn't on. Default: the sole readable active board on the selected server."},
 				{"--server", "URL", "The issuer by name or URL; with remove, name --board as well."},
@@ -850,8 +850,8 @@ func helpText(templates string) []commandHelp {
 			Summary: "Make this session act as one of your existing agents",
 			Usage:   []string{"aboard resume <agent> [--board NAME] [--server NAME|URL] [--json]"},
 			Description: "Binds the Claude Code or Codex session it runs in to an agent this machine already has, " +
-				"so the agent's unread messages are delivered to this session. A session acts as one agent at a time: " +
-				"if it was another agent, that agent's messages wait for whichever session resumes it.\n\n" +
+				"so the agent's unread messages are delivered to this session. A session can hold several seats across boards and servers; " +
+				"resuming adds this seat and keeps the others.\n\n" +
 				"It only works inside a harness session; in a terminal, use --as on each command instead.",
 			Flags:    []helpFlag{flagBoard, {"--server", "NAME|URL", "Select the saved agent seat’s issuer."}, flagJSON},
 			Examples: []helpExample{{"aboard resume reviewer", "Pick up where the reviewer left off"}},

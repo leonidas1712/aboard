@@ -78,6 +78,11 @@ func (h *handlers) approvalOf(ctx context.Context, a board.Approval) map[string]
 		boards = append(boards, a.Action.Invite.Boards...)
 	}
 	display := h.onboardingDisplay(ctx, a.PersonID, a.AgentID, boards)
+	if a.Action.PersonID != "" {
+		if target, err := h.svc.OnboardingLabels(ctx, principal(ctx), a.Action.PersonID, "", nil); err == nil && target.PersonHandle != "" {
+			display["target_handle"] = target.PersonHandle
+		}
+	}
 	if a.Action.Kind == "revoke_key" {
 		if name, err := h.svc.ApprovalKeyName(ctx, principal(ctx), a.ID); err == nil && name != "" {
 			display["key_name"] = name

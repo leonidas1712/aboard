@@ -26,6 +26,10 @@ func TestPairingCLIRequestListAndCancel(t *testing.T) {
 		t.Fatalf("pairing handover does not retain the exact issuer: %v", created["next"])
 	}
 	id := field(t, created, "request.id").(string)
+	text := s.run("pairing", "list")
+	if !strings.Contains(text.stdout, "board "+board+" ·") || strings.Contains(text.stdout, "brd_") {
+		t.Fatalf("pairing list lost the board name: %s", text)
+	}
 	listed := s.run("pairing", "list", "--json").json(t)
 	matchesCLISpec(t, "PairingListOutput", listed)
 	requests := field(t, listed, "requests").([]any)
@@ -93,6 +97,10 @@ func TestPairingCLIRequestHoldsNonmemberAdmission(t *testing.T) {
 	status, people := tm.call("GET", "/v1/boards/"+board+"/people", tm.key(tm.admin), nil)
 	if status != 200 || len(people["people"].([]any)) != 1 {
 		t.Fatalf("held admission added the recipient: status=%d people=%v", status, people)
+	}
+	text := tm.admin.run("approvals")
+	if !strings.Contains(text.stdout, "@maya") || !strings.Contains(text.stdout, "board "+board) || strings.Contains(text.stdout, "mem_") {
+		t.Fatalf("approval omitted target or board display: %s", text)
 	}
 	status, approvals := tm.call("GET", "/v1/me/approvals", tm.key(tm.admin), nil)
 	if status != 200 || len(approvals["approvals"].([]any)) != 1 {
