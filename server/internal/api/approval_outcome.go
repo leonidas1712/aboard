@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+
 	"github.com/leonidas1712/aboard/server/internal/board"
 )
 

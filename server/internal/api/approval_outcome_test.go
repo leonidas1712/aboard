@@ -1,12 +1,15 @@
 package api_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/api"
 )
 
 func heldInvite(t *testing.T, s *testServer, agent string) string {
@@ -186,5 +189,152 @@ func TestUnavailableApprovalInvitesNeverRevealAnOutcome(t *testing.T) {
 				t.Fatalf("unavailable metadata: %d %s", status, raw)
 			}
 		})
+	}
+}
+
+func TestApprovalCollectionRechecksParentPersonAndBoardAuthority(t *testing.T) {
+	for _, change := range []string{"parent_revoked", "person_demoted", "private_access_lost", "board_archived", "board_deleted"} {
+		t.Run(change, func(t *testing.T) {
+			t.Parallel()
+			s := newTestServer(t)
+			ctx := t.Context()
+			name := s.privateBoard(s.owner)
+			parentID, parent := s.newKey(s.owner, "request-parent")
+			_, agent := s.joinAs(parent, name, "member", "codex")
+			b, err := s.client(s.owner).GetBoardWithResponse(ctx, name)
+			mustStatus(t, b, err, 200)
+			maya := s.addHuman("maya")
+			added, err := s.client(s.owner).AddPersonWithResponse(ctx, name, nil, api.AddPersonRequest{Handle: "maya"})
+			mustStatus(t, added, err, 201)
+			owner, err := s.client(s.owner).AddOwnerWithResponse(ctx, name, nil, api.AddPersonRequest{Handle: "maya"})
+			mustStatus(t, owner, err, 200)
+			status, raw := onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{"boards":["`+b.JSON200.Id+`"]}}`, agent)
+			var held struct {
+				Approval struct {
+					ID string `json:"id"`
+				} `json:"approval"`
+			}
+			if err := json.Unmarshal([]byte(raw), &held); err != nil || status != 202 {
+				t.Fatalf("hold: %d %s %v", status, raw, err)
+			}
+			path := "/v1/me/approvals/" + held.Approval.ID
+			status, raw = onboardingCall(t, s, "POST", path+"/allow", `{}`, s.owner)
+			if status != 200 {
+				t.Fatalf("allow: %d %s", status, raw)
+			}
+			switch change {
+			case "parent_revoked":
+				c, err := s.client(s.owner).RevokeKeyWithResponse(ctx, parentID, nil)
+				mustStatus(t, c, err, 200)
+			case "person_demoted":
+				c, err := s.client(s.owner).SetServerRoleWithResponse(ctx, "maya", nil, api.ServerRoleChange{ServerRole: "admin"})
+				mustStatus(t, c, err, 200)
+				c, err = s.client(maya).SetServerRoleWithResponse(ctx, "alex", nil, api.ServerRoleChange{ServerRole: "member"})
+				mustStatus(t, c, err, 200)
+			case "private_access_lost":
+				c, err := s.client(maya).RemovePersonWithResponse(ctx, name, "alex", nil)
+				mustStatus(t, c, err, 200)
+			case "board_archived":
+				c, err := s.client(s.owner).ArchiveBoardWithResponse(ctx, name, nil)
+				mustStatus(t, c, err, 200)
+			case "board_deleted":
+				archived, e := s.client(s.owner).ArchiveBoardWithResponse(ctx, name, nil)
+				mustStatus(t, archived, e, 200)
+				c := s.lifecycleCall(s.owner, "POST", "/v1/boards/"+name+"/delete", "delete", nil)
+				requireLifecycleCall(t, c, 200, "")
+			}
+			status, raw = onboardingCall(t, s, "POST", path+"/collect", `{}`, agent)
+			if strings.Contains(raw, "abi_") || strings.Contains(raw, `"collected":true`) {
+				t.Fatalf("lost authority exposed invite: %d %s", status, raw)
+			}
+		})
+	}
+}
+
+func TestOlderApprovalWithoutAnOutcomeNeverDerivesASecret(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	_, agent, _ := s.pair("starter")
+	path := heldInvite(t, s, agent)
+	status, raw := onboardingCall(t, s, "POST", path+"/allow", `{}`, s.owner)
+	if status != 200 {
+		t.Fatalf("allow: %d %s", status, raw)
+	}
+	db, err := sql.Open("sqlite", s.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	// Simulate an execution written before outcome collection was supported.
+	if _, err = db.ExecContext(t.Context(), "DELETE FROM admin_approval_outcomes WHERE approval_id=?", strings.TrimPrefix(path, "/v1/me/approvals/")); err != nil {
+		t.Fatal(err)
+	}
+	status, raw = onboardingCall(t, s, "POST", path+"/collect", `{}`, agent)
+	if status != 200 || strings.Contains(raw, "abi_") || strings.Contains(raw, `"collected":true`) {
+		t.Fatalf("legacy execution manufactured secret: %d %s", status, raw)
+	}
+}
+
+func TestApprovalOutcomeCarriesOnlyTheVisibleExactInvitePairing(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	ctx := t.Context()
+	name := s.privateBoard(s.owner)
+	_, agent := s.joinAs(s.owner, name, "member", "codex")
+	b, err := s.client(s.owner).GetBoardWithResponse(ctx, name)
+	mustStatus(t, b, err, 200)
+	me, err := s.client(agent).GetMeWithResponse(ctx)
+	mustStatus(t, me, err, 200)
+	status, raw := onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{"boards":["`+b.JSON200.Id+`"],"pairing":{"initiating_agent_id":"`+me.JSON200.Id+`","work":"proposed work"}}}`, agent)
+	var held struct {
+		Approval struct {
+			ID string `json:"id"`
+		} `json:"approval"`
+	}
+	if err := json.Unmarshal([]byte(raw), &held); err != nil || status != 202 {
+		t.Fatalf("hold pairinginvite: %d %s %v", status, raw, err)
+	}
+	path := "/v1/me/approvals/" + held.Approval.ID
+	status, raw = onboardingCall(t, s, "POST", path+"/allow", `{}`, s.owner)
+	var out struct {
+		Invite struct {
+			Pairing string `json:"pairing_request_id"`
+		} `json:"invite"`
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil || status != 200 || out.Invite.Pairing == "" {
+		t.Fatalf("allow pairinginvite: %d %s %v", status, raw, err)
+	}
+	for _, token := range []string{agent, s.owner} {
+		status, raw = onboardingCall(t, s, "GET", path, "", token)
+		if status != 200 || strings.Contains(raw, "abi_") || !strings.Contains(raw, `"pairing_request_id":"`+out.Invite.Pairing+`"`) {
+			t.Fatalf("safe pairing outcome: %d %s", status, raw)
+		}
+	}
+	status, raw = onboardingCall(t, s, "POST", path+"/collect", `{}`, agent)
+	if status != 200 || !strings.Contains(raw, "abi_") || !strings.Contains(raw, `"pairing_request_id":"`+out.Invite.Pairing+`"`) {
+		t.Fatalf("collected pairing outcome: %d %s", status, raw)
+	}
+}
+
+func TestAllowanceInviteDoesNotGainASecondSecretReveal(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	_, agent, _ := s.pair("starter")
+	status, raw := onboardingCall(t, s, "PUT", "/v1/me/allowance", `{"categories":["invite-people"]}`, s.owner)
+	if status != 200 {
+		t.Fatalf("allowance: %d %s", status, raw)
+	}
+	status, raw = onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{}}`, agent)
+	var held struct {
+		Approval struct {
+			ID string `json:"id"`
+		} `json:"approval"`
+	}
+	if err := json.Unmarshal([]byte(raw), &held); err != nil || status != 201 || !strings.Contains(raw, "abi_") {
+		t.Fatalf("automatic invite: %d %s %v", status, raw, err)
+	}
+	status, raw = onboardingCall(t, s, "POST", "/v1/me/approvals/"+held.Approval.ID+"/collect", `{}`, agent)
+	if status != 200 || strings.Contains(raw, "abi_") || strings.Contains(raw, `"collected":true`) {
+		t.Fatalf("automatic outcome got extra reveal: %d %s", status, raw)
 	}
 }

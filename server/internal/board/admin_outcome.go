@@ -20,6 +20,7 @@ type ApprovalOutcomeRecord struct {
 	ConsumedAt           *string
 }
 
+// ApprovalOutcome separates readable decision metadata from a one-time invite reveal.
 type ApprovalOutcome struct {
 	Approval         Approval
 	Collected        bool
@@ -27,7 +28,11 @@ type ApprovalOutcome struct {
 	PairingRequestID string
 }
 
-// approvedInviteSecret separates recoverable approval invites from token digests.
+// approvedInviteSecret derives only newly issued approval invites, so a browser's
+// execution response and the requesting seat's later collection use the same secret
+// without storing plaintext. The versioned purpose and issuer/record identities
+// separate this HMAC from token verifiers. Collection requires its durable version
+// receipt and the stored digest to match; older records and changed keys fail closed.
 func (s *Service) approvedInviteSecret(approvalID, inviteID string) string {
 	mac := hmac.New(sha256.New, s.key)
 	raw, _ := json.Marshal([]string{"aboard-approved-invite-v1", s.cfg.ServerID, approvalID, inviteID})
