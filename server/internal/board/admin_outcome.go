@@ -16,7 +16,7 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/ids"
 )
 
-// ApprovalOutcomeRecord retains only the derivation identity and one-time receipt.
+// ApprovalOutcomeRecord holds the encrypted capability and its bounded recovery receipt.
 type ApprovalOutcomeRecord struct {
 	ApprovalID, InviteID string
 	Version              int
@@ -164,7 +164,7 @@ func (s *Service) CollectApproval(ctx context.Context, p Principal, id string, k
 					}
 				}
 				if e != nil {
-					if e = tx.ClearApprovalOutcome(id); e != nil {
+					if e := tx.ClearApprovalOutcome(id); e != nil {
 						return e
 					}
 				}

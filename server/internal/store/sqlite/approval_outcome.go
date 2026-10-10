@@ -11,9 +11,11 @@ func (t *tx) ApprovalOutcome(id string) (board.ApprovalOutcomeRecord, error) {
 	}
 	return out, notFound(err)
 }
+
 func (t *tx) InsertApprovalOutcome(out board.ApprovalOutcomeRecord) error {
 	return t.exec("INSERT INTO admin_approval_outcomes(approval_id,invite_id,version,capsule,expires_at) VALUES(?,?,?,?,?)", out.ApprovalID, out.InviteID, out.Version, out.Capsule, out.ExpiresAt)
 }
+
 func (t *tx) ConsumeApprovalOutcome(id, at, keyHash, until string) (bool, error) {
 	result, err := t.tx.ExecContext(t.ctx, "UPDATE admin_approval_outcomes SET consumed_at=?,winning_key_hash=NULLIF(?,''),expires_at=?,capsule=CASE WHEN ?='' THEN NULL ELSE capsule END WHERE approval_id=? AND consumed_at IS NULL", at, keyHash, until, keyHash, id)
 	if err != nil {
@@ -22,9 +24,11 @@ func (t *tx) ConsumeApprovalOutcome(id, at, keyHash, until string) (bool, error)
 	n, err := result.RowsAffected()
 	return n == 1, err
 }
+
 func (t *tx) ClearApprovalOutcome(id string) error {
 	return t.exec("UPDATE admin_approval_outcomes SET capsule=NULL,winning_key_hash=NULL WHERE approval_id=? AND capsule IS NOT NULL", id)
 }
+
 func (t *tx) clearInviteOutcome(inviteID string) error {
 	return t.exec("UPDATE admin_approval_outcomes SET capsule=NULL,winning_key_hash=NULL WHERE invite_id=? AND capsule IS NOT NULL", inviteID)
 }

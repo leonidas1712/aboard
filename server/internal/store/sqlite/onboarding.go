@@ -65,7 +65,7 @@ func (t *tx) RevokeServerInvite(id, at string) (bool, error) {
 		return false, err
 	}
 	if n == 1 {
-		if err = t.clearInviteOutcome(id); err != nil {
+		if err := t.clearInviteOutcome(id); err != nil {
 			return false, err
 		}
 	}

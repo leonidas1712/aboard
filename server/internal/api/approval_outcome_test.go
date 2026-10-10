@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -53,7 +54,6 @@ func TestBrowserApprovedInviteCanBeCollectedOnceAfterRestart(t *testing.T) {
 	collect := func() call {
 		return s.send("POST", path+"/collect", nil, func(r *http.Request) {
 			r.Header.Set("Authorization", "Bearer "+agent)
-
 		})
 	}
 	first := collect()
@@ -376,5 +376,147 @@ func TestLostApprovalCollectionResponseRecoversOnlyWithTheWinningKey(t *testing.
 	expired := collect("lost-response")
 	if expired.status != 200 || expired.body["invite"] != nil {
 		t.Fatalf("expired recovery: %d %s", expired.status, expired.raw)
+	}
+}
+
+func TestApprovalCapsuleIsEncryptedBoundedAndPurged(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	_, agent, _ := s.pair("starter")
+	status, raw := onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{"ttl_seconds":172800}}`, agent)
+	var held struct {
+		Approval struct {
+			ID string `json:"id"`
+		} `json:"approval"`
+	}
+	if err := json.Unmarshal([]byte(raw), &held); err != nil || status != 202 {
+		t.Fatalf("hold: %d %s %v", status, raw, err)
+	}
+	path := "/v1/me/approvals/" + held.Approval.ID
+	status, raw = onboardingCall(t, s, "POST", path+"/allow", `{}`, s.owner)
+	var out struct {
+		Invite struct {
+			Invite string `json:"invite"`
+		} `json:"invite"`
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil || status != 200 {
+		t.Fatalf("allow: %d %s %v", status, raw, err)
+	}
+	db, err := sql.Open("sqlite", s.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	var capsule []byte
+	var expires string
+	if err = db.QueryRowContext(t.Context(), "SELECT capsule,expires_at FROM admin_approval_outcomes WHERE approval_id=?", held.Approval.ID).Scan(&capsule, &expires); err != nil {
+		t.Fatal(err)
+	}
+	if len(capsule) == 0 || bytes.Contains(capsule, []byte(out.Invite.Invite)) {
+		t.Fatal("outcome stored a plaintext invite")
+	}
+	var plaintext string
+	if err = db.QueryRowContext(t.Context(), "SELECT action||coalesce(execution,'') FROM admin_approvals WHERE id=?", held.Approval.ID).Scan(&plaintext); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(plaintext, out.Invite.Invite) {
+		t.Fatal("approval record stored a secret")
+	}
+	var cached int
+	if err = db.QueryRowContext(t.Context(), "SELECT count(*) FROM idempotency WHERE instr(CAST(body AS TEXT),?)>0", out.Invite.Invite).Scan(&cached); err != nil {
+		t.Fatal(err)
+	}
+	if cached != 0 {
+		t.Fatal("invite entered general response cache")
+	}
+	deadline, err := time.Parse(time.RFC3339Nano, expires)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deadline.Sub(s.clock.Now()) != 24*time.Hour {
+		t.Fatalf("capsule deadline: %s", expires)
+	}
+	s.clock.Advance(24 * time.Hour)
+	status, raw = onboardingCall(t, s, "POST", path+"/collect", `{}`, agent)
+	if status != 200 || strings.Contains(raw, "abi_") {
+		t.Fatalf("old held capsule revealed: %d %s", status, raw)
+	}
+	if err = s.st.PurgeResponses(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRowContext(t.Context(), "SELECT capsule FROM admin_approval_outcomes WHERE approval_id=?", held.Approval.ID).Scan(&capsule); err != nil {
+		t.Fatal(err)
+	}
+	if len(capsule) != 0 {
+		t.Fatal("expired capsule was not cleared")
+	}
+	mustStatus(t, s.connect(out.Invite.Invite, "still-valid"), nil, 201)
+}
+
+func TestSameKeyRecoveryRechecksAuthorityAndClearsItsCapability(t *testing.T) {
+	for _, change := range []string{"redeemed", "revoked", "parent_revoked", "person_demoted"} {
+		t.Run(change, func(t *testing.T) {
+			t.Parallel()
+			s := newTestServer(t)
+			name, _, _ := s.pair("starter")
+			parentID, parent := s.newKey(s.owner, "recover-parent")
+			_, agent := s.joinAs(parent, name, "writer", "codex")
+			path := heldInvite(t, s, agent)
+			status, raw := onboardingCall(t, s, "POST", path+"/allow", `{}`, s.owner)
+			if status != 200 {
+				t.Fatalf("allow: %d %s", status, raw)
+			}
+			collect := func() call {
+				return s.send("POST", path+"/collect", nil, func(r *http.Request) {
+					r.Header.Set("Authorization", "Bearer "+agent)
+					r.Header.Set("Idempotency-Key", "lost-key")
+				})
+			}
+			first := collect()
+			if first.status != 200 || first.body["invite"] == nil {
+				t.Fatalf("first: %d %s", first.status, first.raw)
+			}
+			var out struct {
+				Invite struct {
+					ID     string `json:"id"`
+					Invite string `json:"invite"`
+				} `json:"invite"`
+			}
+			if err := json.Unmarshal([]byte(first.raw), &out); err != nil {
+				t.Fatal(err)
+			}
+			switch change {
+			case "redeemed":
+				mustStatus(t, s.connect(out.Invite.Invite, "redeemed"), nil, 201)
+			case "revoked":
+				c, err := s.client(s.owner).RevokeServerInviteWithResponse(t.Context(), out.Invite.ID, nil)
+				mustStatus(t, c, err, 200)
+			case "parent_revoked":
+				c, err := s.client(s.owner).RevokeKeyWithResponse(t.Context(), parentID, nil)
+				mustStatus(t, c, err, 200)
+			case "person_demoted":
+				maya := s.addHuman("maya")
+				c, err := s.client(s.owner).SetServerRoleWithResponse(t.Context(), "maya", nil, api.ServerRoleChange{ServerRole: "admin"})
+				mustStatus(t, c, err, 200)
+				c, err = s.client(maya).SetServerRoleWithResponse(t.Context(), "alex", nil, api.ServerRoleChange{ServerRole: "member"})
+				mustStatus(t, c, err, 200)
+			}
+			repeated := collect()
+			if repeated.body["invite"] != nil || strings.Contains(repeated.raw, out.Invite.Invite) {
+				t.Fatalf("lost authority recovered secret: %d %s", repeated.status, repeated.raw)
+			}
+			db, err := sql.Open("sqlite", s.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = db.Close() }()
+			var capsule []byte
+			if err = db.QueryRowContext(t.Context(), "SELECT capsule FROM admin_approval_outcomes WHERE approval_id=?", strings.TrimPrefix(path, "/v1/me/approvals/")).Scan(&capsule); err != nil {
+				t.Fatal(err)
+			}
+			if len(capsule) != 0 {
+				t.Fatal("invalidated capsule survived")
+			}
+		})
 	}
 }
