@@ -13,8 +13,8 @@ func TestInvitationPromptTellsOlderClientsToUpgradeBeforeSetup(t *testing.T) {
 		if !strings.Contains(prompt, upgrade) || strings.Index(prompt, upgrade) > strings.Index(prompt, "run aboard setup") {
 			t.Fatalf("upgrade must precede setup: %s", prompt)
 		}
-		if !strings.Contains(prompt, "--handle maya.") || strings.Contains(prompt, "Verify you can exchange messages") != pairing {
-			t.Fatalf("prompt lost its recipient or delivery instruction: %s", prompt)
+		if !strings.Contains(prompt, "--handle maya.") || strings.Contains(prompt, "Verify you can exchange messages") {
+			t.Fatalf("prompt lost its recipient or retained a separate verification instruction: %s", prompt)
 		}
 	}
 }
