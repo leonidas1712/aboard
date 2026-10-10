@@ -1,12 +1,9 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,13 +25,14 @@ type setupRefusal struct{ cause *Error }
 func (e *setupRefusal) Error() string { return e.cause.Error() }
 
 type setupOutput struct {
-	Server         serverRef           `json:"server"`
-	State          string              `json:"state"`
-	Steps          []setupStep         `json:"steps"`
-	Person         *api.Person         `json:"person,omitempty"`
-	Next           *api.NextStep       `json:"next,omitempty"`
-	PairingRequest *api.PairingRequest `json:"pairing_request,omitempty"`
-	skillInstalled bool
+	Server          serverRef           `json:"server"`
+	State           string              `json:"state"`
+	Steps           []setupStep         `json:"steps"`
+	Person          *api.Person         `json:"person,omitempty"`
+	Next            *api.NextStep       `json:"next,omitempty"`
+	PairingRequest  *api.PairingRequest `json:"pairing_request,omitempty"`
+	skillInstalled  bool
+	continueCommand string
 }
 
 func newSetupOutput(srv serverRef) setupOutput {
@@ -91,6 +89,9 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		}
 		out.skillInstalled = out.Next != nil && strings.Contains(out.Next.Resume, "Run aboard skill now")
 		out.Steps[3].Message = "Harness configuration still needs runtime confirmation."
+		if out.Next == nil {
+			out.confirmSetupHarness("aboard setup " + commandWord(pos[0]) + " --server " + commandWord(srv.URL))
+		}
 		if err := a.continueSetupPairing(ctx, &out, pos[0]); err != nil {
 			return err
 		}
@@ -142,6 +143,12 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		return emitSetup(a, out)
 	}
 	if h == "" {
+		h, err = a.suggestedSetupHandle(ctx, srv, invite)
+		if err != nil {
+			return err
+		}
+	}
+	if h == "" {
 		suggested := rules.NormalizeName(a.env.Getenv("USER"))
 		if suggested == "" {
 			suggested = "teammate"
@@ -183,16 +190,41 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	out.Steps[3].Message = "Harness configuration needs trust or restart confirmation."
-	out.Steps[4].Message = "This invite has no accessible pairing request."
+	out.Steps[4].Message = "This invite has no boards to join."
 	out.Steps[5].Message = "Delivery has not been verified by a session round trip."
 	out.Next = next
 	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Run aboard skill now")
-	if pending.Receipt.PairingRequestId != nil {
-		if err := a.continueSetupPairing(ctx, &out, *pending.Receipt.PairingRequestId); err != nil {
+	out.continueCommand = a.setupContinueCommand(srv, invite)
+	if next == nil {
+		out.confirmSetupHarness(out.continueCommand)
+	}
+	joined, err := a.joinSetupBoards(ctx, &out, pending.Receipt.Boards)
+	if err != nil {
+		return err
+	}
+	if joined && pending.Receipt.PairingRequestId != nil {
+		if err := a.continueSetupGreeting(ctx, &out, *pending.Receipt.PairingRequestId, pending); err != nil {
 			return err
 		}
 	}
 	return emitSetup(a, out)
+}
+
+func (a *app) suggestedSetupHandle(ctx context.Context, srv serverRef, invite string) (string, error) {
+	c, err := a.client(ctx, srv, "", requestTimeout)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := a.requestContext(ctx)
+	defer cancel()
+	r, err := c.api.PreviewServerInviteWithResponse(ctx, api.PreviewServerInviteJSONRequestBody{Invite: invite})
+	if err != nil {
+		return "", c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return "", apiError(r.StatusCode(), r.Body)
+	}
+	return deref(r.JSON200.SuggestedHandle), nil
 }
 
 func setupRecoveryNext(srv serverRef) *api.NextStep {
@@ -200,6 +232,9 @@ func setupRecoveryNext(srv serverRef) *api.NextStep {
 }
 
 func emitSetup(a *app, out setupOutput) error {
+	if out.skillInstalled && out.Next == nil {
+		out.Steps[3].Message += " Run aboard skill now; it loads automatically in your next session."
+	}
 	if out.skillInstalled && out.Next != nil && !strings.Contains(out.Next.Resume, "Run aboard skill now") {
 		next := *out.Next
 		next.Resume = "Run aboard skill now; it loads automatically in your next session. " + next.Resume
@@ -208,7 +243,11 @@ func emitSetup(a *app, out setupOutput) error {
 	var text strings.Builder
 	fmt.Fprintf(&text, "Setup on %s: %s\n", out.Server.URL, out.State)
 	for _, step := range out.Steps {
-		fmt.Fprintf(&text, "%s: %s", step.Step, step.State)
+		label := step.Step
+		if label == "pairing" {
+			label = "joining"
+		}
+		fmt.Fprintf(&text, "%s: %s", label, step.State)
 		if step.Message != "" {
 			fmt.Fprintf(&text, " · %s", step.Message)
 		}
@@ -402,11 +441,15 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if err != nil {
 		return nil, err
 	}
+	ready := a.setupRuntimeReady(ctx, key, setups)
 	if err := a.applyInit(ctx, setups, nil); err != nil {
 		return nil, err
 	}
 	if err := a.recordInit(setups, c.scope); err != nil {
 		return nil, err
+	}
+	if ready {
+		return nil, nil
 	}
 	trust := "Approve Aboard's hooks in your harness, then restart this session."
 	if key.Harness == "claude-code" {
@@ -438,70 +481,5 @@ func (a *app) setupInstalled(out *setupOutput) (exe string, installed bool, err 
 }
 
 func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id string) error {
-	harnessNext := out.Next
-	defer func() {
-		if out.Steps[3].State != "complete" && harnessNext != nil {
-			out.Next = harnessNext
-		}
-	}()
-	command := "aboard pairing accept " + commandWord(id) + " --here --server " + commandWord(out.Server.URL)
-	out.Next = &api.NextStep{Command: command, Resume: "Accept in the session that should take part, then Continue Aboard setup."}
-	if _, ok := a.sessionKey(); !ok {
-		out.Steps[4].Message = "Accept this pairing in the intended harness session."
-		return nil
-	}
-	var captured bytes.Buffer
-	worker := *a
-	worker.json = true
-	worker.env.Stdout = &captured
-	worker.env.Stderr = io.Discard
-	if err := runPairing(ctx, &worker, []string{"accept", id, "--here", "--server", out.Server.URL}); err != nil {
-		out.Steps[4].Message = asError(err).Message
-		if next := asError(err).Next; next != nil {
-			nextStep := *next
-			out.Next = &nextStep
-		}
-		if !strings.Contains(out.Next.Resume, "Continue Aboard setup") {
-			out.Next.Resume += " Continue Aboard setup."
-		}
-		return nil
-	}
-	var accepted struct {
-		Server  serverRef          `json:"server"`
-		Request api.PairingRequest `json:"request"`
-	}
-	if err := json.Unmarshal(captured.Bytes(), &accepted); err != nil {
-		return newError("internal", "The pairing result could not be read.", "Read the original pairing request before trying again.")
-	}
-	if accepted.Server.URL != out.Server.URL || accepted.Request.Id != id || accepted.Request.ServerId == "" {
-		return newError("internal", "The pairing result did not match the requested issuer and identity.", "Read the original pairing request; do not create a replacement.")
-	}
-	out.PairingRequest = &accepted.Request
-	if out.Steps[1].State != "complete" {
-		out.Steps[1].State = "complete"
-		out.Steps[1].Message = "Your current account is authorized for this pairing."
-	}
-	out.Steps[2].State = "complete"
-	out.Steps[2].Message = "Pairing participation and current board access were checked."
-	out.Steps[4].State = "complete"
-	out.Steps[4].Message = "This exact session accepted the pairing request."
-	out.Steps[5].Message = "Both current sessions' round trips are not yet verified."
-	if accepted.Request.Next != nil {
-		nextStep := *accepted.Request.Next
-		out.Next = &nextStep
-		out.Next.Resume += " Continue Aboard setup."
-	}
-	if accepted.Request.State == api.PairingStateReady {
-		first, second := accepted.Request.Initiator, accepted.Request.Recipient
-		if first == nil || second == nil || first.AgentId == "" || second.AgentId == "" || first.SessionBinding == "" || second.SessionBinding == "" || first.Generation <= 0 || second.Generation <= 0 {
-			return newError("internal", "The ready pairing response omitted its current endpoint evidence.", "Read the original pairing request and ask the admin to check the server.")
-		}
-		out.Steps[3].State = "complete"
-		out.Steps[3].Message = "The current harness participated in the verified round trip."
-		out.Steps[5].State = "complete"
-		out.Steps[5].Message = "Both current-generation session round trips were verified."
-		out.State = "complete"
-		out.Next = nil
-	}
-	return nil
+	return a.continueSetupGreeting(ctx, out, id, nil)
 }

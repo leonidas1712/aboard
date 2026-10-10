@@ -11,6 +11,9 @@ import (
 func (h *handlers) CreateServerInvite(ctx context.Context, req CreateServerInviteRequestObject) (CreateServerInviteResponseObject, error) {
 	in := board.InvitePeopleInput{}
 	if req.Body != nil {
+		if req.Body.SuggestedHandle != nil {
+			in.SuggestedHandle = *req.Body.SuggestedHandle
+		}
 		in.TTLSeconds = req.Body.TtlSeconds
 		if req.Body.Boards != nil {
 			in.Boards = *req.Body.Boards
@@ -23,7 +26,7 @@ func (h *handlers) CreateServerInvite(ctx context.Context, req CreateServerInvit
 	if err != nil {
 		return nil, err
 	}
-	return convert[CreateServerInvite201JSONResponse](serverInviteOf(inv))
+	return convert[CreateServerInvite201JSONResponse](h.serverInviteOf(inv))
 }
 
 // Connect redeems a server invite. It needs no token: the invite is the proof.

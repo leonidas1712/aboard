@@ -411,6 +411,35 @@ A test about one harness starts with `only(t, "<harness>")`.
 
 ## Last run
 
+2026-10-10, browser-approved invite outcomes (#297): the bounded
+`TestBrowserApprovedInviteReachesItsOriginalSession` proof passed on Claude Code
+(55 s), Codex (124 s) and omp (63 s), with no skips and 2m5s wall time.
+Two isolated people exchanged messages after the requesting session received a
+nonsecret approval notice and collected its own invite. Approval used the browser
+cookie, Origin and CSRF path. No approver secret was relayed into that session.
+
+The full affected gate ran 101 cases, with four existing skips, in 8m42s at
+parallelism 12. The new flow passed again on all three harnesses. Seven Codex
+cases stopped at the first submitted prompt: the driver confused conversation
+history with editable input during cancellable startup. Screen regressions failed
+first, then passed after a narrow driver repair; startup remains busy and all
+Stop-hook guards and timeouts remain unchanged. Two omp cases also failed: one
+at extension startup and one during existing pairing verification. The extension
+case passed on its bounded retry.
+
+After the driver repair, all seven failed Codex cases passed in a bounded
+1m43s run, with no skips. The omp pairing retry reproduced the same explicit-read
+gap: its ping was confirmed, but its linked reply was read through inbox before
+manifest confirmation. No production change or timeout increase was used for
+these retries.
+
+The pairing trace exposed an existing protocol gap: an explicit inbox read
+acknowledged the correlated reply before a hook manifest confirmed it, leaving
+the request verifying. The cursor is not accepted as exact-session proof. This
+gap is tracked with the paste-session setup follow-up (GEN-55). These results
+do not claim a clean initial full run. Protected configuration and auth stayed
+unchanged, and retained artifacts contained no actual login values.
+
 2026-10-09, bundled invite and setup (#276): the bounded
 `TestInvitedSetupVerifiesTwoPeopleExactSessions` proof passed on Claude Code
 (45 s), Codex (122 s) and omp (48 s), with no skips and 2m3s wall time.

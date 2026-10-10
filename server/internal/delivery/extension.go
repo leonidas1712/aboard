@@ -306,6 +306,7 @@ func (s *session) onHello(ctx context.Context, req Request, c *extConn) {
 	if !s.open {
 		s.setOpen(ctx, true)
 	}
+	s.runtimeExtensionBoot = s.boot
 	welcome := Response{V: ProtocolVersion, Event: EventWelcome, Capabilities: negotiatedCapabilities(c), Boot: s.boot, Reopened: reopened, Agents: s.agentRefs()}
 	if len(welcome.Agents) == 0 {
 		welcome.Lost = s.lost

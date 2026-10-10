@@ -83,7 +83,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			// transaction; invite secrets must never enter this response cache.
 			r.URL.Path == "/v1/me/admin-requests" ||
 			(r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/me/approvals/") &&
-				(strings.HasSuffix(r.URL.Path, "/allow") || strings.HasSuffix(r.URL.Path, "/decline"))) ||
+				(strings.HasSuffix(r.URL.Path, "/allow") || strings.HasSuffix(r.URL.Path, "/decline") || strings.HasSuffix(r.URL.Path, "/collect"))) ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
 			// call, which the server answers by finding the same seat.
 			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)
@@ -294,6 +294,14 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 			member = *body.MemberId
 		}
 		return svc.CheckMidturnReplay(ctx, principal(ctx), member)
+	case method == http.MethodPatch && strings.HasPrefix(path, "/v1/invites/"):
+		var result struct {
+			Boards []string `json:"boards"`
+		}
+		if err := json.Unmarshal(saved.Body, &result); err != nil {
+			return err
+		}
+		return svc.CheckInviteEditReplay(ctx, principal(ctx), strings.TrimPrefix(path, "/v1/invites/"), result.Boards)
 	case method == http.MethodPost && strings.HasPrefix(path, "/v1/people/") && strings.HasSuffix(path, "/rename"):
 		var result struct {
 			Person struct {

@@ -61,5 +61,13 @@ func (t *tx) RevokeServerInvite(id, at string) (bool, error) {
 		return false, err
 	}
 	n, err := result.RowsAffected()
-	return n == 1, err
+	if err != nil {
+		return false, err
+	}
+	if n == 1 {
+		if err := t.clearInviteOutcome(id); err != nil {
+			return false, err
+		}
+	}
+	return n == 1, nil
 }

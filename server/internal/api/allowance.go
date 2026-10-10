@@ -137,7 +137,7 @@ func (h *handlers) adminResultOf(ctx context.Context, r board.AdminActionResult)
 		out["next"] = approvalNext(ctx, r.Approval.ID)
 	}
 	if r.Invite != nil {
-		out["invite"] = serverInviteOf(*r.Invite)
+		out["invite"] = h.serverInviteOf(*r.Invite)
 	}
 	return out
 }
@@ -166,9 +166,10 @@ func decodeAdminAction(action AdminAction) (board.AdminAction, error) {
 		Role     string `json:"role"`
 		KeyID    string `json:"key_id"`
 		Invite   *struct {
-			TTLSeconds *int     `json:"ttl_seconds"`
-			Boards     []string `json:"boards"`
-			Pairing    *struct {
+			SuggestedHandle string   `json:"suggested_handle"`
+			TTLSeconds      *int     `json:"ttl_seconds"`
+			Boards          []string `json:"boards"`
+			Pairing         *struct {
 				InitiatingAgentID string `json:"initiating_agent_id"`
 				Work              string `json:"work"`
 			} `json:"pairing"`
@@ -181,7 +182,7 @@ func decodeAdminAction(action AdminAction) (board.AdminAction, error) {
 	out := board.AdminAction{Kind: wire.Kind, BoardID: wire.BoardID, PersonID: wire.PersonID, Role: wire.Role, KeyID: wire.KeyID, Policy: wire.Policy}
 	if wire.Invite != nil {
 
-		out.Invite = &board.InvitePeopleInput{TTLSeconds: wire.Invite.TTLSeconds, Boards: wire.Invite.Boards}
+		out.Invite = &board.InvitePeopleInput{SuggestedHandle: wire.Invite.SuggestedHandle, TTLSeconds: wire.Invite.TTLSeconds, Boards: wire.Invite.Boards}
 		if wire.Invite.Pairing != nil {
 			out.Invite.Pairing = &board.InvitePairingInput{InitiatingAgentID: wire.Invite.Pairing.InitiatingAgentID, Work: wire.Invite.Pairing.Work}
 		}

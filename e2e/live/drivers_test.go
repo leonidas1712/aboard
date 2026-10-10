@@ -228,6 +228,10 @@ func codexDriver(p support.Profile) *driver {
 		startPlain: func(l *lab, name, dir string) *pane {
 			home := l.codexHome(requireCodex(l.t))
 			appendFile(l.t, filepath.Join(home, "config.toml"), fmt.Sprintf("[projects.%q]\ntrust_level = \"trusted\"\n", dir))
+			if _, err := os.Stat(filepath.Join(home, "hooks.json")); err == nil {
+				// Only the lab's isolated global hooks exist in this fresh home.
+				l.trustCodexHooks(dir, home, slices.Clone(l.vars), "user", "global")
+			}
 			p := l.start(name, dir, slices.Clone(l.vars), l.codexArgv())
 			p.waitCodexReady()
 			return p
@@ -236,7 +240,7 @@ func codexDriver(p support.Profile) *driver {
 		env:   func(l *lab) []string { return slices.Clone(l.vars) },
 		ready: func(p *pane) { p.waitCodexReady() },
 		idle:  codexIdle,
-		taken: func(p *pane, prefix string) bool { return !strings.Contains(codexInput(p.screen()), prefix) },
+		taken: func(p *pane, prefix string) bool { return codexPromptTaken(p.screen(), prefix) },
 		afterBind: func(p *pane) {
 			// Without its hooks, Codex still gets ordinary messages through its queue, but
 			// the daemon never sees its turns; the suite proves the hooks as Codex runs them.
@@ -296,7 +300,7 @@ func ompDriver(p support.Profile) *driver {
 // hooks question if Codex asks one mid-session.
 func codexIdle(p *pane) bool {
 	s := p.screen()
-	running := strings.Contains(s, "Working") || strings.Contains(s, "esc to interrupt")
+	running := strings.Contains(s, "Working") || strings.Contains(s, "esc to interrupt") || codexStarting(s)
 	turnOpen := p.codexTurnOpen()
 	// An announcement can open while a turn runs, even before Codex shows the turn
 	// running, and Esc then would interrupt the turn too. So it waits until the pane's

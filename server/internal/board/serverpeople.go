@@ -64,8 +64,8 @@ func requireServerAdmin(tx ReadTx, p Principal, now, what string) (Human, error)
 // ListServerPeople returns the people on the server, oldest first, to a person on it who
 // isn't a guest.
 func (s *Service) ListServerPeople(ctx context.Context, p Principal) ([]Human, error) {
-	if err := requireHuman(p); err != nil {
-		return nil, err
+	if p.Delegation != nil || p.Pairing != nil {
+		return nil, delegationForbidden()
 	}
 	var out []Human
 	err := s.st.Read(ctx, func(tx ReadTx) error {
@@ -76,8 +76,22 @@ func (s *Service) ListServerPeople(ctx context.Context, p Principal) ([]Human, e
 		if me.Role == ServerGuest {
 			return guestNotAllowed("list the server's people")
 		}
-		out, err = tx.PeopleOnServer()
-		return err
+		if p.Agent != nil {
+			if _, _, err := seatOf(tx, *p.Agent); err != nil {
+				return err
+			}
+		}
+		people, err := tx.PeopleOnServer()
+		if err != nil {
+			return err
+		}
+		out = []Human{}
+		for _, person := range people {
+			if p.Agent == nil || person.Role != ServerGuest {
+				out = append(out, person)
+			}
+		}
+		return nil
 	})
 	return out, err
 }

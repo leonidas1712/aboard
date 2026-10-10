@@ -20,6 +20,7 @@ import (
 // setupPending retains the original proof across a lost redemption response. Attempted
 // is saved before the request: a restart cannot guess that an invite remains unused.
 type setupPending struct {
+	Hello       *setupHello            `json:"hello,omitempty"`
 	Server      string                 `json:"server"`
 	Invite      string                 `json:"invite"`
 	Token       string                 `json:"token"`

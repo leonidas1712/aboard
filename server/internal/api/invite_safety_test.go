@@ -35,7 +35,7 @@ func TestAgentInviteSafetyForAllowanceAndApproval(t *testing.T) {
 		if mode == "allowance" && !strings.Contains(raw, "Agents allowed to invite people can let outsiders read every open board.") {
 			t.Fatalf("missing warning: %s", raw)
 		}
-		status, raw = onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{}}`, agent)
+		status, raw = onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{"suggested_handle":"maya"}}`, agent)
 		var result inviteResult
 		if err := json.Unmarshal([]byte(raw), &result); err != nil {
 			t.Fatal(err)
@@ -65,10 +65,11 @@ func TestAgentInviteSafetyForAllowanceAndApproval(t *testing.T) {
 	}
 	var notices struct {
 		Notices []struct {
-			ID      string `json:"id"`
-			State   string `json:"state"`
-			Message string `json:"message"`
-			Next    struct {
+			ID              string `json:"id"`
+			State           string `json:"state"`
+			Message         string `json:"message"`
+			SuggestedHandle string `json:"suggested_handle"`
+			Next            struct {
 				Command string `json:"command"`
 			} `json:"next"`
 		} `json:"notices"`
@@ -80,7 +81,7 @@ func TestAgentInviteSafetyForAllowanceAndApproval(t *testing.T) {
 		t.Fatalf("notices: %s", raw)
 	}
 	for _, n := range notices.Notices {
-		if n.Message != "Your agent invited someone" || !strings.Contains(n.Next.Command, n.ID) || !strings.Contains(n.Next.Command, "--server") {
+		if n.SuggestedHandle != "maya" || n.Message != "Your agent invited someone" || !strings.Contains(n.Next.Command, n.ID) || !strings.Contains(n.Next.Command, "--server") {
 			t.Fatalf("notice handoff: %s", raw)
 		}
 	}

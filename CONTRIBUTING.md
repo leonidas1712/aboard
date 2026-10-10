@@ -23,6 +23,65 @@ profile (Claude Code, Codex, omp) use folders of their own, so testing a branch 
 never touches your installed `aboard`, your boards or your harness settings. The next
 section is the daily loop.
 
+## Testing team flows on one machine
+
+One team server can serve several isolated people on your laptop. Start it from the
+checkout:
+
+```sh
+make sandbox-team TEAM=qa
+make sandbox NAME=leo TEAM=qa
+```
+
+The server runs in team mode with `leo` as its first admin. The leo sandbox signs in
+with that server's bootstrap key. In another terminal, open a second person:
+
+```sh
+make sandbox NAME=maya TEAM=qa
+```
+
+Maya's shell shows the qa server URL but has no login. Start a harness in each shell. Have leo's
+agent create a board and invite maya, then paste the real invite prompt into maya's
+agent. This exercises invite redemption, approvals and pairing on the same server.
+Reopen either shell with the same command to keep its state. The prompt identifies
+both the person and team, such as `(aboard:maya@qa)`. Run QA commands in those
+shells: other terminals may still use your installed aboard instead of the dev build.
+
+The team and its people live under `~/.aboard-sandboxes/teams/qa`. Each person has a
+separate HOME, ABOARD_HOME and harness config folders. Codex copies the existing login
+into private team state, so refreshing it cannot change the original. Claude Code uses
+`CLAUDE_CODE_OAUTH_TOKEN` when you exported it before opening the shell. The server binds only to loopback, behind a local HTTPS proxy. Its
+certificate is trusted by the sandbox CLI through `SSL_CERT_FILE`; for manual browser
+QA, accept the local certificate warning for the printed address. No system trust
+store is changed. This dev certificate must not be used for deployment.
+
+Open a second team with another TEAM name to test server selection. Use
+`make sandbox-update NAME=maya TEAM=qa` to restart that person's daemon on a new build.
+To update the shared server too, run `make sandbox-team-stop TEAM=qa`, then
+`make sandbox-team TEAM=qa`; the server address and all people's state are kept. To
+remove the server and all its people's data:
+
+```sh
+make sandbox-team-clean TEAM=qa
+```
+
+To test installation from scratch, use a new person name:
+
+```sh
+make sandbox NAME=maya-fresh TEAM=qa FRESH=1
+```
+
+The shell starts in its own empty project, without aboard on PATH. Harnesses and other
+existing tools remain available. Paste the invite prompt into the agent as usual. The
+exact `curl -fsSL https://comeaboard.dev/install | sh` step uses this checkout's installer
+and local build instead of downloading a release. It says so before installing into
+the person's isolated HOME. Other curl requests are unchanged. No system binary or
+trust store is modified. This exercises setup, not release checksums or signatures.
+
+Reopening that person keeps the installed copy. To install a newer local build, run
+the same install command inside its shell. FRESH refuses to turn an already populated
+ordinary sandbox into a fresh one; choose a new NAME instead.
+
 ## Developing with a sandbox
 
 A sandbox runs a build of your checkout next to your real Aboard install, with its own

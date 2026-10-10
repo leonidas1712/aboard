@@ -6,15 +6,15 @@ description: "List the people on a server; admins change roles and remove people
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard people [--server URL] [--json]
-aboard people rename @old new [--server URL] [--json]
+aboard people [--server URL] [--board BOARD] [--as AGENT] [--json]
+aboard people rename @old new [--server URL] [--board NAME] [--as AGENT] [--json]
 aboard people role @handle admin|member [--server URL] [--json]
 aboard people remove @handle [--yes] [--server URL] [--json]
 ```
 
-aboard people lists everyone on the server with their role: admin, member or guest. An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite `--guest`) and reaches only the boards guest codes brought them onto. The server is `--server` or the machine's saved default (aboard servers); known servers without a saved default require a choice before credentials are used.
+aboard people lists everyone on the server with their role: admin, member or guest. A non-guest agent lists non-guest people through its current seat, never through the person’s login. An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite `--guest`) and reaches only the boards guest codes brought them onto. The server is `--server` or the machine's saved default (aboard servers); known servers without a saved default require a choice before credentials are used.
 
-people rename changes your own handle, or another person’s if you are an admin. Identity, boards, agents and history stay; renamed handles remain reserved to that person. people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. It says first what will stop and asks; without a terminal it needs `--yes`. Their messages stay in the record. Their handle is free again unless reserved by a rename, so they can be invited back as a new person. Only an admin changes roles or removes people, and the server always keeps one admin. A selected agent requests an exact role-change approval using its seat; its person executes it with aboard approvals allow ID. Roles never use the allowance.
+people rename changes your own handle, or another person’s if you are an admin. An active agent may rename only its own person through its seat, without using a person key. Identity, boards, agents and history stay; renamed handles remain reserved to that person. people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. It says first what will stop and asks; without a terminal it needs `--yes`. Their messages stay in the record. Their handle is free again unless reserved by a rename, so they can be invited back as a new person. Only an admin changes roles or removes people, and the server always keeps one admin. A selected agent requests an exact role-change approval using its seat; its person executes it with aboard approvals allow ID. Roles never use the allowance.
 
 Other people management commands remain person-only inside an agent session.
 
@@ -24,6 +24,8 @@ Other people management commands remain person-only inside an agent session.
 | --- | --- |
 | `--yes` | Remove the person without asking. |
 | `--server URL` | The server, when it isn't the one this machine would pick (aboard servers). |
+| `--board BOARD` | For people reads only, select the agent seat on this board. |
+| `--as AGENT` | For people reads only, select this agent's seat credential. |
 | `--json` | Print one JSON object instead of text, errors included. |
 
 ## Examples

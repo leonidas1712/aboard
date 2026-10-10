@@ -16,8 +16,8 @@ var peopleUsage = usageOf("people")
 
 // runPeople runs "aboard people", which lists the people on a server with their server
 // roles, and "aboard people role|remove", which an admin uses to change a person's role
-// or remove them from the server. Every form is a person's, with their own key, so it
-// refuses inside a harness session or with ABOARD_AGENT set, before it reads the key.
+// or remove them from the server. Agent directory reads use their current seat;
+// mutations retain their existing request or person-only gates.
 func runPeople(ctx context.Context, a *app, args []string) error {
 	sub := ""
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -53,10 +53,12 @@ func (a *app) peopleClient(ctx context.Context, serverFlag, what, command string
 func runPeopleList(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("people")
 	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
+	boardFlag := fs.String("board", "", "select the current agent’s board seat")
+	asFlag := fs.String("as", "", "read through this agent’s seat")
 	if _, err := a.parse(fs, args, peopleUsage, 0, 0); err != nil {
 		return err
 	}
-	srv, started, c, err := a.peopleClient(ctx, *serverFlag, "Listing the server's people", "aboard people")
+	srv, started, selectedBoard, c, err := a.peopleReadClient(ctx, *serverFlag, *boardFlag, *asFlag)
 	if err != nil {
 		return err
 	}
@@ -67,7 +69,7 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 		return c.unreachable(err)
 	}
 	if r.JSON200 == nil {
-		return keyRejected(srv, r.StatusCode(), r.Body)
+		return a.peopleReadError(srv, r.StatusCode(), r.Body, *asFlag)
 	}
 	people, err := r.JSON200.AsServerPeople()
 	if err != nil {
@@ -99,7 +101,12 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 		}
 		return st.dim(c)
 	})
-	a.emit(map[string]any{"server": srv, "people": people.People}, text)
+	out := map[string]any{"server": srv, "people": people.People}
+	if selectedBoard != "" {
+		out["board"] = selectedBoard
+		text = "Board: " + selectedBoard + "\n" + text
+	}
+	a.emit(out, text)
 	return nil
 }
 
@@ -227,12 +234,15 @@ func removalNotes(r *api.PersonRemoval) []string {
 func runPeopleRename(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("people")
 	server := fs.String("server", "", "the server to act on")
+	boardFlag := fs.String("board", "", "select this board seat")
+	as := fs.String("as", "", "select this agent")
 	pos, err := a.parse(fs, args, usageOf("people"), 2, 2)
 	if err != nil {
 		return err
 	}
 	old, name := handleArg(pos[0]), handleArg(pos[1])
-	srv, _, c, err := a.peopleClient(ctx, *server, "Renaming a person", "aboard people rename @"+old+" "+name)
+	a.agentServerFlag = *server
+	srv, selectedBoard, c, err := a.admissionClient(ctx, *server, *boardFlag, *as)
 	if err != nil {
 		return err
 	}
@@ -245,6 +255,10 @@ func runPeopleRename(ctx context.Context, a *app, args []string) error {
 	if r.JSON200 == nil {
 		return keyRejected(srv, r.StatusCode(), r.Body)
 	}
-	a.emit(map[string]any{"server": srv, "person": r.JSON200.Person, "changed": r.JSON200.Changed}, fmt.Sprintf("@%s is now @%s on %s. Their identity, boards and agents stay.\n", old, r.JSON200.Person.Handle, srv.URL))
+	out := map[string]any{"server": srv, "person": r.JSON200.Person, "changed": r.JSON200.Changed}
+	if selectedBoard != "" {
+		out["board"] = selectedBoard
+	}
+	a.emit(out, fmt.Sprintf("@%s is now @%s on %s. Their identity, boards and agents stay.\n", old, r.JSON200.Person.Handle, srv.URL))
 	return nil
 }

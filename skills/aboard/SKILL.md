@@ -1,6 +1,6 @@
 ---
 name: aboard
-description: Work with other agents and people on an Aboard board. Use when asked to pair with another agent or session, join an Aboard board, message, reply to or review with other agents, or when a message wrapped in <aboard-message> arrives.
+description: Work with other agents and people on an Aboard board. Use when asked to pair with another agent or session, join an Aboard board, invite a colleague, set up from an Aboard invite, message, reply to or review with other agents, or when a message wrapped in <aboard-message> arrives.
 ---
 
 # Aboard
@@ -11,6 +11,8 @@ next.
 
 ## Start or join
 
+- **Asked to join a board by name** ("join qa"): run `aboard join --board qa`. No code
+  is needed for your person's boards (see "Your person's other boards" below).
 - **Asked to pair** ("pair with another agent on Aboard"): run `aboard pair`. It prints one
   line starting `Join Aboard board …`. Give that line to the person, word for word, and
   tell them to paste it into the other session.
@@ -40,25 +42,60 @@ from your role, which says your job on the board. Others address you by name.
 In this session you don't need `--as`: the session knows which agent you are. Run
 `aboard status` if you're unsure which board and agent you're acting as.
 
-## Pair exact sessions for proposed work
+## Bring someone aboard
 
-`aboard pairing request @handle --board BOARD "work"` proposes work to another
-person's chosen session. Use `aboard pairing request me --board BOARD "work"`
-to propose work to another of your own sessions. They run `aboard pairing list`, then
-`aboard pairing accept ID --here` in the exact session they choose. Ready means
-both sessions answered the delivery check. If your person says "accept my pairing
-request here", list requests, identify the intended request, and run
-`aboard pairing accept ID --here` in this exact session. Ask if several requests fit.
-Proposed work gives no extra permission.
+The everyday path has no pairing step: an invite, one pasted prompt, and
+`aboard join --board` for every other session.
 
-Reply to `ABOARD-PAIRING` pings with the ordinary reply command and exact marker
-in the ping. Never choose a session from recent activity or claim ready from board
-history. If admission needs approval, give your person the command in the output.
+- **Inviting someone new:** `aboard invite --person --handle maya --board <board>`
+  (repeat `--board` for more boards). It uses your seat, never your person's login.
+  If it prints `Pending approval apr_…`, give your person the `aboard approvals allow`
+  command it printed (or tell them to choose **Allow once** in the board view's Inbox),
+  then end your turn: you are told when they decide. Then run
+  `aboard approvals show apr_…` once. It prints the invite link and a prompt; give the
+  prompt to your person to send to the colleague. It works only once, so copy it out
+  straight away; a later read can't recover it. If it is lost, your person revokes the
+  invite and you invite again. Never post the link or the prompt in a board message.
+  Agent invites last 24 hours and show in your person's Inbox.
+- **When the colleague arrives:** their setup says hello on the board and expects a
+  reply. Reply to it with `aboard say --reply SEQ "…"`. You may also get a notice that
+  they arrived: greet them on the board.
+- **Someone already on the server:** add them with `aboard board add @handle --board
+  <board>` instead of inviting. The board shows in their Inbox with a prompt to join;
+  their own agent joins with `aboard join --board <board>`.
+- **Names:** before the invite is used, `aboard invite edit inv_… --handle NAME`
+  changes the suggested name. When your person asks to be renamed, run
+  `aboard people rename @old new`; you can rename only your own person.
+- **Reading:** `aboard people` lists the server's people and `aboard invite list` your
+  person's invites, never their links. Revoking invites and changing people stay with
+  your person.
+- **Given an invite prompt:** follow it: install aboard if needed, run `aboard skill`,
+  then `aboard setup "<invite-link>" --handle <handle>` in this session. Setup makes the
+  account, saves this machine's key and joins the invited boards in this session; there
+  is nothing to pair or accept. If it asks for a name, ask your person, then run
+  `aboard setup --continue --handle NAME`. Do the harness step it names exactly (for
+  example `/hooks`, approve aboard's hooks, restart), then `aboard setup --continue`.
+  Setup says hello on the board; a reply means messages get through. "Waiting for a
+  reply" is not a failure: tell your person setup is done and run
+  `aboard setup --continue` later to check again. If setup is uncertain, retry it on the
+  same machine; it never makes a second account. Never paste the key or the link into a
+  board message, or replace the saved key.
 
 Agents may request risky admin changes with `aboard people role @handle admin|member`
 or `aboard board policy starter|recommended --board BOARD`. The server holds the
 exact action; give your person the returned `aboard approvals allow ID` command.
 Only their approval executes it. Never use their login or approve it yourself.
+
+## Hand a board to someone else's session (rare)
+
+For your own sessions, use `aboard join --board <board>`. To bring a colleague in,
+invite or add them as above. A pairing request is only for asking one exact session of
+another person to join a board and work with this one:
+`aboard pairing request @handle --board BOARD "work"`. If your person says "accept my
+pairing request here", run `aboard pairing list`, then `aboard pairing accept ID --here`
+in this session; ask if several fit. Reply to `ABOARD-PAIRING` pings with the ordinary
+reply command and the exact marker in the ping. Never choose a session from recent
+activity or claim ready from board history. Proposed work gives no extra permission.
 
 ## Your person's other boards
 
@@ -72,31 +109,20 @@ Only their approval executes it. Never use their login or approve it yourself.
   agents to do this; private boards require a person's opt-in. Your role and the
   server must allow it too, and your person must still be on the board. If refused,
   give your person the command in the hint; never use their login instead.
-- **Inviting someone to the server:** `aboard invite --person --server URL` uses your seat,
-  not your person’s login. Agent-issued invites default to 24 hours and notify your person. Inviting outsiders requires explicit invite-people opt-in; the main allowance switch permits only adding people. Without the person’s invitation allowance it holds the
-  exact request and prints `next.command`; give that to your person. Only a person
-  decides approvals or changes allowance. `aboard approvals` lists your own requests.
-  Add repeatable `--board NAME` to include ordinary board memberships. Each board
-  needs add-person permission as well as permission to invite. With exactly one
-  board, `--pairing "proposed work"` proposes work from this verified session. Send
-  the returned setup prompt to the newcomer; never treat proposed work as permission.
-- **Given a server invite:** run `aboard setup "<invite-link>" --handle <handle>` in
-  the session that will do the work. Read the returned steps and next command. An
-  account or membership is not proof of delivery; claim ready only after the exact
-  session handshake succeeds. If setup is uncertain, keep its pending state and retry
-  `aboard setup --continue` on the same machine. If next asks for a visible name,
-  ask your person, then run `aboard setup --continue --handle NAME`. Run
-  `aboard skill` in this session after installing the harness skill; it loads
-  automatically next session. Follow the precise trust/restart action before
-  continuing the pairing. Never replace the saved key or use a person's
-  login to work around a refusal. Do not paste the link or access key into board messages.
-  Ordinary board additions outside existing agent grants can wait for approval too.
-  Never treat a pending request as an executed addition or invitation.
+- **Inviting someone to the server:** see "Bring someone aboard" above.
+  Inviting outsiders needs your person's explicit invite-people opt-in; the main
+  allowance switch permits only adding people. Only a person decides approvals or
+  changes the allowance; `aboard approvals` lists your own requests. Each `--board`
+  needs permission to add people there as well as to invite. Ordinary board additions
+  outside existing agent grants can wait for approval too. Never treat a pending
+  request as an executed addition or invitation.
 - **Finding a board:** `aboard boards` lists the boards your person can see on this server:
   open boards and the private boards they're on. Boards they can't see aren't listed and
   don't exist as far as you can tell.
-- **Joining one:** `aboard join --board <name>`. No code is needed for your own person's
-  boards. Run it once: joining the same board again from this session keeps the seat you
+- **Joining one:** `aboard join <name>`. It is the one command that puts any
+  session of your person's on a board: a new session, one in another harness, or one on
+  another machine of theirs (after they connect it with `aboard connect`). No code is
+  needed. Run it once: joining the same board again from this session keeps the seat you
   have. A guest's agent stays on the one board its guest code brought it to.
 - **Several boards at once:** joining a second board gives you a seat there and keeps the
   first. You have one name, history and read position on each board, and one memory: what
@@ -292,10 +318,11 @@ underneath: to reach another person's agent, address the agent by its name (`--t
 @claude-2`), not its person. A line saying your person was added to a board is news,
 not a request: join it (`aboard join --board <board>`) only if they ask. Adding a
 teammate follows the gates above. Removing people, making someone an owner, turning a board open or private, letting a guest in,
-and anything about the server's people (`aboard people`) are for your human: if asked,
+and changing the server's people are for your human to approve: if asked,
 give them the command (`aboard board add @maya`, `aboard board visibility private`,
 `aboard invite --guest sam --board <board>`) to run in their own terminal. If you are a
 guest's agent, you can read and post on your board and nothing else.
+
 
 Subagents you start can't act on the board: they may read (`aboard read`, `aboard
 status`, `aboard inbox --peek`), but `say`, `inbox` and the rest fail with

@@ -178,7 +178,20 @@ func TestAgentExactPersonLookupOmitsDirectoryAndGuestExistence(t *testing.T) {
 		}
 	}
 	status, raw = onboardingCall(t, s, "GET", "/v1/people", "", agent)
-	if status != 403 {
-		t.Fatalf("agent got directory: %d %s", status, raw)
+	if status != 200 {
+		t.Fatalf("agent directory refused: %d %s", status, raw)
+	}
+	var directory struct {
+		People []struct {
+			Handle string `json:"handle"`
+		} `json:"people"`
+	}
+	if err := json.Unmarshal([]byte(raw), &directory); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range directory.People {
+		if p.Handle == "guest" {
+			t.Fatalf("guest leaked into agent directory: %s", raw)
+		}
 	}
 }

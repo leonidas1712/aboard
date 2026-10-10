@@ -110,6 +110,20 @@ test("an approval allowed once runs the agent's request and shows its command", 
   await card.getByRole("button", { name: "Allow once" }).click();
   await expect(card.getByRole("status")).toContainText("Allowed once");
   expect((await approval(held.id)).state).toBe("executed");
+  // The invite's link and prompt are shown once, inline, with copy buttons.
+  const issued = card.locator(".ob-invite-issued");
+  await expect(issued).toContainText("Shown once. Send both to the person you're inviting");
+  await expect(issued).toContainText("Copy them now; they aren't shown again.");
+  await expect(issued.locator("code").first()).toContainText(`${base()}/join#abi_`);
+  // The prompt is the server's text for that link, not built in the page.
+  const link = (await issued.locator("code").first().textContent())?.trim() ?? "";
+  expect(link).toMatch(/\/join#abi_/);
+  const prompt = (await issued.locator("code").nth(1).textContent()) ?? "";
+  expect(prompt).toContain(link);
+  await expect(issued.getByRole("button", { name: "Copy the invite link" })).toBeVisible();
+  await expect(issued.getByRole("button", { name: "Copy the prompt" })).toBeVisible();
+  await issued.getByRole("button", { name: "Dismiss" }).click();
+  await expect(issued).toHaveCount(0);
   // The owner can revoke the issued invite from its notice using the browser session.
   const allowance = (await api(ownerToken(), "GET", "/v1/me/allowance")).json;
   expect(allowance.categories).toEqual([]);
@@ -119,6 +133,29 @@ test("an approval allowed once runs the agent's request and shows its command", 
   const notice = page.locator(`[data-notice="${notices[0].id}"]`);
   await expect(notice.getByRole("heading", { name: /Your agent .*writer invited someone/ })).toBeVisible();
   await expect(notice).toContainText("Open");
+  // Edit handle changes only the suggested handle, from the browser session.
+  await notice.getByRole("button", { name: "Edit handle" }).click();
+  await notice.getByLabel(/Suggested handle/).fill("Not Valid");
+  await notice.getByRole("button", { name: "Save" }).click();
+  await expect(notice.getByRole("alert")).toContainText("lowercase letters, digits and hyphens");
+  await notice.getByLabel(/Suggested handle/).fill("river");
+  const edited = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().endsWith(`/v1/invites/${notices[0].id}`));
+  await notice.getByRole("button", { name: "Save" }).click();
+  const patched = await edited;
+  expect(patched.status()).toBe(200);
+  expect((await patched.request().allHeaders())["x-aboard-csrf"]).toBeTruthy();
+  await expect(notice).toContainText("Invited as @river");
+  // The server's refusal shows in its own words and leaves the shown handle alone.
+  await page.route(`**/v1/invites/${notices[0].id}`, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 409, json: { error: { code: "invite_unavailable", message: "This invitation can no longer be edited.", hint: "Make a new invitation." } } })
+    : route.continue());
+  await notice.getByRole("button", { name: "Edit handle" }).click();
+  await notice.getByLabel(/Suggested handle/).fill("lake");
+  await notice.getByRole("button", { name: "Save" }).click();
+  await expect(notice.getByRole("alert")).toContainText("This invitation can no longer be edited.");
+  await notice.getByRole("button", { name: "Cancel" }).click();
+  await expect(notice).toContainText("Invited as @river");
+  await page.unroute(`**/v1/invites/${notices[0].id}`);
   const revoked = page.waitForResponse((r) => r.request().method() === "DELETE" && r.url().endsWith(`/v1/invites/${notices[0].id}`));
   await notice.getByRole("button", { name: "Revoke the invite" }).click();
   const response = await revoked;
@@ -260,7 +297,14 @@ test("the invite page previews a real invite link without using it", async ({ pa
   const invite = String((await api(ownerToken(), "POST", "/v1/invites", {})).json.invite);
   await page.goto(`${base()}/join#${invite}`);
   await expect(page.getByRole("heading", { name: "alex invited you to aboard" })).toBeVisible();
-  await expect(page.getByLabel("Prompt for your agent")).toHaveText(`Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${base()}/join#${invite} --handle <name you'd like teammates to see>.`);
+  // The page shows the prompt the server's preview returns, word for word.
+  const preview = (await api(null, "POST", "/v1/invites/preview", { invite })).json;
+  expect(String(preview.prompt)).toContain(invite);
+  await expect(page.getByLabel("Prompt for your agent")).toHaveText(String(preview.prompt));
+  if (preview.suggested_handle) await expect(page.getByText(`Invited as @${preview.suggested_handle}`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Or set it up in a terminal" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy prompt" })).toBeVisible();
+  await expect(page.getByRole("main")).not.toContainText(/pair/i);
   // Previewing never spends the invite: it still makes an account.
   const connected = await api(null, "POST", "/v1/connect", { invite, handle: "dana", key_name: "laptop" });
   expect(connected.status).toBe(201);

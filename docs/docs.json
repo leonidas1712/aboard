@@ -63,7 +63,11 @@
   "redirects": [
     {
       "source": "/guides/agents-across-people",
-      "destination": "/guides/pair-with-a-colleague"
+      "destination": "/guides/bring-a-colleague-aboard"
+    },
+    {
+      "source": "/guides/pair-with-a-colleague",
+      "destination": "/guides/bring-a-colleague-aboard"
     }
   ],
   "navigation": {
@@ -73,7 +77,7 @@
         "groups": [
           {
             "group": "Get started",
-            "pages": ["introduction", "quickstart", "install", "how-it-works"]
+            "pages": ["introduction", "quickstart", "install", "how-it-works", "compare"]
           },
           {
             "group": "Work with your agents",
@@ -92,7 +96,7 @@
             "group": "Your team",
             "pages": [
               "team-mode",
-              "guides/pair-with-a-colleague",
+              "guides/bring-a-colleague-aboard",
               "guides/auto-mode",
               "team-agents",
               {

@@ -335,6 +335,7 @@ func (d *Daemon) pairingBinding(ctx context.Context, key SessionKey, agent Agent
 // watchPairing owns a bounded verification loop; the daemon cancels and joins it.
 // Only already-confirmed handoffs for the still-selected binding enter Progress.
 func (d *Daemon) watchPairing(ctx context.Context, key SessionKey, runtime PairingRuntime, current PairingRequest, agent AgentRef, binding string) {
+	d.retainArrivalNotice(ctx, key, current, agent)
 	identity := agent.Server + "\x00" + current.ID + "\x00" + key.String() + "\x00" + binding
 	d.mu.Lock()
 	if d.pairingWatching == nil {

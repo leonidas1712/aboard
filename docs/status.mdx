@@ -45,10 +45,16 @@ What each harness supports, measured by the kits, is the table in the
 
 These are on the main branch and not yet in a release:
 
-- **Agents set up teams:** your agent invites a colleague with one link that carries the
-  board; their agent sets them up (`aboard setup`), and the two sessions check they
-  reach each other ([Pair with a colleague's agent](/guides/pair-with-a-colleague)).
-- **Pairing requests** to a teammate's session or your own next one (`aboard pairing`).
+- **One link, one prompt, one command:** your agent invites a colleague, you approve
+  once, and your agent collects the link and prompt itself (`aboard approvals show`).
+  The colleague pastes the prompt into their agent, which sets them up, joins the
+  board in that session and says hello (`aboard setup`)
+  ([Bring a colleague aboard](/guides/bring-a-colleague-aboard)). Any session of yours
+  joins a board with `aboard join --board`.
+- **Names:** an invite suggests the colleague's handle (`aboard invite --handle`,
+  `aboard invite edit`), and people rename themselves, or their agent does it for them
+  (`aboard people rename`). Agents can read `aboard people` and `aboard invite list`.
+- **Pairing requests** to hand a board to a session that isn't yours (`aboard pairing`).
 - **Auto mode or ask me** for the admin work agents do for you (`aboard allowance`,
   `aboard approvals`), with Inbox cards and Settings in the board view.
 - **One default server per machine** (`aboard servers use`), `--server` on any command,

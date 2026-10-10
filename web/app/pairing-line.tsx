@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { type Me, get } from "./api";
 import { type PairingRequest, type Person, listPairing, listPeople } from "./onboarding-api";
 import { live, pairingLine } from "./onboarding-words";
+import { newerFirst } from "./time";
 
 export function PairingLine({ boardId, head }: { boardId: string | undefined; head: number | undefined }) {
   const [requests, setRequests] = useState<PairingRequest[]>([]);
@@ -48,7 +49,7 @@ export function PairingLine({ boardId, head }: { boardId: string | undefined; he
   if (!me) return null;
   const p = requests
     .filter((x) => (x.inviter_id === me.id || x.recipient_id === me.id) && (live(x.state) || x.state === "ready"))
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    .sort((a, b) => newerFirst(a.created_at, b.created_at))[0];
   if (!p) return null;
   const mine = p.inviter_id === me.id;
   const other = mine ? (people.find((x) => x.id === p.recipient_id)?.handle ?? "the person you asked") : (p.display?.person_handle ?? "the inviter");

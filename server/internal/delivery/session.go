@@ -17,6 +17,7 @@ import (
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
 type sessionMsg struct {
+	noticeWake  bool
 	queueReport *queueReportResult
 	// A control request, answered on reply.
 	req       Request
@@ -116,6 +117,7 @@ type ackResult struct {
 // session is one open conversation in one harness. Everything below mail is changed
 // only by the session's own goroutine, in run.
 type session struct {
+	noticeAt    time.Time
 	shown       []ShownRecord
 	shownLoaded bool
 	shownBoot   string
@@ -126,11 +128,13 @@ type session struct {
 	adapter     Adapter
 	mail        *mailbox[sessionMsg]
 
-	boot          string
-	folder        string
-	locationBoot  string
-	locationEpoch atomic.Uint64
-	open          bool
+	runtimeHookBoot      string
+	runtimeExtensionBoot string
+	boot                 string
+	folder               string
+	locationBoot         string
+	locationEpoch        atomic.Uint64
+	open                 bool
 	// started is true once the session has been open, so a register that opens it again
 	// is a resume, not a new session.
 	started bool
@@ -234,6 +238,7 @@ func (s *session) run(ctx context.Context) error {
 		s.checkAlive(ctx)
 		s.refreshAll(false)
 		s.reportPresence(false)
+		s.armNotices(ctx)
 	}
 	for {
 		var timer <-chan time.Time
@@ -250,11 +255,13 @@ func (s *session) run(ctx context.Context) error {
 				s.handle(ctx, m)
 			}
 			s.tryDeliver(ctx)
+			s.tryNotice(ctx)
 			s.reportPresence(renew)
 			s.publishQueues(ctx)
 		case <-timer:
 			s.checkStalls(ctx)
 			s.tryDeliver(ctx)
+			s.tryNotice(ctx)
 			s.reportPresence(false)
 			s.publishQueues(ctx)
 		}
@@ -263,6 +270,8 @@ func (s *session) run(ctx context.Context) error {
 
 func (s *session) handle(ctx context.Context, m sessionMsg) {
 	switch {
+	case m.noticeWake:
+		s.armNotices(ctx)
 	case m.queueReport != nil:
 		s.onQueueReport(*m.queueReport)
 	case m.preflight != nil:
@@ -346,8 +355,9 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 }
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
+	runtimeHook := s.currentRuntimeHook(req)
 	ok := Response{V: ProtocolVersion}
-	if req.Op != OpQueued && req.Op != OpShown {
+	if req.Op != OpQueued && req.Op != OpShown && req.Op != OpApprovalWatch {
 		s.noteProcess(ctx, req)
 	}
 	switch req.Op {
@@ -389,6 +399,8 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		ok.Note = s.taskStartNote(ctx, ok.Note)
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
+	case OpApprovalWatch:
+		return s.watchApproval(ctx, req)
 	case OpPrompt, OpTurnStart:
 		s.beginPeerTurn()
 		if req.Op == OpTurnStart || req.Harness != "omp" {
@@ -408,6 +420,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		if req.Op == OpTurnStart {
 			ok.Bundle = s.atTurnStart(ctx)
+		}
+		if req.Boot == "" || req.Boot == s.boot {
+			ok.Nudge = strings.TrimSpace(ok.Nudge + "\n\n" + s.approvalNotices(ctx))
 		}
 	case OpBoundary, OpUrgent:
 		if slices.Contains(req.Capabilities, "midturn-peer") && req.Boot != "" && s.boot != "" && req.Boot != s.boot {
@@ -483,9 +498,13 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	case OpQueued:
 		return s.queued(ctx, req)
 	case OpAgents:
+		ok.RuntimeReady = s.runtimeReady()
 		ok.Boot = s.boot
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 		ok.Capabilities = negotiatedCapabilities(s.ext)
+	}
+	if runtimeHook && s.open && req.Boot == s.boot {
+		s.runtimeHookBoot = s.boot
 	}
 	s.noteLocation(ctx, req)
 	return ok
@@ -590,6 +609,7 @@ func (s *session) event(ctx context.Context, boot string) {
 // newBoot records that the session's process changed. Bundles handed to the old process
 // were never confirmed, so they are handed again.
 func (s *session) newBoot(ctx context.Context, boot string) {
+	s.runtimeHookBoot, s.runtimeExtensionBoot = "", ""
 	s.boot = boot
 	s.saveSession(ctx)
 	s.unhand(ctx)
@@ -608,6 +628,7 @@ func (s *session) unhand(ctx context.Context) {
 
 func (s *session) setOpen(ctx context.Context, open bool) {
 	if !open {
+		s.runtimeHookBoot, s.runtimeExtensionBoot = "", ""
 		s.locationEpoch.Add(1)
 		// A session that closed starts no turn; what it was handed isn't stalled.
 		s.forgetAwaiting()
@@ -691,6 +712,7 @@ func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
 }
 
 func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
+	runtimeHook := s.currentRuntimeHook(req)
 	s.noteProcess(ctx, req)
 	if !req.Started.IsZero() && req.Started.Before(s.busyAt) {
 		// The stop hook of a turn that ended before the latest prompt, reaching the daemon
@@ -721,6 +743,9 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	w.acceptedTurn(s.boot, s.peerTurn)
 	if !s.open {
 		s.setOpen(ctx, true)
+	}
+	if runtimeHook && req.Boot == s.boot {
+		s.runtimeHookBoot = s.boot
 	}
 	s.refreshAll(true)
 }
@@ -807,6 +832,7 @@ func (s *session) onRestoreSeat(ctx context.Context, agent AgentRef) {
 	s.d.setGeneration(agent, binding.Generation)
 	s.d.setProblem(agent, "")
 	s.d.setOwner(agent, s)
+	s.armNotices(ctx)
 	s.refresh(a, s.waiter != nil)
 }
 
@@ -886,6 +912,7 @@ func (s *session) onAdopt(ctx context.Context, agent AgentRef) {
 		}
 	}
 	a.adopting = false
+	s.armNotices(ctx)
 	s.refresh(a, s.waiter != nil)
 }
 
@@ -1409,15 +1436,21 @@ func (s *session) tryDeliver(ctx context.Context) {
 		offers = s.offers(s.queueFilter())
 	}
 	notes, told := s.modeNotes()
+	var notices []renderedNotice
+	if len(offers) > 0 {
+		notices = s.pendingNotices(ctx)
+	}
+	prefix := notes
 	limit := BundleLimit
 	stopHand := s.key.Harness == "codex" && s.waiter != nil
 	if stopHand {
 		limit = codexStopLimit
 	}
-	if notes != "" {
-		limit -= len(notes) + 1
+	handoffLimit := limit
+	if prefix != "" {
+		limit -= len(prefix) + 1
 	}
-	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), notes)
+	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), prefix)
 	if !stopHand {
 		s.skip(ctx, c.tooLarge)
 	}
@@ -1428,8 +1461,18 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.scheduleRetry()
 		return
 	}
-	c.text = withNotes(notes, c.text)
-	handoff, handed, prepareErr := s.prepare(ctx, c, notes, c.text)
+	var handedNotices []DurableNotice
+	var noticeText string
+	for _, n := range notices {
+		candidate := withNotes(noticeText, n.text)
+		if len(withNotes(withNotes(candidate, notes), c.text)) <= handoffLimit {
+			noticeText = candidate
+			handedNotices = append(handedNotices, n.notice)
+		}
+	}
+	prefix = withNotes(noticeText, notes)
+	c.text = withNotes(prefix, c.text)
+	handoff, handed, prepareErr := s.prepare(ctx, c, prefix, c.text)
 	if prepareErr != nil {
 		s.gatherUntil = s.now().Add(s.prepareFailed("prepare handoff", prepareErr))
 		return
@@ -1451,6 +1494,9 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if err == nil {
 		s.accepted(ctx, handed, idle)
 		s.markTold(told)
+		for _, notice := range handedNotices {
+			s.markNoticeHanded(ctx, notice)
+		}
 	}
 	if s.adapter.WaitsForIdle() || hookHand {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
@@ -1612,6 +1658,14 @@ func (s *session) nextTimer() time.Time {
 	}
 	if !s.stallAt.IsZero() && (next.IsZero() || s.stallAt.Before(next)) {
 		next = s.stallAt
+	}
+	if s.open && s.canTake() && !s.noticeAt.IsZero() {
+		if !s.now().Before(s.noticeAt) {
+			s.noticeAt = s.now().Add(time.Second)
+		}
+		if next.IsZero() || s.noticeAt.Before(next) {
+			next = s.noticeAt
+		}
 	}
 	for _, a := range s.agents {
 		if !a.adopting && a.problem == "" && a.fetched && !a.queueSending && !a.queueStopped && !a.queueNext.IsZero() && (next.IsZero() || a.queueNext.Before(next)) {
@@ -2094,5 +2148,38 @@ func newAgentState(ref AgentRef, adopting bool) *agentState {
 	return &agentState{
 		ref: ref, adopting: adopting, deliveries: map[int64]*Delivery{},
 		announced: map[int]bool{}, previewed: map[int]bool{},
+	}
+}
+
+// Runtime setup is a fresh local observation, never persisted delivery evidence.
+func (s *session) runtimeReady() bool {
+	if !s.open || s.boot == "" {
+		return false
+	}
+	if s.runtimeHookBoot == s.boot {
+		return true
+	}
+	if s.ext == nil || s.runtimeExtensionBoot != s.boot {
+		return false
+	}
+	select {
+	case <-s.ext.gone:
+		return false
+	default:
+		return true
+	}
+}
+
+func (s *session) currentRuntimeHook(req Request) bool {
+	if !req.RuntimeHook || req.Boot == "" {
+		return false
+	}
+	switch req.Op {
+	case OpRegister:
+		return true
+	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent, OpTurnEnd, OpWait:
+		return req.Boot == s.boot && (req.Started.IsZero() || !req.Started.Before(s.busyAt))
+	default:
+		return false
 	}
 }

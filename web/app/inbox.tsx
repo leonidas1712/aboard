@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, Clock, CornerDownLeft, Menu } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { type AskList, type Board, type Me, type Member, type Message, ackBoard, follow, get, listTasks } from "./api";
@@ -53,6 +53,8 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const [reading, setReading] = useState(false);
   const [boardsOpen, setBoardsOpen] = useState(false);
   useBackEntry(!wide && reading, () => setReading(false));
+  // Board adds and arrivals are hidden by this browser only: the API has no per-person dismiss.
+  const [dismissed, setDismissed] = usePref<Record<string, true>>("aboard.inbox.dismissed", {});
   const [snoozed, setSnoozed] = usePref<Record<string, number>>("aboard.inbox.snoozed", {});
   const slot = useRef(returned?.slot ?? 0);
   const listing = useRef<HTMLElement>(null);
@@ -102,8 +104,8 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   // Answering or snoozing an ask advances in place: the ask now at its index opens.
   const current = waiting?.find((a) => a.id === picked) ?? waiting?.[Math.min(slot.current, waiting.length - 1)] ?? null;
   const index = current ? waiting!.indexOf(current) : -1;
-  const obGroups = onboardingGroups(ob);
-  const obAll = [...obGroups.needs, ...obGroups.pairing, ...obGroups.invites, ...obGroups.decided];
+  const obGroups = onboardingGroups(ob, dismissed);
+  const obAll = [...obGroups.needs, ...obGroups.news, ...obGroups.pairing, ...obGroups.invites, ...obGroups.decided];
   // What waits on the person opens first: an approval or request before an ask, unless an ask was picked.
   const obItem = obAll.find((i) => i.id === obPicked) ?? (!askChosen && (obGroups.needs.length > 0 || (waiting?.length ?? 0) === 0) ? (obGroups.needs[0] ?? (waiting?.length === 0 ? obAll[0] : undefined) ?? null) : null);
   // The item on screen stays there when deciding it moves it to another group.
@@ -147,7 +149,9 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const list = listing.current;
     rememberInbox({ id: current.id, slot: index, scroll: list && list.scrollHeight > list.clientHeight ? list.scrollTop : window.scrollY });
   }, [current, index]);
-  useEffect(() => {
+  // A layout effect, so the keys work from the first painted frame: a passive effect can
+  // run after the paint, and a key pressed in between would be dropped.
+  useLayoutEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (typing(e)) return;
       if (pressed("help", e)) setKeysOpen(true);
@@ -229,6 +233,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
         {waiting?.length === 0 && obGroups.needs.length === 0 && <p className="px-2.5 text-meta text-muted">Nothing waits on you.</p>}
         {resting > 0 && <p className="px-2.5 pt-2 text-meta text-muted tabular-nums">{resting} snoozed on this browser · <button type="button" className="text-link hover:underline" onClick={() => setSnoozed({})}>Show {resting === 1 ? "it" : "them"} now</button></p>}
         {more && <p className="px-2.5 text-meta text-muted">Showing the first {asks?.length ?? 0} asks.</p>}
+        {obGroup("Added and arrived", obGroups.news, false)}
         {obGroup("Pairing", obGroups.pairing, false)}
         {obGroup("Invites your agents made", obGroups.invites, false)}
         {obGroup("Decided", obGroups.decided, false)}
@@ -239,7 +244,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       <section aria-label="The selected ask" className={cn("quiet-scroll px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:overflow-y-auto lg:px-10 lg:py-8", !wide && !phoneReading && "hidden")}>
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
-        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={readOb} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
+        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={readOb} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
           <p className="text-meta text-muted"><a href={boardHref} onClick={leave} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);

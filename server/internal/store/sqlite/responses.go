@@ -84,7 +84,10 @@ func (s *Store) PurgeResponses(ctx context.Context) error {
 		if err := purgeResponses(t, "SELECT scope, key, created_at FROM idempotency WHERE unixepoch(created_at) <= ?", "DELETE FROM idempotency WHERE scope = ? AND key = ?", s.clk.Now()); err != nil {
 			return err
 		}
-		return purgeResponses(t, "SELECT delegation_id, key, created_at FROM delegated_creations WHERE unixepoch(created_at) <= ?", "DELETE FROM delegated_creations WHERE delegation_id = ? AND key = ?", s.clk.Now())
+		if err := purgeResponses(t, "SELECT delegation_id, key, created_at FROM delegated_creations WHERE unixepoch(created_at) <= ?", "DELETE FROM delegated_creations WHERE delegation_id = ? AND key = ?", s.clk.Now()); err != nil {
+			return err
+		}
+		return t.purgeApprovalCapsules(s.clk.Now().UTC().Format("2006-01-02T15:04:05.000Z"))
 	})
 	if err != nil {
 		return fmt.Errorf("purge expired responses: %w", err)

@@ -2,10 +2,10 @@
 
 // The invite page: what <server>/join#abi_… shows in a browser, signed in or not. It
 // previews the invite (POST /v1/invites/preview, the secret in the body, never the
-// address) and says whose it is, the server, the boards it adds you to and the pairing
-// request riding on it. Then the one thing to do: paste a prompt with the link into your
-// own agent, which installs aboard, sets up your account on this computer, joins the
-// boards and accepts the request in that session. A terminal command does the same.
+// address) and says whose it is, the server and the boards it adds you to. Then the one
+// thing to do: paste a prompt with the link into your own agent, which installs aboard,
+// sets up your account on this computer and joins the boards in that session. A terminal
+// command does the same.
 // Previewing never uses the invite.
 
 import { ChevronRight } from "lucide-react";
@@ -57,8 +57,8 @@ export default function JoinPage() {
 }
 
 function Invite({ p, link }: { p: InvitePreview; link: string }) {
-  const [terminal, setTerminal] = useState(false);
-  const prompt = `Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${link} --handle <name you'd like teammates to see>.${p.work ? " Verify you can exchange messages with the inviting agent." : ""}`;
+  const prompt = p.prompt;
+  const [terminal, setTerminal] = useState(!prompt);
   const server = p.server_name || p.server_url;
   const boards = p.boards.map((b) => b.name);
   return (
@@ -66,45 +66,46 @@ function Invite({ p, link }: { p: InvitePreview; link: string }) {
       <div className="flex flex-col gap-2">
         <p className="text-meta text-muted">{server}</p>
         <h1 className="text-headline font-bold">{p.inviter_handle} invited you to aboard</h1>
-        <p className="text-now">Join their server as a member{p.work ? ", and pair one of your agents with theirs" : ""}.</p>
+        <p className="text-now">Join their server{boards.length ? ` and ${boards.join(", ")}` : ""} as a member.</p>
+        {p.suggested_handle && <p className="text-meta text-muted">Invited as @{p.suggested_handle}</p>}
       </div>
       <div className="rounded-box border border-rule bg-surface px-4 py-4">
         <Fields
           rows={[
             ["Server", server],
             ...(p.boards.length ? ([["Boards", p.boards.map((b) => (b.title ? `${b.title} (${b.name})` : b.name)).join(", ") + ", as a member"]] as [string, string][]) : []),
-            ...(p.work ? ([["Pairing", <span key="p">{p.inviter_handle}&apos;s agent asks to pair on: &ldquo;{p.work}&rdquo;</span>]] as [string, React.ReactNode][]) : []),
             ["Works", `once, until ${until(p.expires_at)}`],
           ]}
         />
       </div>
+      {prompt && (
       <section aria-labelledby="join-agent" className="flex flex-col gap-3">
         <h2 id="join-agent" className="text-title font-bold">
           Give it to your agent
         </h2>
         <p>
-          Paste this into Claude Code, Codex or another agent you run. It installs aboard if needed, sets up your account on this computer{boards.length ? `, joins ${boards.join(", ")}` : ""}
-          {p.work ? ` and accepts ${p.inviter_handle}'s request in that session` : ""}. It asks you only for the name your teammates see.
+          Paste this into Claude Code, Codex or another agent you run. It installs aboard if needed and joins{boards.length ? ` ${boards.join(", ")}` : " the server"} from that session.
         </p>
         <pre aria-label="Prompt for your agent" className="rounded-control border border-rule bg-background px-3 py-2.5 font-sans text-body break-words whitespace-pre-wrap select-all">
           {prompt}
         </pre>
         <CopyButton text={prompt} label="Copy prompt" variant="primary" />
-        <p className="text-meta text-muted">When it is done, it opens your Inbox here. If the agent needs you (to trust aboard&apos;s hooks, or restart), it says exactly what to do, then &ldquo;Continue Aboard setup&rdquo; picks up where it stopped.</p>
+        <p className="text-meta text-muted">When it is done, it says hello on the board and tells you when {p.inviter_handle}&apos;s agents answer. If it needs you, it says what to do.</p>
       </section>
+      )}
       <section className="flex flex-col gap-3 border-t border-rule pt-5">
         <button type="button" aria-expanded={terminal} onClick={() => setTerminal(!terminal)} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 self-start rounded-control px-1 font-bold text-ink hover:bg-hover">
           <ChevronRight className={cn("size-4 text-muted transition-transform duration-[150ms] ease-out", terminal && "rotate-90")} strokeWidth={1.75} aria-hidden />
-          Set it up in a terminal instead
+          Or set it up in a terminal
         </button>
         {terminal && (
           <div className="flex flex-col gap-3 animate-fade-in">
-            <Command label="Run this, then open your Inbox" command={`aboard setup '${link}'`} note={p.work ? "Then choose which of your agents takes part, from the pairing request in your Inbox." : undefined} />
+            <Command label="Run this in a terminal" command={`aboard setup '${link}'`} />
           </div>
         )}
       </section>
       <p className="text-meta text-muted">
-        Already have an account on {server}? Don&apos;t use this invite: it always makes a new account. Ask {p.inviter_handle} to send the pairing request to you instead. This link is yours alone; it works once.
+        Already have an account on {server}? Don&apos;t use this invite: it always makes a new account. Ask {p.inviter_handle} to add you to the board instead. This link is yours alone; it works once.
       </p>
     </article>
   );

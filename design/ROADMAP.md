@@ -1,5 +1,12 @@
 # Roadmap
 
+### Onboarding approval outcomes (GEN-52)
+
+Review: PR #297 adds requesting-agent collection with encrypted, bounded recovery,
+server-owned invite prompts, original-session selection, suggested handles and
+seat-scoped people/invite reads. Browser copy-once UI landed in #296. Focused checks
+pass; the isolated three-harness setup proof and affected live gate remain pending.
+
 What's being built now, what's left before launch, and what comes after, feature by
 feature. Each stage separates **features** (something new) from **enhancements** (a
 change to something that already exists). This is a living list: reorder it, add to it
@@ -141,6 +148,8 @@ the board.
 | Coordination UX from dogfooding: a turn-start digest per agent, fewer and better nudges, a coordinator role with no single current task, delegation states, a one-time brief prompt, `task done <ref>` fix | exploring: design/explorations/coordination-and-integrations.md | |
 | Keep the person's key out of the agent's reach: store access keys in the OS keychain instead of servers.json, plus recipes for running harnesses in sandboxes that can't read it (D106) | right after launch (maintainer, 2026-10-09): opt-in hardening that makes the approval boundary real | D222, D106 |
 | Agent-driven team onboarding (#268, D222): allowances and approvals for agent admin (board view, CLI and API), one invite that carries the board and a pairing request, resumable `aboard setup`, pairing requests a person accepts in a chosen session, and a verified two-way handshake | contracts, allowance/approvals, pairing and invite/setup landed (#270, #274, #272, #276); required for 0.1.4; onboarding display labels, invite preview, browser pairing choice and approval expiry/history landed (#288); board view wired to the API (#287); browser revocation and decision/recipient/key labels landed (#289); the colleague guide and auto-mode docs in review (GEN-40, GEN-44, #290) | D222 |
+| One link, one prompt, one command (D224): approved outcomes reach the requesting agent, the server serves the link and prompt, `--handle` and rename in the CLI and the board view, invites join boards in the pasting session with no visible pairing, `aboard join <board>` as the one command (CLI polish in review, GEN-60), board adds land in the person's Inbox, agents read people and invite lists, every onboarding error has a next step | approved 2026-10-10 for 0.1.4; collection in review (#297, GEN-52), approval card landed (#296); paste-session setup and exact explicit-read verification building contract-first (GEN-55); rename/edit GEN-56, board-add Inbox GEN-57 remain required; durable idle wake in review (#305, GEN-58); docs and the skill rewritten for the new flow, landed (#313) | D224 |
+| Team QA on one machine: `make sandbox-team`, FRESH installs, and flow evals with small models (GEN-53, GEN-54) | sandbox-team in review (#298); FRESH and evals next | D224 |
 | Colleague setup prompt includes installation and reading the skill; a new account waits for the person to choose their visible name before using the invite, and the current session is told to read its installed skill | in review | D222 |
 | Agents from the board (v2, with My agents #221): start agents from the board view or by asking an agent, through an opt-in runner on the person's machine; assign them to boards; a session view per own agent with direct messages; one switch turns it all off | exploring: design/explorations/agents-from-the-board.md | |
 | Notes, verified when citing a board file by hash | retired: files and the brief cover them | D14, D214 |
@@ -182,6 +191,7 @@ the board.
 | Docs for team mode, enough to deploy a team server and bring colleagues in from the docs alone: installing a release (the script, the signature, `aboard upgrade`, the update notice), the server in Kubernetes and Docker step by step, backups and upgrades, people, keys and browser sign-in, and agents on a team (`aboard join --board`, seats, delivery modes, archiving and deleting boards) | in review | |
 | The public website at comeaboard.dev: one static page in `site/` (Astro, on Vercel) with the scripted board, the three promises, the install line through a `/install` redirect to the release's script, and links to the docs at docs.comeaboard.dev | review | |
 | The docs at docs.comeaboard.dev take the brand (colours, backgrounds, Geist and Geist Mono, the wordmark), the README and docs give `curl -fsSL https://comeaboard.dev/install \| sh` as the install line, and the website, board view and docs share one fixed tab icon, the mark as it looks in dark on a near-black tile | review | D220 |
+| Launch pass on comeaboard.dev: live coordination as the lead, agent-driven team setup, controls for when agents loop, a hosted-version waitlist (a Tally form, off until its id is set), a new hero texture and team diagram; a neutral comparison page in the docs (`docs/compare.mdx`) | in review | |
 | The README, quickstart and install guide show the direct GitHub install command as an alternative when comeaboard.dev is unavailable; the upgrade guide links to it | in review | |
 | The docs tell one story: Get started (a short introduction, then the quickstart), Work with your agents (with a new board view page), Your team (with Fly.io, Kubernetes and Docker pages under Deploy a team server), Harnesses (with Any CLI agent), Concepts (with Safety and governance listing what the server enforces), Reference and Build and contribute, in collapsible groups, with light and dark board view screenshots at the top of each feature page | in review | |
 | Comparison pages in the docs for products that look similar (full agent workspaces such as Buzz, agent supervisors such as Orca and herdr, harnesses' own multi-agent features), built from [positioning.md](positioning.md) | later | |
@@ -442,3 +452,7 @@ warning and Inbox integration are owned by the UI lane.
 ### Onboarding QA fixes (GEN-49)
 
 Setup defaults and harness next precedence, readable CLI labels, consistent invite prompts, skill/help, and agent role/policy approval requests: in review (#291) for 0.1.4. Existing API authority and person-only key/login boundaries stay unchanged.
+
+D224 own-person rename through an active agent and suggested invite-handle edits: building (GEN-56). Invitation edits change display metadata only, never frozen approval authority.
+
+D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prompts and invite-notice handle: in review (#310, GEN-57).
