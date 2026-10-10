@@ -34,6 +34,7 @@ type PairingRequest struct {
 	Accepted                                                                   bool
 	Creation                                                                   PairingCreation
 	InitialState                                                               string
+	ChosenRecipientAgentID, ChoiceMessageID                                    string
 	AdmissionApprovalID                                                        string
 	Forward, Reverse                                                           *PairingEvidence
 }
@@ -374,6 +375,9 @@ func (s *Service) MintPairingCredential(ctx context.Context, p Principal, in Pai
 		}
 		if err := pairingMember(tx, r.BoardID, human, in.AgentID); err != nil {
 			return err
+		}
+		if in.Side == "recipient" && r.ChosenRecipientAgentID != "" && in.AgentID != r.ChosenRecipientAgentID {
+			return pairingChanged()
 		}
 		if in.Side == "initiator" && in.AgentID != r.InitiatingAgentID && !in.Replace {
 			return pairingChanged()

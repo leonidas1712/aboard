@@ -22,6 +22,10 @@ func (h *handlers) pairingOf(ctx context.Context, r board.PairingRequest) map[st
 	if r.InviteID != "" {
 		out["invite_id"] = r.InviteID
 	}
+	if r.ChosenRecipientAgentID != "" {
+		out["chosen_recipient_agent_id"] = r.ChosenRecipientAgentID
+		out["choice_message_id"] = r.ChoiceMessageID
+	}
 	if r.Initiator != nil {
 		out["initiator"] = pairingEndpointOf(r.Initiator)
 	}
@@ -147,4 +151,12 @@ func (h *handlers) VerifyPairingRoundTrip(ctx context.Context, req VerifyPairing
 		return nil, err
 	}
 	return convert[VerifyPairingRoundTrip200JSONResponse](h.pairingOf(ctx, r))
+}
+
+func (h *handlers) ChoosePairingAgent(ctx context.Context, req ChoosePairingAgentRequestObject) (ChoosePairingAgentResponseObject, error) {
+	r, err := h.svc.ChoosePairingAgent(ctx, principal(ctx), req.Pairing, req.Body.AgentId, req.Body.Generation)
+	if err != nil {
+		return nil, err
+	}
+	return convert[ChoosePairingAgent200JSONResponse](h.pairingOf(ctx, r))
 }

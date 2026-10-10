@@ -240,6 +240,13 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 		if len(parts) < 3 {
 			return fmt.Errorf("pairing replay has no id")
 		}
+		if strings.HasSuffix(path, "/choose") {
+			var input AcceptPairingRequest
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			return svc.CheckPairingChoiceReplay(ctx, principal(ctx), parts[2], input.AgentId, input.Generation)
+		}
 		side := ""
 		generation := 0
 		if strings.HasSuffix(path, "/cancel") {
