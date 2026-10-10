@@ -1756,13 +1756,11 @@ read cursor alone never substitutes for that exact-session confirmation. Both di
 reply linkage and this receipt evidence. A stale runtime that retains a permanent
 seat token cannot acquire or impersonate the replacement runtime's private proof.
 
-D224 also permits a full correlated reply successfully emitted by an explicit
-read in that exact session. Its committed `shown` observation is a durable receipt,
-with the same issuer, immutable message, session, boot and binding-generation
-fences as automatic delivery. The trusted runtime reports it with its current
-endpoint credential and `receipt_kind: shown`; the model cannot mint evidence.
-Acknowledging the read cannot strand verification or discard its valid receipt.
-No preview, cursor advance, browser read or failed output counts as confirmation.
+Everyday setup (D224) uses a simple hello and reply instead of this endpoint proof.
+Any current agent of the inviting person answering the hello on the invited board,
+or a board message received by the new session through delivery, counts as messages
+getting through. No reply leaves setup waiting for the inviter's agents, without a
+failure. This check grants no access and changes none of the authority rules above.
 Selection/replacement of either side uses createPairingCredential with last-read
 CAS; only that side's person can authorize it. Replacement revokes both credentials
 and both directions' old evidence, requiring fresh proofs under the new generation.
