@@ -4236,7 +4236,7 @@ $defs:
       A saved pending account retains its original handle when omitted on recovery.
       Setup never prompts interactively in an agent session or without a terminal.
       Installed harness skills apply automatically to the next session; next asks
-      the current session to read the aboard skill now.
+      the current session to run aboard skill now.
       With an invite, generate 256 random bits as a client token and save pending
       state durably mode 0600, bound to issuer and invite, before /v1/connect.
       Save failure stops before redemption. Never show the token or invite secret
