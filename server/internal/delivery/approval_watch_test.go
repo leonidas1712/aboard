@@ -170,10 +170,10 @@ func TestApprovalAutomaticallySelectsOnlyItsOriginatingPairing(t *testing.T) {
 			writes, side, selected := pairing.writes, pairing.side, pairing.selectedAgent
 			pairing.mu.Unlock()
 			if mode == "original" {
-				if writes != 1 || side != "initiator" || selected.Key() != agent.Key() || !strings.Contains(got.Nudge, "requesting session is selected") {
+				if writes != 1 || side != "initiator" || selected.Key() != agent.Key() || !strings.Contains(got.Nudge, "Your invite was approved. Collect its link with the command above.") {
 					t.Fatalf("origin not selected: %d %s %+v %+v", writes, side, selected, got)
 				}
-			} else if writes != 0 || strings.Contains(got.Nudge, "requesting session is selected") {
+			} else if writes != 0 || strings.Contains(got.Nudge, "Your invite was approved. Collect its link with the command above.") {
 				t.Fatalf("selected wrong endpoint: %d %+v", writes, got)
 			}
 		})
