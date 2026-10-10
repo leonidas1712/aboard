@@ -459,3 +459,9 @@ Setup defaults and harness next precedence, readable CLI labels, consistent invi
 D224 own-person rename through an active agent and suggested invite-handle edits: building (GEN-56). Invitation edits change display metadata only, never frozen approval authority.
 
 D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prompts and invite-notice handle: in review (#310, GEN-57).
+
+### Developer flow evaluations
+
+| Feature | Status |
+| --- | --- |
+| Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | tool in review (#301, GEN-54); invite-from-scratch flow passed with Haiku and GPT-6-Luna after a greeting-scorer correction; other scenarios remain unproven |
