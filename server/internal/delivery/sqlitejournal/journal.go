@@ -178,6 +178,10 @@ func (j *Journal) SaveSession(ctx context.Context, s delivery.SessionRecord) err
 		if err != nil {
 			return fmt.Errorf("save session %s: %w", s.Key, err)
 		}
+		_, err = tx.ExecContext(ctx, `UPDATE approval_watches SET invalidated=1 WHERE harness=? AND session_id=? AND invalidated=0 AND (?=0 OR boot<>?)`, s.Key.Harness, s.Key.ID, s.Open, s.Boot)
+		if err != nil {
+			return fmt.Errorf("invalidate closed approval origin %s: %w", s.Key, err)
+		}
 		return nil
 	})
 }

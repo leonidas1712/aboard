@@ -3,6 +3,7 @@
 package live
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,20 +15,47 @@ import (
 )
 
 func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
-	eachHarness(t, "InvitedSetupVerifiesTwoPeopleExactSessions", func(t *testing.T, d *driver, rec *recorder) {
+	invitedSetupProof(t, "InvitedSetupVerifiesTwoPeopleExactSessions", false)
+}
+
+func TestBrowserApprovedInviteReachesItsOriginalSession(t *testing.T) {
+	invitedSetupProof(t, "BrowserApprovedInviteReachesItsOriginalSession", true)
+}
+
+func invitedSetupProof(t *testing.T, name string, held bool) {
+	t.Helper()
+	eachHarness(t, name, func(t *testing.T, d *driver, rec *recorder) {
 		if !d.p.Delivers() {
 			rec.notApplicable("no automatic delivery")
 		}
 		inviter := newLab(t)
 		d.setUp(inviter)
 		board := inviter.pairCLI()
-		inviter.run("allowance", "on")
-		inviter.run("allowance", "set", "invite-people", "on")
+		if !held {
+			inviter.run("allowance", "on")
+			inviter.run("allowance", "set", "invite-people", "on")
+		}
 		writerDir := inviter.project("setup-inviter", d.p.Harness)
 		writer := d.start(inviter, "writer", writerDir)
 		writer.bind("writer")
 		invitePath := filepath.Join(writerDir, "invite.json")
-		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
+		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. If a later approval notice says this request executed, run its aboard approvals show command once and save that JSON outcome to the same private file. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
+		if held {
+			var pending struct {
+				State    string `json:"state"`
+				Approval struct {
+					ID string `json:"id"`
+				} `json:"approval"`
+			}
+			inviter.waitFor(3*time.Minute, "an invite held for browser approval", func() bool {
+				data, err := os.ReadFile(filepath.Clean(invitePath))
+				return err == nil && json.Unmarshal(data, &pending) == nil && pending.State == "pending" && pending.Approval.ID != ""
+			})
+			writer.waitIdle(2 * time.Minute)
+			inviter.approveInviteInBrowser(pending.Approval.ID)
+			// No invitation, outcome or approval id is relayed from the browser.
+			writer.submit("Continue with any Aboard next-turn notice, then end your turn. Do not request another invite or select a pairing endpoint manually.")
+		}
 		var invitation struct {
 			Invite struct {
 				Secret string `json:"invite"`
@@ -95,4 +123,53 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 		}
 		reviewer.waitIdle(2 * time.Minute)
 	})
+}
+
+func (l *lab) approveInviteInBrowser(id string) {
+	l.t.Helper()
+	key, err := os.ReadFile(filepath.Join(l.configDir(), "local-owner-token"))
+	if err != nil {
+		l.t.Fatal("read the isolated browser sign-in key")
+	}
+	base := "http://" + l.addr
+	raw, err := json.Marshal(map[string]string{"key": strings.TrimSpace(string(key))})
+	if err != nil {
+		l.t.Fatal("encode isolated browser sign-in")
+	}
+	req, err := http.NewRequestWithContext(l.t.Context(), http.MethodPost, base+"/v1/browser-sessions", bytes.NewReader(raw))
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	req.Header.Set("Origin", base)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	response, err := client.Do(req)
+	if err != nil {
+		l.t.Fatal("sign in the isolated browser")
+	}
+	var login struct {
+		CSRF string `json:"csrf_token"`
+	}
+	err = json.NewDecoder(response.Body).Decode(&login)
+	_ = response.Body.Close()
+	if err != nil || response.StatusCode != http.StatusCreated || len(response.Cookies()) != 1 || login.CSRF == "" {
+		l.t.Fatal("browser sign-in did not return its cookie and CSRF proof")
+	}
+	req, err = http.NewRequestWithContext(l.t.Context(), http.MethodPost, base+"/v1/me/approvals/"+id+"/allow", strings.NewReader("{}"))
+	if err != nil {
+		l.t.Fatal(err)
+	}
+	req.AddCookie(response.Cookies()[0])
+	req.Header.Set("Origin", base)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Aboard-CSRF", login.CSRF)
+	response, err = client.Do(req)
+	if err != nil {
+		l.t.Fatal("approve the invitation through the browser API")
+	}
+	// The approving browser's one-time link is never read or passed to either agent.
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		l.t.Fatalf("browser approval returned status %d", response.StatusCode)
+	}
 }

@@ -433,6 +433,9 @@ func (s *Service) CreateServerInvite(ctx context.Context, p Principal, ttl time.
 // CreateServerInviteWithInput freezes ordinary board admissions with the invite.
 func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, in InvitePeopleInput) (NewServerInvite, error) {
 	in = copyInviteInput(in)
+	if in.SuggestedHandle != "" && (!validName(in.SuggestedHandle) || len(in.SuggestedHandle) > 40) {
+		return NewServerInvite{}, invalid("Invalid suggested handle.", "Use lowercase letters, digits and single dashes, at most 40 characters.")
+	}
 
 	ttl := time.Duration(0)
 	if in.TTLSeconds != nil {
@@ -491,7 +494,7 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 		if err != nil {
 			return err
 		}
-		inv := ServerInvite{ParentKeyID: p.KeyID, Boards: in.Boards, Digest: ids.Digest(s.key, secret), CreatedBy: h.ID, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(ttl))}
+		inv := ServerInvite{SuggestedHandle: in.SuggestedHandle, ParentKeyID: p.KeyID, Boards: in.Boards, Digest: ids.Digest(s.key, secret), CreatedBy: h.ID, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(ttl))}
 		if s.adminAuthorization != nil {
 			authorization := *s.adminAuthorization
 			inv.Authorization = &authorization
@@ -500,6 +503,19 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 		}
 		if inv.ID, err = s.gen.ID("inv", now); err != nil {
 			return err
+		}
+		if inv.Authorization != nil && inv.Authorization.Via == "approval" {
+			capsule, err := s.sealApprovalInvite(inv.Authorization.ApprovalID, inv.ID, secret)
+			if err != nil {
+				return err
+			}
+			expires := inv.ExpiresAt
+			if limit := stamp(now.Add(24 * time.Hour)); expires > limit {
+				expires = limit
+			}
+			if err := tx.InsertApprovalOutcome(ApprovalOutcomeRecord{ApprovalID: inv.Authorization.ApprovalID, InviteID: inv.ID, Version: 1, Capsule: capsule, ExpiresAt: expires}); err != nil {
+				return err
+			}
 		}
 		if err := tx.InsertServerInvite(inv); err != nil {
 			return fmt.Errorf("insert server invite: %w", err)

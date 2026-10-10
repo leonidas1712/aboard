@@ -37,6 +37,7 @@ type ReadTx interface {
 	OnboardingReceipt(keyID string) (OnboardingReceipt, error)
 	Allowance(personID string) (Allowance, error)
 	Approval(id string) (Approval, error)
+	ApprovalOutcome(id string) (ApprovalOutcomeRecord, error)
 	ApprovalByRequest(agentID, key string) (Approval, error)
 	Approvals(personID string) ([]Approval, error)
 	QueueReport(memberID string) (QueueReport, error)
@@ -215,6 +216,9 @@ type Tx interface {
 	SaveOnboardingReceipt(OnboardingReceipt) error
 	SaveAllowance(Allowance) error
 	SaveApproval(Approval) error
+	InsertApprovalOutcome(ApprovalOutcomeRecord) error
+	ConsumeApprovalOutcome(id, at, keyHash, until string) (bool, error)
+	ClearApprovalOutcome(id string) error
 	ExpireAdminRequestKeys(before string) error
 	SaveQueueReport(QueueReport) error
 	SetHumanMidturn(humanID, policy string) error
