@@ -70,11 +70,12 @@ const (
 	OpBoards = "boards"
 	// OpJoin gives the session a seat on a board through the machine's delegation: the
 	// server decides whether it is a new seat or the session's earlier one.
-	OpJoin        = "join"
-	OpCreateBoard = "create_board"
-	OpPairing     = "pairing"
-	OpQueued      = "queued"
-	OpShown       = "shown"
+	OpJoin          = "join"
+	OpCreateBoard   = "create_board"
+	OpPairing       = "pairing"
+	OpApprovalWatch = "approval_watch"
+	OpQueued        = "queued"
+	OpShown         = "shown"
 )
 
 // Events sent back on a waiting connection.
@@ -91,6 +92,7 @@ const (
 
 // Request is one message from a hook or the CLI to the daemon.
 type Request struct {
+	ApprovalID        string         `json:"approval_id,omitempty"`
 	PairingAction     string         `json:"pairing_action,omitempty"`
 	PairingID         string         `json:"pairing_id,omitempty"`
 	BoardID           string         `json:"board_id,omitempty"`

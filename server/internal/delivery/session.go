@@ -347,7 +347,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	ok := Response{V: ProtocolVersion}
-	if req.Op != OpQueued && req.Op != OpShown {
+	if req.Op != OpQueued && req.Op != OpShown && req.Op != OpApprovalWatch {
 		s.noteProcess(ctx, req)
 	}
 	switch req.Op {
@@ -389,10 +389,15 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		ok.Note = s.taskStartNote(ctx, ok.Note)
 		s.d.log.Info("session started", "session", s.key.String(), "source", req.Source, "reopened", reopened,
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
+	case OpApprovalWatch:
+		return s.watchApproval(ctx, req)
 	case OpPrompt, OpTurnStart:
 		s.beginPeerTurn()
 		if req.Op == OpTurnStart || req.Harness != "omp" {
 			ok.Nudge = s.briefStartNudge(ctx)
+		}
+		if req.Boot == "" || req.Boot == s.boot {
+			ok.Nudge = strings.TrimSpace(ok.Nudge + "\n\n" + s.approvalNotices(ctx))
 		}
 		s.busyAt = s.now()
 		s.inTurn = !s.adapter.WaitsForIdle()

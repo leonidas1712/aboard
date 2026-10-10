@@ -112,6 +112,9 @@ func runDaemon(ctx context.Context, a *app, args []string) error {
 	var pairingMu sync.Mutex
 	pairings := map[string]delivery.PairingRuntime{}
 	err = delivery.Run(ctx, delivery.Config{
+		ApprovalFor: func(server string) delivery.ApprovalRuntime {
+			return apiserver.NewApprovals(server, daemonTokens{a: a})
+		},
 		PairingFor: func(server string) delivery.PairingRuntime {
 			pairingMu.Lock()
 			defer pairingMu.Unlock()

@@ -24,7 +24,8 @@ import (
 
 // Config is everything the daemon needs from outside.
 type Config struct {
-	PairingFor func(string) PairingRuntime
+	PairingFor  func(string) PairingRuntime
+	ApprovalFor func(string) ApprovalRuntime
 	// AllowBriefNudge limits already-rendered keeper advice using local private bookkeeping.
 	AllowBriefNudge func(AgentRef, deliverytext.BriefContext) bool
 	Journal         Journal
@@ -830,7 +831,7 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:
 		_ = WriteFrame(conn, d.serveJoin(ctx, req))
-	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued, OpReceived, OpShown:
+	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued, OpReceived, OpShown, OpApprovalWatch:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
 		_ = WriteFrame(conn, errorResponse("invalid_request", fmt.Sprintf("The delivery daemon has no operation %q.", req.Op),
