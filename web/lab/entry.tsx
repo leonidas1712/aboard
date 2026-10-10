@@ -12,14 +12,10 @@ import { MessageMeta, ThreadMeta } from "./experiments/chips";
 import { Inbox } from "./experiments/inbox";
 import { MessageFooter } from "./experiments/message-footer";
 import { Nav } from "./experiments/nav";
-import { AccountItem, OnboardingCentre, eventLine } from "./experiments/onboarding/board";
-import { OnboardingInbox } from "./experiments/onboarding/inbox";
-import { JoinPage } from "./experiments/onboarding/join";
-import { groups } from "./experiments/onboarding/model";
-import { Settings } from "./experiments/onboarding/settings";
 import { Text } from "./experiments/text";
 import { Title, WorkPanel } from "./experiments/work";
 import { install } from "./fake-api";
+import { onboardingNeeds } from "./fake-onboarding";
 import "./lab.css";
 import { HarnessMark } from "./experiments/harness-mark";
 import { Panel } from "./panel";
@@ -38,10 +34,11 @@ if (typeof window !== "undefined") {
   // With nothing named, the lab opens where the person would: the Inbox when something
   // waits on them, else the scenario's board.
   const q = new URLSearchParams(window.location.search);
-  if (!q.has("board") && !q.has("inbox") && !q.has("list") && !q.has("settings") && !q.has("join")) {
+  if (!q.has("board") && !q.has("inbox") && !q.has("list") && q.get("view") !== "settings" && !q.has("join")) {
     const { snap } = current();
-    const asks = asksOf(snap, {}).length + groups({ ...snap.onboarding, asked: {} }).needs.length;
-    history.replaceState(null, "", labHref(snap.onboarding.join ? { join: "1" } : asks > 0 ? { inbox: "1" } : { board: scenario.board.name }));
+    const asks = asksOf(snap, {}).length + onboardingNeeds();
+    const join = snap.onboarding.join;
+    history.replaceState(null, "", labHref(join ? { join: "1" } : asks > 0 ? { inbox: "1" } : { board: scenario.board.name }) + (join ? `#${join.secret}` : ""));
   }
   // The lab's colour schemes: ?theme= picks one for this load (screenshots use it), else
   // the one this browser chose. The page's first-paint script only knows light and dark.
@@ -72,31 +69,16 @@ if (typeof window !== "undefined") {
   );
 }
 
-// The onboarding scenarios have their own Inbox, Settings and invite page.
+// The onboarding scenarios show the real Inbox, Settings and invite page, on the fake
+// API's onboarding routes; the others keep the lab's own Inbox of asks.
 const onboarding = scenario.steps.some((s) => s.onboarding);
-
-function place(): string | null {
-  if (typeof window === "undefined") return null;
-  const q = new URLSearchParams(window.location.search);
-  if (onboarding && q.has("join")) return "join";
-  if (onboarding && q.has("settings")) return "settings";
-  return q.has("inbox") ? "inbox" : null;
-}
-
-function Place({ onSignOut }: { onSignOut: () => void }) {
-  const p = place();
-  if (p === "join") return <JoinPage />;
-  if (p === "settings") return <Settings onSignOut={onSignOut} />;
-  return onboarding ? <OnboardingInbox onSignOut={onSignOut} /> : <Inbox onSignOut={onSignOut} />;
-}
 
 export const lab: Lab | null = {
   Overlay: Panel,
-  place,
-  Place,
+  place: () => (typeof window !== "undefined" && !onboarding && new URLSearchParams(window.location.search).has("inbox") ? "inbox" : null),
+  Place: Inbox,
   Nav,
-  Centre: onboarding ? OnboardingCentre : Centre,
-  ...(onboarding && { AccountItems: AccountItem, eventLine }),
+  Centre,
   RightTitle: Title,
   RightPanel: WorkPanel,
   MessageFooter,

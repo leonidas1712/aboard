@@ -5,7 +5,7 @@
 // own data. Nothing here is part of the API or the product yet.
 
 import type { ComponentType, ReactNode } from "react";
-import type { Board, BoardEvent, Member, MemberRef, Message } from "./api";
+import type { Board, Member, MemberRef, Message } from "./api";
 
 export type Lab = {
   /** Overlay is the lab's own floating controls, drawn over every screen. */
@@ -55,8 +55,4 @@ export type Lab = {
   Text?: ComponentType<{ text: string }>;
   /** AgentMark draws an agent's mark (its avatar) everywhere one shows. */
   AgentMark?: ComponentType<{ name: string; identity: number; className?: string }>;
-  /** AccountItems adds entries to the account menu, after People. */
-  AccountItems?: ComponentType;
-  /** eventLine words a board event in the timeline; null leaves it to the real UI. */
-  eventLine?: (e: BoardEvent) => string | null;
 };

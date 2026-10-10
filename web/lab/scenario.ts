@@ -31,6 +31,8 @@ export type ScenarioAgent = {
   role?: string;
   /** joined is when it joined, in minutes; it is on the board from the start when left out. */
   joined?: number;
+  /** location is where its session last ran, which its own person sees; seen is when, in minutes, if not now. */
+  location?: { machine: string; folder: string; seen?: number };
 };
 
 export type ScenarioMessage = {

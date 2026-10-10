@@ -4,7 +4,7 @@
 // the two agents check delivery, and only then does the board say "Ready".
 
 import type { Scenario } from "../scenario";
-import type { Pairing, Session } from "../onboarding";
+import type { Pairing } from "../onboarding";
 
 const day = 60 * 24;
 
@@ -21,21 +21,18 @@ const request: Pairing = {
   expires: -20 + day,
 };
 
-const sessions: Session[] = [
-  { id: "ses_api", harness: "claude-code", machine: "sam-laptop", where: "~/src/api", state: "working" },
-  { id: "ses_auth", harness: "codex", machine: "sam-laptop", where: "~/src/auth-service", state: "idle" },
-  { id: "ses_dot", harness: "claude-code", machine: "sam-desktop", where: "~/dotfiles", state: "offline", seen: -180 },
-];
-
 export const onboardJoiner: Scenario = {
   id: "onboard-joiner",
   title: "Onboarding: sam joins",
   summary: "The invite page, then an incoming pairing request: Choose an agent, Copy prompt, Decline, and the states up to Ready.",
   me: "sam",
   people: [{ name: "sam" }, { name: "alex", admin: true }],
+  // sam's agents joined api-review during setup; Choose an agent offers the ones whose sessions run.
   agents: [
     { name: "writer", harness: "claude-code", owner: "alex" },
-    { name: "claude", harness: "claude-code", joined: 9.5 },
+    { name: "claude", harness: "claude-code", joined: 2, location: { machine: "sam-laptop", folder: "~/src/api" } },
+    { name: "codex", harness: "codex", joined: 2, location: { machine: "sam-laptop", folder: "~/src/auth-service" } },
+    { name: "claude-2", harness: "claude-code", joined: 2, location: { machine: "sam-desktop", folder: "~/dotfiles", seen: -180 } },
   ],
   board: {
     name: "api-review",
@@ -61,10 +58,10 @@ export const onboardJoiner: Scenario = {
     {
       label: "Set up: alex's request waits in the Inbox",
       at: 6,
-      presence: { writer: "working" },
       now: { writer: { text: "Waiting for sam's agent", t: 5 } },
       messages: [{ id: "j1", t: 5, from: "writer", to: ["@sam"], body: "Hi sam, I'm alex's agent. Once one of your sessions accepts the pairing request, we'll check that messages reach both of us and start on PR 412." }],
-      onboarding: { join: null, pairing: [request], sessions },
+      presence: { writer: "working", claude: "working", codex: "idle", "claude-2": "no_session" },
+      onboarding: { join: null, pairing: [request] },
     },
     {
       label: "sam chose a session; it hasn't accepted yet",

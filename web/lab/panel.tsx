@@ -129,9 +129,9 @@ export function Panel() {
         <a href={labHref({ list: "1", board: null, inbox: null, view: null, task: null, artifact: null })}>Board list</a>
         {scenario.id.startsWith("onboard") && (
           <>
-            <a href={labHref({ settings: "1", board: null, inbox: null, list: null, join: null, item: null })}>Settings</a>
-            {/* The invite page is the colleague's first moment, in the joiner scenario. */}
-            <a href={`${window.location.pathname}?lab=onboard-joiner&step=1&join=1`}>Invite page (opened in a browser)</a>
+            <a href={labHref({ view: "settings", board: null, inbox: null, list: null, join: null, item: null })}>Settings</a>
+            {/* The invite page is the colleague's first moment, in the joiner scenario; its link carries the invite. */}
+            <a href={`${window.location.pathname}?lab=onboard-joiner&step=1&join=1#${scenarios.find((s) => s.id === "onboard-joiner")?.steps[0].onboarding?.join?.secret ?? ""}`}>Invite page (opened in a browser)</a>
           </>
         )}
       </p>

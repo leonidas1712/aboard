@@ -103,6 +103,12 @@ func serveUI(files fs.FS) (http.Handler, error) {
 		case r.Method != http.MethodGet && r.Method != http.MethodHead:
 			w.Header().Set("Allow", "GET, HEAD")
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
+		case static != nil && r.URL.Path == "/join":
+			// An invite link (/join#abi_…) is the UI's page; its fragment, the invite,
+			// never reaches the server.
+			page := r.Clone(r.Context())
+			page.URL.Path = "/"
+			static.ServeHTTP(w, page)
 		case static != nil:
 			static.ServeHTTP(w, r)
 		case r.URL.Path == "/":

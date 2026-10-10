@@ -31,6 +31,7 @@ import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
 import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
 import { threadsOf, useThreadPrefs } from "./threads";
 import { type Filter, filterActive, useBoard } from "./use-board";
+import { PairingLine } from "./pairing-line";
 import { type NowPart, boardLabel, eventLine, eventMatches, identitiesOf, identityOf, nowLine, personIdentity } from "./words";
 
 // The reading column the "Now:" line, the timeline and the message box share, centred
@@ -107,6 +108,15 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const me = s.me?.name ?? null;
   const agents = useMemo(() => (s.members ?? []).filter((m) => m.kind === "agent"), [s.members]);
   const people = useMemo(() => (s.members ?? []).filter((m) => m.kind === "human"), [s.members]);
+  // The record names who let someone in by id; the board's members name them. The
+  // authorizing person is the agent's own person.
+  const authNames = useMemo(() => {
+    const members = s.members ?? [];
+    return {
+      agent: (id: string) => members.find((m) => m.id === id)?.name ?? null,
+      person: (id: string) => members.find((m) => m.kind === "agent" && m.owner_id === id)?.owner ?? null,
+    };
+  }, [s.members]);
   const roles = useMemo(() => Object.keys(s.board?.roles ?? {}).sort(), [s.board]);
   // Every name and role a message can mention, so the timeline marks only real mentions.
 
@@ -227,12 +237,12 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       const creator = s.board.created_by.name;
       for (const e of s.events) {
         if (e.seq < from || !eventMatches(e, filter.from, filter.role)) continue;
-        const line = lab?.eventLine?.(e) ?? eventLine(e, creator, people.length <= 1);
+        const line = eventLine(e, creator, people.length <= 1, authNames);
         if (line) out.push({ kind: "event", seq: e.seq, e, line });
       }
     }
     return out.sort((a, b) => a.seq - b.seq);
-  }, [s.shown, s.rootless, s.events, s.board, s.hasEarlier, byId, thread, showEvents, people.length, filter]);
+  }, [s.shown, s.rootless, s.events, s.board, s.hasEarlier, byId, thread, showEvents, people.length, filter, authNames]);
 
   // An open thread's replies have been seen.
   useEffect(() => {
@@ -621,6 +631,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 />
               </div>
               <FilterChips filter={filter} setFilter={setFilter} showEvents={showEvents} setShowEvents={setShowEvents} me={me} />
+              <PairingLine boardId={s.board?.id} head={s.board?.head_seq} />
               {error !== null && (
                 <div className="pb-3">
                   <Problem error={error} />

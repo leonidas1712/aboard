@@ -19,6 +19,7 @@ import type {
 } from "@/app/api";
 import { reactionSet } from "@/app/api";
 import { canonical, genesisHash } from "@/app/record";
+import { onboardingRoute } from "./fake-onboarding";
 import { type ScenarioMessage, type ScenarioPerson, type Snapshot, snapshot } from "./scenario";
 import { at, current, onStep, scenario } from "./store";
 
@@ -101,13 +102,17 @@ function addEvent(w: World, type: string, atMs: number, actor: string | null, da
 
 function join(w: World, m: Member, atMs: number, authorization?: Record<string, unknown>) {
   w.members.push(m);
+  // A person an agent brought in for its person is added, as the server records it.
+  if (authorization) {
+    addEvent(w, "person.added", atMs, String((authorization.agent_id as string).split("_").at(-1)), { member_id: m.id, person_id: personId(m.name), name: m.name, access: "member", authorization });
+    return;
+  }
   addEvent(w, "member.joined", atMs, m.name, {
     name: m.name,
     kind: m.kind,
     role: m.role,
     harness: m.harness,
     access: m.access,
-    ...(authorization && { authorization }),
   });
 }
 
@@ -119,6 +124,7 @@ function authorizationOf(w: World, p: ScenarioPerson): Record<string, unknown> |
   const a = p.authorization;
   if (!a) return undefined;
   return {
+    kind: a.as,
     person_id: personId(a.person),
     agent_id: memberId(w.board.name, a.agent),
     parent_key_id: "key_01K7Q0LAB0PARENTKEY000000A",
@@ -233,6 +239,8 @@ function sync(s: Snapshot): string[] {
           owner_id: personId(owner),
           delivery_mode: "focused",
           delivery_revision: 1,
+          board: w.board.name,
+          ...(a.location && owner === me && { location: { machine: a.location.machine, harness: a.harness, session_id: `lab-${a.name}`, folder: a.location.folder, last_active: iso(at(a.location.seen ?? p.t)) } }),
         },
         at(p.t),
       );
@@ -326,6 +334,23 @@ function message(w: World, m: Msg): Message {
 function toMe(m: Msg): boolean {
   return m.to.includes("all") || m.to.includes(`@${me}`);
 }
+
+/** everyone is every person the scenario names: on its board, and in its onboarding data. */
+function everyone(): string[] {
+  const o = scenario.steps.flatMap((s) => [...(s.onboarding?.pairing ?? []).flatMap((p) => [p.inviter, p.recipient]), ...(s.onboarding?.approvals ?? []).flatMap((a) => ("person" in a.action ? [a.action.person] : []))]);
+  return [...new Set([...scenario.people.map((p) => p.name), ...o])];
+}
+
+const onboardingCtx = {
+  me,
+  personId,
+  memberId,
+  board: (name: string) => {
+    const w = worlds.get(name);
+    return { id: w?.board.id ?? `brd_lab_${name}`, name, title: w?.board.title ?? "" };
+  },
+  ownAgents: (): Member[] => [...worlds.values()].flatMap((w) => w.members.filter((m) => m.kind === "agent" && m.owner === me).map((m) => ({ ...m, board: w.board.name }))),
+};
 
 function boardView(w: World): Board {
   if (w.counts) return { ...w.board, read_up_to: 0, unread: w.counts.unread, needs_reply: w.counts.needs };
@@ -463,6 +488,11 @@ async function route(method: string, path: string, q: URLSearchParams, body: Rec
   if (a === "browser-sessions") return json(session);
   if (a === "me" && !b) return json({ id: personId(me), kind: "human", name: me, board: null, owner: null, browser: true });
   if (a === "info") return json({ mode: scenario.people.length > 1 ? "team" : "local" });
+  if (a === "people" && !b) return json({ people: everyone().map((name) => ({ id: personId(name), handle: name, display_name: null, server_role: scenario.people.find((p) => p.name === name)?.admin ? "admin" : "member", created_at: iso(at(-60 * 24 * 30)) })) });
+  // The lab's own asks are its experiments' (experiments/asks.ts); the real Inbox reads none.
+  if (a === "asks" && !b) return json({ asks: [], more: false });
+  const ob = onboardingRoute(onboardingCtx, method, parts, q, body);
+  if (ob) return ob;
   if (a === "boards" && !b) return json({ boards: [...worlds.values()].map(boardView) });
   if (a === "boards" && b) {
     const w = worlds.get(b);

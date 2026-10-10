@@ -12,17 +12,15 @@ import { boardLabel } from "@/app/words";
 import { cn } from "@/lib/utils";
 import { labHref, openTask, scenario, useLab, useUi } from "../store";
 import { asksOf } from "./asks";
-import { needsCount } from "./onboarding/model";
-import { useOnboarding } from "./onboarding/state";
+import { onboardingNeeds } from "../fake-onboarding";
 
 export function Nav({ current, boards }: { current: string | null; boards: Board[] | null }) {
   const { snap } = useLab();
   const { answered } = useUi();
   const [palette, setPalette] = useState(false);
-  const onboarding = useOnboarding();
-  const waiting = asksOf(snap, answered).length + needsCount(onboarding);
+  const hasOnboarding = scenario.steps.some((s) => s.onboarding);
+  const waiting = asksOf(snap, answered).length + (hasOnboarding ? onboardingNeeds() : 0);
   const asks = asksOf(snap, answered);
-  const hasOnboarding = onboarding.approvals.length + onboarding.pairing.length + onboarding.notices.length > 0;
   const everAsked = waiting > 0 || hasOnboarding || Object.keys(answered).length > 0;
   const inInbox = current === null;
   useEffect(() => {

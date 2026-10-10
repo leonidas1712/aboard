@@ -1,10 +1,8 @@
-// The lab's mock of agent-driven onboarding: a person's allowance (auto mode), the
+// The scenario data behind the lab's onboarding: a person's allowance (auto mode), the
 // approvals their agents ask for (ask me), notices about invites their agents made,
-// pairing requests, and the invite page a newcomer opens. The shapes follow
-// spec/openapi.yaml (Allowance, Approval, AdminAction, InviteNotice, PairingRequest,
-// NextStep), with two lab simplifications: times are scenario minutes, and people,
-// agents and boards are named directly where the API sends immutable ids
-// (hum_…, mem_…, brd_…), which the board view would have to resolve.
+// pairing requests, and the invite a newcomer opens. It is written the easy way, with
+// times in scenario minutes and people, agents and boards by name; the fake API
+// (fake-onboarding.ts) serves it in the API's own shapes, with ids and display labels.
 
 /** AllowanceCategory is one kind of admin work a person may let their agents do without asking. */
 export type AllowanceCategory = "invite-people" | "add-people";
@@ -73,23 +71,6 @@ export type Pairing = {
   expires: number;
 };
 
-/**
- * Session is one of the viewer's harness sessions that "Choose an agent" offers: a
- * Claude Code or Codex conversation set up for aboard on one of their machines. The API
- * has no list of these yet; the lab makes them up.
- */
-export type Session = {
-  id: string;
-  harness: string;
-  machine: string;
-  /** where is the folder the session works in. */
-  where: string;
-  /** state is live (working or idle) or offline; offline sessions can't accept. */
-  state: "working" | "idle" | "offline";
-  /** seen is when it was last live, in minutes, for an offline session. */
-  seen?: number;
-};
-
 /** JoinInvite is what the invite page shows about the link it was opened with. */
 export type JoinInvite = {
   server: string;
@@ -108,7 +89,6 @@ export type OnboardingStep = {
   approvals?: Approval[];
   notices?: InviteNotice[];
   pairing?: Pairing[];
-  sessions?: Session[];
   join?: JoinInvite | null;
 };
 
@@ -117,11 +97,10 @@ export type Onboarding = {
   approvals: Approval[];
   notices: InviteNotice[];
   pairing: Pairing[];
-  sessions: Session[];
   join: JoinInvite | null;
 };
 
-export const noOnboarding: Onboarding = { allowance: [], approvals: [], notices: [], pairing: [], sessions: [], join: null };
+export const noOnboarding: Onboarding = { allowance: [], approvals: [], notices: [], pairing: [], join: null };
 
 /** foldOnboarding applies one step's changes. */
 export function foldOnboarding(o: Onboarding, s: OnboardingStep | undefined): Onboarding {
@@ -137,7 +116,6 @@ export function foldOnboarding(o: Onboarding, s: OnboardingStep | undefined): On
     approvals: byId(o.approvals, s.approvals),
     notices: byId(o.notices, s.notices),
     pairing: byId(o.pairing, s.pairing),
-    sessions: s.sessions ?? o.sessions,
     join: s.join === undefined ? o.join : s.join,
   };
 }
