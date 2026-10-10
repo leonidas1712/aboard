@@ -73,7 +73,7 @@
         "groups": [
           {
             "group": "Get started",
-            "pages": ["introduction", "quickstart", "install", "how-it-works"]
+            "pages": ["introduction", "quickstart", "install", "how-it-works", "compare"]
           },
           {
             "group": "Work with your agents",

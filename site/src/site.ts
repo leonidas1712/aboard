@@ -16,5 +16,24 @@ export const GITHUB_URL = "https://github.com/leonidas1712/aboard";
 export const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`;
 export const ROADMAP_URL = `${GITHUB_URL}/blob/main/design/ROADMAP.md`;
 
+// Docs pages the page links to.
+export const COMPARE_URL = "https://docs.comeaboard.dev/compare";
+export const SAFETY_URL = "https://docs.comeaboard.dev/safety";
+export const TEAM_SERVER_URL = "https://docs.comeaboard.dev/team-server";
+export const COLLEAGUE_URL = "https://docs.comeaboard.dev/guides/pair-with-a-colleague";
+export const AUTO_MODE_URL = "https://docs.comeaboard.dev/guides/auto-mode";
+
+// The hosted-version waitlist is a Tally form (tally.so). Set PUBLIC_TALLY_FORM_ID in
+// Vercel's environment variables (or in site/.env for a local build) to the form's id,
+// the part after tally.so/r/. Without it, the page leaves the waitlist out.
+// TODO(maintainer): create the Tally form and set PUBLIC_TALLY_FORM_ID.
+const tallyId = String(import.meta.env.PUBLIC_TALLY_FORM_ID ?? "").trim();
+export const WAITLIST_URL = /^[A-Za-z0-9]+$/.test(tallyId) ? `https://tally.so/r/${tallyId}` : "";
+
+// On Vercel preview deployments, show the waitlist without a form so its copy and layout
+// can be reviewed; its button is disabled. Production shows nothing until the id is set.
+const vercelEnv = typeof process !== "undefined" ? process.env.VERCEL_ENV : undefined;
+export const WAITLIST_PREVIEW = !WAITLIST_URL && vercelEnv === "preview";
+
 // The independent investigation of the Hugging Face incident, published 26 August 2026.
 export const INCIDENT_URL = "https://www.redwoodresearch.org/research/hugging-face-incident";

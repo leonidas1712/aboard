@@ -1,12 +1,15 @@
 ---
-// The texture behind the hero: the page's grid, drawn faintly, with a few signs of a
-// board at work along its lines. The canvas spans the whole window; inside the frame it
-// draws the grid itself, fading towards the text, and outside it the page's own grid
-// (on body) shows through, on the same lines. Pixel blocks flicker like a record filling in, hashes
-// settle out of noise, small messages travel along the rules and land with a ring, and
-// two accent sparkles mark the crosshairs. It stays out of the centre column, where the
-// text is. One canvas and one small script; it sleeps off screen and in a hidden tab, and
-// under reduced motion it draws one still frame.
+// The texture behind the hero: a board at work, drawn on the page's grid. A few agents
+// (harness marks on their identity tints) and one person sit on the grid beside the
+// text. Now and then one of them sends a message: it travels along the rules down to
+// the record line under the hero, is appended to the record as a new block linked to the
+// one before, and is then delivered along the rules to another member, whose mark
+// answers with a small ring. A person's message travels in the accent. The record grows
+// to the left from the centre, one block per message, the way a board's log does.
+//
+// One canvas and one small script. It stays out of the centre column, where the text
+// is; it sleeps off screen and in a hidden tab, and under reduced motion it draws one
+// still frame with the record already written.
 ---
 <div class="hero-field" aria-hidden="true">
   <canvas data-field></canvas>
@@ -20,54 +23,63 @@
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const CELL = 48;
+    const SP = 22; // spacing of the record's blocks
+    const BLOCK = 10;
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+
+    // The marks, drawn from the same paths as the page's harness icons.
+    const GLYPHS: Record<string, { d: string; stroke?: number; fill?: boolean }[]> = {
+      cc: [{ d: "M12 3.5v17M3.5 12h17M6 6l12 12M18 6L6 18", stroke: 2.6 }],
+      cx: [{ d: "M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z", stroke: 2 }, { d: "M8.6 9.6l2.8 2.4-2.8 2.4M12.6 14.6h3", stroke: 2 }],
+      omp: [{ d: "M5.2 5.5h13.6a1.2 1.2 0 0 1 0 3.2H5.2a1.2 1.2 0 0 1 0-3.2zM8.6 7h.8a1.2 1.2 0 0 1 1.2 1.2v9.6a1.2 1.2 0 0 1-1.2 1.2h-.8a1.2 1.2 0 0 1-1.2-1.2V8.2A1.2 1.2 0 0 1 8.6 7zM13.4 7h3.2v9.4c0 .9.4 1.3 1.3 1.3h1.1V20h-1.8c-2.5 0-3.8-1.2-3.8-3.6z", fill: true }],
+      other: [{ d: "M6 8l4 4-4 4M12 17h6", stroke: 2.2 }],
+    };
+    const paths: Record<string, { p: Path2D; stroke?: number; fill?: boolean }[]> = {};
+    for (const [k, parts] of Object.entries(GLYPHS)) paths[k] = parts.map((x) => ({ ...x, p: new Path2D(x.d) }));
+
+    type Actor = { x: number; y: number; kind: "agent" | "person"; glyph: string; tint: number; ring: number };
+    type Msg = { from: number; to: number; t0: number; phase: "in" | "out"; dur: number; person: boolean };
+    type Block = { born: number; person: boolean };
+
     let W = 0;
     let H = 0;
-    // The frame's left and right edges, in canvas pixels.
+    let dpr = 1;
     let fx0 = 0;
     let fx1 = 0;
-    let dpr = 1;
-    let colors = { line: "", faint: "", ink: "", accent: "", bg: "" };
-
-    type Block = { cx: number; cy: number; bits: number[]; next: number; accent: number };
-    type Hash = { cx: number; cy: number; text: string; shown: string; settle: number; next: number };
-    type Dot = { x0: number; y0: number; x1: number; y1: number; t0: number; dur: number };
-    type Ring = { x: number; y: number; t0: number };
-    type Spark = { x: number; y: number; phase: number };
-
+    let recY = 0;
+    let headX = 0;
+    let small = false;
+    let actors: Actor[] = [];
+    let msgs: Msg[] = [];
     let blocks: Block[] = [];
-    let hashes: Hash[] = [];
-    let dots: Dot[] = [];
-    let rings: Ring[] = [];
-    let sparks: Spark[] = [];
-    let nextDot = 0;
+    let shiftFrom = 0; // when the record last moved one place to the left
+    let seq = 212;
+    let nextSend = 0;
+    let turn = 0;
+    let colors: Record<string, string> = {};
 
-    const HEX = "0123456789abcdef";
-    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
-    const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
-    const hex = (n: number) => Array.from({ length: n }, () => HEX[Math.floor(Math.random() * 16)]).join("");
+    const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
     function readColors() {
       const cs = getComputedStyle(document.documentElement);
       const v = (n: string) => cs.getPropertyValue(n).trim();
-      colors = { line: v("--grid") || "#ebebe5", faint: v("--faint"), ink: v("--ink"), accent: v("--accent"), bg: v("--background") };
-    }
-
-    // Cells outside the centre column, where texture may live.
-    function sideCells(): { cx: number; cy: number }[] {
-      const cols = Math.floor(W / CELL);
-      const rows = Math.floor(H / CELL);
-      const clear = W < 720 ? 0 : Math.min(W * 0.8, 1040);
-      const left = (W - clear) / 2;
-      const out: { cx: number; cy: number }[] = [];
-      for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < rows; r++) {
-          const x = c * CELL;
-          const inCentre = x + CELL > left && x < left + clear;
-          if (W < 720 ? r < 2 : !inCentre) out.push({ cx: c, cy: r });
-        }
+      colors = {
+        line: v("--grid") || "#ebebe5",
+        faint: v("--faint"),
+        muted: v("--muted"),
+        ink: v("--ink"),
+        onInk: v("--on-ink"),
+        rule: v("--rule"),
+        accent: v("--accent"),
+        accentLine: v("--accent-strong"),
+        bg: v("--background"),
+      };
+      for (const i of [2, 3, 5, 7]) {
+        colors[`t${i}b`] = v(`--id-${i}-bg`);
+        colors[`t${i}f`] = v(`--id-${i}-fg`);
       }
-      return out;
     }
 
     function layout() {
@@ -75,223 +87,337 @@
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = rect.width;
       H = rect.height;
+      small = W < 760;
       const frame = canvas.closest(".frame")?.getBoundingClientRect();
       fx0 = frame ? frame.left - rect.left : 0;
       fx1 = frame ? frame.right - rect.left : W;
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const cells = sideCells();
-      const small = W < 720;
-      const now = performance.now();
-      blocks = Array.from({ length: small ? 3 : 7 }, () => {
-        const c = pick(cells);
-        return { ...c, bits: Array.from({ length: 9 }, () => (Math.random() < 0.5 ? 1 : 0)), next: now + rnd(200, 1600), accent: Math.random() < 0.3 ? Math.floor(rnd(0, 9)) : -1 };
-      });
-      // A hash needs about two and a half cells of room that end before the text column
-      // or the edge, and no two share a row.
-      const clear = small ? 0 : Math.min(W * 0.8, 1040);
+      // The record sits in the hero's bottom margin, on a grid line when one is near.
+      recY = Math.round(H - 26) + 0.5;
+      headX = Math.round(W / 2);
+
+      // Members sit on grid crossings beside the text: as close to the text as the
+      // column allows, and never inside it.
+      const clear = Math.min(W * 0.74, 960);
       const leftEdge = (W - clear) / 2;
-      // Hashes only on the right, clear of the text column.
-      const room = (c: { cx: number; cy: number }) => {
-        const x = c.cx * CELL;
-        const end = x + 6 + 112;
-        return x > leftEdge + clear && end < Math.min(W, fx1 + 4 * CELL) - 8;
-      };
-      const hashCells = cells.filter(room);
-      const usedRows = new Set<number>();
-      hashes = Array.from({ length: small ? 0 : 2 }, () => {
-        const free = hashCells.filter((h) => !usedRows.has(h.cy));
-        const c = free.length ? pick(free) : pick(hashCells.length ? hashCells : cells);
-        usedRows.add(c.cy);
-        const text = `sha256:${hex(8)}`;
-        return { ...c, text, shown: text, settle: 0, next: now + rnd(800, 4000) };
+      const rows = Math.floor((H - 70) / CELL);
+      const leftCols: number[] = [];
+      const rightCols: number[] = [];
+      for (let c = 1; c * CELL < W; c++) {
+        const x = c * CELL;
+        if (x < fx0 + 28 || x > fx1 - 28) continue;
+        if (x < leftEdge - 26) leftCols.push(c);
+        if (x > W - leftEdge + 26) rightCols.push(c);
+      }
+      actors = [];
+      if (!small && leftCols.length && rightCols.length && rows >= 6) {
+        const l1 = leftCols[leftCols.length - 1];
+        const l2 = leftCols[Math.max(0, leftCols.length - 3)];
+        const r1 = rightCols[0];
+        const r2 = rightCols[Math.min(rightCols.length - 1, 2)];
+        const at = (c: number, r: number) => ({ x: c * CELL, y: Math.min(r, rows) * CELL });
+        actors = [
+          { ...at(l1, 2), kind: "agent", glyph: "cc", tint: 2, ring: -1e9 },
+          { ...at(l2, 5), kind: "agent", glyph: "omp", tint: 3, ring: -1e9 },
+          { ...at(r1, 3), kind: "agent", glyph: "cx", tint: 5, ring: -1e9 },
+          { ...at(r2, 6), kind: "person", glyph: "", tint: 0, ring: -1e9 },
+          { ...at(rightCols.length > 1 ? r1 : r2, 7), kind: "agent", glyph: "other", tint: 7, ring: -1e9 },
+        ];
+        // Two members on one crossing would hide each other.
+        actors = actors.filter((a, i) => actors.findIndex((b) => b.x === a.x && b.y === a.y) === i);
+      }
+      // A record already under way: still frames and first paint show it written.
+      const n = Math.ceil(headX / SP) + 2;
+      blocks = Array.from({ length: n }, (_, i) => ({ born: -1e9, person: i % 5 === 2 }));
+      msgs = [];
+      shiftFrom = -1e9;
+    }
+
+    // A message's route: along its member's column to the record line, then along the
+    // line to the head; on the way out, the same in reverse to the recipient.
+    function route(a: Actor | null, out: boolean, side: number): [number, number][] {
+      if (!a) {
+        const edge = side < 0 ? Math.max(fx0, 0) : Math.min(fx1, W);
+        return out ? [[headX, recY], [edge, recY]] : [[edge, recY], [headX, recY]];
+      }
+      const pts: [number, number][] = [[a.x, a.y], [a.x, recY], [headX, recY]];
+      return out ? pts.reverse() : pts;
+    }
+    function along(pts: [number, number][], t: number): [number, number] {
+      let total = 0;
+      const segs = pts.slice(1).map((p, i) => {
+        const l = Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]);
+        total += l;
+        return l;
       });
-      blocks = blocks.filter((b) => !hashes.some((h) => h.cy === b.cy && b.cx >= h.cx && b.cx <= h.cx + 2));
-      const cols = Math.floor(W / CELL);
-      sparks = small
-        ? []
-        : [
-            { x: Math.max(1, Math.floor(leftEdge / CELL) - 2) * CELL, y: 2 * CELL, phase: 0 },
-            { x: Math.min(cols - 1, Math.ceil((leftEdge + clear) / CELL) + 2) * CELL, y: 4 * CELL, phase: Math.PI },
-          ];
-      dots = [];
-      rings = [];
+      let d = t * total;
+      for (let i = 0; i < segs.length; i++) {
+        if (d <= segs[i] || i === segs.length - 1) {
+          const k = segs[i] ? clamp(d / segs[i]) : 1;
+          return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * k, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * k];
+        }
+        d -= segs[i];
+      }
+      return pts[pts.length - 1];
     }
 
-    function spawnDot(now: number) {
-      const cells = sideCells();
-      if (!cells.length) return;
-      const c = pick(cells);
-      const horizontal = Math.random() < 0.6;
-      const len = Math.floor(rnd(2, 5)) * CELL;
-      const x0 = c.cx * CELL;
-      const y0 = c.cy * CELL;
-      dots.push({ x0, y0, x1: horizontal ? x0 + len : x0, y1: horizontal ? y0 : y0 + len, t0: now, dur: rnd(1400, 2400) });
+    function send(now: number) {
+      turn++;
+      if (actors.length < 2) {
+        msgs.push({ from: turn % 2 ? -1 : -2, to: turn % 2 ? -2 : -1, t0: now, phase: "in", dur: 2200, person: false });
+        return;
+      }
+      const person = actors.findIndex((a) => a.kind === "person");
+      // Every fourth message is the person steering; the rest are agents talking.
+      let from: number;
+      if (turn % 4 === 0 && person >= 0) from = person;
+      else {
+        const agents = actors.map((_, i) => i).filter((i) => i !== person);
+        from = agents[turn % agents.length];
+      }
+      const others = actors.map((_, i) => i).filter((i) => i !== from && (from === person || i !== person || turn % 3 === 0));
+      const to = others[(turn * 7) % others.length];
+      const a = actors[from];
+      const dist = Math.abs(a.y - recY) + Math.abs(a.x - headX);
+      msgs.push({ from, to, t0: now, phase: "in", dur: clamp(dist * 2.6, 1400, 2600), person: from === person });
     }
 
-    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    function step(now: number) {
+      if (now >= nextSend) {
+        send(now);
+        nextSend = now + 2600 + Math.random() * 1400;
+      }
+      for (const m of msgs) {
+        if (now - m.t0 < m.dur) continue;
+        if (m.phase === "in") {
+          blocks.unshift({ born: now, person: m.person });
+          blocks.length = Math.ceil(headX / SP) + 2;
+          shiftFrom = now;
+          seq++;
+          const to = actors[m.to];
+          m.phase = "out";
+          m.t0 = now + 380;
+          m.dur = to ? clamp((Math.abs(to.y - recY) + Math.abs(to.x - headX)) * 2.4, 1300, 2400) : 2000;
+        } else {
+          const to = actors[m.to];
+          if (to) to.ring = now;
+          m.dur = -1;
+        }
+      }
+      msgs = msgs.filter((m) => m.dur >= 0);
+    }
 
-    function alphaAt(x: number, y: number) {
-      // The grid fades towards the centre and the bottom, so the text sits on a clear page.
+    // Grid lines fade towards the centre and the bottom, as before, so the text sits on
+    // a clear page.
+    function gridAlpha(x: number, y: number) {
       const dx = Math.abs(x - W / 2) / (W / 2);
-      if (W < 720) return Math.min(1, Math.max(0, 1 - y / (H * 0.3))) * 0.8;
-      const fadeX = Math.min(1, Math.max(0, (dx - 0.25) / 0.4));
-      const fadeY = Math.min(1, Math.max(0, 1 - (y / H - 0.55) / 0.45));
-      return fadeX * fadeY;
+      if (small) return clamp(1 - y / (H * 0.3)) * 0.8;
+      return clamp((dx - 0.25) / 0.4) * clamp(1 - (y / H - 0.6) / 0.4);
     }
 
-    function draw(now: number) {
-      ctx!.clearRect(0, 0, W, H);
-      // Grid lines, drawn as short segments so they can fade.
-      ctx!.lineWidth = 1;
-      ctx!.strokeStyle = colors.line;
+    function drawGrid() {
+      const c = ctx!;
+      c.lineWidth = 1;
+      c.strokeStyle = colors.line;
       const inFrame = (x: number) => x >= fx0 - 1 && x <= fx1 + 1;
       for (let x = 0; x <= W; x += CELL) {
         if (!inFrame(x)) continue;
         for (let y = 0; y < H; y += CELL) {
-          const a = alphaAt(x, y + CELL / 2);
+          const a = gridAlpha(x, y + CELL / 2);
           if (a <= 0.02) continue;
-          ctx!.globalAlpha = a;
-          ctx!.beginPath();
-          ctx!.moveTo(x + 0.5, y);
-          ctx!.lineTo(x + 0.5, y + CELL);
-          ctx!.stroke();
+          c.globalAlpha = a;
+          c.beginPath();
+          c.moveTo(x + 0.5, y);
+          c.lineTo(x + 0.5, y + CELL);
+          c.stroke();
         }
       }
       for (let y = 0; y <= H; y += CELL) {
         for (let x = 0; x < W; x += CELL) {
           if (!inFrame(x) || !inFrame(x + CELL)) continue;
-          const a = alphaAt(x + CELL / 2, y);
+          const a = gridAlpha(x + CELL / 2, y);
           if (a <= 0.02) continue;
-          ctx!.globalAlpha = a;
-          ctx!.beginPath();
-          ctx!.moveTo(x, y + 0.5);
-          ctx!.lineTo(x + CELL, y + 0.5);
-          ctx!.stroke();
+          c.globalAlpha = a;
+          c.beginPath();
+          c.moveTo(x, y + 0.5);
+          c.lineTo(x + CELL, y + 0.5);
+          c.stroke();
         }
       }
-      // Intersection points.
-      ctx!.fillStyle = colors.faint;
-      for (let x = 0; x <= W; x += CELL) {
-        if (!inFrame(x)) continue;
-        for (let y = 0; y <= H; y += CELL) {
-          const a = alphaAt(x, y);
-          if (a <= 0.05) continue;
-          ctx!.globalAlpha = a * 0.5;
-          ctx!.fillRect(x - 1, y - 1, 2, 2);
-        }
-      }
-      // Pixel blocks: a 3 by 3 of small squares, centred in a cell.
-      for (const b of blocks) {
-        const a = alphaAt(b.cx * CELL + CELL / 2, b.cy * CELL + CELL / 2);
-        if (a <= 0.05) continue;
-        const s = 6;
-        const gap = 3;
-        const size = s * 3 + gap * 2;
-        const ox = b.cx * CELL + (CELL - size) / 2;
-        const oy = b.cy * CELL + (CELL - size) / 2;
-        b.bits.forEach((on, i) => {
-          const accent = i === b.accent && on;
-          ctx!.globalAlpha = a * (accent ? 0.9 : on ? 0.32 : 0.08);
-          ctx!.fillStyle = accent ? colors.accent : colors.faint;
-          ctx!.fillRect(ox + (i % 3) * (s + gap), oy + Math.floor(i / 3) * (s + gap), s, s);
-        });
-      }
-      // Hashes, settling out of noise.
-      ctx!.font = '500 10.5px "Geist Mono", ui-monospace, monospace';
-      ctx!.textBaseline = "middle";
-      for (const h of hashes) {
-        const a = alphaAt(h.cx * CELL + CELL, h.cy * CELL + CELL / 2);
-        if (a <= 0.05) continue;
-        ctx!.globalAlpha = a * 0.75;
-        ctx!.fillStyle = colors.faint;
-        ctx!.fillText(h.shown, h.cx * CELL + 6, h.cy * CELL + CELL / 2);
-      }
-      // Messages travelling along the rules, and the rings where they land.
-      for (const d of dots) {
-        const t = Math.min(1, (now - d.t0) / d.dur);
-        const e = ease(t);
-        const x = d.x0 + (d.x1 - d.x0) * e;
-        const y = d.y0 + (d.y1 - d.y0) * e;
-        const tail = 0.18;
-        const e0 = ease(Math.max(0, t - tail));
-        const tx = d.x0 + (d.x1 - d.x0) * e0;
-        const ty = d.y0 + (d.y1 - d.y0) * e0;
-        const a = alphaAt(x, y);
-        ctx!.globalAlpha = a * 0.55;
-        ctx!.strokeStyle = colors.accent;
-        ctx!.lineWidth = 2;
-        ctx!.beginPath();
-        ctx!.moveTo(tx, ty);
-        ctx!.lineTo(x, y);
-        ctx!.stroke();
-        ctx!.globalAlpha = a;
-        ctx!.fillStyle = colors.accent;
-        ctx!.beginPath();
-        ctx!.arc(x, y, 2.5, 0, Math.PI * 2);
-        ctx!.fill();
-      }
-      for (const r of rings) {
-        const t = Math.min(1, (now - r.t0) / 700);
-        ctx!.globalAlpha = alphaAt(r.x, r.y) * (1 - t) * 0.8;
-        ctx!.strokeStyle = colors.accent;
-        ctx!.lineWidth = 1.5;
-        ctx!.beginPath();
-        ctx!.arc(r.x, r.y, 3 + t * 9, 0, Math.PI * 2);
-        ctx!.stroke();
-      }
-      // Sparkles on two crosshairs.
-      for (const s of sparks) {
-        const pulse = reduced.matches ? 1 : 0.75 + 0.25 * Math.sin(now / 900 + s.phase);
-        const r = 7 * pulse;
-        ctx!.globalAlpha = alphaAt(s.x, s.y) * (0.6 + 0.4 * pulse);
-        ctx!.fillStyle = colors.accent;
-        ctx!.beginPath();
-        ctx!.moveTo(s.x, s.y - r);
-        ctx!.quadraticCurveTo(s.x, s.y, s.x + r, s.y);
-        ctx!.quadraticCurveTo(s.x, s.y, s.x, s.y + r);
-        ctx!.quadraticCurveTo(s.x, s.y, s.x - r, s.y);
-        ctx!.quadraticCurveTo(s.x, s.y, s.x, s.y - r);
-        ctx!.fill();
-        ctx!.globalAlpha *= 0.5;
-        ctx!.strokeStyle = colors.accent;
-        ctx!.lineWidth = 1;
-        ctx!.beginPath();
-        ctx!.arc(s.x, s.y, 13, 0, Math.PI * 2);
-        ctx!.stroke();
-      }
-      ctx!.globalAlpha = 1;
     }
 
-    function step(now: number) {
-      for (const b of blocks) {
-        if (now < b.next) continue;
-        const i = Math.floor(Math.random() * 9);
-        b.bits[i] = b.bits[i] ? 0 : 1;
-        b.next = now + rnd(180, 900);
+    function roundRect(x: number, y: number, w: number, h: number, r: number) {
+      const c = ctx!;
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.arcTo(x + w, y, x + w, y + h, r);
+      c.arcTo(x + w, y + h, x, y + h, r);
+      c.arcTo(x, y + h, x, y, r);
+      c.arcTo(x, y, x + w, y, r);
+      c.closePath();
+    }
+
+    function drawActor(a: Actor, now: number) {
+      const c = ctx!;
+      const s = 28;
+      // The route each member uses, as a quiet rule down to the record.
+      c.globalAlpha = 0.5;
+      c.strokeStyle = colors.rule;
+      c.setLineDash([2, 4]);
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(a.x + 0.5, a.y + s / 2 + 4);
+      c.lineTo(a.x + 0.5, recY);
+      c.stroke();
+      c.setLineDash([]);
+      // An arrival ring.
+      const rt = (now - a.ring) / 900;
+      if (rt >= 0 && rt < 1) {
+        c.globalAlpha = (1 - rt) * 0.7;
+        c.strokeStyle = a.kind === "person" ? colors.accentLine : colors.ink;
+        c.lineWidth = 1.25;
+        roundRect(a.x - s / 2 - 3 - rt * 7, a.y - s / 2 - 3 - rt * 7, s + 6 + rt * 14, s + 6 + rt * 14, 9 + rt * 4);
+        c.stroke();
       }
-      for (const h of hashes) {
-        if (h.settle > 0) {
-          h.settle -= 1;
-          const keep = Math.max(0, h.text.length - h.settle);
-          h.shown = h.text.slice(0, keep) + Array.from({ length: h.text.length - keep }, () => HEX[Math.floor(Math.random() * 16)]).join("");
-          if (h.settle === 0) h.next = now + rnd(2500, 6000);
-        } else if (now >= h.next) {
-          h.text = `sha256:${hex(8)}`;
-          h.settle = 8;
+      c.globalAlpha = 0.92;
+      if (a.kind === "person") {
+        c.fillStyle = colors.ink;
+        c.beginPath();
+        c.arc(a.x, a.y, s / 2, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = colors.onInk;
+        c.font = '600 12px "Geist", ui-sans-serif, sans-serif';
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        c.fillText("you", a.x, a.y + 0.5);
+        return;
+      }
+      c.fillStyle = colors[`t${a.tint}b`];
+      roundRect(a.x - s / 2, a.y - s / 2, s, s, 8);
+      c.fill();
+      c.save();
+      c.translate(a.x - 8.5, a.y - 8.5);
+      c.scale(17 / 24, 17 / 24);
+      c.strokeStyle = c.fillStyle = colors[`t${a.tint}f`];
+      c.lineCap = "round";
+      c.lineJoin = "round";
+      for (const part of paths[a.glyph]) {
+        if (part.fill) c.fill(part.p);
+        else {
+          c.lineWidth = part.stroke ?? 2;
+          c.stroke(part.p);
         }
       }
-      if (now >= nextDot) {
-        spawnDot(now);
-        nextDot = now + rnd(700, 1600);
+      c.restore();
+    }
+
+    function drawRecord(now: number) {
+      const c = ctx!;
+      // The line the record is written on: solid where it is written, faint ahead.
+      const fadeL = Math.max(fx0, 0);
+      const grad = c.createLinearGradient(fadeL, 0, Math.min(fx1, W), 0);
+      grad.addColorStop(0, "transparent");
+      grad.addColorStop(0.18, colors.rule);
+      grad.addColorStop(0.82, colors.rule);
+      grad.addColorStop(1, "transparent");
+      c.globalAlpha = 1;
+      c.strokeStyle = grad;
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(fadeL, recY);
+      c.lineTo(Math.min(fx1, W), recY);
+      c.stroke();
+
+      // The blocks slide one place left as a new one is appended at the head.
+      const shift = 1 - easeOut(clamp((now - shiftFrom) / 650));
+      for (let i = blocks.length - 1; i >= 0; i--) {
+        const b = blocks[i];
+        const x = headX - (i - shift) * SP;
+        const y = recY;
+        const fade = clamp(1 - (headX - x) / Math.max(1, headX - fadeL)) ** 1.4;
+        if (fade <= 0.02) continue;
+        // The link to the block before.
+        if (i < blocks.length - 1) {
+          c.globalAlpha = fade * 0.9;
+          c.strokeStyle = colors.faint;
+          c.lineWidth = 1;
+          c.beginPath();
+          c.moveTo(x - SP + BLOCK / 2, y);
+          c.lineTo(x - BLOCK / 2, y);
+          c.stroke();
+        }
+        const age = clamp((now - b.born) / 2200);
+        const fresh = 1 - easeOut(age);
+        const appear = clamp((now - b.born) / 260);
+        const size = BLOCK * (0.6 + 0.4 * easeOut(appear));
+        c.globalAlpha = fade * (0.55 + 0.45 * fresh) * appear;
+        c.fillStyle = b.person ? colors.ink : colors.bg;
+        roundRect(x - size / 2, y - size / 2, size, size, 2.5);
+        c.fill();
+        c.strokeStyle = colors.faint;
+        c.lineWidth = 1;
+        c.stroke();
+        if (fresh > 0.01) {
+          c.globalAlpha = fade * fresh;
+          c.fillStyle = colors.accent;
+          roundRect(x - size / 2, y - size / 2, size, size, 2.5);
+          c.fill();
+        }
+        if (i === 0) {
+          // The head, marked as the record marks it, with its sequence number.
+          c.globalAlpha = 1;
+          c.strokeStyle = colors.accentLine;
+          c.lineWidth = 1.25;
+          roundRect(x - BLOCK / 2 - 3, y - BLOCK / 2 - 3, BLOCK + 6, BLOCK + 6, 4);
+          c.stroke();
+          c.globalAlpha = 0.9;
+          c.fillStyle = colors.muted;
+          c.font = '500 10.5px "Geist Mono", ui-monospace, monospace';
+          c.textAlign = "left";
+          c.textBaseline = "middle";
+          c.fillText(`#${seq}`, x + BLOCK / 2 + 9, y + 0.5);
+        }
       }
-      dots = dots.filter((d) => {
-        if (now - d.t0 < d.dur) return true;
-        rings.push({ x: d.x1, y: d.y1, t0: now });
-        return false;
-      });
-      rings = rings.filter((r) => now - r.t0 < 700);
+    }
+
+    function drawMessages(now: number) {
+      const c = ctx!;
+      for (const m of msgs) {
+        const t = (now - m.t0) / m.dur;
+        if (t < 0 || t > 1) continue;
+        const a = m.phase === "in" ? actors[m.from] ?? null : actors[m.to] ?? null;
+        const side = (m.phase === "in" ? m.from : m.to) === -1 ? -1 : 1;
+        const pts = route(a, m.phase === "out", side);
+        const e = easeInOut(t);
+        const [x, y] = along(pts, e);
+        const [tx, ty] = along(pts, Math.max(0, e - 0.07));
+        const col = m.person ? colors.accentLine : colors.ink;
+        c.globalAlpha = 0.35;
+        c.strokeStyle = m.person ? colors.accent : colors.ink;
+        c.lineWidth = 2;
+        c.lineCap = "round";
+        c.beginPath();
+        c.moveTo(tx, ty);
+        c.lineTo(x, y);
+        c.stroke();
+        c.globalAlpha = 0.9;
+        c.fillStyle = m.person ? colors.accent : col;
+        c.beginPath();
+        c.arc(x, y, 3, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+
+    function draw(now: number) {
+      const c = ctx!;
+      c.clearRect(0, 0, W, H);
+      drawGrid();
+      for (const a of actors) drawActor(a, now);
+      drawRecord(now);
+      drawMessages(now);
+      c.globalAlpha = 1;
     }
 
     let running = false;
@@ -299,7 +425,7 @@
     let last = 0;
     function frame(now: number) {
       if (!running) return;
-      if (now - last > 33) {
+      if (now - last > 30) {
         step(now);
         draw(now);
         last = now;
@@ -310,6 +436,7 @@
       const should = visible && !document.hidden && !reduced.matches;
       if (should && !running) {
         running = true;
+        nextSend = Math.max(nextSend, performance.now() + 700);
         requestAnimationFrame(frame);
       } else if (!should) {
         running = false;
