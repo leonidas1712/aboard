@@ -7890,7 +7890,7 @@ components:
       description: The person the event is about. Who did it is the event's actor.
       required: [member_id, person_id, name]
       properties:
-        action_kind: { type: string, enum: [added, role_changed], description: Server-derived action category, absent on older records. }
+        action_kind: { type: string, enum: [invited, added, role_changed], description: Server-derived action category, absent on older records. }
         authorization: { $ref: "#/components/schemas/AdminAuthorization" }
         by_owner:
           type: string

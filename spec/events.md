@@ -361,3 +361,4 @@ Administrative authorization adds optional `kind`: `invited`, `added`, or
 `role_changed`, derived from the exact action. It is display provenance, never
 client authority; older records and other action kinds omit it. Existing person
 admission and board-role events also expose this kind as `data.action_kind`.
+An invite-bundled admission is `invited`; a direct addition is `added`.
