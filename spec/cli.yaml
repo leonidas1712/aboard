@@ -4313,6 +4313,9 @@ $defs:
       installed, account, memberships, harness, pairing, delivery. Trust/restart
       waits have precise harness actions and the words Continue Aboard setup.
       A pending harness action takes precedence over pairing next until confirmed.
+      Setup joins accessible invited boards while harness trust or restart is pending,
+      but defers selecting its delivery-check endpoint until the current runtime is
+      confirmed. A pre-restart boot must not become the endpoint to be verified.
       A current-boot hook observed by the trusted daemon or a live current-session
       extension confirms the harness step after trust and restart. Installed files,
       a standalone CLI registration or synthetic queue boot do not. An old daemon
