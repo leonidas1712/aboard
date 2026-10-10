@@ -12,13 +12,16 @@ import { boardLabel } from "@/app/words";
 import { cn } from "@/lib/utils";
 import { labHref, openTask, scenario, useLab, useUi } from "../store";
 import { asksOf } from "./asks";
+import { onboardingNeeds } from "../fake-onboarding";
 
 export function Nav({ current, boards }: { current: string | null; boards: Board[] | null }) {
   const { snap } = useLab();
   const { answered } = useUi();
   const [palette, setPalette] = useState(false);
+  const hasOnboarding = scenario.steps.some((s) => s.onboarding);
+  const waiting = asksOf(snap, answered).length + (hasOnboarding ? onboardingNeeds() : 0);
   const asks = asksOf(snap, answered);
-  const everAsked = asks.length > 0 || Object.keys(answered).length > 0;
+  const everAsked = waiting > 0 || hasOnboarding || Object.keys(answered).length > 0;
   const inInbox = current === null;
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -36,9 +39,9 @@ export function Nav({ current, boards }: { current: string | null; boards: Board
       {everAsked && (
         <a href={labHref({ inbox: "1", board: null, view: null, task: null, artifact: null })} aria-current={inInbox ? "page" : undefined} className={cn(row, "font-bold", inInbox && "bg-selected")}>
           <span className="flex-1">Inbox</span>
-          {asks.length > 0 && (
-            <span className="inbox-count min-w-6 rounded-[6px] bg-attention px-1.5 text-center text-meta font-bold text-on-accent tabular-nums" title={`${asks.length} waiting on you`}>
-              {asks.length}
+          {waiting > 0 && (
+            <span className="inbox-count min-w-6 rounded-[6px] bg-attention px-1.5 text-center text-meta font-bold text-on-accent tabular-nums" title={`${waiting} waiting on you`}>
+              {waiting}
             </span>
           )}
         </a>

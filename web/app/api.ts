@@ -121,6 +121,8 @@ export type Presence = "working" | "idle" | "waiting" | "no_session";
 export type DeliveryMode = "focused" | "all" | "humans" | "off" | "auto";
 
 export type Member = MemberRef & {
+  /** board is the board the member is on, as GET /v1/me/agents lists them across boards. */
+  board?: string;
   display_name?: string;
   id: string;
   harness: string | null;
@@ -305,6 +307,9 @@ export type BoardEvent = {
 export type EventPage = { events: BoardEvent[]; head_seq: number; next_after: number | null };
 
 /** ApiError is an error response: {"error":{code,message,hint}}. */
+/** NextStep is what a person runs, or does, when only they can: the exact command, where in the board view, and what happens after. */
+export type NextStep = { command: string; board_view?: string; resume: string };
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -313,6 +318,8 @@ export class ApiError extends Error {
     readonly hint: string,
     /** details is what the error names beyond its message, such as the current version of a file a write found changed. */
     readonly details?: Record<string, unknown>,
+    /** next is the exact command a person runs instead, for what only their own key may do. */
+    readonly next?: NextStep,
   ) {
     super(message);
   }
@@ -357,7 +364,7 @@ async function failure(resp: Response): Promise<ApiError> {
     current = null;
     window.dispatchEvent(new Event(signedOutEvent));
   }
-  return new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "", e.details);
+  return new ApiError(resp.status, e.code ?? "internal", e.message ?? `The server answered ${resp.status}.`, e.hint ?? "", e.details, e.next);
 }
 
 /**
@@ -547,7 +554,7 @@ export async function post<T>(path: string, body: unknown, key: string = crypto.
 }
 
 /** put replaces something as the person, with an Idempotency-Key. */
-async function put<T>(path: string, body: unknown, key: string = crypto.randomUUID()): Promise<T> {
+export async function put<T>(path: string, body: unknown, key: string = crypto.randomUUID()): Promise<T> {
   const resp = await fetch(path, {
     method: "PUT",
     credentials: "same-origin",
@@ -559,7 +566,7 @@ async function put<T>(path: string, body: unknown, key: string = crypto.randomUU
 }
 
 /** send makes a write without a body, such as PUT or DELETE, with an Idempotency-Key. */
-export async function send<T>(method: "PUT" | "DELETE", path: string, key: string = crypto.randomUUID()): Promise<T> {
+export async function send<T>(method: "PUT" | "DELETE" | "POST", path: string, key: string = crypto.randomUUID()): Promise<T> {
   const resp = await fetch(path, { method, credentials: "same-origin", headers: { ...writeHeaders(), "Idempotency-Key": key } });
   if (resp.ok) return (await resp.json()) as T;
   throw await failure(resp);

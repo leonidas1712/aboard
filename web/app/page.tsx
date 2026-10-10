@@ -4,6 +4,8 @@ import { lab } from "aboard-lab";
 import { useEffect, useState } from "react";
 import { type Session, type Started, signedOutEvent, start } from "./api";
 import People from "./people";
+import JoinPage from "./join";
+import Settings from "./settings";
 import BoardList from "./board-list";
 import BoardView from "./board-view";
 import Inbox from "./inbox";
@@ -37,6 +39,18 @@ export default function Page() {
       window.removeEventListener("hashchange", linked);
     };
   }, []);
+  // An invite link (/join#abi_…) shows the invite page whether or not this browser is
+  // signed in. It is read after the first render, which the static page shares.
+  const [joining, setJoining] = useState(false);
+  useEffect(() => setJoining(window.location.pathname === "/join" || new URLSearchParams(window.location.search).has("join")), []);
+  if (joining) {
+    return (
+      <>
+        <JoinPage />
+        {lab && <lab.Overlay />}
+      </>
+    );
+  }
   if (error !== null) {
     return (
       <div className="flex min-h-dvh flex-col">
@@ -76,16 +90,17 @@ export default function Page() {
     setStarted({ ...started, session: null });
   };
   const peoplePage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "people";
+  const settingsPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "settings";
   const inboxPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("inbox");
   const view = lab?.Place && lab.place?.() ? (
     <lab.Place onSignOut={onSignOut} />
-  ) : inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage ? <People onSignOut={onSignOut} /> : started.board ? (
+  ) : inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage ? <People onSignOut={onSignOut} /> : settingsPage ? <Settings onSignOut={onSignOut} /> : started.board ? (
     <BoardView name={started.board} onSignOut={onSignOut} />
   ) : (
     <BoardList onSignOut={onSignOut} />
   );
   return (
-    <div className={started.board && !inboxPage && !peoplePage ? "flex h-dvh flex-col overflow-clip" : undefined}>
+    <div className={started.board && !inboxPage && !peoplePage && !settingsPage ?"flex h-dvh flex-col overflow-clip" : undefined}>
       {notice && <SignedInNotice session={notice} note={started.note} onClose={() => setNotice(null)} />}
       {view}
       {lab && <lab.Overlay />}
