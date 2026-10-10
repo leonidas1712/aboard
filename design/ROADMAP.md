@@ -455,4 +455,4 @@ Setup defaults and harness next precedence, readable CLI labels, consistent invi
 
 D224 own-person rename through an active agent and suggested invite-handle edits: building (GEN-56). Invitation edits change display metadata only, never frozen approval authority.
 
-D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prompts and invite-notice handle: building (GEN-57).
+D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prompts and invite-notice handle: in review (#310, GEN-57).

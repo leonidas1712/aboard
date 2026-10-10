@@ -8,16 +8,19 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/events"
 )
 
-type BoardAddNotice struct {
+// AddNotice pairs an unread person.added event with its current board.
+type AddNotice struct {
 	Board Board
 	Added events.Event
 }
 
+// ArrivalBoard names a current shared board and the invitee's active agents there.
 type ArrivalBoard struct {
 	Board  Board
 	Agents []Member
 }
 
+// InviteArrivalNotice describes a recently redeemed own invitation with a joined agent.
 type InviteArrivalNotice struct {
 	InviteID string
 	Person   Human
@@ -25,8 +28,9 @@ type InviteArrivalNotice struct {
 	Boards   []ArrivalBoard
 }
 
+// OnboardingInbox contains a person's current board adds and invitation arrivals.
 type OnboardingInbox struct {
-	BoardAdds []BoardAddNotice
+	BoardAdds []AddNotice
 	Arrivals  []InviteArrivalNotice
 }
 
@@ -62,7 +66,7 @@ func (s *Service) OnboardingInbox(ctx context.Context, p Principal) (OnboardingI
 				return err
 			}
 			if added != nil {
-				out.BoardAdds = append(out.BoardAdds, BoardAddNotice{Board: b, Added: *added})
+				out.BoardAdds = append(out.BoardAdds, AddNotice{Board: b, Added: *added})
 			}
 		}
 		invites, err := tx.ServerInvites(person.ID)
