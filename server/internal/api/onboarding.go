@@ -7,6 +7,8 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/board"
 )
 
+const minimumSetupClient = "0.1.4"
+
 func onboardingOf(r board.OnboardingReceipt) map[string]any {
 	out := map[string]any{"server_id": r.ServerID, "person_id": r.PersonID, "key_id": r.KeyID, "invite_id": r.InviteID, "handle": r.Handle, "boards": r.Boards}
 	if r.PairingRequestID != "" {
@@ -46,6 +48,6 @@ func invitationPrompt(link, handle string, _ bool) string {
 	if handle == "" {
 		handle = "<name you'd like teammates to see>"
 	}
-	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle " + handle + "."
-	return prompt
+	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than " + minimumSetupClient + ", run aboard upgrade first. Run aboard skill, then run aboard setup " + link + " --handle " + handle + "."
+	return prompt + " Run Aboard outside your agent's sandbox; approve it when your harness asks."
 }

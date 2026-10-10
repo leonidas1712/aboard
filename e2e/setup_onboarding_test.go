@@ -28,7 +28,7 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--board", name, "--json").json(t)
 	matchesCLISpec(t, "ServerInviteOutput", invite)
 	link := field(t, invite, "link").(string)
-	wantPrompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>."
+	wantPrompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than 0.1.4, run aboard upgrade first. Run aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>. Run Aboard outside your agent's sandbox; approve it when your harness asks."
 	if field(t, invite, "prompt") != wantPrompt {
 		t.Fatalf("colleague JSON prompt: %v", invite)
 	}

@@ -1218,7 +1218,7 @@ func (a *app) showHelp(name string) error {
 	h, ok := helpFor(name)
 	if !ok {
 		e := usageError(fmt.Sprintf("%q is not an aboard command.", name), "")
-		e.Hint = "Run aboard help to see the commands."
+		e.Hint = unknownCommandHint
 		return e
 	}
 	if a.json {

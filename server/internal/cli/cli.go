@@ -222,9 +222,11 @@ func Run(ctx context.Context, args []string, env Env) int {
 	if args[0] == "tasks" {
 		e.Hint = "Run aboard task list."
 	}
-	e.Hint = "Run aboard help to see the commands."
+	e.Hint = unknownCommandHint
 	return a.report(e)
 }
+
+const unknownCommandHint = "Run aboard help to see the commands. If you expected this command, this aboard may be older than the server; run aboard upgrade."
 
 // noLaunchClaim are the commands that never hand in the session's launch ticket: the
 // ones a harness or a person runs rather than the agent.
