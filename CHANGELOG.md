@@ -1,5 +1,21 @@
 # Changelog
 
+## Pending D223 contract changes (server selection)
+
+- Person commands use explicit `--server` or the persisted machine default.
+  Legacy `.aboard` folder links are ignored and left untouched. Missing defaults
+  return runnable server choices; person board commands use only a unique readable
+  active board when no `--board` is given.
+- `aboard boards` follows that default; `--all-servers` retains aggregation.
+- `invite --server SERVER --board BOARD` creates a board join code. The unreleased
+  bundled person-invite spelling is now `invite --person --board BOARD --server SERVER`.
+  Bare `invite --server` and targeted person invites without a board stay deprecated
+  compatibility aliases. This semantic correction is approved by D223.
+- Sessions can hold issuer-bound seats across servers. Multi-issuer delivery adds
+  server labels and qualified handovers; optional CLI issuer fields and selection
+  metadata grow the existing shapes. Legacy link/source fields remain deprecated.
+
+
 Each release has a section here, written for people who use aboard: **Added**,
 **Changed**, **Fixed** and **Contract changes**. Contract changes lists every change
 under `spec/`, each saying what changed, who is affected (CLI scripts, API clients,

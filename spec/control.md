@@ -287,7 +287,7 @@ bound from any command run in the session.
 Binding an agent the session already holds changes nothing and answers no `previous`.
 Binding another agent on the same board replaces that board's seat; a seat on another
 board is added without ending its siblings. Binding an agent another session holds
-moves only that agent. All seats in a session must use one server ("Several seats"
+moves only that agent. D223 seats may span issuers ("Several seats"
 below). A client may send
 the seat's `member_id` in `agent`; a daemon that keys seats by it finds it itself when
 it is left out, and checks one that is sent against the seat's own token ("Seats").
@@ -343,9 +343,9 @@ Sent by `aboard join --board` run in a session. The command chooses the server
    on a connection from its own OS user, and not a subagent (`session_unknown`,
    `codex_subagent_target`, `codex_target_absent`). This is what it vouches for: the
    session runs on this machine, under this person's login.
-2. Refuses a server other than the one the session's seats are on
-   (`session_on_another_server`), and a server this machine has no key for
-   (`login_required`).
+2. Resolves the requested canonical issuer and checks its own machine credential
+   (`login_required` otherwise). Sibling seats may belong to other issuers; they
+   remain bound. No credential or delegation from another issuer can be used.
 3. Always sends `POST /v1/join` with its delegation, `board`, `role`, `name`, the
    session's harness as `harness`, and `session` as `<harness>:<id>`, even when the
    session already holds a seat on that board: only the server decides reuse. Inside
@@ -416,8 +416,7 @@ optionally names its agent seat. The daemon:
 
 1. Validates the whole session through its harness adapter, as `join` does: it exists,
    is not a subagent, and, when the harness requires registration, has registered.
-2. Before any resource write, checks that all the session's seats are on the requested
-   server (`session_on_another_server` otherwise), that the machine has a key for it
+2. Before any resource write, checks that the machine has a key for the requested issuer
    (`login_required`), and that the session can receive another seat. A live extension
    that would need combined delivery must support `handoff-v1` (`extension_outdated`
    otherwise). These checks cover the whole session, preserving its sibling seats.
@@ -540,7 +539,7 @@ What we want: one session can work on several boards at once, each as its own se
 without an agent ever acting on the wrong board.
 
 How Aboard does it (D196, D197): a session holds a **set of seats**, at most one per
-board, all on one server. Each seat is an agent with its own name, history, read
+issuer/board pair (D223), including boards on several issuers. Each seat is an agent with its own name, history, read
 position, delivery mode and waiting messages; the session holds the turn state (the
 harness connection, busy or idle, its boot, the one handoff in flight).
 
@@ -706,7 +705,7 @@ A hook that gets an error, or can't reach the daemon, prints one line starting
 | `daemon_not_running` | The daemon is stopping |
 | `internal` | The daemon couldn't read or write its journal |
 | `login_required` | `boards`, `join` or `create_board` for a server this machine has no key for |
-| `session_on_another_server` | `join` or `create_board` on a server other than the one the session's seats are on |
+| `session_on_another_server` | Deprecated refusal from older one-issuer builds; D223 admits issuer-bound sibling seats instead |
 | `delegation_revoked`, `board_not_found`, `agent_removed`, `guest_not_allowed`, `name_taken`, `role_not_found` | `boards`, `join` or `create_board`: the server's refusal, passed on as it is |
 | `server_outdated` | `boards` or `join` on a server without delegations, or `create_board` on a server without delegated creation |
 | `server_unreachable` | `boards`, `join` or `create_board` when the server can't be reached or fails; joining and creating never succeed from the daemon's own records |
@@ -997,3 +996,24 @@ overwrite the current location. No report means location unavailable; the daemon
 never guesses a folder. Reports change neither delivery nor read state, and a failed
 report never stops delivery. The machine label is derived by the server, not sent
 by the hook or extension.
+
+## D223 issuer-scoped session selection
+
+The protocol stays v1: existing agent.server, credential keys and handoff manifests
+already carry canonical issuer URLs. bind/join/create_board/resume retain seats on
+other issuers. Replacement is scoped to issuer plus board; ownership remains scoped
+to issuer plus immutable member ID. Equal names or IDs on different servers never
+select, replace, confirm or authorize another issuer's seat. agents/status return
+all working seats with their existing server fields. Capability preflight for
+combined handoffs remains mandatory before remote resource writes.
+
+CLI selection resolves names to issuer URLs before contacting this socket. Person
+defaults do not move bound agents. Every boards/inbox/pairing/control request targets
+its explicit issuer; per-seat receipt and presence publication uses that seat's token.
+Pairing validation examines the requested issuer's seats only; unrelated sibling
+issuers do not veto a handover. No delegation or person credential appears in a
+socket answer. No server API or record event changes are introduced.
+
+D223 is contract-first until its CLI selector, admission, journal and delivery changes
+land together. No adapter may enable cross-issuer admission before those checks and
+issuer-labelled handovers are implemented. The existing protocol/capability stays v1.

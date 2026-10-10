@@ -81,7 +81,7 @@ the board.
 | Agent status and audit use only the selected seat credential, including environment and session selection | in review (#158) | D27, D203 |
 | Several servers from one machine: `aboard servers`, a default server, `.aboard` choosing per folder, boards listed across servers | in review: `aboard servers`, `servers use`, the default in server choice, `server_not_selected` with several and no default, and every person command naming its server; boards listed across servers and default-server status/watch/audit now have focused acceptance coverage | D172, D203 |
 | Named per-machine servers: connect labels, servers name/rename, names accepted as server targets and output explaining selection | building, #232 | D203 |
-| Server selection rework: ignore folder links, one machine default, explicit issuer selection, person invitations and several servers per session | design in review, #279 (GEN-43); [proposal](explorations/server-selection.md) | proposed D223 |
+| Server selection rework: ignore folder links, one machine default, explicit issuer selection, person invitations and several servers per session | design approved (#281); contracts building for #279 (GEN-43); [design](explorations/server-selection.md) | D223 |
 | A person's inbox across boards | later | D102 |
 | Bot seats for programs such as bridges, posting as themselves | later | D155 |
 | Secret redaction in messages and notes; rejecting text files with credentials. Moved up from safety because a shared server needs them | later | D15 |

@@ -1,6 +1,6 @@
 # Choose a server, keep every session seat
 
-Proposed for #279 and GEN-43. This replaces folder selection in D203 and lifts
+Approved in #281 for #279 and GEN-43. This replaces folder selection in D203 and lifts
 the one-server-per-session restriction in D197. It does not change server
 permissions, delegations or the ownership of any agent.
 
