@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-func (a *app) peopleReadClient(ctx context.Context, server string) (serverRef, bool, *client, error) {
-	if a.agentSelected("") {
+func (a *app) peopleReadClient(ctx context.Context, server, board, as string) (srv serverRef, started bool, selectedBoard string, c *client, err error) {
+	if a.agentSelected(as) {
 		a.agentServerFlag = server
 		a.boardServerFlag = server
-		srv, _, c, err := a.admissionClient(ctx, server, "", "")
+		srv, selectedBoard, c, err := a.admissionClient(ctx, server, board, as)
 		if err == nil {
 			if known, _, e := a.knownServers(); e == nil {
 				for _, k := range known {
@@ -21,14 +21,19 @@ func (a *app) peopleReadClient(ctx context.Context, server string) (serverRef, b
 				}
 			}
 		}
-		return srv, false, c, err
+		return srv, false, selectedBoard, c, err
 	}
-	return a.peopleClient(ctx, server, "Listing the server's people", "aboard people")
+	srv, started, c, err = a.peopleClient(ctx, server, "Listing the server's people", "aboard people")
+	return srv, started, "", c, err
 }
 
-func (a *app) peopleReadError(srv serverRef, status int, body []byte) *Error {
+func (a *app) peopleReadError(srv serverRef, status int, body []byte, asFlag ...string) *Error {
 	var e *Error
-	if a.agentSelected("") {
+	as := ""
+	if len(asFlag) > 0 {
+		as = asFlag[0]
+	}
+	if a.agentSelected(as) {
 		e = apiError(status, body)
 	} else {
 		e = keyRejected(srv, status, body)

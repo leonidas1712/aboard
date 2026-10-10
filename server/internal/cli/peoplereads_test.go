@@ -46,7 +46,14 @@ func TestAgentDirectoryReadsNeverUseOtherIssuerOrPersonKey(t *testing.T) {
 			t.Fatalf("read: %+v", result)
 		}
 	}
-	if foreign.Load() != 0 || selected.Load() != 2 {
+	e.env["ABOARD_AGENT"] = ""
+	for _, args := range [][]string{{"people", "--as", "helper", "--server", second.URL, "--json"}, {"invite", "list", "--as", "helper", "--server", second.URL, "--json"}} {
+		result := e.run(args...)
+		if result.code != 0 {
+			t.Fatalf("explicit agent read outside session: %+v", result)
+		}
+	}
+	if foreign.Load() != 0 || selected.Load() != 4 {
 		t.Fatalf("foreign=%d selected=%d", foreign.Load(), selected.Load())
 	}
 }

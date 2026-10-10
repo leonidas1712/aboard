@@ -109,3 +109,26 @@ func TestAgentPeopleAndInviteReadsSelectExactIssuer(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentDirectoryReadsSelectBoardAmongSameIssuerSeats(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	a, b := tm.newBoard(tm.admin, "private"), tm.newBoard(tm.admin, "private")
+	session := tm.admin.claudeSession("same-issuer-reads")
+	session.run("join", "--board", a, "--server", tm.url(), "--name", "first", "--json")
+	session.run("join", "--board", b, "--server", tm.url(), "--name", "second", "--json")
+	for _, args := range [][]string{{"people"}, {"invite", "list"}} {
+		ambiguous := session.runExit(append(args, "--server", tm.url(), "--json")...)
+		if ambiguous.code != 1 || errorCode(t, ambiguous.json(t)) != "board_ambiguous" {
+			t.Fatalf("did not require seat choice: %s", ambiguous)
+		}
+		selected := session.run(append(args, "--server", tm.url(), "--board", a, "--json")...).json(t)
+		if selected["board"] != a || field(t, selected, "server.url") != tm.url() {
+			t.Fatalf("board selector lost: %v", selected)
+		}
+		byAgent := session.run(append(args, "--server", tm.url(), "--as", "second", "--json")...).json(t)
+		if byAgent["board"] != b {
+			t.Fatalf("agent selector lost: %v", byAgent)
+		}
+	}
+}

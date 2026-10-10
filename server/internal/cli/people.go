@@ -53,10 +53,12 @@ func (a *app) peopleClient(ctx context.Context, serverFlag, what, command string
 func runPeopleList(ctx context.Context, a *app, args []string) error {
 	fs := a.flags("people")
 	serverFlag := fs.String("server", "", "the server, when it isn't the one this machine would pick")
+	boardFlag := fs.String("board", "", "select the current agent’s board seat")
+	asFlag := fs.String("as", "", "read through this agent’s seat")
 	if _, err := a.parse(fs, args, peopleUsage, 0, 0); err != nil {
 		return err
 	}
-	srv, started, c, err := a.peopleReadClient(ctx, *serverFlag)
+	srv, started, selectedBoard, c, err := a.peopleReadClient(ctx, *serverFlag, *boardFlag, *asFlag)
 	if err != nil {
 		return err
 	}
@@ -67,7 +69,7 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 		return c.unreachable(err)
 	}
 	if r.JSON200 == nil {
-		return a.peopleReadError(srv, r.StatusCode(), r.Body)
+		return a.peopleReadError(srv, r.StatusCode(), r.Body, *asFlag)
 	}
 	people, err := r.JSON200.AsServerPeople()
 	if err != nil {
@@ -99,7 +101,12 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 		}
 		return st.dim(c)
 	})
-	a.emit(map[string]any{"server": srv, "people": people.People}, text)
+	out := map[string]any{"server": srv, "people": people.People}
+	if selectedBoard != "" {
+		out["board"] = selectedBoard
+		text = "Board: " + selectedBoard + "\n" + text
+	}
+	a.emit(out, text)
 	return nil
 }
 

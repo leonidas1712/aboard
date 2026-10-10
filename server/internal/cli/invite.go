@@ -404,6 +404,11 @@ func (a *app) bundleInvite(ctx context.Context, c *client, req *api.CreateInvite
 func runInviteManagement(ctx context.Context, a *app, action string, args []string) error {
 	fs := a.flags("invite")
 	server := fs.String("server", "", "the invite issuer")
+	board, as := "", ""
+	if action == "list" {
+		fs.StringVar(&board, "board", "", "select the current agent’s board seat")
+		fs.StringVar(&as, "as", "", "read through this agent’s seat")
+	}
 	count := 0
 	if action == "revoke" {
 		count = 1
@@ -421,8 +426,9 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 	}
 	var srv serverRef
 	var c *client
+	selectedBoard := ""
 	if action == "list" {
-		srv, _, c, err = a.peopleReadClient(ctx, *server)
+		srv, _, selectedBoard, c, err = a.peopleReadClient(ctx, *server, board, as)
 	} else {
 		if e := a.refuseInSession("Managing server invitations", command); e != nil {
 			refusal := asError(e)
@@ -445,7 +451,7 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 			return c.unreachable(err)
 		}
 		if r.JSON200 == nil {
-			return a.peopleReadError(srv, r.StatusCode(), r.Body)
+			return a.peopleReadError(srv, r.StatusCode(), r.Body, as)
 		}
 		text := "Invitations on " + srv.URL + "\n"
 		for _, invite := range r.JSON200.Invites {
@@ -462,7 +468,12 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 			}
 			text += fmt.Sprintf("%s · %s%s · expires %s\n", invite.Id, invite.State, issuer, invite.ExpiresAt.Format(time.RFC3339))
 		}
-		a.emit(map[string]any{"server": srv, "invites": r.JSON200.Invites}, text)
+		out := map[string]any{"server": srv, "invites": r.JSON200.Invites}
+		if selectedBoard != "" {
+			out["board"] = selectedBoard
+			text = "Board: " + selectedBoard + "\n" + text
+		}
+		a.emit(out, text)
 		return nil
 	}
 	r, err := c.api.RevokeServerInviteWithResponse(ctx, pos[0], nil)
