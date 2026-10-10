@@ -4355,7 +4355,9 @@ $defs:
       Runtime confirmation alone never marks the delivery step complete.
       While waiting, delivery says "Waiting for a reply from @INVITER's agents."
       (or "the inviting person" when no display handle is available), never a
-      session round trip. Codex hook guidance names the global installation;
+      session round trip. Inviter display lookup is best-effort: unavailable, refused
+      or mismatched metadata retains that fallback and never fails setup or advances
+      delivery. Codex hook guidance names the global installation;
       already confirmed, unchanged hooks require no further trust or restart.
       Reuse of an already-bound seat is readonly and retains its binding. Its
       issuer-bound credential must match current /v1/me and immutable board identity.
