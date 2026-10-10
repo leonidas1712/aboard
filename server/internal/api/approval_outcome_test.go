@@ -3,6 +3,7 @@ package api_test
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -52,7 +53,7 @@ func TestBrowserApprovedInviteCanBeCollectedOnceAfterRestart(t *testing.T) {
 	collect := func() call {
 		return s.send("POST", path+"/collect", nil, func(r *http.Request) {
 			r.Header.Set("Authorization", "Bearer "+agent)
-			r.Header.Set("Idempotency-Key", "same-collection")
+
 		})
 	}
 	first := collect()
@@ -78,13 +79,13 @@ func TestConcurrentApprovalCollectorsHaveOneSecretBearingWinner(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	results := make(chan call, 8)
-	for range 8 {
+	for n := range 8 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			results <- s.send("POST", path+"/collect", nil, func(r *http.Request) {
 				r.Header.Set("Authorization", "Bearer "+agent)
-				r.Header.Set("Idempotency-Key", "concurrent")
+				r.Header.Set("Idempotency-Key", fmt.Sprint("collector-", n))
 			})
 		}()
 	}
@@ -336,5 +337,44 @@ func TestAllowanceInviteDoesNotGainASecondSecretReveal(t *testing.T) {
 	status, raw = onboardingCall(t, s, "POST", "/v1/me/approvals/"+held.Approval.ID+"/collect", `{}`, agent)
 	if status != 200 || strings.Contains(raw, "abi_") || strings.Contains(raw, `"collected":true`) {
 		t.Fatalf("automatic outcome got extra reveal: %d %s", status, raw)
+	}
+}
+
+func TestLostApprovalCollectionResponseRecoversOnlyWithTheWinningKey(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	_, agent, _ := s.pair("starter")
+	path := heldInvite(t, s, agent)
+	status, raw := onboardingCall(t, s, "POST", path+"/allow", `{}`, s.owner)
+	if status != 200 {
+		t.Fatalf("allow: %d %s", status, raw)
+	}
+	collect := func(key string) call {
+		return s.send("POST", path+"/collect", nil, func(r *http.Request) {
+			r.Header.Set("Authorization", "Bearer "+agent)
+			if key != "" {
+				r.Header.Set("Idempotency-Key", key)
+			}
+		})
+	}
+	first := collect("lost-response")
+	if first.status != 200 || first.body["collected"] != true || !strings.Contains(first.raw, "abi_") {
+		t.Fatalf("first collection: %d %s", first.status, first.raw)
+	}
+	s.restart()
+	recovered := collect("lost-response")
+	if recovered.status != 200 || recovered.body["collected"] != false || recovered.body["invite"] == nil {
+		t.Fatalf("lost response not recoverable: %d %s", recovered.status, recovered.raw)
+	}
+	for _, key := range []string{"other", ""} {
+		c := collect(key)
+		if c.status != 200 || c.body["invite"] != nil {
+			t.Fatalf("new key recovered secret: %d %s", c.status, c.raw)
+		}
+	}
+	s.clock.Advance(10 * time.Minute)
+	expired := collect("lost-response")
+	if expired.status != 200 || expired.body["invite"] != nil {
+		t.Fatalf("expired recovery: %d %s", expired.status, expired.raw)
 	}
 }

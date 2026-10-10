@@ -505,9 +505,15 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 			return err
 		}
 		if inv.Authorization != nil && inv.Authorization.Via == "approval" {
-			secret = s.approvedInviteSecret(inv.Authorization.ApprovalID, inv.ID)
-			inv.Digest = ids.Digest(s.key, secret)
-			if err := tx.InsertApprovalOutcome(ApprovalOutcomeRecord{ApprovalID: inv.Authorization.ApprovalID, InviteID: inv.ID, Version: 1}); err != nil {
+			capsule, err := s.sealApprovalInvite(inv.Authorization.ApprovalID, inv.ID, secret)
+			if err != nil {
+				return err
+			}
+			expires := inv.ExpiresAt
+			if limit := stamp(now.Add(24 * time.Hour)); expires > limit {
+				expires = limit
+			}
+			if err := tx.InsertApprovalOutcome(ApprovalOutcomeRecord{ApprovalID: inv.Authorization.ApprovalID, InviteID: inv.ID, Version: 1, Capsule: capsule, ExpiresAt: expires}); err != nil {
 				return err
 			}
 		}

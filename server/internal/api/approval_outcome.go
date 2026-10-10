@@ -29,7 +29,11 @@ func (h *handlers) GetApproval(ctx context.Context, req GetApprovalRequestObject
 }
 
 func (h *handlers) CollectApproval(ctx context.Context, req CollectApprovalRequestObject) (CollectApprovalResponseObject, error) {
-	out, err := h.svc.CollectApproval(ctx, principal(ctx), req.Approval)
+	key := ""
+	if req.Params.IdempotencyKey != nil {
+		key = *req.Params.IdempotencyKey
+	}
+	out, err := h.svc.CollectApproval(ctx, principal(ctx), req.Approval, key)
 	if err != nil {
 		return nil, onboardingError(ctx, err, "aboard approvals show "+req.Approval)
 	}
