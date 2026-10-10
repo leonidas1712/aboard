@@ -110,6 +110,16 @@ test("an approval allowed once runs the agent's request and shows its command", 
   await card.getByRole("button", { name: "Allow once" }).click();
   await expect(card.getByRole("status")).toContainText("Allowed once");
   expect((await approval(held.id)).state).toBe("executed");
+  // The invite's link and prompt are shown once, inline, with copy buttons.
+  const issued = card.locator(".ob-invite-issued");
+  await expect(issued).toContainText("Shown once. Send both to the person you're inviting");
+  await expect(issued).toContainText("Copy them now; they aren't shown again.");
+  await expect(issued.locator("code").first()).toContainText(`${base()}/join#abi_`);
+  await expect(issued.locator("code").nth(1)).toContainText("Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup");
+  await expect(issued.getByRole("button", { name: "Copy the invite link" })).toBeVisible();
+  await expect(issued.getByRole("button", { name: "Copy the prompt" })).toBeVisible();
+  await issued.getByRole("button", { name: "Dismiss" }).click();
+  await expect(issued).toHaveCount(0);
   // The owner can revoke the issued invite from its notice using the browser session.
   const allowance = (await api(ownerToken(), "GET", "/v1/me/allowance")).json;
   expect(allowance.categories).toEqual([]);

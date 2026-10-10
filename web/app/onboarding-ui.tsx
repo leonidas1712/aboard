@@ -18,6 +18,7 @@ import {
   type AdminActionResult,
   type Approval,
   type InviteNotice,
+  type ServerInvite,
   type PairingRequest,
   allowApproval,
   cancelPairing,
@@ -32,7 +33,7 @@ import { harnessName, identityOf, relativeTime } from "./words";
 // ---------- the parts ----------
 
 /** Command is an exact command to run in a terminal, with a copy button inside its box. */
-export function Command({ label, command, note }: { label: string; command: string; note?: ReactNode }) {
+export function Command({ label, command, note, copyLabel = "Copy the command" }: { label: string; command: string; note?: ReactNode; copyLabel?: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -59,12 +60,12 @@ export function Command({ label, command, note }: { label: string; command: stri
             </span>
           ))}
         </code>
-        <button type="button" onClick={copy} aria-label={copied ? "Copied" : "Copy the command"} title="Copy" className="tap inline-flex size-9 shrink-0 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink">
+        <button type="button" onClick={copy} aria-label={copied ? "Copied" : copyLabel} title="Copy" className="tap inline-flex size-9 shrink-0 items-center justify-center rounded-[6px] text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink">
           {copied ? <Check className="size-4 text-accent-strong" strokeWidth={1.75} aria-hidden /> : <Copy className="size-4" strokeWidth={1.5} aria-hidden />}
         </button>
       </div>
       <span aria-live="polite" className="sr-only">
-        {copied ? "Copied" : ""}
+        {copied ? `Copied: ${label}` : ""}
       </span>
       {note && <p className="text-meta text-muted">{note}</p>}
     </div>
@@ -181,7 +182,8 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [result, setResult] = useState<{ always: boolean; warning?: string } | null>(null);
+  const [result, setResult] = useState<{ always: boolean; warning?: string; invite?: ServerInvite } | null>(null);
+  const [inviteShown, setInviteShown] = useState(true);
   const key = useRef<Record<string, string>>({});
   const act = a.action;
   const agent = agentLabel(a);
@@ -196,7 +198,7 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
       if (what === "decline") await declineApproval(a.id, key.current[what]);
       else {
         const r: AdminActionResult = await allowApproval(a.id, what === "always", key.current[what]);
-        setResult({ always: what === "always", warning: r.warning });
+        setResult({ always: what === "always", warning: r.warning, invite: r.invite });
       }
       setConfirming(false);
       changed();
@@ -307,6 +309,7 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
               </a>
             </p>
           )}
+          {result?.invite && inviteShown && <InviteIssued invite={result.invite} onDismiss={() => setInviteShown(false)} />}
           {always && invite && <Warning>{result?.warning ?? inviteWarningText}</Warning>}
           <p className="text-meta text-muted">
             In the record: {invite ? `an invite made by ${agent}, approved by you` : `${byline(act.kind === "add_people" ? "added" : "role_changed", agent, "you", "approval")}`}.<br />
@@ -321,6 +324,29 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
       )}
       {a.state === "expired" && <Done muted>Expired without a decision. Nothing was done; {agent} can ask again.</Done>}
     </article>
+  );
+}
+
+/** invitePrompt is the text to send a colleague. It matches the CLI's `aboard approvals allow` and the join page. */
+export function invitePrompt(link: string, pairing: boolean): string {
+  return `Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${link} --handle <name you'd like teammates to see>.${pairing ? " Verify you can exchange messages with the inviting agent." : ""}`;
+}
+
+/** InviteIssued shows the link and prompt of an invite the person just allowed. The server returns the secret once, so this stays until dismissed and a reload loses it. */
+export function InviteIssued({ invite, onDismiss }: { invite: ServerInvite; onDismiss: () => void }) {
+  const link = `${window.location.origin}/join#${invite.invite}`;
+  return (
+    <section className="ob-invite-issued flex flex-col gap-3 rounded-box border border-field-border bg-selected px-3.5 py-3" aria-label="The invite you made">
+      <p className="font-bold">The invite is ready</p>
+      <Command label="Invite link" command={link} copyLabel="Copy the invite link" />
+      <Command label="Prompt for the colleague's agent" command={invitePrompt(link, invite.pairing_request_id !== undefined)} copyLabel="Copy the prompt" />
+      <p className="text-meta text-muted">Shown once. Send both to the person you&apos;re inviting; your agent can also collect them. Copy them now; they aren&apos;t shown again.</p>
+      <div>
+        <Button variant="quiet" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -384,7 +410,7 @@ export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
       {n.state === "redeemed" && <Done>Someone joined the server with this invite. It can&apos;t be used again.</Done>}
       {n.state === "revoked" && <Done muted>Revoked. Nobody can join with it.</Done>}
       {n.state === "expired" && <Done muted>Expired before anyone used it. Nobody can join with it.</Done>}
-      <p className="text-meta text-muted">The invite&apos;s link and who it went to stay with {agent}&apos;s session; aboard never shows them here.</p>
+      <p className="text-meta text-muted">The invite&apos;s link is shown once, to the person who approves it. {agent} can collect it from its session; this page can&apos;t show it again.</p>
     </article>
   );
 }
