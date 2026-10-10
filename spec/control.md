@@ -73,6 +73,7 @@ optional; each operation says which it reads.
 | `harness` | string | The session's harness, as in its profile: `claude-code`, `codex` |
 | `session` | string | The harness's own session id |
 | `boot` | string | The session's boot id: changes whenever the session's process does. Empty means the one the daemon has on record |
+| `runtime_hook` | boolean | The installed harness hook reports its runtime invocation. Only an accepted hook operation with a nonempty matching current boot can establish `runtime_ready`; ordinary CLI calls omit this marker. This local bookkeeping marker grants no server authority and cannot confirm message delivery |
 | `source` | string | What started the session: `startup`, `resume`, `clear` or `compact` |
 | `resumed` | boolean | The client reconnects after the daemon went away, so this isn't the session's next event |
 | `wake` | boolean | A prompt that is the bundle a waiting hook just woke the session with, not a later event |
