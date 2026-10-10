@@ -5442,7 +5442,7 @@ components:
         person_handle: { type: string, description: Current inviter or requester handle; never authority. }
         agent_name: { type: string }
         agent_harness: { type: string }
-        requested_on: { $ref: "#/components/schemas/OnboardingBoardDisplay", description: The issuing or requesting agent's board, only while visible to the viewer. }
+        requested_on: { $ref: "#/components/schemas/OnboardingBoardDisplay", description: "The issuing or requesting agent's board, only while visible to the viewer." }
         boards:
           type: array
           items: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
@@ -7930,7 +7930,7 @@ components:
       description: The person the event is about. Who did it is the event's actor.
       required: [member_id, person_id, name]
       properties:
-        action_kind: { type: string, enum: [invited, added, role_changed], description: Server-derived action category, absent on older records. }
+        action_kind: { type: string, enum: [invited, added, role_changed], description: "Server-derived action category, absent on older records." }
         authorization: { $ref: "#/components/schemas/AdminAuthorization" }
         by_owner:
           type: string
@@ -8928,7 +8928,7 @@ components:
       additionalProperties: false
       required: [person_id, agent_id, parent_key_id, via, payload_hash]
       properties:
-        kind: { type: string, enum: [invited, added, role_changed], description: Server-derived kind of the executed action, absent on older records and other action kinds. }
+        kind: { type: string, enum: [invited, added, role_changed], description: "Server-derived kind of the executed action, absent on older records and other action kinds." }
         person_id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
         agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         parent_key_id: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
