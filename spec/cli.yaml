@@ -4318,6 +4318,10 @@ $defs:
       a standalone CLI registration or synthetic queue boot do not. An old daemon
       omitting runtime_ready remains unconfirmed. Runtime confirmation alone never
       marks the delivery step complete.
+      Runtime confirmation applies only when the installed hook or extension entries
+      are unchanged by this setup attempt. Changed runtime entries still require
+      trust and restart. A skill-only change may request aboard skill without
+      repeating an already confirmed hook trust action.
       After account authorization, setup persists the canonical invite issuer as the
       default only if the machine has none; an existing default is preserved.
       A new account message says it was created, not authorized for a pairing.
