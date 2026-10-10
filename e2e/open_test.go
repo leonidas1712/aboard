@@ -353,9 +353,9 @@ func TestOpenSignsABrowserInToATeamServer(t *testing.T) {
 		t.Fatalf("aboard open on a machine connected to one server: %v", out)
 	}
 
-	// A directory linked to a board on the team server opens that board there.
+	// Without --board the browser opens the board list, regardless of the folder.
 	out = alex.openUI("true").json(t)
-	if out["board"] != "payments" || out["ui_url"] != s.url+"/?board=payments" || !strings.HasSuffix(field(t, out, "url").(string), "&board=payments") {
+	if out["board"] != nil || out["ui_url"] != s.url+"/" || strings.Contains(field(t, out, "url").(string), "&board=") {
 		t.Fatalf("aboard open in a directory linked to payments: %v", out)
 	}
 	if got := me(signIn(out["url"].(string))); got != "alex" {

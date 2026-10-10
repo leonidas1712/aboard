@@ -22,7 +22,7 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 		t.Fatalf("board lookup: %d", status)
 	}
 	boardID := field(t, b, "id").(string)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--board", name, "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--board", name, "--json").json(t)
 	matchesCLISpec(t, "ServerInviteOutput", invite)
 	link := field(t, invite, "link").(string)
 	person := newPersonHome(t, "newcomer")
@@ -100,7 +100,7 @@ func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	name := tm.newBoard(tm.admin, "private")
-	invite := tm.admin.run("invite", "--server", tm.url(), "--board", name, "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--board", name, "--json").json(t)
 	target, err := url.Parse(tm.url())
 	if err != nil {
 		t.Fatal(err)
