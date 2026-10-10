@@ -168,6 +168,11 @@ func (s *session) tryNotice(ctx context.Context) {
 	if text == "" || !s.recheck(ctx) {
 		return
 	}
+	// The fresh read can discover messages that were not in the cached offers.
+	// Keep the waiter for their ordinary combined handoff.
+	if len(s.offers(s.queueFilter())) > 0 {
+		return
+	}
 	a := s.agents[n.Agent.Key()]
 	if a == nil || a.adopting || a.problem != "" || s.d.mode(a.ref) == ModeOff || s.beingRead(a.ref) || s.d.owner(a.ref) != s || s.d.generation(a.ref) != a.generation {
 		return
@@ -179,11 +184,23 @@ func (s *session) tryNotice(ctx context.Context) {
 	if err != nil || s.d.owner(a.ref) != s || s.d.generation(a.ref) != a.generation {
 		return
 	}
+	s.markNoticeHanded(ctx, n)
+}
+
+func (s *session) markNoticeHanded(ctx context.Context, n DurableNotice) {
+	if n.ID == "" {
+		return
+	}
+	a := s.agents[n.Agent.Key()]
+	if a == nil || a.adopting || a.problem != "" || s.d.owner(a.ref) != s || s.d.generation(a.ref) != a.generation {
+		return
+	}
 	if j, ok := s.d.cfg.Journal.(NoticeJournal); ok {
 		if err := j.MarkNoticeHanded(ctx, n.ID); err != nil {
 			s.d.log.Warn("save handed notice", "notice", n.ID)
 		}
 	}
+	s.armNotices(ctx)
 }
 
 func (d *Daemon) retainArrivalNotice(ctx context.Context, key SessionKey, row PairingRequest, a AgentRef) {

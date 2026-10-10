@@ -1436,15 +1436,22 @@ func (s *session) tryDeliver(ctx context.Context) {
 		offers = s.offers(s.queueFilter())
 	}
 	notes, told := s.modeNotes()
+	var notice DurableNotice
+	var noticeText string
+	if len(offers) > 0 {
+		notice, noticeText = s.nextNotice(ctx)
+	}
+	prefix := notes
 	limit := BundleLimit
 	stopHand := s.key.Harness == "codex" && s.waiter != nil
 	if stopHand {
 		limit = codexStopLimit
 	}
-	if notes != "" {
-		limit -= len(notes) + 1
+	handoffLimit := limit
+	if prefix != "" {
+		limit -= len(prefix) + 1
 	}
-	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), notes)
+	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), prefix)
 	if !stopHand {
 		s.skip(ctx, c.tooLarge)
 	}
@@ -1455,8 +1462,13 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.scheduleRetry()
 		return
 	}
-	c.text = withNotes(notes, c.text)
-	handoff, handed, prepareErr := s.prepare(ctx, c, notes, c.text)
+	if noticeText != "" && len(withNotes(withNotes(noticeText, prefix), c.text)) <= handoffLimit {
+		prefix = withNotes(noticeText, prefix)
+	} else {
+		notice = DurableNotice{}
+	}
+	c.text = withNotes(prefix, c.text)
+	handoff, handed, prepareErr := s.prepare(ctx, c, prefix, c.text)
 	if prepareErr != nil {
 		s.gatherUntil = s.now().Add(s.prepareFailed("prepare handoff", prepareErr))
 		return
@@ -1478,6 +1490,7 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if err == nil {
 		s.accepted(ctx, handed, idle)
 		s.markTold(told)
+		s.markNoticeHanded(ctx, notice)
 	}
 	if s.adapter.WaitsForIdle() || hookHand {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone

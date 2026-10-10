@@ -93,6 +93,9 @@ func (s *session) approvalNotices(ctx context.Context) string {
 	if text == "" || !s.recheck(ctx) {
 		return ""
 	}
+	if len(s.offers(s.queueFilter())) > 0 {
+		return ""
+	}
 	// A returned Nudge is not evidence that the hook wrote it successfully.
 	_, text = s.nextNotice(ctx)
 	return text
