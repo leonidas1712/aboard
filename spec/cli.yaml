@@ -2298,6 +2298,10 @@ $defs:
   # ---------- aboard doctor ----------
   DoctorOutput:
     description: |
+      On a fresh machine with no known server, doctor reports its local server as
+      not running, with an aboard up fix, rather than server_not_selected. The same
+      local_server diagnostic applies after the local server stops. These checks
+      read no login and start neither the server nor the daemon.
       A regular legacy .aboard link file produces a warning check named
       legacy_folder_link with code legacy_folder_link. Its text says the old link
       is ignored and can be deleted; its fix names servers use and --board.
