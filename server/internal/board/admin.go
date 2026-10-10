@@ -605,9 +605,13 @@ func (s *Service) AllowApproval(ctx context.Context, p Principal, id string, alw
 		if err != nil {
 			return err
 		}
+		decision := "once"
+		if always {
+			decision = "always"
+		}
 		a.State = "executed"
 		a.DecidedAt = ptr(stamp(s.clk.Now()))
-		a.Execution = &AdminExecution{At: *a.DecidedAt, Authorization: auth}
+		a.Execution = &AdminExecution{At: *a.DecidedAt, Decision: decision, Authorization: auth}
 		if invite != nil {
 			a.Execution.InviteID = invite.Invite.ID
 		}

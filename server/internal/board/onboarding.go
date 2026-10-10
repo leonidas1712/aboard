@@ -256,7 +256,7 @@ func (s *Service) listServerInvites(ctx context.Context, p Principal) ([]ServerI
 
 // RevokeServerInvite reduces only the current person's own issued capability.
 func (s *Service) RevokeServerInvite(ctx context.Context, p Principal, id string) (bool, error) {
-	if err := inviteManagementPerson(p); err != nil {
+	if err := humanOnly(p, "revoke your invitation", "aboard invites"); err != nil {
 		return false, err
 	}
 	var changed bool

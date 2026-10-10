@@ -41,6 +41,7 @@ type AdminAuthorization struct {
 // AdminExecution is the immutable nonsecret receipt saved with an executed action.
 type AdminExecution struct {
 	At            string
+	Decision      string
 	Authorization AdminAuthorization
 	InviteID      string
 }

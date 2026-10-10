@@ -67,6 +67,9 @@ func TestBrowserChoosesOwnPairingSeatWithoutEndpointAuthority(t *testing.T) {
 	}
 	current, err := s.client(maya).GetPairingRequestWithResponse(ctx, created.JSON201.Id)
 	mustStatus(t, current, err, 200)
+	if !strings.Contains(string(current.Body), `"recipient_handle":"maya"`) || !strings.Contains(string(current.Body), `"recipient_agent_name":"`+chosen.Name+`"`) {
+		t.Fatalf("recipient labels: %s", current.Body)
+	}
 	if current.JSON200.Recipient != nil {
 		t.Fatal("browser bound a runtime endpoint")
 	}
