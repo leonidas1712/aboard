@@ -965,6 +965,33 @@ does:
   every refusal either can't happen in a normal flow or carries a single `next` the
   agent runs or hands over word for word. Hints use the server's name, not its URL.
 
+Safety details (from the review on #299):
+
+- **Held outcomes.** The server keeps an approved outcome in a dedicated encrypted
+  record, separate from the event log and the general response cache, deleted on
+  collection, redemption, revocation or expiry. One exception: for a short window
+  after collection, a retry with the same Idempotency-Key from the exact requesting
+  seat, issuer, approval and parent key gets it again. A different key, or a lost
+  permission, never does.
+- **Renames.** "Their own agent renames them" derives the person from the active seat
+  and its live parent key. It never accepts another target, uses a person login,
+  reuses a reserved handle or turns a guest into a member. Editing an invite's
+  suggested handle changes metadata only: never its issuer, authority, boards or
+  privileges, or the payload frozen under an approval.
+- **Joining from the Inbox.** A board-add item's prompt keeps the issuer and the
+  board's immutable id. Choosing an existing agent is explicit consent: it attaches
+  only through that agent's vouched runtime, rechecks board access when it runs,
+  never guesses from activity and never makes the server start a process.
+- **Verification.** Hiding pairing keeps D222's proof: setup reports messages as
+  getting through only after linked replies both ways between the exact endpoints,
+  with generation-bound credentials. A hello in board history, an account, a browser
+  choice or setup finishing is not that proof. If the inviter has no active session,
+  setup leaves verification pending with a runnable next, and never picks a recent
+  session or claims success.
+- **Waking an idle agent.** The notice that an approval was allowed needs a durable
+  wake path, so an idle requesting session acts without anyone typing. Delivery at
+  the next turn is the first step; the idle wake is proven separately.
+
 How we check it: flow evals (`make flow-eval`, GEN-54) run these flows from scratch
 in `make sandbox-team` with small, cheap models, a scripted person doing only what a
 person would (typing the request, Allow, pasting the prompt, `/hooks`, a restart),
