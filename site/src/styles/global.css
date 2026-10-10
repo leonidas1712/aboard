@@ -1083,3 +1083,5 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 /* The small print wraps as text on a phone, with its mark at the start of the line. */
 .meta-line { display: inline-block; max-width: 100%; }
 .meta-line .meta-dot { display: inline-block; margin-right: 8px; vertical-align: 1px; }
+.cta-note { margin-top: 16px; font-size: 15px; color: var(--muted); }
+.cta-note + .meta-line { margin-top: 10px; }
