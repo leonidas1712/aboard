@@ -5099,6 +5099,10 @@ components:
           type: string
           example: 0.1.0
           description: The server's release version, compared as a semantic version.
+        min_client_version:
+          type: string
+          example: 0.1.4
+          description: Minimum CLI release needed for this server's invitation setup flow. An older CLI should run aboard upgrade before setup. Absent on older servers; this is guidance, not a request rejection rule.
         commit:
           type: string
           example: 881a92f4c3d1e0b2a7f6e5d4c3b2a1f0e9d8c7b6
@@ -5599,9 +5603,13 @@ components:
       additionalProperties: false
       required: [server_id, server_url, server_name, inviter_handle, boards, expires_at]
       properties:
+        min_client_version:
+          type: string
+          example: 0.1.4
+          description: Minimum CLI release needed to follow this invitation's setup prompt. An older CLI should run aboard upgrade first. Absent on older servers.
         prompt:
           type: string
-          description: Server-formatted colleague prompt using the configured public issuer and the invite secret supplied by this caller. It creates no credential and is never included in invite lists or approval metadata.
+          description: Server-formatted colleague prompt using the configured public issuer and the invite secret supplied by this caller. Includes the minimum client version and upgrade instruction. It creates no credential and is never included in invite lists or approval metadata.
         suggested_handle:
           type: string
           pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"

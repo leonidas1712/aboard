@@ -656,7 +656,9 @@ $defs:
       in the docs. Without a command it lists every command a person or agent runs, in
       the order and groups of "aboard help"; with one, it holds just that command, which
       may also be one Aboard runs itself (serve, hook). An unknown command fails with
-      invalid_request and exit 2.
+      invalid_request and exit 2. Its hint says this aboard may be older than the
+      server and names aboard upgrade, as well as aboard help. The same hint is
+      returned for an unknown top-level command, in text and --json output.
 
       Text output: "aboard help" lists the commands by group, one line each; "aboard help
       <command>", "aboard <command> --help" and "aboard <command> -h" print the same help
@@ -989,8 +991,9 @@ $defs:
       bundled immutable board ids and pairing_request_id when supplied. Existing
       ordinary invites are unchanged.
       Invites include prompt, identical to the invite page, ready to paste into the colleague's agent:
-      "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard
-      skill, then run aboard setup <link> --handle <name you'd like teammates to see>.
+      "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard
+      version is older than 0.1.4, run aboard upgrade first. Run aboard skill, then
+      run aboard setup <link> --handle <name you'd like teammates to see>.
       Verify you can exchange messages with the inviting agent." The verification sentence
       appears only when the invite includes a pairing. Automatic selection of the
       inviting session does not also ask it to run pairing select. This secret-bearing prompt is shown once with the invite,
