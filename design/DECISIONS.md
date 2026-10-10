@@ -900,7 +900,7 @@ D222 invitation opt-in also includes `approvals allow ID --always` for an
 invite-people action: its API response and CLI output carry the same warning.
 Allow-once remains the default handover and enables no invitation allowance.
 
-**D223 (proposed). Server selection belongs to the machine or the acting seat,
+**D223. Server selection belongs to the machine or the acting seat,
 never the working directory (supersedes folder selection in D203 and the
 one-server-per-session restriction; requested for #279).** A person uses an explicit
 `--server NAME|URL`, otherwise the machine's saved default. Existing folder links
