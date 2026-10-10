@@ -11,6 +11,7 @@ import type { Approval, InviteNotice, PairingRequest } from "./onboarding-api";
 import { AgentMark, ApprovalDetail, NoticeDetail, PairingDetail, approvalTitle, noticeLine, pairingRowLine, pairingTitle, pairingView, waitsOnMe } from "./onboarding-ui";
 import { agentLabel, allowable, live } from "./onboarding-words";
 import { relativeTime } from "./words";
+import { newerFirst } from "./time";
 
 export type OnboardingItem =
   | { kind: "approval"; id: string; a: Approval; t: string }
@@ -19,7 +20,7 @@ export type OnboardingItem =
 
 export type OnboardingGroups = { needs: OnboardingItem[]; pairing: OnboardingItem[]; invites: OnboardingItem[]; decided: OnboardingItem[] };
 
-const newest = (x: OnboardingItem, y: OnboardingItem) => y.t.localeCompare(x.t);
+const newest = (x: OnboardingItem, y: OnboardingItem) => newerFirst(x.t, y.t);
 
 export function onboardingGroups(ob: Onboarding): OnboardingGroups {
   const approval = (a: Approval): OnboardingItem => ({ kind: "approval", id: a.id, a, t: a.decided_at ?? a.created_at });
