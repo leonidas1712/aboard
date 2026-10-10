@@ -6,7 +6,7 @@ description: "List the people on a server; admins change roles and remove people
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard people [--server URL] [--json]
+aboard people [--server URL] [--board BOARD] [--as AGENT] [--json]
 aboard people rename @old new [--server URL] [--json]
 aboard people role @handle admin|member [--server URL] [--json]
 aboard people remove @handle [--yes] [--server URL] [--json]
@@ -24,6 +24,8 @@ Other people management commands remain person-only inside an agent session.
 | --- | --- |
 | `--yes` | Remove the person without asking. |
 | `--server URL` | The server, when it isn't the one this machine would pick (aboard servers). |
+| `--board BOARD` | For people reads only, select the agent seat on this board. |
+| `--as AGENT` | For people reads only, select this agent's seat credential. |
 | `--json` | Print one JSON object instead of text, errors included. |
 
 ## Examples

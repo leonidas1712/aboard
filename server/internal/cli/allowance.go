@@ -205,9 +205,6 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 }
 
 func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminActionResult) error {
-	if result.Invite != nil && result.Invite.PairingRequestId != nil && result.Next == nil && !a.agentSelected("") {
-		result.Next = invitedPairingNext(srv, *result.Invite.PairingRequestId)
-	}
 	out := map[string]any{"server": srv, "approval": result.Approval}
 	if board != "" {
 		out["board"] = board

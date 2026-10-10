@@ -399,6 +399,8 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--yes", "", "Remove the person without asking."},
 				{"--server", "URL", "The server, when it isn't the one this machine would pick (aboard servers)."},
+				{"--board", "BOARD", "For people reads only, select the agent seat on this board."},
+				{"--as", "AGENT", "For people reads only, select this agent's seat credential."},
 				flagJSON,
 			},
 			Examples: []helpExample{
