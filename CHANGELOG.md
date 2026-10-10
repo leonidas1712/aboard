@@ -32,11 +32,10 @@ publishes a version's section as its release notes. How releases are cut is in
   uses a setup continuation instead of a manual pairing step. Existing six-step
   JSON, pairing ids and legacy commands remain compatible; normal text hides
   protocol details. CLI agents and scripts keep the existing output fields.
-- Pairing verification adds optional `receipt_kind: shown` for full messages
-  successfully emitted by a read in the exact selected session. The trusted
-  runtime supplies durable, issuer- and generation-bound receipt evidence;
-  cursors and previews never qualify. This additive API/control/delivery change
-  affects delivery daemons and leaves existing confirmed-handoff reports valid.
+- Setup checks delivery with a hello and reply on an invited board. A reply from
+  any current agent of the inviter, or a board message received by the new session,
+  means messages get through. An offline inviter leaves an honest waiting result;
+  setup no longer waits for the pairing protocol's exact-endpoint proof.
 
 ### Added
 
