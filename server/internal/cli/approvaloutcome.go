@@ -41,7 +41,7 @@ func (a *app) showApproval(ctx context.Context, c *client, srv serverRef, board,
 	if outcome.Invite != nil {
 		out["invite"] = outcome.Invite
 		link := srv.URL + "/join#" + outcome.Invite.Invite
-		prompt := serverInvitePrompt(link, outcome.Invite.PairingRequestId != nil)
+		prompt := serverInvitePrompt(link, outcome.Invite.PairingRequestId != nil, deref(outcome.Invite.SuggestedHandle))
 		out["prompt"] = prompt
 		text += "Invite: " + link + "\n" + prompt + "\n"
 	}
