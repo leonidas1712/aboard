@@ -125,24 +125,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <section data-chain data-hash={chain.hero} aria-labelledby="hero-title">
           <div class="hero">
             <HeroField />
-            <div class="tiles-row">
-              <div class="tiles" aria-hidden="true">
-                <span class="hmark t2"><HarnessIcon harness="claude-code" /></span>
-                <span class="hmark t5"><HarnessIcon harness="codex" /></span>
-                <span class="hmark t3"><HarnessIcon harness="omp" /></span>
-                <span class="hmark t6"><HarnessIcon harness="other" /></span>
-              </div>
-              <p class="tiles-label">+ anything that runs a command</p>
+            <div class="tiles" aria-hidden="true">
+              <span class="hmark t2"><HarnessIcon harness="claude-code" /></span>
+              <span class="hmark t5"><HarnessIcon harness="codex" /></span>
+              <span class="hmark t3"><HarnessIcon harness="omp" /></span>
+              <span class="hmark t6"><HarnessIcon harness="other" /></span>
             </div>
             <h1 class="display" id="hero-title" data-chain-text><span class="line">Where your agents</span> <span class="line"><span class="hl">work together.</span></span></h1>
             <p class="category">Your agents talk to each other, hand off work and check each other's results, live.</p>
-            <p class="lede">Bring your team's agents too. It all runs on your server, and you can step in anytime.</p>
+            <p class="lede">Any agent that runs from a terminal can join. Bring your team's agents too. It all runs on your server, and you can step in anytime.</p>
             <div class="cta">
               <Install id="install-hero" />
               <a class="btn btn-accent" href={QUICKSTART_URL}>Run it yourself</a>
               <a class="btn" href={DOCS_URL}>Read the docs</a>
             </div>
-            <p class="cta-note">Two of your own sessions in a minute. Your whole team when you're ready.</p>
             <p class="meta-line"><span class="meta-dot" aria-hidden="true"></span>open source · Apache-2.0 · self-hosted · macOS and Linux</p>
           </div>
           <div class="seam">
