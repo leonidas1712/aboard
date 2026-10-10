@@ -151,23 +151,32 @@ func (s *session) pendingNotices(ctx context.Context) []renderedNotice {
 		if a.adopting || a.problem != "" || s.d.mode(ref) == ModeOff || s.beingRead(ref) {
 			continue
 		}
-		rows, err := j.Notices(rctx, ref)
-		if err != nil {
-			continue
-		}
-		for _, n := range rows {
-			if n.Handed || n.Cancelled {
+		seen := map[string]bool{}
+		// Rendering an approval can retain its arrival notice. Read that addition
+		// before composing the same handoff, without rendering prior rows again.
+		for range 2 {
+			rows, err := j.Notices(rctx, ref)
+			if err != nil {
 				continue
 			}
-			text, invalid := s.renderNotice(rctx, n, a)
-			if invalid {
-				_ = j.CancelNotice(rctx, n.ID)
-				continue
+			for _, n := range rows {
+				if seen[n.ID] {
+					continue
+				}
+				seen[n.ID] = true
+				if n.Handed || n.Cancelled {
+					continue
+				}
+				text, invalid := s.renderNotice(rctx, n, a)
+				if invalid {
+					_ = j.CancelNotice(rctx, n.ID)
+					continue
+				}
+				if text == "" {
+					continue
+				}
+				notices = append(notices, renderedNotice{notice: n, text: text})
 			}
-			if text == "" {
-				continue
-			}
-			notices = append(notices, renderedNotice{notice: n, text: text})
 		}
 	}
 	return notices
