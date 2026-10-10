@@ -12,9 +12,11 @@ import {
   type Allowance,
   type Approval,
   type InviteNotice,
+  type OnboardingInbox,
   type PairingRequest,
   type Person,
   getAllowance,
+  getOnboardingInbox,
   listApprovals,
   listInviteNotices,
   listOwnAgents,
@@ -26,6 +28,8 @@ import type { Names } from "./onboarding-words";
 export type Onboarding = {
   approvals: Approval[];
   notices: InviteNotice[];
+  /** inbox is the board adds and arrivals; empty on a server that does not answer it. */
+  inbox: OnboardingInbox;
   pairing: PairingRequest[];
   allowance: Allowance | null;
   agents: Member[];
@@ -36,11 +40,14 @@ export type Onboarding = {
   refresh: () => void;
 };
 
+const noInbox: OnboardingInbox = { board_adds: [], arrivals: [] };
+
 const settle = <T,>(p: Promise<T>): Promise<T | null> => p.then((v) => v, () => null);
 
 export function useOnboarding({ follows = true }: { follows?: boolean } = {}): Onboarding {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [notices, setNotices] = useState<InviteNotice[]>([]);
+  const [inbox, setInbox] = useState<OnboardingInbox>(noInbox);
   const [pairing, setPairing] = useState<PairingRequest[]>([]);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [agents, setAgents] = useState<Member[]>([]);
@@ -53,9 +60,10 @@ export function useOnboarding({ follows = true }: { follows?: boolean } = {}): O
   const load = useCallback(async () => {
     const gen = ++generation.current;
     // Each part answers on its own: a server or account without one of them still shows the rest.
-    const [a, n, p, al, ag, pe, b, m] = await Promise.all([
+    const [a, n, ib, p, al, ag, pe, b, m] = await Promise.all([
       listApprovals("all").then((r) => r.approvals, (e: unknown) => (setError(e), null)),
       settle(listInviteNotices().then((r) => r.notices)),
+      settle(getOnboardingInbox()),
       settle(listPairing().then((r) => r.requests)),
       settle(getAllowance()),
       settle(listOwnAgents().then((r) => r.agents)),
@@ -69,6 +77,7 @@ export function useOnboarding({ follows = true }: { follows?: boolean } = {}): O
       setError(null);
     }
     if (n) setNotices(n);
+    setInbox(ib ? { board_adds: ib.board_adds ?? [], arrivals: ib.arrivals ?? [] } : noInbox);
     if (p) setPairing(p);
     setAllowance(al);
     if (ag) setAgents(ag);
@@ -99,7 +108,7 @@ export function useOnboarding({ follows = true }: { follows?: boolean } = {}): O
     }),
     [people, boards, me],
   );
-  return { approvals, notices, pairing, allowance, agents, names, loaded, error, refresh: () => void load() };
+  return { approvals, notices, inbox, pairing, allowance, agents, names, loaded, error, refresh: () => void load() };
 }
 
 /**

@@ -386,6 +386,7 @@ export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
         rows={[
           agentRow(agent, n.display?.agent_harness, "your agent"),
           boardRow(n.display?.requested_on?.name, true),
+          ...(n.suggested_handle ? [["Invited as", `@${n.suggested_handle}`] as [string, ReactNode]] : []),
           ["State", noticeState[n.state]],
           ["Made", `${ago(n.created_at, now)} by ${agent}`],
           [n.state === "expired" ? "Ended" : "Works until", until(n.expires_at)],
