@@ -6,8 +6,48 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestFreshAndStoppedLocalDiagnosticsNeedNoServerSelection(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	for _, state := range []string{"fresh", "stopped"} {
+		if state == "stopped" {
+			e.run("up")
+			e.run("down")
+		}
+		status := e.run("status", "--json").json(t)
+		if status["server_running"] != false || field(t, status, "server.url") != "http://"+e.addr {
+			t.Fatalf("%s status: %v", state, status)
+		}
+		if text := e.run("status").stdout; !strings.Contains(text, "not running; aboard up starts it") {
+			t.Fatalf("%s status has no start guidance: %s", state, text)
+		}
+		doctor := e.runExit("doctor", "--json")
+		if doctor.code != 0 && doctor.code != 3 {
+			t.Fatalf("%s doctor refused diagnostics: %s", state, doctor)
+		}
+		found := false
+		for _, raw := range field(t, doctor.json(t), "checks").([]any) {
+			check := raw.(map[string]any)
+			if check["name"] == "local_server" {
+				found = check["code"] == "server_unreachable" && strings.Contains(check["fix"].(string), "aboard up")
+			}
+		}
+		if !found {
+			t.Fatalf("%s doctor has no local start guidance: %s", state, doctor)
+		}
+		text := e.runExit("doctor").stdout
+		if !strings.Contains(text, "local server not running") || !strings.Contains(text, "aboard up") {
+			t.Fatalf("%s doctor text: %s", state, text)
+		}
+		if e.run("status", "--json").json(t)["server_running"] != false {
+			t.Fatalf("%s diagnostics started the server", state)
+		}
+	}
+}
 
 func TestDefaultServerIgnoresLegacyFolderAndChoosesOnlyBoard(t *testing.T) {
 	t.Parallel()
