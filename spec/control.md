@@ -1028,3 +1028,31 @@ socket answer. No server API or record event changes are introduced.
 D223 is approved, with its implementation in review. Its CLI selector, admission,
 journal and delivery changes land together. No adapter may enable cross-issuer admission before those checks and
 issuer-labelled handovers are implemented. The existing protocol/capability stays v1.
+
+## Approval outcome watches
+
+`approval_watch` records the exact session that requested a held approval. The CLI
+sends `harness`, `session`, canonical issuer `server`, `approval_id`, and the selected
+`agent` (issuer, board and immutable member id). The daemon verifies the requesting
+agent id with a metadata-only GET of its own approval using that exact seat token,
+then records the current session boot and binding generation in its private journal.
+A caller cannot watch another seat's approval. No invite link, token, person key or
+collected outcome crosses this operation or any hook response.
+
+At `turn_start` (or legacy `prompt`), an executed, declined or expired approval adds
+nonsecret context to `nudge`, including its issuer-qualified
+`aboard approvals show ID --server URL` command. Metadata reads never collect a
+secret. Failed reads remain pending for a later turn. A stopped, replaced or rebound
+originating session cannot inherit the notice or automatic selection.
+
+If execution created a pairing, the daemon selects only its initiating side in the
+still-matching original session, using the existing daemon-held pairing authority.
+It verifies the immutable initiating agent id, current boot and binding generation;
+recent activity and display names never choose an endpoint. Selection failures stay
+recoverable by explicit selection. A daemon restart may retain a watch only while
+its journal still proves the same originating session, boot and generation.
+
+```json
+{"v":1,"op":"approval_watch","harness":"claude-code","session":"sess-1","server":"https://team.example","approval_id":"apr_01HZX6EBDHBEW6XKEQXN6P5Q25","agent":{"server":"https://team.example","board":"work","name":"claude","member_id":"mem_01HZX6EBDHBEW6XKEQXN6P5Q25"}}
+{"v":1}
+```
