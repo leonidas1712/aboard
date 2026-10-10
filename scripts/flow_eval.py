@@ -442,9 +442,8 @@ class Eval:
                 # Only copy the agent's final handover, never manufacture an invitation.
                 links = re.findall(r'https?://[^\s`<>\)]+/join#[A-Za-z0-9_-]+', prose)
                 join = re.search(r'Join Aboard board .+? with code [^\s`]+', prose)
-                command = next((text for text in reversed(answers) if re.search(r'aboard (?:join|pairing accept|setup)\b', text)), None)
-                if links or join or command:
-                    handover = next(text for text in reversed(answers) if (links[-1] in text if links else join.group(0) in text)) if links or join else command
+                if links or join:
+                    handover = next(text for text in reversed(answers) if (links[-1] in text if links else join.group(0) in text))
                     name = 'leo' if self.args.scenario == 'own-session' else 'maya'
                     prompt = 'My handle is ' + name + '. Please follow this invitation and say hello on qa:\n' + handover
                     if self.args.scenario == 'interrupted':
