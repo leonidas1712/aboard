@@ -62,7 +62,9 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		collected[1] != "Invite: "+link || collected[2] != shown[2] {
 		t.Fatalf("approvals show:\n%s", strings.Join(collected, "\n"))
 	}
-	if again := ls.run("approvals", "show", approval); again.stdout != collected[0]+"\n" {
+	if again := ls.run("approvals", "show", approval); !strings.HasPrefix(again.stdout, collected[0]+"\naboard invite revoke inv_") ||
+		!strings.Contains(again.stdout, " --server local\nAlready collected, revoked or expired.") ||
+		!strings.Contains(again.stdout, "aboard invite --person --server local --board qa") || strings.Contains(again.stdout, "abi_") {
 		t.Fatalf("a second approvals show:\n%s", again)
 	}
 
