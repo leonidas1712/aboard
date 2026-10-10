@@ -92,7 +92,7 @@ func TestOpenLogsTheBrowserInOnceAsItsPerson(t *testing.T) {
 	board := "writer-reviewer"
 	e.sayAs("writer", "--to", "@reviewer", "Draft is in notes.md.")
 
-	out := e.openUI("true").json(t)
+	out := e.openUI("true", "--board", board).json(t)
 	if out["opened"] != true || out["board"] != board || out["server_started"] != false {
 		t.Fatalf("aboard open: %v", out)
 	}

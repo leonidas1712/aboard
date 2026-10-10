@@ -35,7 +35,7 @@ func runOpen(ctx context.Context, a *app, args []string) error {
 		*serverFlag = pos[0]
 	}
 	inSession := a.actsForAgent()
-	srv, started, err := a.personServer(ctx, *serverFlag)
+	srv, started, err := a.bootstrapServer(ctx, *serverFlag)
 	if err != nil {
 		e := asError(err)
 		if e.Code == "server_not_selected" {
