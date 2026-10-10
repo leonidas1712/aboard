@@ -575,7 +575,7 @@ func TestBoardLifecycleOnARealServer(t *testing.T) {
 	if r := e.run("board", "archive"); r.code != 0 || r.stdout != "Archived "+board+". It's read-only now; restore with: aboard board restore "+board+".\n" {
 		t.Fatalf("archive: %d %q %q", r.code, r.stdout, r.stderr)
 	}
-	if r := e.run("boards"); r.code != 0 || strings.Contains(r.stdout, board+" ") || !strings.HasSuffix(r.stdout, "1 archived board: aboard boards --archived --server "+srv.URL+"\n") {
+	if r := e.run("boards"); r.code != 0 || strings.Contains(r.stdout, board+" ") || !strings.HasSuffix(r.stdout, "1 archived board: aboard boards --archived\n") {
 		t.Fatalf("boards: %d %q %q", r.code, r.stdout, r.stderr)
 	}
 	r := e.run("boards", "--archived", "--json")
