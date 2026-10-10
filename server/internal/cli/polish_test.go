@@ -55,6 +55,6 @@ func TestSetupWaitingTextDoesNotCallDeliveryPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	if strings.Contains(text.String(), "delivery: pending") || !strings.Contains(text.String(), "delivery: Waiting for a reply from @alex's agents.") {
-		t.Fatalf("waiting delivery was labelled pending: %s", &text)
+		t.Fatalf("waiting delivery was labeled pending: %s", &text)
 	}
 }
