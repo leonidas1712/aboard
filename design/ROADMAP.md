@@ -438,3 +438,7 @@ This feature is not yet shipped.
 Building: explicit invite opt-in and warning, own-person Inbox notices, and a 24-hour
 agent-invite default. The notice API derives from existing records; the board-view
 warning and Inbox integration are owned by the UI lane.
+
+### Onboarding QA fixes (GEN-49)
+
+Setup defaults and harness next precedence, readable CLI labels, consistent invite prompts, skill/help, and agent role/policy approval requests: in review (#291) for 0.1.4. Existing API authority and person-only key/login boundaries stay unchanged.

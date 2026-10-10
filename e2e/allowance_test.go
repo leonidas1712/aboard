@@ -29,6 +29,11 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if field(t, listed, "approvals.0.id") != id {
 		t.Fatalf("agent's inventory: %v", listed)
 	}
+	approvalText := tm.admin.run("approvals")
+	agentName := field(t, listed, "approvals.0.display.agent_name").(string)
+	if !strings.Contains(approvalText.stdout, "@"+agentName) || !strings.Contains(approvalText.stdout, board) || strings.Contains(approvalText.stdout, "mem_") {
+		t.Fatalf("approval display lost agent or board: %s", approvalText)
+	}
 	refused := session.runExit("approvals", "allow", id, "--board", board, "--json")
 	if refused.code != 1 || errorCode(t, refused.json(t)) != "human_token_required" || !strings.Contains(field(t, refused.json(t), "error.next.command").(string), id) {
 		t.Fatalf("agent approved itself or lost handover: %s", refused)
@@ -62,8 +67,16 @@ func TestAllowanceAndExactInviteApprovalFromTheCLI(t *testing.T) {
 	if field(t, automatic, "approval.state") != "executed" || field(t, automatic, "approval.execution.authorization.via") != "allowance" {
 		t.Fatalf("automatic admission: %v", automatic)
 	}
+	tm.admin.run("allowance", "set", "add-people", "on", "--json")
+	paired := session.run("invite", "--person", "--server", tm.url(), "--board", board, "--pairing", "Review together", "--json").json(t)
+	if _, next := paired["next"]; next {
+		t.Fatalf("auto-selected inviter still needs selection: %v", paired)
+	}
+	if !strings.HasSuffix(field(t, paired, "prompt").(string), "Verify you can exchange messages with the inviting agent.") {
+		t.Fatalf("pairing prompt lost its verification step: %v", paired)
+	}
 	inventory := tm.admin.run("invite", "list")
-	if !strings.Contains(inventory.stdout, "issued by agent ") {
+	if !strings.Contains(inventory.stdout, "issued by agent @"+agentName) || strings.Contains(inventory.stdout, "mem_") {
 		t.Fatalf("agent-issued invites not identified: %s", inventory)
 	}
 	tm.admin.run("allowance", "set", "invite-people", "off", "--json")

@@ -36,7 +36,7 @@ func TestBoardTitleFromPairAndBoardTitle(t *testing.T) {
 	}
 	long := strings.Repeat("x", 81)
 	if r := e.runExit("board", "policy", "recommended", "--as", "writer", "--json"); r.code != 2 || field(t, r.json(t), "error.code") != "invalid_request" {
-		t.Fatalf("board policy with --as should be a usage error: only a person changes the policy\n%s", r)
+		t.Fatalf("board policy with --as should be a usage error: use the selected session to request approval\n%s", r)
 	}
 	if r := e.runExit("board", "title", long, "--json"); r.code != 1 || field(t, r.json(t), "error.code") != "invalid_request" {
 		t.Fatalf("an 81-character title should be refused\n%s", r)
@@ -45,7 +45,7 @@ func TestBoardTitleFromPairAndBoardTitle(t *testing.T) {
 
 // An agent sets its board's title from its session, for its owner, and the record names
 // the agent; a new board an agent pairs can have a title too. The policy stays with the
-// person: board policy is still refused in the session.
+// person: an agent's policy request waits for an approval.
 func TestAgentSetsTheBoardTitle(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -66,9 +66,8 @@ func TestAgentSetsTheBoardTitle(t *testing.T) {
 		t.Fatalf("the record should show the agent set the title for alex: %v", last)
 	}
 
-	if r := claude.runExit("board", "policy", "recommended", "--json"); r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
-		t.Fatalf("board policy in a session should still be refused\n%s", r)
-	}
+	held := claude.run("board", "policy", "recommended", "--json").json(t)
+	assertHeldBoardPolicy(t, e, held, "general")
 	pair := claude.run("pair", "--new", "--title", "Second look")
 	if !strings.Contains(pair.stdout, "(Second look)") {
 		t.Fatalf("pair --new --title in a session:\n%s", pair)

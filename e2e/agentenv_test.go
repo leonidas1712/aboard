@@ -53,7 +53,7 @@ func TestPersonCommandsRefuseUnderABOARDAGENT(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			r := e.exec([]string{"ABOARD_AGENT=scout"}, "", append(args, "--json")...)
 			want := "human_command_in_session"
-			if args[0] == "board" && args[1] == "add" {
+			if args[0] == "board" && (args[1] == "add" || args[1] == "policy") || args[0] == "people" && len(args) > 1 && args[1] == "role" {
 				want = "agent_not_selected"
 			}
 			if args[0] == "invite" && len(args) > 1 && args[1] == "--person" {

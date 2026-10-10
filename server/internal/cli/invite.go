@@ -283,7 +283,7 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 	}
 	text += fmt.Sprintf("Invite for %s: one person, as a member, once, within %s. On their machine, run:\n  aboard connect %s\n",
 		srv.URL, durationText(time.Until(r.JSON201.ExpiresAt)), link)
-	prompt := serverInvitePrompt(link)
+	prompt := serverInvitePrompt(link, r.JSON201.PairingRequestId != nil)
 	text += "\n" + prompt + "\n"
 	out := map[string]any{"server": srv, "link": link, "expires_at": r.JSON201.ExpiresAt, "prompt": prompt}
 	if r.JSON201.Boards != nil {
@@ -311,6 +311,7 @@ func (a *app) selectInvitedPairing(ctx context.Context, srv serverRef, result *a
 		result.Next = next
 		return
 	}
+	result.Next = nil
 	var selected struct {
 		Server  serverRef          `json:"server"`
 		Request api.PairingRequest `json:"request"`
@@ -324,8 +325,12 @@ func invitedPairingNext(srv serverRef, id string) *api.NextStep {
 	return &api.NextStep{Command: "aboard pairing select " + commandWord(id) + " --here --server " + commandWord(srv.URL), Resume: "The invite was issued. Continue this same pairing in its original initiating session; do not create another invite."}
 }
 
-func serverInvitePrompt(link string) string {
-	return "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent."
+func serverInvitePrompt(link string, pairing bool) string {
+	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>."
+	if pairing {
+		prompt += " Verify you can exchange messages with the inviting agent."
+	}
+	return prompt
 }
 
 func (a *app) bundleInvite(ctx context.Context, c *client, req *api.CreateInviteRequest, selectors []string, work string) error {
@@ -423,7 +428,11 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 		for _, invite := range r.JSON200.Invites {
 			issuer := ""
 			if invite.IssuingAgentId != nil {
-				issuer = " · issued by agent " + *invite.IssuingAgentId
+				name := *invite.IssuingAgentId
+				if invite.Display != nil && invite.Display.AgentName != nil {
+					name = "@" + *invite.Display.AgentName
+				}
+				issuer = " · issued by agent " + name
 			}
 			text += fmt.Sprintf("%s · %s%s · expires %s\n", invite.Id, invite.State, issuer, invite.ExpiresAt.Format(time.RFC3339))
 		}

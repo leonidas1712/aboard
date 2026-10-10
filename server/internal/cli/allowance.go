@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -167,13 +168,8 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 		}
 		text.WriteString("\n")
 		for _, v := range approvals {
-			kind := "action"
-			if x, e := v.Action.AsInvitePeopleAction(); e == nil && x.Kind == api.InvitePeopleActionKindInvitePeople {
-				kind = "invite people"
-			} else if x, e := v.Action.AsAddPeopleAction(); e == nil && x.Kind == api.AddPeopleActionKindAddPeople {
-				kind = "add person"
-			}
-			fmt.Fprintf(&text, "%s · %s · %s · %s\n", v.Id, kind, v.AgentId, v.State)
+			kind, agent, target := approvalDisplay(v)
+			fmt.Fprintf(&text, "%s · %s · %s%s · %s\n", v.Id, kind, agent, target, v.State)
 		}
 		out := map[string]any{"server": srv, "approvals": approvals}
 		if seatBoard != "" {
@@ -204,7 +200,7 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 }
 
 func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminActionResult) error {
-	if result.Invite != nil && result.Invite.PairingRequestId != nil && result.Next == nil {
+	if result.Invite != nil && result.Invite.PairingRequestId != nil && result.Next == nil && !a.agentSelected("") {
 		result.Next = invitedPairingNext(srv, *result.Invite.PairingRequestId)
 	}
 	out := map[string]any{"server": srv, "approval": result.Approval}
@@ -228,7 +224,7 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 	}
 	if result.Invite != nil && result.Invite.Invite != "" {
 		text += "Invite: aboard connect " + commandWord(srv.URL+"/join#"+result.Invite.Invite) + "\n"
-		prompt := serverInvitePrompt(srv.URL + "/join#" + result.Invite.Invite)
+		prompt := serverInvitePrompt(srv.URL+"/join#"+result.Invite.Invite, result.Invite.PairingRequestId != nil)
 		out["prompt"] = prompt
 		text += prompt + "\n"
 	}
@@ -276,4 +272,35 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 		complete(result)
 	}
 	return emitAdmissionResult(a, srv, board, result)
+}
+
+func approvalDisplay(v api.Approval) (kind, agent, target string) {
+	var action struct {
+		Kind string `json:"kind"`
+	}
+	kind = "action"
+	if data, err := v.Action.MarshalJSON(); err == nil && json.Unmarshal(data, &action) == nil && action.Kind != "" {
+		kind = strings.ReplaceAll(action.Kind, "_", " ")
+	}
+	agent = v.AgentId
+	if v.Display == nil {
+		return
+	}
+	d := v.Display
+	if d.AgentName != nil {
+		agent = "@" + *d.AgentName
+	}
+	if d.TargetHandle != nil {
+		target += " · @" + *d.TargetHandle
+	}
+	if d.KeyName != nil {
+		target += " · key " + *d.KeyName
+	}
+	for _, b := range d.Boards {
+		target += " · board " + b.Name
+	}
+	if len(d.Boards) == 0 && d.RequestedOn != nil {
+		target += " · board " + d.RequestedOn.Name
+	}
+	return
 }

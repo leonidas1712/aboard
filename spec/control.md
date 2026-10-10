@@ -971,7 +971,9 @@ session or stale proof gets `pairing_changed`; `replace` on ready still gets
 Every write supplies the same stable idempotency key across its transport retries.
 Responses also carry `pairing_board`, the currently visible board name, for a
 single request; it never exposes a hidden name. Responses contain `pairings` (the public PairingRequests metadata) or `pairing`
-(the public PairingRequest metadata), and the existing error shape. They never
+(the public PairingRequest metadata), including optional opaque `display` labels
+returned by the server, and the existing error shape. Display labels are never
+authority and do not change issuer or endpoint selection. They never
 contain parent, seat or endpoint tokens. Commands do not automatically retry a
 lost socket response on a replacement daemon. A deliberate retry reads current
 request state and resumes its existing generation and evidence.

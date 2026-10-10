@@ -48,6 +48,9 @@ func TestPairingNonmemberWaitsForItsExactAdmissionApproval(t *testing.T) {
 	if exact == nil || exact.State != "pending" || !strings.Contains(created.JSON201.Next.Command, exact.Id) {
 		t.Fatalf("missing exact pending admission approval: %s / %s", created.Body, approvals.Body)
 	}
+	if exact.Display == nil || exact.Display.TargetHandle == nil || *exact.Display.TargetHandle != "maya" {
+		t.Fatalf("approval target display missing: %s", approvals.Body)
+	}
 	token := "abp_" + strings.Repeat("p", 43)
 	denied, err := s.client(s.owner).CreatePairingCredentialWithResponse(ctx, nil, api.CreatePairingCredential{RequestId: created.JSON201.Id, Side: "initiator", AgentId: seat.Id, SessionBinding: "sha256:" + strings.Repeat("a", 64), Generation: 1, ClientToken: &token})
 	if err != nil || denied.StatusCode() != 409 {

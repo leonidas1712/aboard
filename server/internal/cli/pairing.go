@@ -250,7 +250,16 @@ func (a *app) emitPairingList(srv serverRef, list api.PairingRequests) error {
 	if len(list.Requests) > 0 {
 		var b strings.Builder
 		for _, r := range list.Requests {
-			fmt.Fprintf(&b, "%s · board %s · %s\n", r.Id, r.BoardId, r.State)
+			board := r.BoardId
+			if r.Display != nil {
+				for _, visible := range r.Display.Boards {
+					if visible.Id == r.BoardId {
+						board = visible.Name
+						break
+					}
+				}
+			}
+			fmt.Fprintf(&b, "%s · board %s · %s\n", r.Id, board, r.State)
 		}
 		text = b.String()
 	}

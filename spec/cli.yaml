@@ -986,10 +986,12 @@ $defs:
       exact payload without creating a partial invite. The response includes the
       bundled immutable board ids and pairing_request_id when supplied. Existing
       ordinary invites are unchanged.
-      Bundled invites also include prompt, ready to paste into the colleague's agent:
-      "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard
+      Invites include prompt, identical to the invite page, ready to paste into the colleague's agent:
+      "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard
       skill, then run aboard setup <link> --handle <name you'd like teammates to see>.
-      Verify you can exchange messages with the inviting agent." This secret-bearing prompt is shown once with the invite,
+      Verify you can exchange messages with the inviting agent." The verification sentence
+      appears only when the invite includes a pairing. Automatic selection of the
+      inviting session does not also ask it to run pairing select. This secret-bearing prompt is shown once with the invite,
       never in listings, approval replays, hooks or setup progress.
       The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
@@ -1015,7 +1017,7 @@ $defs:
     description: |
       aboard invite list --server SERVER [--json] lists only your invitations and
       your agents' invitations, with immutable issuer agent id and state; text marks
-      agent-issued invitations explicitly. Never returns
+      agent-issued invitations explicitly with the issuing agent display handle. Never returns
       an invite secret or hidden board name. Person-only; agents get
       human_token_required with next.command. Losing admin authority does not
       prevent inspecting or revoking your own invitations. Exit 0 or 1.
@@ -2670,10 +2672,17 @@ $defs:
 
   # ---------- aboard board policy <starter|recommended> ----------
   BoardPolicyOutput:
+    anyOf:
+      - { $ref: "#/$defs/HumanBoardPolicyOutput" }
+      - { $ref: "#/$defs/HeldAdminOutput" }
+    description: Agents request the exact action with their selected issuer-bound seat; it remains pending until their person approves. No person login is used.
+
+  HumanBoardPolicyOutput:
     description: |
       A human command with the human login, for the board's admins. A person who isn't
       an admin gets admin_required, whose hint names the admins. Inside a harness
-      session it refuses with human_command_in_session.
+      session it requests a set_board_policy approval using immutable board identity.
+      The person must approve; allowance never executes policy changes automatically.
     type: object
     required: [board, before, after, policy_notice]
     properties:
@@ -3219,12 +3228,19 @@ $defs:
 
   # ---------- aboard people role @handle admin|member [--server URL] ----------
   PeopleRoleOutput:
+    anyOf:
+      - { $ref: "#/$defs/HumanPeopleRoleOutput" }
+      - { $ref: "#/$defs/HeldAdminOutput" }
+    description: Agents request the exact action with their selected issuer-bound seat; it remains pending until their person approves. No person login is used.
+
+  HumanPeopleRoleOutput:
     description: |
       Makes a person an admin of the server, or a member again (PATCH /v1/people/{handle});
       admins only, with their own key (server_admin_required otherwise). The last admin
       can't be made a member (last_admin), and a guest's role can't change
-      (person_is_guest). Refuses inside a harness session or with ABOARD_AGENT set, as
-      every people command does. Text: "maya is now an admin of <server>." or "maya is
+      (person_is_guest). Inside an agent session it resolves the exact current handle
+      with the selected seat and requests set_server_role by immutable person id.
+      It returns HeldAdminOutput; no role changes before approval. Text: "maya is now an admin of <server>." or "maya is
       already a member of <server>." (changed false).
     type: object
     required: [server, person, changed]
@@ -4121,7 +4137,7 @@ $defs:
       when present. The exact command includes the actual approval id and issuer,
       safely quoted, without placeholders or secrets. This is distinct from an
       API refusal (exit 1). Existing D188 approve remains a separate person command.
-      Planned until GEN-35; existing refusal behavior stays until implementation.
+      Includes people role and board policy requests from agent sessions (D222).
     type: object
     required: [server, state, approval, next]
     properties:
@@ -4220,7 +4236,7 @@ $defs:
       A saved pending account retains its original handle when omitted on recovery.
       Setup never prompts interactively in an agent session or without a terminal.
       Installed harness skills apply automatically to the next session; next asks
-      the current session to read the aboard skill now.
+      the current session to run aboard skill now.
       With an invite, generate 256 random bits as a client token and save pending
       state durably mode 0600, bound to issuer and invite, before /v1/connect.
       Save failure stops before redemption. Never show the token or invite secret
@@ -4237,6 +4253,10 @@ $defs:
       Report all six steps, without claiming completion from process startup alone:
       installed, account, memberships, harness, pairing, delivery. Trust/restart
       waits have precise harness actions and the words Continue Aboard setup.
+      A pending harness action takes precedence over pairing next until confirmed.
+      After account authorization, setup persists the canonical invite issuer as the
+      default only if the machine has none; an existing default is preserved.
+      A new account message says it was created, not authorized for a pairing.
       A rerun reuses completed memberships/seats and rechecks current authority;
       removed access is never recreated. Text names completed steps, first pending
       step, and next. JSON progress goes to stderr, one result to stdout.

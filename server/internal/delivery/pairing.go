@@ -12,6 +12,7 @@ import (
 
 // PairingRequest is the nonsecret public request view carried on the control socket.
 type PairingRequest struct {
+	Display           json.RawMessage  `json:"display,omitempty"`
 	ID                string           `json:"id"`
 	ServerID          string           `json:"server_id"`
 	BoardID           string           `json:"board_id"`

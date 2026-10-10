@@ -260,7 +260,7 @@ test("the invite page previews a real invite link without using it", async ({ pa
   const invite = String((await api(ownerToken(), "POST", "/v1/invites", {})).json.invite);
   await page.goto(`${base()}/join#${invite}`);
   await expect(page.getByRole("heading", { name: "alex invited you to aboard" })).toBeVisible();
-  await expect(page.getByLabel("Prompt for your agent")).toContainText(`Set up aboard and join using this link: ${base()}/join#${invite}`);
+  await expect(page.getByLabel("Prompt for your agent")).toHaveText(`Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${base()}/join#${invite} --handle <name you'd like teammates to see>.`);
   // Previewing never spends the invite: it still makes an account.
   const connected = await api(null, "POST", "/v1/connect", { invite, handle: "dana", key_name: "laptop" });
   expect(connected.status).toBe(201);

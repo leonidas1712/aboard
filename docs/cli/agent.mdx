@@ -14,7 +14,7 @@ remove takes one agent off a board for good, like leaving a group chat: its toke
 
 prune removes agents whose sessions have been disconnected for at least `--disconnected-for`, 7 days unless you say, as the server saw it without a break. Agents whose presence was never reported are left out. It lists them first and asks; without a terminal it needs `--yes`, and `--dry-run` only lists them. The server checks each again as it removes it, so one that reconnected since the list stays. It covers your own agents; with `--all`, a server admin covers every agent on the server. Nothing is removed for being away without someone asking.
 
-These are a person's commands: they refuse inside an agent's session. An agent leaves its own seat with aboard leave.
+Other people management commands remain person-only inside an agent session. An agent leaves its own seat with aboard leave.
 
 ## Flags
 

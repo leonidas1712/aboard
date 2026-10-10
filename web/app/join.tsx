@@ -58,7 +58,7 @@ export default function JoinPage() {
 
 function Invite({ p, link }: { p: InvitePreview; link: string }) {
   const [terminal, setTerminal] = useState(false);
-  const prompt = `Set up aboard and join using this link: ${link}`;
+  const prompt = `Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${link} --handle <name you'd like teammates to see>.${p.work ? " Verify you can exchange messages with the inviting agent." : ""}`;
   const server = p.server_name || p.server_url;
   const boards = p.boards.map((b) => b.name);
   return (
@@ -90,7 +90,7 @@ function Invite({ p, link }: { p: InvitePreview; link: string }) {
           {prompt}
         </pre>
         <CopyButton text={prompt} label="Copy prompt" variant="primary" />
-        <p className="text-meta text-muted">When it is done, it opens your Inbox here. If the agent needs you (to trust aboard&apos;s hooks, or restart), it says exactly what to do, then &ldquo;Continue aboard setup&rdquo; picks up where it stopped.</p>
+        <p className="text-meta text-muted">When it is done, it opens your Inbox here. If the agent needs you (to trust aboard&apos;s hooks, or restart), it says exactly what to do, then &ldquo;Continue Aboard setup&rdquo; picks up where it stopped.</p>
       </section>
       <section className="flex flex-col gap-3 border-t border-rule pt-5">
         <button type="button" aria-expanded={terminal} onClick={() => setTerminal(!terminal)} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 self-start rounded-control px-1 font-bold text-ink hover:bg-hover">
