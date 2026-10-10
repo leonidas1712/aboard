@@ -36,7 +36,7 @@
 set -eu
 
 usage() {
-	echo "usage: scripts/sandbox open|update|clean <name>" >&2
+	echo "usage: scripts/sandbox open|update|clean|team-start|team-stop|team-clean <name>" >&2
 	exit 2
 }
 [ $# -eq 2 ] || usage
@@ -55,8 +55,22 @@ fi
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 root=${ABOARD_SANDBOXES:-$HOME/.aboard-sandboxes}
-dir=$root/$name
+team=${TEAM:-}
+team_dir=""
+case $action in team-start | team-clean | team-stop) team=$name ;; esac
+if [ -n "$team" ]; then
+	case $team in *[!A-Za-z0-9_-]*)
+		echo "Use letters, digits, - and _ for TEAM." >&2
+		exit 2
+		;;
+	esac
+	team_dir=$root/teams/$team
+	dir=$team_dir/people/$name
+else
+	dir=$root/$name
+fi
 prefix="(aboard:$name)"
+if [ -n "$team" ]; then prefix="(aboard:$name@$team)"; fi
 tab=$(printf '\t')
 
 # harness_table prints one line per harness profile in adapters/, fields separated by
@@ -200,6 +214,11 @@ clean() {
 # starts here so it has the sandbox's harness folders: Codex doesn't pass its
 # environment to its hooks, so a daemon one of them starts would use the person's own.
 start_aboard() {
+	if [ -n "$team" ]; then
+		ui_url=$(cat "$team_dir/url")
+		aboard daemon start >/dev/null
+		return
+	fi
 	ui_url=$(aboard up --json | sed -n 's/.*"ui_url": *"\([^"]*\)".*/\1/p')
 	aboard daemon start >/dev/null
 }
@@ -218,6 +237,10 @@ update() {
 	fi
 	ln -sf "$bin" "$dir/bin/aboard"
 	export ABOARD_HOME="$dir/aboard-home"
+	if [ -n "$team" ]; then
+		export HOME="$dir/home"
+		export SSL_CERT_FILE="$team_dir/cert.pem"
+	fi
 	export_harness_dirs
 	export PATH="$dir/bin:$PATH"
 	start_aboard
@@ -241,8 +264,17 @@ EOF
 			if [ -L "$dir/$h/$f" ] || [ -e "$dir/$h/$f" ]; then
 				note="$h: logged in with $(readlink "$dir/$h/$f" 2>/dev/null || echo "its own $f")."
 			elif [ -f "$src/$f" ]; then
-				ln -s "$src/$f" "$dir/$h/$f"
-				note="$h: logged in with $src/$f (linked)."
+				if [ -n "$team" ]; then
+					cp "$src/$f" "$dir/$h/$f"
+					chmod 600 "$dir/$h/$f"
+				else
+					ln -s "$src/$f" "$dir/$h/$f"
+				fi
+				if [ -n "$team" ]; then
+					note="$h: logged in with a private copy of $src/$f."
+				else
+					note="$h: logged in with $src/$f (linked)."
+				fi
 			else
 				note="$h: no login found at $src/$f; log in inside this shell."
 			fi
@@ -275,6 +307,11 @@ write_isolate() {
 		echo "	done"
 		echo "done"
 		echo "export ABOARD_HOME=$(quote "$dir/aboard-home")"
+		if [ -n "$team" ]; then
+			echo "export HOME=$(quote "$dir/home")"
+			echo "export SSL_CERT_FILE=$(quote "$team_dir/cert.pem")"
+			echo "export ABOARD_SANDBOX_TEAM_URL=$(quote "$(cat "$team_dir/url")")"
+		fi
 		for h in $(printf '%s\n' "$table" | cut -f1); do
 			e=$(printf '%s\n' "$table" | awk -F"$tab" -v h="$h" '$1 == h { print $3 }')
 			echo "export $e=$(quote "$dir/$h")"
@@ -308,7 +345,7 @@ open_sandbox() {
 
 	mkdir -p "$root"
 	mkdir -p -m 700 "$dir"
-	for d in bin aboard-home project shell $(printf '%s\n' "$table" | cut -f1); do
+	for d in home bin aboard-home project shell $(printf '%s\n' "$table" | cut -f1); do
 		mkdir -p -m 700 "$dir/$d"
 	done
 	ln -sf "$bin" "$dir/bin/aboard"
@@ -332,6 +369,10 @@ open_sandbox() {
 	fi
 
 	export ABOARD_HOME="$dir/aboard-home"
+	if [ -n "$team" ]; then
+		export HOME="$dir/home"
+		export SSL_CERT_FILE="$team_dir/cert.pem"
+	fi
 	export_harness_dirs
 	export DISABLE_AUTOUPDATER=1
 	export PATH="$dir/bin:$PATH"
@@ -342,6 +383,15 @@ open_sandbox() {
 		git init -q .
 	fi
 	aboard init --yes --scope project
+	if [ -n "$team" ]; then
+		team_url=$(cat "$team_dir/url")
+		export ABOARD_SANDBOX_TEAM_URL="$team_url"
+		if [ "$name" = leo ]; then
+			aboard login "$team_url" <"$team_dir/data/admin-key" >/dev/null
+			aboard servers name "$team_url" "$team" >/dev/null
+			aboard servers use "$team" >/dev/null
+		fi
+	fi
 	start_aboard
 
 	if [ "$existed" = yes ]; then
@@ -356,6 +406,8 @@ $state: $dir
   ABOARD_HOME: $ABOARD_HOME
   Board view:  $ui_url
 $notes
+This sandbox shell uses the dev build. Other terminals may use your installed aboard.
+Run aboard commands here; check the prompt starts with $prefix.
 Start claude, codex or omp here; each uses this sandbox's folder for it.
 To run a newer build in it: make sandbox-update NAME=$name. Remove everything with
 make sandbox-clean NAME=$name.
@@ -408,8 +460,45 @@ EOF
 	esac
 }
 
+team_tool() {
+	helper=${SANDBOX_TEAM_HELPER:-$repo/.bin/sandbox-team}
+	[ -x "$helper" ] || {
+		echo "Build the helper with make sandbox-team TEAM=$team." >&2
+		exit 1
+	}
+	"$helper" "$1" "$team_dir" "${SANDBOX_ABOARD:-$repo/.bin/aboard}"
+}
 case $action in
-open) open_sandbox ;;
+team-start)
+	drop_markers
+	team_tool start
+	ABOARD_SANDBOXES="$root" TEAM="$team" SANDBOX_CMD=: "$repo/scripts/sandbox" open leo >/dev/null
+	echo "Team $team: $(cat "$team_dir/url")"
+	echo "Open the admin: make sandbox NAME=leo TEAM=$team"
+	echo "Run aboard commands only in the (aboard:<person>@$team) shells; other terminals may use the installed binary."
+	;;
+team-stop)
+	team_tool stop
+	echo "Stopped team $team (data kept)."
+	;;
+team-clean)
+	team_tool stop
+	for person in "$team_dir"/people/*; do
+		[ -d "$person" ] || continue
+		dir=$person
+		drop_markers
+		stop_aboard || true
+	done
+	rm -rf "$team_dir"
+	echo "Removed team $team."
+	;;
+open)
+	if [ -n "$team" ] && [ ! -f "$team_dir/url" ]; then
+		echo "Start the team first: make sandbox-team TEAM=$team" >&2
+		exit 1
+	fi
+	open_sandbox
+	;;
 update) update ;;
 clean) clean ;;
 *) usage ;;
