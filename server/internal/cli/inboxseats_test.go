@@ -51,10 +51,13 @@ func testServer(t *testing.T) (url, owner string) {
 	deadline := time.Now().Add(10 * time.Second)
 	for {
 		if raw, err := os.ReadFile(filepath.Clean(filepath.Join(dir, "owner-token"))); err == nil {
-			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, url+"/v1/info", http.NoBody)
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, url+"/v1/me", http.NoBody)
+			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(raw)))
 			if resp, err := http.DefaultClient.Do(req); err == nil {
 				_ = resp.Body.Close()
-				return url, strings.TrimSpace(string(raw))
+				if resp.StatusCode == http.StatusOK {
+					return url, strings.TrimSpace(string(raw))
+				}
 			}
 		}
 		if time.Now().After(deadline) {
@@ -96,7 +99,10 @@ func do(t *testing.T, method, url, token string, body any) (status int, answer m
 // and the agent's credential.
 func seatOn(t *testing.T, url, owner string) agentCredential {
 	t.Helper()
-	_, b := do(t, "POST", url+"/v1/boards", owner, map[string]any{"template": "general"})
+	st, b := do(t, "POST", url+"/v1/boards", owner, map[string]any{"template": "general"})
+	if st != http.StatusCreated {
+		t.Fatalf("create board: %d %v", st, b)
+	}
 	board, _ := b["name"].(string)
 	st, j := do(t, "POST", url+"/v1/join", owner, map[string]any{"board": board, "role": "member"})
 	if st != 201 {
