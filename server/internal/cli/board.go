@@ -217,6 +217,9 @@ func runBoardPolicy(ctx context.Context, a *app, boardFlag, presetArg string) er
 	if preset != "starter" && preset != "recommended" {
 		return usageError(fmt.Sprintf("%q is not a policy preset; use starter or recommended.", presetArg), boardUsage)
 	}
+	if a.agentSelected("") {
+		return a.requestBoardPolicy(ctx, boardFlag, preset)
+	}
 	if err := a.refuseInSession("Changing a board's policy", "aboard board policy "+commandWord(string(preset))+a.boardFlags(boardFlag)); err != nil {
 		return err
 	}

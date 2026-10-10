@@ -114,6 +114,10 @@ func runPeopleRole(ctx context.Context, a *app, args []string) error {
 	if role != string(api.ServerRoleChangeServerRoleAdmin) && role != string(api.ServerRoleChangeServerRoleMember) {
 		return usageError(fmt.Sprintf("%q is not a role a person can be given; use admin or member.", role), peopleUsage)
 	}
+	if a.agentSelected("") {
+		a.boardServerFlag = *serverFlag
+		return a.requestServerRole(ctx, *serverFlag, handle, role)
+	}
 	srv, _, c, err := a.peopleClient(ctx, *serverFlag, "Changing a person's role on the server", "aboard people role @"+handle+" "+role)
 	if err != nil {
 		return err
