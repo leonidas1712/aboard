@@ -259,7 +259,13 @@ func (s *Service) joinDelegated(ctx context.Context, p Principal, in JoinInput) 
 			return err
 		}
 		// 2. The person can see the board.
-		b, err := tx.BoardByName(in.Board)
+		byID := strings.HasPrefix(in.Board, "brd_")
+		var b Board
+		if byID {
+			b, err = tx.BoardByID(in.Board)
+		} else {
+			b, err = tx.BoardByName(in.Board)
+		}
 		if errors.Is(err, ErrNotFound) {
 			return apierr.BoardNotFound(in.Board)
 		}
@@ -271,6 +277,9 @@ func (s *Service) joinDelegated(ctx context.Context, p Principal, in JoinInput) 
 			return err
 		}
 		on := err == nil && me.Status == StatusActive
+		if byID && !on {
+			return apierr.BoardNotFound(in.Board)
+		}
 		switch {
 		case person.Role == ServerGuest && on:
 			return guestNotAllowed("add agents through a machine's delegation; a guest's agents come only from guest codes")

@@ -585,9 +585,9 @@ paths:
       operationId: listServerInvites
       summary: List your outstanding invitations
       description: |
-        Person access key only. Lists invitations issued by this person or their
+        Person access key or current non-guest agent seat. Lists invitations issued by this person or their
         agents, including expired and revoked ones, without any invite secret.
-        Agents and browsers get human_token_required with next.command. Losing
+        Browsers get human_token_required with next.command. Agents list only their current person’s invitations after current credential and non-guest checks in the read transaction. Losing
         admin authority does not prevent inspecting or revoking your own invites.
         Board ids are included only while currently visible; private names never
         appear. Issuing agent and parent key are immutable provenance, not authority.
@@ -684,6 +684,47 @@ paths:
         "429": { $ref: "#/components/responses/Error" }
 
   /v1/invites/{invite}:
+    patch:
+      tags: [people]
+      operationId: editServerInvite
+      summary: Change your outstanding invitation's suggested handle
+      description: |
+        The current inviter or their active agent may edit only suggested_handle.
+        Person keys and own browser sessions are accepted; browser writes require
+        Origin and CSRF. Agents use their current seat and parent key, never a
+        person login or delegation. Another person's id and a missing id both give
+        invite_not_found. Check current authority and the invitation's validity in
+        the write transaction and again on idempotent replay. A used, expired,
+        revoked or no-longer-authorized invitation gives invite_unavailable.
+        This is display metadata, not a reservation or an account rename. The
+        invitee may choose a different valid handle at redemption. The edit never
+        changes the issuer, recipient privileges, bundled boards, expiry, pairing
+        proposal, approval action or its frozen payload hash. No secret is returned.
+        Returned board ids are filtered to current caller visibility; stored bundled
+        admissions are unchanged. Cached metadata is refused if access was lost.
+        Empty suggested_handle clears the suggestion. Invalid syntax is refused.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: invite
+          in: path
+          required: true
+          schema: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EditServerInvite" }
+      responses:
+        "200":
+          description: Updated nonsecret invitation metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerInviteMetadata" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
     delete:
       tags: [people]
       operationId: revokeServerInvite
@@ -1222,7 +1263,7 @@ paths:
       description: |
         Every person on the server, oldest first, each with their server role: `admin`,
         `member` or `guest`. People removed from the server aren't listed. A person's
-        access key or browser may list them; an agent gets 403 `human_token_required`.
+        access key or browser may list them. A current active non-guest agent may list non-guest people with its own seat, after rechecking its person’s authority inside the read transaction.
         With `handle`, return only that person's id, current handle and display name,
         instead of the directory. A current non-guest agent whose person may list
         people may use this exact lookup with its own seat token. Unknown and guest
@@ -1338,7 +1379,12 @@ paths:
       summary: Change a person's handle
       description: |
         The person themselves or a current server admin, using their own access key.
-        Agents, delegations and browsers get 403 human_token_required. Other people
+        An active agent seat may rename only its token-derived person, using its
+        own seat token and current parent key, membership and board access. An own
+        browser session may rename only itself, with Origin and CSRF protection.
+        Neither may choose another person, use admin powers or fall back to a person
+        key. Delegations are refused. Guest identity and privileges stay unchanged.
+        A mismatched target is refused before lookup. Other people
         get 403 server_admin_required before target lookup. Unknown current handles
         get 404 person_not_found. Invalid handles get 400 invalid_request; a handle
         held by another person or reserved by a rename gets 409 handle_taken.
@@ -1356,7 +1402,8 @@ paths:
         Unbound guest codes naming a retired handle cannot create another identity.
         Pending machine approvals resolve only current handles, never retired aliases.
         Setting the current handle changes nothing. Idempotency replay rechecks the
-        caller's current self/admin authority against the recorded person id.
+        caller's current self/admin authority against the recorded person id,
+        including active seat authority for an agent replay.
       parameters:
         - name: handle
           in: path
@@ -4031,6 +4078,32 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /v1/me/onboarding-inbox:
+    get:
+      tags: [onboarding]
+      operationId: listOnboardingInbox
+      summary: Read your board-add and invite-arrival Inbox items
+      description: |
+        Own person key or browser session only. Board adds reuse Board.added's
+        unread bookkeeping and disappear after an own agent joins or the person
+        reads past the add. Arrival items describe an invite you issued whose
+        recipient now has an active agent on a bundled board, for seven days after
+        redemption. Only active boards the caller is currently on, and active people and
+        agents on those boards, are returned. Reads never move cursors or wake agents.
+        Copy join_prompt into a new session, or choose an own agent from
+        GET /v1/me/agents and copy the same prompt into its resumed session.
+        This is an explicit handoff, never server-side dispatch or a grant.
+        Every join command retains the request's canonical issuer; join rechecks
+        current membership and uses that session's own authority.
+      responses:
+        "200":
+          description: Your current onboarding Inbox items
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingInbox" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /v1/me/invite-notices:
     get:
       tags: ["onboarding"]
@@ -4221,6 +4294,86 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HeldAdminActionResult"
+  /v1/me/approvals/{approval}:
+    get:
+      tags: [onboarding]
+      operationId: getApproval
+      summary: Read one own approval without collecting its outcome
+      description: |
+        Person key/browser reads only its own approval. An active agent seat reads
+        only the exact request it made, bound to its current owner and parent key.
+        Recheck current credential, ownership, resource access and lifecycle.
+        Missing, foreign and inaccessible approvals use approval_not_found.
+        No invite secret, link or prompt is returned. Reading never collects an
+        outcome or advances message read positions.
+      parameters:
+        - name: approval
+          in: path
+          required: true
+          schema: { type: string, pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$" }
+      responses:
+        "200":
+          description: Own nonsecret outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalOutcome" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /v1/me/approvals/{approval}/collect:
+    post:
+      tags: [onboarding]
+      operationId: collectApproval
+      summary: Collect the requesting agent's outcome once
+      description: |
+        Only the active immutable requesting agent's seat token may collect;
+        person, browser, delegation and other agent credentials cannot collect.
+        Recheck its owner, parent key, seat membership, lifecycle and current
+        access in the consuming transaction. Foreign or hidden requests use the
+        same approval_not_found. Collection never grants administrative authority.
+
+        After a person allows an invite request, its execution response still
+        shows the approver the link once. Independently, the requesting seat may
+        collect the same issued invite once. Consumption is durable and atomic:
+        concurrent collectors with different keys have one secret-bearing winner. Pending, declined,
+        expired, already collected and older non-collectable requests return only
+        nonsecret metadata. Revoked, redeemed or expired invites are never revealed.
+        The server holds one encrypted outcome capsule per newly approved invite,
+        separate from approvals, events, logs, lists, next steps, plain exports and
+        the general idempotency response cache. Its original expiry is no later than
+        the invite's expiry (24 hours at most for agent-issued invitations). After
+        collection, only the exact winning seat and same Idempotency-Key may recover
+        that response for at most 10 minutes, with current authority rechecked.
+        A different key is a nonsecret repeat. Redemption, revocation or loss of
+        issuing authority prevents any reveal and clears the capsule; elapsed
+        capsules are ignored on reads and purged. No retry reissues an invitation.
+        Once the retry window closes, the person must revoke and request a new invite
+        if its response was lost. ServerInvite.link and prompt are server-owned.
+
+        The requesting agent's next turn receives a nonsecret decision notice
+        naming this approval and the issuer-qualified approvals show command.
+        Collection never acknowledges unseen messages. When the invite has a
+        pairing, the daemon selects its initiating endpoint only in the original
+        requesting session; no activity-based session guessing or secrets on the
+        control socket. A gone/replaced session requires explicit selection.
+      parameters:
+        - name: approval
+          in: path
+          required: true
+          schema: { type: string, pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Outcome; invite on first authorized collection or bounded winning-key recovery
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalOutcome" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
   /v1/me/approvals/{approval}/allow:
     post:
       tags: ["onboarding"]
@@ -4891,6 +5044,7 @@ components:
                 - server_admin_required
                 - invite_invalid
                 - invite_not_found
+                - invite_unavailable
                 - handle_taken
                 - handle_invalid
                 - key_name_taken
@@ -4971,6 +5125,10 @@ components:
           type: string
           example: 0.1.0
           description: The server's release version, compared as a semantic version.
+        min_client_version:
+          type: string
+          example: 0.1.4
+          description: Minimum CLI release needed for this server's invitation setup flow. An older CLI should run aboard upgrade before setup. Absent on older servers; this is guidance, not a request rejection rule.
         commit:
           type: string
           example: 881a92f4c3d1e0b2a7f6e5d4c3b2a1f0e9d8c7b6
@@ -5407,10 +5565,26 @@ components:
               type: string
               pattern: "^abd_[A-Za-z0-9_-]{32,}$"
               description: "Shown once. Send it as `Authorization: Bearer <token>` to `GET /v1/boards`, `POST /v1/join` and `POST /v1/delegations/boards`; nothing else accepts it."
+    EditServerInvite:
+      type: object
+      additionalProperties: false
+      required: [suggested_handle]
+      properties:
+        suggested_handle:
+          type: string
+          maxLength: 40
+          description: Valid person handle, or empty to clear the suggestion.
     CreateInviteRequest:
       type: object
       additionalProperties: false
+      description: |
+        D224 keeps explicit pairing compatible but does not require it in the normal invite flow. An agent-issued bundled invite may create its hidden delivery-check request on the issuing seat's board when that immutable board is included. Its initiating agent is the authenticated issuing seat, never a seat chosen from recent activity. The check is created in the same authorized transaction and does not change the invite's memberships or authority. Without an eligible inviting endpoint, setup still joins the authorized boards and leaves delivery verification pending rather than guessing a session.
       properties:
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         ttl_seconds:
           type: integer
           minimum: 60
@@ -5457,6 +5631,18 @@ components:
       additionalProperties: false
       required: [server_id, server_url, server_name, inviter_handle, boards, expires_at]
       properties:
+        min_client_version:
+          type: string
+          example: 0.1.4
+          description: Minimum CLI release needed to follow this invitation's setup prompt. An older CLI should run aboard upgrade first. Absent on older servers.
+        prompt:
+          type: string
+          description: Server-formatted colleague prompt using the configured public issuer and the invite secret supplied by this caller. Includes the minimum client version and upgrade instruction. It creates no credential and is never included in invite lists or approval metadata.
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         server_id: { type: string }
         server_url: { type: string }
         server_name: { type: string }
@@ -5466,7 +5652,7 @@ components:
           items: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
         work: { type: string }
         expires_at: { $ref: "#/components/schemas/Timestamp" }
-      description: The invite holder may preview only the invitation's currently valid bundled boards and proposed work. No member list, credential, digest or secret is returned.
+      description: The invite holder may preview only the invitation's currently valid bundled boards and proposed work. No member list, credential or digest is returned. The optional prompt echoes only the invitation supplied by this caller.
     ServerInvites:
       type: object
       additionalProperties: false
@@ -5480,6 +5666,11 @@ components:
       additionalProperties: false
       required: [id, created_at, expires_at, state, boards]
       properties:
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
@@ -5504,6 +5695,18 @@ components:
       type: object
       required: [id, invite, server_role, expires_at]
       properties:
+        link:
+          type: string
+          format: uri
+          description: "Secret-bearing invitation link built from the configured canonical public issuer URL; present only on issuance or authorized outcome collection, never metadata reads."
+        prompt:
+          type: string
+          description: "Server-owned ready-to-send setup prompt for this link and suggested handle; present only with the secret-bearing invitation."
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         invite:
           type: string
@@ -6270,13 +6473,22 @@ components:
       description: |
         With a person's key: either `code`, or `board` and `role`, and optionally
         `session`. With a machine's delegation: `board` and `session`, and optionally
-        `role` (default `member`).
+        `role` (default `member`). A delegated board selector also accepts an
+        immutable board id, with identical current membership, lifecycle and role
+        checks. This lets setup use authenticated onboarding receipt ids without
+        resolving mutable names. A board id is never a join code or new authority.
+        An immutable-id delegated join additionally requires an already-active
+        person membership in that same transaction. It never auto-adds a removed
+        person to an open board; ordinary board-name self-join remains unchanged.
       properties:
         code:
           type: string
           description: Case-insensitive; the dash is optional.
           example: 7Q4-K2M
-        board: { $ref: "#/components/schemas/BoardName" }
+        board:
+          type: string
+          pattern: "^([a-z0-9][a-z0-9-]{0,38}[a-z0-9]|brd_[0-9A-HJKMNP-TV-Z]{26})$"
+          description: "Board name, or immutable board id for a delegated join."
         role: { $ref: "#/components/schemas/RoleName" }
         name: { $ref: "#/components/schemas/MemberName" }
         harness: { $ref: "#/components/schemas/Harness" }
@@ -8504,11 +8716,61 @@ components:
     AllowanceCategory:
       type: "string"
       enum: ["invite-people", "add-people"]
+    OnboardingInbox:
+      type: object
+      additionalProperties: false
+      required: [board_adds, arrivals]
+      properties:
+        board_adds:
+          type: array
+          items: { $ref: "#/components/schemas/BoardAddNotice" }
+        arrivals:
+          type: array
+          items: { $ref: "#/components/schemas/InviteArrivalNotice" }
+    BoardAddNotice:
+      type: object
+      additionalProperties: false
+      required: [board, added, join_command, join_prompt]
+      properties:
+        board: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
+        added: { $ref: "#/components/schemas/BoardAdded" }
+        join_command: { type: string, description: Shell-quoted join command on the canonical issuer; no secrets. }
+        join_prompt: { type: string, description: "Copy into a new or resumed own agent session. Guidance, never authority." }
+    InviteArrivalNotice:
+      type: object
+      additionalProperties: false
+      required: [invite_id, person_id, handle, at, boards]
+      properties:
+        invite_id: { type: string }
+        person_id: { type: string }
+        handle: { type: string, description: Current handle of the invited person. }
+        at: { $ref: "#/components/schemas/Timestamp" }
+        boards:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [board, agents]
+            properties:
+              board: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
+              agents:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [id, name, harness]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    harness: { type: string }
     InviteNotice:
       type: object
       additionalProperties: false
       required: [id, issuing_agent_id, message, created_at, expires_at, state, next]
       properties:
+        suggested_handle:
+          type: string
+          description: Current optional suggested recipient handle, display metadata only; omitted when cleared.
         display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         issuing_agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
@@ -8716,6 +8978,21 @@ components:
           type: "array"
           items:
             $ref: "#/components/schemas/Approval"
+    ApprovalOutcome:
+      type: object
+      additionalProperties: false
+      required: [approval, collected]
+      properties:
+        approval: { $ref: "#/components/schemas/Approval" }
+        collected:
+          type: boolean
+          description: Whether this call consumed the requesting seat's secret outcome. False for nonsecret reads and repeats.
+        invite: { $ref: "#/components/schemas/ServerInvite" }
+        pairing_request_id:
+          type: string
+          pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
+          description: Visible pairing linked to the original invite; nonsecret and never permission to select another session.
+        next: { $ref: "#/components/schemas/NextStep" }
     AllowApprovalRequest:
       type: "object"
       additionalProperties: false
@@ -8743,7 +9020,7 @@ components:
         invite:
           $ref: "#/components/schemas/ServerInvite"
       description: |
-        202 is pending with no side effect; 200/201 is executed. Invite secrets appear only on the authenticated execution response, never in stored approval, listings, next or idempotent responses. A repeated executed approval cannot issue another invite or retrieve the old secret.
+        202 is pending with no side effect; 200/201 is executed. Invite secrets appear on the authenticated execution response and, independently, once to the requesting seat through collectApproval. They never appear in stored approvals, listings, next or idempotent responses. A repeated execution cannot issue another invite or retrieve the old secret.
     PairingState:
       type: "string"
       enum: ["awaiting_account", "awaiting_session", "awaiting_endpoint", "verifying", "ready", "declined", "cancelled", "expired"]

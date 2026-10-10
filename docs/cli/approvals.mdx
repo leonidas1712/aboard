@@ -7,11 +7,12 @@ description: "See held actions, or allow or decline one."
 
 ```text
 aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]
+aboard approvals show ID [--server SERVER] [--board BOARD] [--as AGENT] [--json]
 aboard approvals allow ID [--always] [--server SERVER] [--json]
 aboard approvals decline ID [--server SERVER] [--json]
 ```
 
-Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. `--always` also enables its allowance category and warns when enabling invite-people. A newly created invite is returned once; a replay never returns its token again.
+Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. `--always` also enables its allowance category and warns when enabling invite-people. After approval, the requesting agent runs approvals show ID to collect its invite link and colleague prompt once. A person’s show reads only nonsecret metadata. A lost response gets one retry with the same seat and key; a later invocation cannot reveal the invite again.
 
 ## Flags
 

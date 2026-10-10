@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"database/sql"
+	"net/http"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
@@ -75,14 +76,14 @@ func TestPersonRenameKeepsHistorySeatsAndRetiredHandle(t *testing.T) {
 	}
 }
 
-func TestPersonRenameRejectsAgentAndOtherPerson(t *testing.T) {
+func TestPersonRenameRejectsOtherTargetsAndOtherPeople(t *testing.T) {
 	s := newTestServer(t)
 	_, agent, _ := s.pair("starter")
-	r, err := s.client(agent).RenamePersonWithResponse(context.Background(), "alex", nil, api.PersonRename{Handle: "leo"})
+	r, err := s.client(agent).RenamePersonWithResponse(context.Background(), "missing", nil, api.PersonRename{Handle: "leo"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantCode(t, r, 403, "human_token_required")
+	wantCode(t, r, 403, "server_admin_required")
 	maya := s.addHuman("maya")
 	r, err = s.client(maya).RenamePersonWithResponse(context.Background(), "alex", nil, api.PersonRename{Handle: "leo"})
 	if err != nil {
@@ -154,7 +155,7 @@ func TestPersonRenameKeepsBoundGuestCodeAndRefusesRetiredGuestHandle(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantCode(t, refused, 403, "human_token_required")
+	mustStatus(t, refused, nil, 200)
 }
 
 func stringPointer(s string) *string { return &s }
@@ -192,5 +193,117 @@ func TestMemberListingCarriesDisplayNameOutsideSenderFields(t *testing.T) {
 	mustStatus(t, posted, nil, 201)
 	if posted.JSON201.From.Name != "leo" {
 		t.Fatal("display name entered sender identity")
+	}
+}
+
+func TestAgentRenamesOnlyItsOwnPerson(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	b, agent, _ := s.pair("starter")
+	maya := s.addHuman("maya")
+	_ = maya
+	wrong, err := s.client(agent).RenamePersonWithResponse(ctx, "maya", nil, api.PersonRename{Handle: "sam"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, wrong, 403, "server_admin_required")
+	renamed, err := s.client(agent).RenamePersonWithResponse(ctx, "alex", nil, api.PersonRename{Handle: "leo"})
+	mustStatus(t, renamed, err, 200)
+	members, err := s.client(agent).ListMembersWithResponse(ctx, b, nil)
+	mustStatus(t, members, err, 200)
+	for _, m := range members.JSON200.Members {
+		if m.Kind == api.MemberKindAgent && (m.Owner == nil || *m.Owner != "leo") {
+			t.Fatalf("owner did not follow identity: %+v", m)
+		}
+	}
+	inv := s.invite(s.owner, 0)
+	wantCode(t, s.connect(inv.JSON201.Invite, "alex"), 409, "handle_taken")
+}
+
+func TestInviteHandleEditIsMetadataOnly(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	_, agent, _ := s.pair("starter")
+	inv, err := s.client(s.owner).CreateServerInviteWithResponse(ctx, nil, api.CreateInviteRequest{SuggestedHandle: stringPointer("maya")})
+	mustStatus(t, inv, err, 201)
+	if inv.JSON201.SuggestedHandle == nil || *inv.JSON201.SuggestedHandle != "maya" {
+		t.Fatal("issuance omitted suggestion")
+	}
+	edited, err := s.client(agent).EditServerInviteWithResponse(ctx, inv.JSON201.Id, nil, api.EditServerInvite{SuggestedHandle: "sam"})
+	mustStatus(t, edited, err, 200)
+	if edited.JSON200.SuggestedHandle == nil || *edited.JSON200.SuggestedHandle != "sam" {
+		t.Fatal("edit omitted suggestion")
+	}
+	preview, err := s.client("").PreviewServerInviteWithResponse(ctx, api.PreviewServerInviteJSONRequestBody{Invite: inv.JSON201.Invite})
+	mustStatus(t, preview, err, 200)
+	if preview.JSON200.SuggestedHandle == nil || *preview.JSON200.SuggestedHandle != "sam" {
+		t.Fatal("preview omitted suggestion")
+	}
+	connected := s.connect(inv.JSON201.Invite, "chosen")
+	mustStatus(t, connected, nil, 201)
+	unavailable, err := s.client(agent).EditServerInviteWithResponse(ctx, inv.JSON201.Id, nil, api.EditServerInvite{SuggestedHandle: "other"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, unavailable, 409, "invite_unavailable")
+}
+
+func TestInviteEditRefusesOtherOwnerAndReplaysAfterUse(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	inv := s.invite(s.owner, 0)
+	other := s.addHuman("maya")
+	refused, err := s.client(other).EditServerInviteWithResponse(ctx, inv.JSON201.Id, nil, api.EditServerInvite{SuggestedHandle: "sam"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, refused, 404, "invite_not_found")
+	key := "edit-once"
+	params := &api.EditServerInviteParams{IdempotencyKey: &key}
+	changed, err := s.client(s.owner).EditServerInviteWithResponse(ctx, inv.JSON201.Id, params, api.EditServerInvite{SuggestedHandle: "sam"})
+	mustStatus(t, changed, err, 200)
+	mustStatus(t, s.connect(inv.JSON201.Invite, "chosen"), nil, 201)
+	replay, err := s.client(s.owner).EditServerInviteWithResponse(ctx, inv.JSON201.Id, params, api.EditServerInvite{SuggestedHandle: "sam"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantCode(t, replay, 409, "invite_unavailable")
+}
+
+func TestBrowserOwnRenameAndInviteEditNeedCSRF(t *testing.T) {
+	s := newTestServer(t)
+	b := s.cookieBrowser(s.owner)
+	inv := s.invite(s.owner, 0)
+	refused := s.send("PATCH", "/v1/invites/"+inv.JSON201.Id, map[string]any{"suggested_handle": "maya"}, func(r *http.Request) { r.AddCookie(b.cookie); s.fromPage(r) })
+	if refused.status != 403 || refused.code() != "csrf_token_invalid" {
+		t.Fatalf("unguarded edit: %+v", refused)
+	}
+	rejectedRename := s.send("POST", "/v1/people/alex/rename", map[string]any{"handle": "leo"}, func(r *http.Request) { r.AddCookie(b.cookie); s.fromPage(r) })
+	if rejectedRename.status != 403 || rejectedRename.code() != "csrf_token_invalid" {
+		t.Fatalf("unguarded rename: %+v", rejectedRename)
+	}
+	edited := b.do("PATCH", "/v1/invites/"+inv.JSON201.Id, map[string]any{"suggested_handle": "maya"})
+	if edited.status != 200 {
+		t.Fatalf("browser edit: %+v", edited)
+	}
+	renamed := b.do("POST", "/v1/people/alex/rename", map[string]any{"handle": "leo"})
+	if renamed.status != 200 {
+		t.Fatalf("browser rename: %+v", renamed)
+	}
+}
+
+func TestInviteEditDoesNotRevealOtherBoardsToAgent(t *testing.T) {
+	s := newTestServer(t)
+	ctx := context.Background()
+	_, agent, _ := s.pair("starter")
+	hidden, err := s.client(s.owner).CreateBoardWithResponse(ctx, nil, api.CreateBoardRequest{Name: stringPointer("hidden"), Template: stringPointer("writer-reviewer")})
+	mustStatus(t, hidden, err, 201)
+	ids := []string{hidden.JSON201.Id}
+	inv, err := s.client(s.owner).CreateServerInviteWithResponse(ctx, nil, api.CreateInviteRequest{Boards: &ids})
+	mustStatus(t, inv, err, 201)
+	edited, err := s.client(agent).EditServerInviteWithResponse(ctx, inv.JSON201.Id, nil, api.EditServerInvite{SuggestedHandle: "maya"})
+	mustStatus(t, edited, err, 200)
+	if len(edited.JSON200.Boards) != 0 {
+		t.Fatalf("agent learned another board: %v", edited.JSON200.Boards)
 	}
 }

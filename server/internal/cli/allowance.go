@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 var (
@@ -128,8 +129,9 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 		pos = nil
 	}
 	validDecision := len(pos) == 2 && (pos[0] == "allow" || pos[0] == "decline")
-	if len(pos) > 0 && !validDecision {
-		return usageError("Use approvals, approvals allow ID, or approvals decline ID.", approvalsUsage)
+	validShow := len(pos) == 2 && pos[0] == "show"
+	if len(pos) > 0 && !validDecision && !validShow {
+		return usageError("Use approvals, approvals show ID, approvals allow ID, or approvals decline ID.", approvalsUsage)
 	}
 	if *always && (len(pos) != 2 || pos[0] != "allow") {
 		return usageError("--always requires approvals allow ID.", approvalsUsage)
@@ -140,6 +142,9 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 	}
 	ctx, cancel := a.requestContext(ctx)
 	defer cancel()
+	if validShow {
+		return a.showApproval(ctx, c, srv, seatBoard, pos[1], a.agentSelected(*as))
+	}
 	if len(pos) == 0 {
 		r, e := c.api.ListApprovalsWithResponse(ctx, nil)
 		if e != nil {
@@ -200,8 +205,8 @@ func runApprovals(ctx context.Context, a *app, args []string) error {
 }
 
 func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminActionResult) error {
-	if result.Invite != nil && result.Invite.PairingRequestId != nil && result.Next == nil && !a.agentSelected("") {
-		result.Next = invitedPairingNext(srv, *result.Invite.PairingRequestId)
+	if result.Next != nil {
+		result.Next.Command = labelOnboardingCommand(result.Next.Command, srv)
 	}
 	out := map[string]any{"server": srv, "approval": result.Approval}
 	if board != "" {
@@ -213,7 +218,7 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 	if result.Next != nil {
 		out["next"] = result.Next
 	}
-	text := fmt.Sprintf("%s · %s on %s", result.Approval.Id, result.State, srv.URL)
+	text := fmt.Sprintf("%s · %s on %s", result.Approval.Id, result.State, srv.Name)
 	if board != "" {
 		text += " · " + board
 	}
@@ -223,8 +228,8 @@ func emitAdmissionResult(a *app, srv serverRef, board string, result *api.AdminA
 		text += *result.Warning + "\n"
 	}
 	if result.Invite != nil && result.Invite.Invite != "" {
-		text += "Invite: aboard connect " + commandWord(srv.URL+"/join#"+result.Invite.Invite) + "\n"
-		prompt := serverInvitePrompt(srv.URL+"/join#"+result.Invite.Invite, result.Invite.PairingRequestId != nil)
+		link, prompt := inviteHandover(srv, *result.Invite)
+		text += "Invite: " + link + "\n"
 		out["prompt"] = prompt
 		text += prompt + "\n"
 	}
@@ -242,14 +247,15 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 	}
 	if r.JSON202 != nil {
 		held := r.JSON202
-		if len(afterExecution) != 0 {
-			held.Next.Resume += " After execution, select the returned pairing_request_id in this original session: aboard pairing select ID --here --server " + commandWord(srv.URL) + "."
+		held.Next.Command = labelOnboardingCommand(held.Next.Command, srv)
+		if err := a.watchRequestedApproval(ctx, srv, held.Approval); err != nil {
+			held.Next.Resume += " The next-turn notice could not be registered. Check this approval with aboard approvals show " + commandWord(held.Approval.Id) + " --server " + commandWord(srv.Name) + " --board " + commandWord(board) + "; do not request another invite."
 		}
 		out := map[string]any{"server": srv, "state": "pending", "approval": held.Approval, "next": held.Next}
 		if board != "" {
 			out["board"] = board
 		}
-		text := "Pending approval " + held.Approval.Id + " on " + srv.URL
+		text := "Pending approval " + held.Approval.Id + " on " + srv.Name
 		if board != "" {
 			text += " · " + board
 		}
@@ -272,6 +278,26 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 		complete(result)
 	}
 	return emitAdmissionResult(a, srv, board, result)
+}
+
+func (a *app) watchRequestedApproval(ctx context.Context, srv serverRef, approval api.Approval) error {
+	key, ok := a.sessionKey()
+	if !ok {
+		return newError("agent_session_required", "There is no originating session for an approval notice.", "Check this approval using its exact requesting seat.")
+	}
+	creds, err := a.readCredentials()
+	if err != nil {
+		return err
+	}
+	for _, seat := range creds.Agents {
+		if seat.Server != srv.URL || seat.MemberID != approval.AgentId {
+			continue
+		}
+		ref := delivery.AgentRef{Server: srv.URL, Board: seat.Board, Name: seat.Name, MemberID: seat.MemberID}
+		_, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpApprovalWatch, Harness: key.Harness, Session: key.ID, Boot: a.env.Getenv("ABOARD_BOOT"), Server: srv.URL, ApprovalID: approval.Id, Agent: &ref})
+		return err
+	}
+	return newError("agent_not_selected", "The approval's requesting seat is unavailable.", "Use the exact seat that requested this approval.")
 }
 
 func approvalDisplay(v api.Approval) (kind, agent, target string) {
@@ -303,4 +329,8 @@ func approvalDisplay(v api.Approval) (kind, agent, target string) {
 		target += " · board " + d.RequestedOn.Name
 	}
 	return
+}
+
+func labelOnboardingCommand(command string, srv serverRef) string {
+	return strings.ReplaceAll(command, " --server '"+strings.ReplaceAll(srv.URL, "'", "'\\''")+"'", " --server "+commandWord(srv.Name))
 }

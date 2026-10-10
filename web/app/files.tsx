@@ -30,6 +30,7 @@ import { StatusDot } from "./status";
 import { TaskChips, useAgentStatus } from "./task-ui";
 import { SenderMark } from "./agent-mark";
 import { count, exactTime, relativeTime } from "./words";
+import { newerFirst } from "./time";
 
 /** The most a board takes in one file (spec/openapi.yaml, putFile). */
 export const maxBytes = 50 * 1024 * 1024;
@@ -278,7 +279,7 @@ export function FilesView({
   const drop = useDrop(canUpload, pick);
   const shown = files
     .filter((f) => (show === "maintained" ? f.maintained : show === "people" ? f.latest.by.kind === "human" : true))
-    .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : b.latest.at.localeCompare(a.latest.at) || b.latest.seq - a.latest.seq));
+    .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : newerFirst(a.latest.at, b.latest.at) || b.latest.seq - a.latest.seq));
   const control = (on: boolean) =>
     cn(
       "min-h-11 rounded-control px-2.5 transition-colors duration-[140ms] ease-out",

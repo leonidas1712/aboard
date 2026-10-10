@@ -111,8 +111,11 @@ func TestAGuestSeesOnlyTheirBoard(t *testing.T) {
 			wantCode(t, "the guest making a pairing code", err, "guest_not_allowed")
 			_, err = w.svc.CreateJoinCode(ctx, kim, w.board, board.JoinCodeInput{Role: "member", Guest: "lee"})
 			wantCode(t, "the guest making a guest code", err, map[string]string{"guest": "guest_not_allowed", "agent": "human_token_required"}[who])
-			_, err = w.svc.ListServerPeople(ctx, kim)
-			wantCode(t, "the guest listing the server's people", err, map[string]string{"guest": "guest_not_allowed", "agent": "human_token_required"}[who])
+			listed, err := w.svc.ListServerPeople(ctx, kim)
+			wantCode(t, "the guest listing the server's people", err, "guest_not_allowed")
+			if len(listed) != 0 {
+				t.Fatalf("the guest received the server directory: %+v", listed)
+			}
 			if who == "agent" {
 				return
 			}

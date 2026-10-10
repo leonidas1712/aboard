@@ -732,8 +732,11 @@ func (l *lab) codexHooksRan(events ...string) bool {
 // hash Codex's app server reports for it (hooks/list). Without it, Codex 0.159 shows a
 // "Hooks need review" dialog once the first prompt is typed, and runs no hook until it is
 // answered.
-func (l *lab) trustCodexHooks(dir, home string, env []string) {
+func (l *lab) trustCodexHooks(dir, home string, env []string, sources ...string) {
 	l.t.Helper()
+	if len(sources) == 0 {
+		sources = []string{"project"}
+	}
 	ctx, cancel := context.WithTimeout(l.t.Context(), 60*time.Second)
 	defer cancel()
 	cmd := command(ctx, "codex", "app-server")
@@ -799,13 +802,13 @@ func (l *lab) trustCodexHooks(dir, home string, env []string) {
 	var cfg strings.Builder
 	for _, d := range list.Data {
 		for _, h := range d.Hooks {
-			if h.Source == "project" && h.CurrentHash != "" {
+			if slices.Contains(sources, h.Source) && h.CurrentHash != "" {
 				fmt.Fprintf(&cfg, "[hooks.state.%q]\ntrusted_hash = %q\n", h.Key, h.CurrentHash)
 			}
 		}
 	}
 	if cfg.Len() == 0 {
-		l.t.Fatalf("codex app-server lists no project hooks for %s:\n%s", dir, raw)
+		l.t.Fatalf("codex app-server lists no %v hooks for %s:\n%s", sources, dir, raw)
 	}
 	appendFile(l.t, filepath.Join(home, "config.toml"), cfg.String())
 }
@@ -849,4 +852,34 @@ func appendFile(t *testing.T, path, text string) {
 	if _, err := f.WriteString(text); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// Startup can leave the submitted prompt as the last conversation line marked ›.
+// Only the cancellable startup status below that line proves it left the composer.
+func codexPromptTaken(screen, prefix string) bool {
+	input := codexInput(screen)
+	if !strings.Contains(input, prefix) {
+		return true
+	}
+	lines := strings.Split(input, "\n")
+	for _, line := range lines[1:] {
+		if codexStartupLine(line) {
+			return true
+		}
+	}
+	return false
+}
+
+func codexStartupLine(line string) bool {
+	line = strings.Join(strings.Fields(line), " ")
+	return line == "Waiting for startup · esc cancel"
+}
+
+func codexStarting(screen string) bool {
+	for _, line := range strings.Split(screen, "\n") {
+		if codexStartupLine(line) {
+			return true
+		}
+	}
+	return false
 }

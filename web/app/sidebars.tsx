@@ -35,6 +35,7 @@ import { TaskChips, useAgentTasks, useStatus } from "./task-ui";
 import { appliedMode, boardLabel, charterBlocks, count, harnessName, relativeTime, rules } from "./words";
 import { VisibilityControl } from "./visibility";
 import { useOnboardingCount } from "./onboarding-data";
+import { newerFirst } from "./time";
 
 /** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
 export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
@@ -42,7 +43,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   const onboarding = useOnboardingCount();
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
   const recent = [...boards].sort((a, b) => {
-    const activity = (b.last_message_at ?? b.created_at).localeCompare(a.last_message_at ?? a.created_at);
+    const activity = newerFirst(a.last_message_at ?? a.created_at, b.last_message_at ?? b.created_at);
     return activity || a.id.localeCompare(b.id);
   });
   const archived = recent.filter((b) => isArchived(b));

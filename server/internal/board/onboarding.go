@@ -176,8 +176,10 @@ func inviteManagementPerson(p Principal) error {
 
 // ListServerInvites lists only the current person's issued invites, even after demotion.
 func (s *Service) ListServerInvites(ctx context.Context, p Principal) ([]ServerInviteView, error) {
-	if err := inviteManagementPerson(p); err != nil {
-		return nil, err
+	if p.Agent == nil {
+		if err := inviteManagementPerson(p); err != nil {
+			return nil, err
+		}
 	}
 	return s.listServerInvites(ctx, p)
 }
@@ -206,6 +208,14 @@ func (s *Service) listServerInvites(ctx context.Context, p Principal) ([]ServerI
 		h, err := caller(tx, p, stamp(s.clk.Now()))
 		if err != nil {
 			return err
+		}
+		if p.Agent != nil && h.Role == ServerGuest {
+			return guestNotAllowed("list invitations")
+		}
+		if p.Agent != nil {
+			if _, _, err := seatOf(tx, *p.Agent); err != nil {
+				return err
+			}
 		}
 		invites, err := tx.ServerInvites(h.ID)
 		if err != nil {

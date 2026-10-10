@@ -1,5 +1,12 @@
 # Roadmap
 
+### Onboarding approval outcomes (GEN-52)
+
+Review: PR #297 adds requesting-agent collection with encrypted, bounded recovery,
+server-owned invite prompts, original-session selection, suggested handles and
+seat-scoped people/invite reads. Browser copy-once UI landed in #296. Focused checks
+pass; the isolated three-harness setup proof and affected live gate remain pending.
+
 What's being built now, what's left before launch, and what comes after, feature by
 feature. Each stage separates **features** (something new) from **enhancements** (a
 change to something that already exists). This is a living list: reorder it, add to it
@@ -120,6 +127,9 @@ the board.
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
+| Sandboxed invite setup returns an exact saved continuation and asks for harness approval | in review; text/JSON real-binary recovery passes | D224 |
+| Agent-operable upgrades, version flag alias and development-build invite guidance | in review; acceptance tests failed first | D224 |
+| Invitations name the minimum CLI version and how to upgrade; unknown commands explain that the installed CLI may be older than the server | in review (#311); unit/e2e and quick pass | D224 |
 | A backup of the database before every migration, keeping the last three, and every pending migration in one transaction | done (#118) | D148, D184, D199 |
 
 ### 3. The rest of the board
@@ -141,6 +151,8 @@ the board.
 | Coordination UX from dogfooding: a turn-start digest per agent, fewer and better nudges, a coordinator role with no single current task, delegation states, a one-time brief prompt, `task done <ref>` fix | exploring: design/explorations/coordination-and-integrations.md | |
 | Keep the person's key out of the agent's reach: store access keys in the OS keychain instead of servers.json, plus recipes for running harnesses in sandboxes that can't read it (D106) | right after launch (maintainer, 2026-10-09): opt-in hardening that makes the approval boundary real | D222, D106 |
 | Agent-driven team onboarding (#268, D222): allowances and approvals for agent admin (board view, CLI and API), one invite that carries the board and a pairing request, resumable `aboard setup`, pairing requests a person accepts in a chosen session, and a verified two-way handshake | contracts, allowance/approvals, pairing and invite/setup landed (#270, #274, #272, #276); required for 0.1.4; onboarding display labels, invite preview, browser pairing choice and approval expiry/history landed (#288); board view wired to the API (#287); browser revocation and decision/recipient/key labels landed (#289); the colleague guide and auto-mode docs in review (GEN-40, GEN-44, #290) | D222 |
+| One link, one prompt, one command (D224): approved outcomes reach the requesting agent, the server serves the link and prompt, `--handle` and rename in the CLI and the board view, invites join boards in the pasting session with no visible pairing, `aboard join <board>` as the one command (CLI polish in review, GEN-60), board adds land in the person's Inbox, agents read people and invite lists, every onboarding error has a next step | approved 2026-10-10 for 0.1.4; collection in review (#297, GEN-52), approval card landed (#296); paste-session setup and exact explicit-read verification building contract-first (GEN-55); rename/edit GEN-56, board-add Inbox GEN-57 remain required; durable idle wake in review (#305, GEN-58); docs and the skill rewritten for the new flow, landed (#313) | D224 |
+| Team QA on one machine: `make sandbox-team`, FRESH installs, and flow evals with small models (GEN-53, GEN-54) | sandbox-team in review (#298); FRESH and evals next | D224 |
 | Colleague setup prompt includes installation and reading the skill; a new account waits for the person to choose their visible name before using the invite, and the current session is told to read its installed skill | in review | D222 |
 | Agents from the board (v2, with My agents #221): start agents from the board view or by asking an agent, through an opt-in runner on the person's machine; assign them to boards; a session view per own agent with direct messages; one switch turns it all off | exploring: design/explorations/agents-from-the-board.md | |
 | Notes, verified when citing a board file by hash | retired: files and the brief cover them | D14, D214 |
@@ -444,8 +456,12 @@ warning and Inbox integration are owned by the UI lane.
 
 Setup defaults and harness next precedence, readable CLI labels, consistent invite prompts, skill/help, and agent role/policy approval requests: in review (#291) for 0.1.4. Existing API authority and person-only key/login boundaries stay unchanged.
 
+D224 own-person rename through an active agent and suggested invite-handle edits: building (GEN-56). Invitation edits change display metadata only, never frozen approval authority.
+
+D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prompts and invite-notice handle: in review (#310, GEN-57).
+
 ### Developer flow evaluations
 
 | Feature | Status |
 | --- | --- |
-| Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | in review; GEN-54, baseline waits for the live-run slot |
+| Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | tool in review (#301, GEN-54); invite-from-scratch flow passed with Haiku and GPT-6-Luna after a greeting-scorer correction; other scenarios remain unproven |
