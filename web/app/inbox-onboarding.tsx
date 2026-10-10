@@ -7,7 +7,8 @@
 
 import { cn } from "@/lib/utils";
 import type { Onboarding } from "./onboarding-data";
-import type { Approval, InviteNotice, PairingRequest } from "./onboarding-api";
+import type { Approval, BoardAddNotice, InviteArrivalNotice, InviteNotice, PairingRequest } from "./onboarding-api";
+import { ArrivalDetail, BoardAddDetail, addedKey, addedTitle, arrivalKey, arrivalTitle } from "./inbox-added";
 import { AgentMark, ApprovalDetail, NoticeDetail, PairingDetail, approvalTitle, noticeLine, pairingRowLine, pairingTitle, pairingView, waitsOnMe } from "./onboarding-ui";
 import { agentLabel, allowable, live } from "./onboarding-words";
 import { relativeTime } from "./words";
@@ -16,18 +17,27 @@ import { newerFirst } from "./time";
 export type OnboardingItem =
   | { kind: "approval"; id: string; a: Approval; t: string }
   | { kind: "pairing"; id: string; p: PairingRequest; t: string }
-  | { kind: "notice"; id: string; n: InviteNotice; t: string };
+  | { kind: "notice"; id: string; n: InviteNotice; t: string }
+  | { kind: "added"; id: string; a: BoardAddNotice; t: string }
+  | { kind: "arrival"; id: string; r: InviteArrivalNotice; t: string };
 
-export type OnboardingGroups = { needs: OnboardingItem[]; pairing: OnboardingItem[]; invites: OnboardingItem[]; decided: OnboardingItem[] };
+export type OnboardingGroups = { needs: OnboardingItem[]; news: OnboardingItem[]; pairing: OnboardingItem[]; invites: OnboardingItem[]; decided: OnboardingItem[] };
 
 const newest = (x: OnboardingItem, y: OnboardingItem) => newerFirst(x.t, y.t);
 
-export function onboardingGroups(ob: Onboarding): OnboardingGroups {
+/** onboardingGroups sorts the items; dismissed holds the keys of the board adds and arrivals this browser hid. */
+export function onboardingGroups(ob: Onboarding, dismissed: Record<string, true>): OnboardingGroups {
   const approval = (a: Approval): OnboardingItem => ({ kind: "approval", id: a.id, a, t: a.decided_at ?? a.created_at });
   const pairing = (p: PairingRequest): OnboardingItem => ({ kind: "pairing", id: p.id, p, t: p.created_at });
   const asked = ob.pairing.filter((p) => waitsOnMe(p, pairingView(p, ob.names, ob.agents)));
   return {
     needs: [...asked.map(pairing), ...ob.approvals.filter((a) => a.state === "pending").map(approval)].sort(newest),
+    news: [
+      ...ob.inbox.board_adds.map((a): OnboardingItem => ({ kind: "added", id: addedKey(a), a, t: a.added.at })),
+      ...ob.inbox.arrivals.map((r): OnboardingItem => ({ kind: "arrival", id: arrivalKey(r), r, t: r.at })),
+    ]
+      .filter((i) => !dismissed[i.id])
+      .sort(newest),
     pairing: ob.pairing
       .filter((p) => !asked.includes(p))
       .map(pairing)
@@ -53,6 +63,15 @@ export function OnboardingRow({ item, ob, now, selected, onRead }: { item: Onboa
     title = approvalTitle(a, ob.names);
     const state = a.state === "pending" ? (allowable(a.action) ? "asks you to approve" : "always asks you") : a.state === "executed" ? "allowed" : a.state;
     meta = [a.display?.requested_on?.name, agentLabel(a), state].filter(Boolean).join(" · ");
+  } else if (item.kind === "added") {
+    who = { name: item.a.added.by.name ?? "someone" };
+    title = addedTitle(item.a);
+    meta = `${item.a.board.title || item.a.board.name} · paste the join prompt into a session`;
+  } else if (item.kind === "arrival") {
+    const first = item.r.boards[0]?.agents[0];
+    who = { name: first?.name ?? item.r.handle, harness: first?.harness };
+    title = arrivalTitle(item.r);
+    meta = `${item.r.boards.map((b) => b.board.title || b.board.name).join(", ")} · you invited them`;
   } else if (item.kind === "notice") {
     who = { name: agentLabel(item.n), harness: item.n.display?.agent_harness };
     title = `Your agent ${agentLabel(item.n)} invited someone`;
@@ -87,7 +106,9 @@ export function OnboardingRow({ item, ob, now, selected, onRead }: { item: Onboa
   );
 }
 
-export function OnboardingDetail({ item, ob, now, onShowInvite }: { item: OnboardingItem; ob: Onboarding; now: number; onShowInvite: (id: string) => void }) {
+export function OnboardingDetail({ item, ob, now, onShowInvite, onDismiss }: { item: OnboardingItem; ob: Onboarding; now: number; onShowInvite: (id: string) => void; onDismiss: (id: string) => void }) {
+  if (item.kind === "added") return <BoardAddDetail n={item.a} agents={ob.agents} now={now} onDismiss={() => onDismiss(item.id)} />;
+  if (item.kind === "arrival") return <ArrivalDetail n={item.r} now={now} onDismiss={() => onDismiss(item.id)} />;
   if (item.kind === "approval") return <ApprovalDetail a={item.a} names={ob.names} now={now} settingsHref="/?view=settings" onShowInvite={onShowInvite} />;
   if (item.kind === "notice") return <NoticeDetail n={item.n} now={now} />;
   const v = pairingView(item.p, ob.names, ob.agents);

@@ -443,7 +443,7 @@ export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
       />
       {n.state === "active" && (
         <div className="flex flex-col gap-3">
-          <InviteHandle id={n.id} />
+          <InviteHandle id={n.id} initial={n.suggested_handle} />
           <p className="text-muted">The invite makes one new account on this server, as a member. Revoke it if you didn&apos;t expect it, or it went to the wrong person.</p>
           <div>
             <Button variant="secondary" disabled={busy} onClick={() => void revoke()}>
