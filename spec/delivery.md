@@ -1790,3 +1790,40 @@ An executed invite's optional pairing id permits automatic initiating-side selec
 only for that still-bound originating session. A changed boot, seat generation or
 closed session invalidates automatic selection. The existing pairing credential and
 confirmed delivery handshake remain authoritative; a notice is not delivery proof.
+
+### Durable idle wake
+
+The daemon also retains a nonsecret notice for an executed, declined or expired
+approval, so its exact originating session can act while idle. An invite-linked
+request gains a separate arrival notice when the colleague's exact accepting
+session joins; its text names that person and seat and asks the inviter to say
+hello and answer the delivery check. No eligible captured origin means no guessed
+wake. Joining or greeting alone never means delivery was verified.
+
+Each notice has an immutable identity and kind, canonical issuer, requesting seat,
+approval or invite-linked request id, original session, boot and binding generation.
+These are private daemon bookkeeping, never board messages or events. The journal
+stores no invite secret, account key, message body or collected outcome. Before
+each attempt the daemon reads the relevant metadata through the original seat's
+issuer-bound credential and rechecks current access, ownership, parent key,
+lifecycle, session, boot and binding. It never falls back to a person's login or
+chooses an endpoint from recent activity. Changed or revoked authority cancels
+the notice rather than replaying stale content.
+
+A notice-only handoff is a typed part of the durable handoff manifest. Empty
+message sequences are permitted only for that validated notice part. It carries
+the notice identity, rendering version and payload hash, without inventing a board
+sequence. Preparation atomically binds it to the manifest. The normal hook, queue
+or extension adapter delivers the nonsecret context to that exact session, either
+on its next turn or as an idle wake. Busy sessions keep the notice for the next
+permitted boundary; delivery-off and paused delivery do not get bypassed. A notice
+does not grant authority to execute its suggested command.
+
+The notice is marked delivered only by that exact handoff's confirmation. Queue
+admission, a successful metadata GET, a read cursor, an ACK, rendering or a failed
+stdout write cannot mark it delivered. Confirmation atomically finishes the notice
+with the handoff. Failed or interrupted attempts retain the same identity and
+retry with bounded backoff; recovery deduplicates confirmed notices. A replacement
+session cannot inherit an old origin, even when it resumes the same agent.
+Notice-only parts append no event, advance no cursor and cannot supply pairing
+round-trip evidence. Ordinary message parts retain all their existing checks.
