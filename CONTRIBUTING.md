@@ -65,8 +65,22 @@ remove the server and all its people's data:
 make sandbox-team-clean TEAM=qa
 ```
 
-This tool starts with the local dev binary installed. It does not simulate a machine
-without aboard; the optional fresh-install mode is not available.
+To test installation from scratch, use a new person name:
+
+```sh
+make sandbox NAME=maya-fresh TEAM=qa FRESH=1
+```
+
+The shell starts in its own empty project, without aboard on PATH. Harnesses and other
+existing tools remain available. Paste the invite prompt into the agent as usual. The
+exact `curl -fsSL https://comeaboard.dev/install | sh` step uses this checkout's installer
+and local build instead of downloading a release. It says so before installing into
+the person's isolated HOME. Other curl requests are unchanged. No system binary or
+trust store is modified. This exercises setup, not release checksums or signatures.
+
+Reopening that person keeps the installed copy. To install a newer local build, run
+the same install command inside its shell. FRESH refuses to turn an already populated
+ordinary sandbox into a fresh one; choose a new NAME instead.
 
 ## Developing with a sandbox
 

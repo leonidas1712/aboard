@@ -55,6 +55,12 @@ fi
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 root=${ABOARD_SANDBOXES:-$HOME/.aboard-sandboxes}
+fresh=${FRESH:-0}
+case $fresh in 0 | 1) ;; *)
+	echo "FRESH must be 0 or 1." >&2
+	exit 2
+	;;
+esac
 team=${TEAM:-}
 team_dir=""
 case $action in team-start | team-clean | team-stop) team=$name ;; esac
@@ -68,6 +74,10 @@ if [ -n "$team" ]; then
 	dir=$team_dir/people/$name
 else
 	dir=$root/$name
+fi
+if [ "$fresh" = 1 ] && [ -z "$team" ]; then
+	echo "FRESH needs TEAM=<team>." >&2
+	exit 2
 fi
 prefix="(aboard:$name)"
 if [ -n "$team" ]; then prefix="(aboard:$name@$team)"; fi
@@ -225,6 +235,10 @@ start_aboard() {
 
 update() {
 	sandbox_exists
+	if [ -f "$dir/fresh" ]; then
+		echo "Reinstall the local build inside the fresh shell: curl -fsSL https://comeaboard.dev/install | sh" >&2
+		exit 1
+	fi
 	bin=${SANDBOX_ABOARD:-$repo/.bin/aboard}
 	if [ ! -x "$bin" ]; then
 		echo "There is no dev build at $bin. Run make sandbox-update, which builds it." >&2
@@ -324,9 +338,51 @@ write_isolate() {
 			echo "export CLAUDE_CODE_OAUTH_TOKEN=$(quote "$CLAUDE_CODE_OAUTH_TOKEN")"
 		fi
 		echo "export ABOARD_SANDBOX_NAME=$(quote "$name")"
-		echo "export PATH=$(quote "$dir/bin"):\"\$PATH\""
+		if [ "$fresh" = 1 ]; then
+			echo "export PATH=$(quote "$dir/home/.local/bin:$dir/tools")"
+			echo "export ABOARD_INSTALL_FROM=$(quote "$bin")"
+			echo "export ABOARD_SANDBOX_INSTALL_SCRIPT=$(quote "$repo/scripts/install.sh")"
+		else
+			echo "export PATH=$(quote "$dir/bin"):\"\$PATH\""
+		fi
 	} >"$dir/shell/isolate.sh"
 	chmod 600 "$dir/shell/isolate.sh"
+}
+
+# Keep the parent's tools and harnesses without exposing any installed aboard.
+# Only the invite's exact install URL is replaced; every other curl call is unchanged.
+fresh_tools() {
+	mkdir -p -m 700 "$dir/tools"
+	if [ -f "$dir/curl-origin" ]; then
+		curl_bin=$(cat "$dir/curl-origin")
+	else
+		curl_bin=$(command -v curl) || {
+			echo "FRESH mode needs curl." >&2
+			exit 1
+		}
+		printf '%s\n' "$curl_bin" >"$dir/curl-origin"
+		chmod 600 "$dir/curl-origin"
+	fi
+	saved_ifs=$IFS
+	IFS=:
+	for folder in $PATH; do
+		[ -d "$folder" ] || continue
+		for tool in "$folder"/*; do
+			[ -f "$tool" ] && [ -x "$tool" ] || continue
+			command_name=${tool##*/}
+			case $command_name in aboard | aboard-launcher-* | curl) continue ;; esac
+			[ -e "$dir/tools/$command_name" ] || ln -s "$tool" "$dir/tools/$command_name"
+		done
+	done
+	IFS=$saved_ifs
+	{
+		echo '#!/bin/sh'
+		echo 'for arg in "$@"; do'
+		echo ' case "$arg" in https://comeaboard.dev/install) exec cat "$ABOARD_SANDBOX_INSTALL_SCRIPT" ;; esac'
+		echo 'done'
+		echo "exec $(quote "$curl_bin") \"\$@\""
+	} >"$dir/tools/curl"
+	chmod 700 "$dir/tools/curl"
 }
 
 open_sandbox() {
@@ -348,7 +404,17 @@ open_sandbox() {
 	for d in home bin aboard-home project shell $(printf '%s\n' "$table" | cut -f1); do
 		mkdir -p -m 700 "$dir/$d"
 	done
-	ln -sf "$bin" "$dir/bin/aboard"
+	if [ -f "$dir/fresh" ]; then fresh=1; fi
+	if [ "$fresh" = 1 ]; then
+		if [ -e "$dir/bin/aboard" ]; then
+			echo "This person already has a dev build. Use a new NAME for FRESH mode." >&2
+			exit 1
+		fi
+		touch "$dir/fresh"
+		fresh_tools
+	else
+		ln -sf "$bin" "$dir/bin/aboard"
+	fi
 	link_logins
 	# Claude Code would otherwise start with its first-run questions in a new config folder.
 	if [ -d "$dir/claude-code" ] && [ ! -f "$dir/claude-code/.claude.json" ]; then
@@ -375,14 +441,23 @@ open_sandbox() {
 	fi
 	export_harness_dirs
 	export DISABLE_AUTOUPDATER=1
-	export PATH="$dir/bin:$PATH"
+	if [ "$fresh" = 1 ]; then
+		mkdir -p -m 700 "$dir/home/.local/bin"
+		export PATH="$dir/home/.local/bin:$dir/tools"
+		export ABOARD_INSTALL_FROM="$bin"
+		export ABOARD_SANDBOX_INSTALL_SCRIPT="$repo/scripts/install.sh"
+	else
+		export PATH="$dir/bin:$PATH"
+	fi
 	export ABOARD_SANDBOX_NAME="$name"
 
 	cd "$dir/project"
-	if [ ! -d .git ] && command -v git >/dev/null 2>&1; then
+	if [ "$fresh" != 1 ] && [ ! -d .git ] && command -v git >/dev/null 2>&1; then
 		git init -q .
 	fi
-	aboard init --yes --scope project
+	if [ "$fresh" != 1 ] || command -v aboard >/dev/null 2>&1; then
+		aboard init --yes --scope project
+	fi
 	if [ -n "$team" ]; then
 		team_url=$(cat "$team_dir/url")
 		export ABOARD_SANDBOX_TEAM_URL="$team_url"
@@ -392,21 +467,31 @@ open_sandbox() {
 			aboard servers use "$team" >/dev/null
 		fi
 	fi
-	start_aboard
+	if [ "$fresh" = 1 ] && ! command -v aboard >/dev/null 2>&1; then
+		ui_url=$(cat "$team_dir/url")
+		binary_note="not installed; the invite prompt's install step uses this checkout"
+	else
+		start_aboard
+		binary_note="$(command -v aboard) -> $bin ($(aboard version 2>/dev/null | head -n 1))"
+	fi
 
 	if [ "$existed" = yes ]; then
 		state="Reopened sandbox $name (its boards and data are kept)"
 	else
 		state="Aboard sandbox $name"
 	fi
+	binary_reminder="This sandbox shell uses the dev build. Other terminals may use your installed aboard."
+	if [ "$fresh" = 1 ] && ! command -v aboard >/dev/null 2>&1; then
+		binary_reminder="No aboard is installed in this fresh shell. The invite's install step installs the local dev build."
+	fi
 	cat <<EOF
 
 $state: $dir
-  aboard:      $(command -v aboard) -> $bin ($(aboard version 2>/dev/null | head -n 1))
+  aboard:      $binary_note
   ABOARD_HOME: $ABOARD_HOME
   Board view:  $ui_url
 $notes
-This sandbox shell uses the dev build. Other terminals may use your installed aboard.
+$binary_reminder
 Run aboard commands here; check the prompt starts with $prefix.
 Start claude, codex or omp here; each uses this sandbox's folder for it.
 To run a newer build in it: make sandbox-update NAME=$name. Remove everything with
@@ -472,7 +557,7 @@ case $action in
 team-start)
 	drop_markers
 	team_tool start
-	ABOARD_SANDBOXES="$root" TEAM="$team" SANDBOX_CMD=: "$repo/scripts/sandbox" open leo >/dev/null
+	ABOARD_SANDBOXES="$root" TEAM="$team" FRESH=0 SANDBOX_CMD=: "$repo/scripts/sandbox" open leo >/dev/null
 	echo "Team $team: $(cat "$team_dir/url")"
 	echo "Open the admin: make sandbox NAME=leo TEAM=$team"
 	echo "Run aboard commands only in the (aboard:<person>@$team) shells; other terminals may use the installed binary."
