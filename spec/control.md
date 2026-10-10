@@ -78,7 +78,7 @@ optional; each operation says which it reads.
 | `wake` | boolean | A prompt that is the bundle a waiting hook just woke the session with, not a later event |
 | `turn_id` | integer | On `turn_end`: the daemon's logical turn from `waiting`; when supplied it must match the current turn and requires the exact returned `boot` |
 | `started` | string | When the hook's or command's process started (RFC 3339); on `turn_end`, rejects completion older than the current turn's activity |
-| `agent` | object | An agent: `{"server","board","name","member_id"}` (see "Seats"). On `join`, the board to join: `server` and `board`, with `name` the name asked for, if any |
+| `agent` | object | An agent: `{"server","board","name","member_id"}` (see "Seats"). On `join`, the board to join: canonical `server` and `board` (name or immutable id), with `name` the name asked for, if any; the joined result names the actual immutable board identity |
 | `lifecycle` | string | On `boards`: `active` (default), `archived` or `all`; filters lifecycle without extending the delegation's access |
 | `role` | string | On `join` or `create_board`: the role to join as; `member` when left out |
 | `server` | string | On `boards` or `create_board`: the server URL; creation requires it |

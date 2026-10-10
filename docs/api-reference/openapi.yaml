@@ -6382,13 +6382,19 @@ components:
       description: |
         With a person's key: either `code`, or `board` and `role`, and optionally
         `session`. With a machine's delegation: `board` and `session`, and optionally
-        `role` (default `member`).
+        `role` (default `member`). A delegated board selector also accepts an
+        immutable board id, with identical current membership, lifecycle and role
+        checks. This lets setup use authenticated onboarding receipt ids without
+        resolving mutable names. A board id is never a join code or new authority.
       properties:
         code:
           type: string
           description: Case-insensitive; the dash is optional.
           example: 7Q4-K2M
-        board: { $ref: "#/components/schemas/BoardName" }
+        board:
+          type: string
+          pattern: "^([a-z0-9][a-z0-9-]{0,38}[a-z0-9]|brd_[0-9A-HJKMNP-TV-Z]{26})$"
+          description: "Board name, or immutable board id for a delegated join."
         role: { $ref: "#/components/schemas/RoleName" }
         name: { $ref: "#/components/schemas/MemberName" }
         harness: { $ref: "#/components/schemas/Harness" }
