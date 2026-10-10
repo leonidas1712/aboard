@@ -130,7 +130,8 @@
 #   only a legacy regular link file; it neither parses the state directory nor
 #   follows symlinks. Legacy ProjectFile and project source values stay deprecated.
 #   Known servers without a default return server_not_selected before credentials
-#   or writes, even with only one known server. No implicit local/only fallback.
+#   or writes, even with only one remote server. An initialized sole local server
+#   retains its bootstrap default, including state from before explicit defaults.
 #   details.choices retains URLs; optional details.server_choices holds ServerChoice
 #   objects with labels, URLs and runnable commands. Board/agent ambiguity retains
 #   details.boards and adds issuer URLs to details.seats; never expose hidden boards.
@@ -2438,7 +2439,10 @@ $defs:
       or a bound harness session, board metadata is read with that seat's own token;
       the person's login is never a fallback. An unknown explicit agent returns
       agent_not_selected. An unbound session shows local diagnostics without any
-      authenticated board read. A terminal with no agent selected uses its own login.
+      authenticated board read. Before local bootstrap, a terminal reports local setup
+      diagnostics without starting a server or reading a login. A selected stopped
+      server remains diagnostic-only. A terminal with no agent selected uses its own
+      login only when the selected server is reachable.
       With --launch, run in a
       session whose first prompt from aboard swarm up gave a launch ticket (Codex), it
       first hands the ticket in, so the session takes its seat; a ticket already taken
