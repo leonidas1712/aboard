@@ -7,6 +7,8 @@ import (
 	"github.com/leonidas1712/aboard/server/internal/board"
 )
 
+const minimumSetupClient = "0.1.4"
+
 func onboardingOf(r board.OnboardingReceipt) map[string]any {
 	out := map[string]any{"server_id": r.ServerID, "person_id": r.PersonID, "key_id": r.KeyID, "invite_id": r.InviteID, "handle": r.Handle, "boards": r.Boards}
 	if r.PairingRequestID != "" {
