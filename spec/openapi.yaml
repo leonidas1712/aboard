@@ -5542,6 +5542,9 @@ components:
       additionalProperties: false
       required: [server_id, server_url, server_name, inviter_handle, boards, expires_at]
       properties:
+        prompt:
+          type: string
+          description: Server-formatted colleague prompt using the configured public issuer and the invite secret supplied by this caller. It creates no credential and is never included in invite lists or approval metadata.
         suggested_handle:
           type: string
           pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -5556,7 +5559,7 @@ components:
           items: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
         work: { type: string }
         expires_at: { $ref: "#/components/schemas/Timestamp" }
-      description: The invite holder may preview only the invitation's currently valid bundled boards and proposed work. No member list, credential, digest or secret is returned.
+      description: The invite holder may preview only the invitation's currently valid bundled boards and proposed work. No member list, credential or digest is returned. The optional prompt echoes only the invitation supplied by this caller.
     ServerInvites:
       type: object
       additionalProperties: false
