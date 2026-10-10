@@ -1797,6 +1797,11 @@ board and asks the inviter to greet them. Fresh issuer-bound reads recheck curre
 ownership, key, access and lifecycle before delivery. Removed authority cancels
 the notice. No invite secret, collected outcome or person credential is included.
 
+When a notice and board messages are pending, prepend the notice to their shared
+message bundle. A standalone notice must not consume the waiting hook ahead of
+those messages. Message allocations, confirmation and read cursors retain their
+existing semantics.
+
 Use the existing harness delivery path: next-turn context or an idle wake. Busy
 sessions wait for the next permitted boundary; delivery-off and paused delivery
 remain respected. If the original session is gone, the next session that explicitly
