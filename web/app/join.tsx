@@ -57,8 +57,8 @@ export default function JoinPage() {
 }
 
 function Invite({ p, link }: { p: InvitePreview; link: string }) {
-  const [terminal, setTerminal] = useState(false);
-  const prompt = `Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${link} --handle <name you'd like teammates to see>.${p.work ? " Verify you can exchange messages with the inviting agent." : ""}`;
+  const prompt = p.prompt;
+  const [terminal, setTerminal] = useState(!prompt);
   const server = p.server_name || p.server_url;
   const boards = p.boards.map((b) => b.name);
   return (
@@ -67,6 +67,7 @@ function Invite({ p, link }: { p: InvitePreview; link: string }) {
         <p className="text-meta text-muted">{server}</p>
         <h1 className="text-headline font-bold">{p.inviter_handle} invited you to aboard</h1>
         <p className="text-now">Join their server as a member{p.work ? ", and pair one of your agents with theirs" : ""}.</p>
+        {p.suggested_handle && <p className="text-meta text-muted">Invited as @{p.suggested_handle}</p>}
       </div>
       <div className="rounded-box border border-rule bg-surface px-4 py-4">
         <Fields
@@ -78,6 +79,7 @@ function Invite({ p, link }: { p: InvitePreview; link: string }) {
           ]}
         />
       </div>
+      {prompt && (
       <section aria-labelledby="join-agent" className="flex flex-col gap-3">
         <h2 id="join-agent" className="text-title font-bold">
           Give it to your agent
@@ -92,6 +94,7 @@ function Invite({ p, link }: { p: InvitePreview; link: string }) {
         <CopyButton text={prompt} label="Copy prompt" variant="primary" />
         <p className="text-meta text-muted">When it is done, it opens your Inbox here. If the agent needs you (to trust aboard&apos;s hooks, or restart), it says exactly what to do, then &ldquo;Continue Aboard setup&rdquo; picks up where it stopped.</p>
       </section>
+      )}
       <section className="flex flex-col gap-3 border-t border-rule pt-5">
         <button type="button" aria-expanded={terminal} onClick={() => setTerminal(!terminal)} className="-ml-1 inline-flex min-h-11 items-center gap-1.5 self-start rounded-control px-1 font-bold text-ink hover:bg-hover">
           <ChevronRight className={cn("size-4 text-muted transition-transform duration-[150ms] ease-out", terminal && "rotate-90")} strokeWidth={1.75} aria-hidden />

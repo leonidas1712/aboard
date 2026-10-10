@@ -60,7 +60,18 @@ export type Approval = {
 };
 
 /** ServerInvite is the invite an allowed invite approval made. Its secret is in this one response only. */
-export type ServerInvite = { id: string; invite: string; server_role: "member"; expires_at: string; boards?: string[]; pairing_request_id?: string };
+export type ServerInvite = {
+  id: string;
+  invite: string;
+  server_role: "member";
+  expires_at: string;
+  boards?: string[];
+  pairing_request_id?: string;
+  /** link, prompt and suggested_handle are the server's own text for the colleague; each can be absent. */
+  link?: string;
+  prompt?: string;
+  suggested_handle?: string;
+};
 
 export type AdminActionResult = { state: "pending" | "executed"; approval: Approval; warning?: string; next?: NextStep; invite?: ServerInvite };
 
@@ -101,6 +112,8 @@ export type PairingRequest = {
 };
 
 export type InvitePreview = {
+  prompt?: string;
+  suggested_handle?: string;
   server_id: string;
   server_url: string;
   server_name: string;

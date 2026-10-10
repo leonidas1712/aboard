@@ -684,6 +684,47 @@ paths:
         "429": { $ref: "#/components/responses/Error" }
 
   /v1/invites/{invite}:
+    patch:
+      tags: [people]
+      operationId: editServerInvite
+      summary: Change your outstanding invitation's suggested handle
+      description: |
+        The current inviter or their active agent may edit only suggested_handle.
+        Person keys and own browser sessions are accepted; browser writes require
+        Origin and CSRF. Agents use their current seat and parent key, never a
+        person login or delegation. Another person's id and a missing id both give
+        invite_not_found. Check current authority and the invitation's validity in
+        the write transaction and again on idempotent replay. A used, expired,
+        revoked or no-longer-authorized invitation gives invite_unavailable.
+        This is display metadata, not a reservation or an account rename. The
+        invitee may choose a different valid handle at redemption. The edit never
+        changes the issuer, recipient privileges, bundled boards, expiry, pairing
+        proposal, approval action or its frozen payload hash. No secret is returned.
+        Returned board ids are filtered to current caller visibility; stored bundled
+        admissions are unchanged. Cached metadata is refused if access was lost.
+        Empty suggested_handle clears the suggestion. Invalid syntax is refused.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: invite
+          in: path
+          required: true
+          schema: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EditServerInvite" }
+      responses:
+        "200":
+          description: Updated nonsecret invitation metadata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerInviteMetadata" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
     delete:
       tags: [people]
       operationId: revokeServerInvite
@@ -1338,7 +1379,12 @@ paths:
       summary: Change a person's handle
       description: |
         The person themselves or a current server admin, using their own access key.
-        Agents, delegations and browsers get 403 human_token_required. Other people
+        An active agent seat may rename only its token-derived person, using its
+        own seat token and current parent key, membership and board access. An own
+        browser session may rename only itself, with Origin and CSRF protection.
+        Neither may choose another person, use admin powers or fall back to a person
+        key. Delegations are refused. Guest identity and privileges stay unchanged.
+        A mismatched target is refused before lookup. Other people
         get 403 server_admin_required before target lookup. Unknown current handles
         get 404 person_not_found. Invalid handles get 400 invalid_request; a handle
         held by another person or reserved by a rename gets 409 handle_taken.
@@ -1356,7 +1402,8 @@ paths:
         Unbound guest codes naming a retired handle cannot create another identity.
         Pending machine approvals resolve only current handles, never retired aliases.
         Setting the current handle changes nothing. Idempotency replay rechecks the
-        caller's current self/admin authority against the recorded person id.
+        caller's current self/admin authority against the recorded person id,
+        including active seat authority for an agent replay.
       parameters:
         - name: handle
           in: path
@@ -4971,6 +5018,7 @@ components:
                 - server_admin_required
                 - invite_invalid
                 - invite_not_found
+                - invite_unavailable
                 - handle_taken
                 - handle_invalid
                 - key_name_taken
@@ -5487,6 +5535,15 @@ components:
               type: string
               pattern: "^abd_[A-Za-z0-9_-]{32,}$"
               description: "Shown once. Send it as `Authorization: Bearer <token>` to `GET /v1/boards`, `POST /v1/join` and `POST /v1/delegations/boards`; nothing else accepts it."
+    EditServerInvite:
+      type: object
+      additionalProperties: false
+      required: [suggested_handle]
+      properties:
+        suggested_handle:
+          type: string
+          maxLength: 40
+          description: Valid person handle, or empty to clear the suggestion.
     CreateInviteRequest:
       type: object
       additionalProperties: false
@@ -9009,11 +9066,7 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: "Nonsecret durable receipt id for this received reply, bound to endpoint credential, generation and immutable message id/seq. With absent receipt_kind or delivery it names a confirmed journal handoff; with shown it names an exact-session emitted-message observation."
-        receipt_kind:
-          type: string
-          enum: [delivery, shown]
-          description: "Optional evidence source, default delivery. Shown names a committed exact-session observation made only after a full message was successfully emitted by a read command."
+          description: Nonsecret journal handoff confirmed by the selected runtime for this received reply; bound to endpoint credential, generation and message id/seq.
         generation:
           type: "integer"
           minimum: 1
@@ -9026,7 +9079,6 @@ components:
           $ref: "#/components/schemas/Seq"
       description: |
         Evidence names actual immutable messages on this board. The server verifies sender, exact direct recipient, reply linkage, per-generation correlation and authenticated reporting endpoint. The trusted runtime vouches for this ping being sent by its exact selected session and this reply having a confirmed delivery handoff there; merely finding both sequences in history is not evidence. Both directions must verify under one current generation; no caller-provided ready flag is accepted.
-        An additive receipt_kind of shown permits an explicit full-message read confirmed through the trusted runtime's shown protocol. The handoff_id then identifies that durable observation, fenced by canonical issuer, immutable board/member/message ids, exact session, boot and binding generation. A read cursor, preview, browser read, failed stdout emission or model-provided success claim is never evidence. Current endpoint credentials and all normal authority checks remain required; acknowledgement cannot erase valid evidence before verification.
     OnboardingReceipt:
       type: "object"
       additionalProperties: false

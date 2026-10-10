@@ -286,16 +286,12 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 				if err != nil {
 					return err
 				}
-				out, err := a.inboxSeatsHeld(ctx, seats, creds, *limit, !*peek, *wait)
+				out, err := a.inboxSeats(ctx, seats, creds, *limit, !*peek, *wait)
 				if err != nil {
 					return err
 				}
-				defer out.done()
-				err = a.emitChecked(out, inboxSeatsText(out))
-				if err == nil {
-					out.report(ctx)
-				}
-				return err
+				a.emit(out, inboxSeatsText(out))
+				return nil
 			}
 		}
 	}
@@ -313,8 +309,6 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 
 	ref := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name, MemberID: cred.MemberID}
 	deadline := time.Now().Add(time.Duration(*wait) * time.Second)
-	var observed *shownRead
-	defer func() { observed.done() }()
 	var (
 		in    *api.Inbox
 		msgs  []api.Message
@@ -333,9 +327,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 				return apiError(r.StatusCode(), r.Body)
 			}
 		}
-		observed.done()
-		observed = nil
-		if in, msgs, acked, err = a.readInboxObserved(ctx, c, ref, *limit, !*peek, !*peek, &observed); err != nil {
+		if in, msgs, acked, err = a.readInbox(ctx, c, ref, *limit, !*peek, !*peek); err != nil {
 			return err
 		}
 		// A message a session here already received isn't shown again. When that was
@@ -369,7 +361,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		_, added = a.sessionAdded(ctx, key)
 		text += addedText(added)
 	}
-	err = a.emitChecked(struct {
+	a.emit(struct {
 		Board     string               `json:"board"`
 		Agent     string               `json:"agent"`
 		Messages  []cliMessage         `json:"messages"`
@@ -381,10 +373,7 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		Work      *api.AgentWork       `json:"work,omitempty"`
 		Nudges    []deliverytext.Nudge `json:"nudges"`
 	}{in.Board, in.Agent, cliMessages(msgs), acked, in.More, wrapped, bundle, added, in.Work, nudges}, text)
-	if err == nil {
-		observed.report(ctx, msgs)
-	}
-	return err
+	return nil
 }
 
 // readInbox reads the agent's unread messages, leaving out those a session on this
@@ -394,16 +383,8 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 // knowing. With confirm, a command run in the agent's own session confirms what was
 // handed to it.
 func (a *app) readInbox(ctx context.Context, c *client, ref delivery.AgentRef, limit int, ack, confirm bool) (*api.Inbox, []api.Message, *int, error) {
-	return a.readInboxObserved(ctx, c, ref, limit, ack, confirm, nil)
-}
-
-func (a *app) readInboxObserved(ctx context.Context, c *client, ref delivery.AgentRef, limit int, ack, confirm bool, observed **shownRead) (*api.Inbox, []api.Message, *int, error) {
 	rd := a.startInboxRead(ctx, ref, confirm)
-	defer func() {
-		if observed == nil || *observed == nil {
-			rd.done()
-		}
-	}()
+	defer rd.done()
 	params := &api.GetInboxParams{}
 	if limit > 0 {
 		params.Limit = &limit
@@ -416,9 +397,6 @@ func (a *app) readInboxObserved(ctx context.Context, c *client, ref delivery.Age
 		return nil, nil, nil, apiError(r.StatusCode(), r.Body)
 	}
 	in := r.JSON200
-	if ack && observed != nil {
-		*observed = a.inboxShown(ref, in, rd)
-	}
 	msgs := rd.unread(in.Messages)
 	if !ack || len(in.Messages) == 0 {
 		return in, msgs, nil, nil

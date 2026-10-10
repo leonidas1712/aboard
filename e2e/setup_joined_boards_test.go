@@ -32,7 +32,16 @@ func TestSetupJoinsAllRedeemedBoardsAndReusesItsSeats(t *testing.T) {
 	if ids[first] == "" || ids[second] == "" {
 		t.Fatalf("wrong setup boards: %v", seats)
 	}
+	tokens := map[string]string{}
+	for _, cred := range credentialsOf(t, person) {
+		tokens[cred["member_id"].(string)] = cred["token"].(string)
+	}
 	session.run("setup", "--continue", "--json")
+	for _, cred := range credentialsOf(t, person) {
+		if tokens[cred["member_id"].(string)] != cred["token"] {
+			t.Fatal("setup continuation rotated a current session seat token")
+		}
+	}
 	repeated := session.run("status", "--json").json(t)
 	for _, row := range repeated["seats"].([]any) {
 		seat := row.(map[string]any)

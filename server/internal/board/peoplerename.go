@@ -20,7 +20,7 @@ func renameAuthority(tx ReadTx, p Principal, targetID, now string) error {
 	if err != nil {
 		return err
 	}
-	if me.ID != targetID && me.Role != ServerAdmin {
+	if me.ID != targetID && (me.Role != ServerAdmin || p.Agent != nil || p.Browser) {
 		return apierr.New(http.StatusForbidden, "server_admin_required", "Only this person or a server admin can rename them.", "Ask the person or a server admin to run aboard people rename.")
 	}
 	return nil
@@ -28,7 +28,7 @@ func renameAuthority(tx ReadTx, p Principal, targetID, now string) error {
 
 // RenamePerson changes only handle projections; permanent ids and credentials stay.
 func (s *Service) RenamePerson(ctx context.Context, p Principal, handle, name string) (RoleChange, error) {
-	if err := adminKey(p, "rename a person", "aboard people rename @"+handle+" "+name); err != nil {
+	if err := renameCredential(p); err != nil {
 		return RoleChange{}, err
 	}
 	if !validName(name) {
@@ -43,7 +43,16 @@ func (s *Service) RenamePerson(ctx context.Context, p Principal, handle, name st
 		if err != nil {
 			return err
 		}
-		if me.Name != handle && me.Role != ServerAdmin {
+		if p.Agent != nil {
+			b, _, err := seatOf(tx, *p.Agent)
+			if err != nil {
+				return err
+			}
+			if err := requireActive(b); err != nil {
+				return err
+			}
+		}
+		if me.Name != handle && (me.Role != ServerAdmin || p.Agent != nil || p.Browser) {
 			err := renameAuthority(tx, p, "", stamp(now))
 			return err
 		}
@@ -70,7 +79,10 @@ func (s *Service) RenamePerson(ctx context.Context, p Principal, handle, name st
 		}
 		out.Person.Name, out.Changed = name, true
 		actor := events.Actor{Kind: "human", Name: ptr(me.Name)}
-		if me.ID == target.ID {
+		if p.Agent != nil {
+			actor = events.Actor{Kind: "agent", Name: ptr(p.Agent.Name), MemberID: ptr(p.Agent.ID)}
+		}
+		if me.ID == target.ID && p.Agent == nil {
 			actor.Name = ptr(name)
 		}
 		for _, b := range boards {
@@ -80,6 +92,8 @@ func (s *Service) RenamePerson(ctx context.Context, p Principal, handle, name st
 			}
 			by, err := tx.HumanMember(b.ID, me.ID)
 			switch {
+			case p.Agent != nil:
+				// The authenticated agent remains the actor across person projections.
 			case err == nil:
 				actor.MemberID = ptr(by.ID)
 			case errors.Is(err, ErrNotFound):
@@ -105,10 +119,19 @@ func (s *Service) RenamePerson(ctx context.Context, p Principal, handle, name st
 
 // CheckRenameReplay rechecks the current credential and authority using permanent ids.
 func (s *Service) CheckRenameReplay(ctx context.Context, p Principal, id string) error {
-	if err := adminKey(p, "rename a person", "aboard people rename"); err != nil {
+	if err := renameCredential(p); err != nil {
 		return err
 	}
 	return s.st.Read(ctx, func(tx ReadTx) error {
+		if p.Agent != nil {
+			b, _, err := seatOf(tx, *p.Agent)
+			if err != nil {
+				return err
+			}
+			if err := requireActive(b); err != nil {
+				return err
+			}
+		}
 		if err := renameAuthority(tx, p, id, stamp(s.clk.Now())); err != nil {
 			return err
 		}
@@ -123,4 +146,11 @@ func (s *Service) CheckRenameReplay(ctx context.Context, p Principal, id string)
 		}
 		return nil
 	})
+}
+
+func renameCredential(p Principal) error {
+	if p.Delegation != nil || p.Pairing != nil || (p.Agent == nil && p.Human == nil) {
+		return apierr.New(http.StatusForbidden, "human_token_required", "Use your own person or active agent credential to rename yourself.", "Run aboard people rename with your current handle.")
+	}
+	return nil
 }

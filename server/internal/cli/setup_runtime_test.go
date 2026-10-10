@@ -28,22 +28,28 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 			}
 			a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
 			var reads atomic.Int32
+			var currentBoot atomic.Pointer[string]
+			initialBoot := "current-boot"
+			currentBoot.Store(&initialBoot)
+			var expectedBoot atomic.Pointer[string]
+			initialCallerBoot := e.env["ABOARD_BOOT"]
+			expectedBoot.Store(&initialCallerBoot)
 			fakeDaemonAnswering(t, a, func(req delivery.Request) delivery.Response {
-				if req.Op != delivery.OpAgents || req.Harness != "claude-code" || req.Session != "setup-current" || req.Boot != e.env["ABOARD_BOOT"] {
+				if req.Op != delivery.OpAgents || req.Harness != "claude-code" || req.Session != "setup-current" || req.Boot != *expectedBoot.Load() {
 					t.Errorf("setup runtime read selected a different session: %+v", req)
 				}
 				reads.Add(1)
-				raw := `{"v":1,"boot":"current-boot"}`
+				raw := `{"v":1,"boot":"` + *currentBoot.Load() + `"}`
 				switch ready {
 				case "read-failed":
 					return delivery.Response{V: delivery.ProtocolVersion, Error: &delivery.WireError{Code: "session_not_registered", Message: "No actual current runtime.", Hint: "Restart the harness."}}
 				case "empty-boot":
-					raw = `{"v":1,"boot":"current-boot","runtime_ready":true}`
+					raw = `{"v":1,"boot":"` + *currentBoot.Load() + `","runtime_ready":true}`
 				case "old-boot":
 					raw = `{"v":1,"boot":"old-boot","runtime_ready":true}`
 				case "absent":
 				default:
-					raw = `{"v":1,"boot":"current-boot","runtime_ready":` + ready + `}`
+					raw = `{"v":1,"boot":"` + *currentBoot.Load() + `","runtime_ready":` + ready + `}`
 				}
 				var resp delivery.Response
 				if err := json.Unmarshal([]byte(raw), &resp); err != nil {
@@ -56,6 +62,14 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 			first, err := a.setupHarness(context.Background(), exe)
 			if err != nil || first == nil || !strings.Contains(first.Resume, "/hooks") {
 				t.Fatalf("new hooks lost their trust action: next=%v err=%v", first, err)
+			}
+			if ready == "true" || ready == "empty-boot" {
+				restartedBoot := "restarted-boot"
+				currentBoot.Store(&restartedBoot)
+				if ready != "empty-boot" {
+					e.env["ABOARD_BOOT"] = *currentBoot.Load()
+					expectedBoot.Store(&restartedBoot)
+				}
 			}
 			next, err := a.setupHarness(context.Background(), exe)
 			if err != nil {
@@ -80,13 +94,15 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 	}
 }
 
-func TestSetupDeliveryEvidenceDoesNotReplaceHarnessConfirmation(t *testing.T) {
+func TestSetupKeepsPendingHarnessAction(t *testing.T) {
 	e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
 	e.env["ABOARD_SESSION"] = "claude-code:setup-current"
 	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
+	var accepts atomic.Int32
 	fakeDaemonAnswering(t, a, func(req delivery.Request) delivery.Response {
 		resp := delivery.Response{V: delivery.ProtocolVersion}
 		if req.Op == delivery.OpPairing {
+			accepts.Add(1)
 			resp.Server = "https://issuer.example"
 			resp.PairingBoard = "work"
 			resp.Pairing = &delivery.PairingRequest{
@@ -103,7 +119,7 @@ func TestSetupDeliveryEvidenceDoesNotReplaceHarnessConfirmation(t *testing.T) {
 	if err := a.continueSetupPairing(context.Background(), &out, "prq_original"); err != nil {
 		t.Fatal(err)
 	}
-	if out.Steps[5].State != "complete" || out.Steps[3].State != "pending" || out.State != "pending" || !strings.Contains(out.Next.Resume, "/hooks") {
-		t.Fatalf("a session exchange invented hook trust: %+v", out)
+	if accepts.Load() != 0 || out.Steps[5].State != "pending" || out.Steps[3].State != "pending" || out.State != "pending" || !strings.Contains(out.Next.Resume, "/hooks") {
+		t.Fatalf("setup selected an endpoint before the required restart: accepts=%d result=%+v", accepts.Load(), out)
 	}
 }

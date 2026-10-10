@@ -24,7 +24,3 @@ func PublishQueueIntent(ctx context.Context, j QueueReportJournal, srv QueueRepo
 func PairingConfirmedRows(ctx context.Context, j Journal, key SessionKey, agent AgentRef) ([]Delivery, error) {
 	return confirmedPairingDeliveries(ctx, j, key, agent)
 }
-
-func PairingShownRows(ctx context.Context, j Journal, key SessionKey, agent AgentRef, boardID string) ([]ShownRecord, error) {
-	return pairingShownMessages(ctx, j, key, agent, boardID)
-}

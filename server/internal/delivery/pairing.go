@@ -59,11 +59,6 @@ type PairingRuntime interface {
 	Progress(context.Context, PairingRequest, AgentRef, string, []Delivery) (PairingRequest, error)
 }
 
-// ShownPairingRuntime verifies emitted-message receipts with private endpoint authority.
-type ShownPairingRuntime interface {
-	ProgressShown(context.Context, PairingRequest, AgentRef, string, []ShownRecord) (PairingRequest, error)
-}
-
 func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 	if req.Harness == "" || req.Session == "" {
 		return errorResponse("agent_session_required", "Pairing needs the exact live harness session.", "Run aboard pairing inside the session that should participate.")
@@ -369,17 +364,6 @@ func (d *Daemon) watchPairing(ctx context.Context, key SessionKey, runtime Pairi
 					return nil
 				}
 				fresh, err = runtime.Progress(ctx, fresh, agent, binding, rows)
-				if shownRuntime, ok := runtime.(ShownPairingRuntime); err == nil && ok && fresh.State == "verifying" {
-					observations, e := pairingShownMessages(ctx, d.cfg.Journal, key, agent, fresh.BoardID)
-					if e != nil {
-						return nil
-					}
-					nowBinding, e := d.pairingBinding(ctx, key, agent)
-					if e != nil || nowBinding != binding {
-						return nil
-					}
-					fresh, err = shownRuntime.ProgressShown(ctx, fresh, agent, binding, observations)
-				}
 				if err == nil && (fresh.State == "ready" || fresh.State == "declined" || fresh.State == "cancelled" || fresh.State == "expired") {
 					return nil
 				}
@@ -483,50 +467,4 @@ func (d *Daemon) pairingBoard(ctx context.Context, server, id string) string {
 		}
 	}
 	return ""
-}
-
-// pairingShownMessages fences durable observations against the current open binding.
-func pairingShownMessages(ctx context.Context, j Journal, key SessionKey, agent AgentRef, boardID string) ([]ShownRecord, error) {
-	shown, ok := j.(ShownJournal)
-	if !ok {
-		return nil, nil
-	}
-	sessions, err := j.Sessions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var boot string
-	for _, session := range sessions {
-		if session.Key == key && session.Open {
-			boot = session.Boot
-		}
-	}
-	if boot == "" {
-		return nil, nil
-	}
-	bindings, err := j.Bindings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var generation uint64
-	for _, binding := range bindings {
-		if binding.Session == key && binding.Agent.Key() == agent.Key() {
-			generation = binding.Generation
-		}
-	}
-	if generation == 0 {
-		return nil, nil
-	}
-	records, err := shown.ShownMessages(ctx, key, boot)
-	if err != nil {
-		return nil, err
-	}
-	out := []ShownRecord{}
-	for _, row := range records {
-		if row.Session == key && row.Boot == boot && row.Agent.Key() == agent.Key() && row.Generation == generation && row.Message.BoardID == boardID && row.Message.MemberID == agent.MemberID && row.Message.MessageID != "" && row.Message.Seq > 0 {
-			row.Agent = agent
-			out = append(out, row)
-		}
-	}
-	return out, nil
 }

@@ -1016,6 +1016,22 @@ $defs:
       suggested_handle: { type: string, maxLength: 40 }
       prompt: { type: string, description: Ready-to-send colleague setup prompt, shown only on issuance. }
 
+  ServerInviteEditOutput:
+    description: |
+      aboard invite edit ID --handle HANDLE [--server SERVER] changes only the
+      outstanding invite's suggested account handle. Empty HANDLE clears it.
+      The inviter or an active agent of that person uses its own issuer credential;
+      agents never use the person's login. Another person's id is invite_not_found.
+      Used, revoked, expired or unauthorized invitations are invite_unavailable.
+      The edit never changes frozen approval authority, boards or privileges.
+      Exit 0 on success, 1 for an API refusal, 2 for invalid command arguments.
+    type: object
+    required: [server, invite]
+    properties:
+      board: { type: string, description: Selected agent seat board; omitted for a person command. }
+      server: { $ref: "#/$defs/ServerRef" }
+      invite: { $ref: "openapi.yaml#/components/schemas/ServerInviteMetadata" }
+
   ServerInvitesOutput:
     description: |
       `aboard invite list` uses an active non-guest agent's seat on the selected issuer
@@ -4029,10 +4045,11 @@ $defs:
 
   # ---------- aboard people rename @old new [--server URL] ----------
   PeopleRenameOutput:
-    description: A person renames themselves, or an admin renames a person, with their own key. Agent contexts refuse before reading any human key. Retired handles stay reserved to the same permanent person id.
+    description: A person renames themselves, or an admin renames a person, with their own key. An active agent may rename only its token-derived person, using the exact issuer-bound seat token. No agent path reads or sends a human key. Retired handles stay reserved to the same permanent person id.
     type: object
     required: [server, person, changed]
     properties:
+      board: { type: string, description: Selected agent seat board; omitted for a person command. }
       server: { $ref: "#/$defs/ServerRef" }
       person: { $ref: openapi.yaml#/components/schemas/Person }
       changed: { type: boolean }
@@ -4275,12 +4292,16 @@ $defs:
       remain compatible for existing clients; everyday text calls the pairing
       step joining and hides protocol ids. The returned next is a filled-in setup
       continuation, except a still-pending harness action takes precedence.
-      Joining and a hello in the record are not delivery proof. The delivery step
-      completes only after linked replies both ways between the selected exact
-      endpoints under their current generation. An offline or absent inviting
-      runtime leaves that step pending with an honest next; never choose another
-      session from activity. An invite with no boards performs account/harness
-      setup without inventing a board or a verified exchange.
+      Setup's delivery check is a simple hello and reply on an invited board.
+      Messages get through when any current agent of the inviting person answers
+      the new session's hello on that board, or the new session receives a board
+      message through its delivery path. This check grants no permission and does
+      not require selecting pairing endpoints, linked generation-bound replies,
+      explicit-read receipts or a restart fence. Existing pairing API and commands
+      remain available, but everyday setup does not wait for their proof.
+      Without a reply, setup succeeds with delivery pending and says waiting for
+      a reply from the inviting person's agents. An invite with no boards performs
+      account/harness setup without inventing a board or a verified exchange.
       --handle is the visible person name; --name names the machine's key.
       Before asking for a new account's missing handle, save the invite in durable
       mode-0600 local state bound to its canonical issuer and invite identity. No
@@ -4313,25 +4334,15 @@ $defs:
       installed, account, memberships, harness, pairing, delivery. Trust/restart
       waits have precise harness actions and the words Continue Aboard setup.
       A pending harness action takes precedence over pairing next until confirmed.
-      A current-boot hook observed by the trusted daemon or a live current-session
-      extension confirms the harness step after trust and restart. Installed files,
-      a standalone CLI registration or synthetic queue boot do not. An old daemon
-      omitting runtime_ready remains unconfirmed. Runtime confirmation alone never
-      marks the delivery step complete.
-      Runtime confirmation applies only when the installed hook or extension entries
-      are unchanged by this setup attempt. Changed runtime entries still require
-      trust and restart. A skill-only change may request aboard skill without
-      repeating an already confirmed hook trust action.
-      Changed runtime entries retain a private machine-local restart fence for that
-      harness across setup attempts. Seeing unchanged files on a later attempt does
-      not clear it; a fresh confirmed different boot is required. Another saved setup
-      cannot bypass the fence. Reusing an already-bound current-session seat must not
-      rotate its binding merely to continue setup or invalidate completed verification.
-      Reuse is checked through readonly current-session seats and their issuer-bound
-      seat credentials: current /v1/me and immutable board identity must match.
-      Missing seats still use the delegated immutable-id membership-checked join.
-      When no original runtime boot could be observed, a subsequent actual confirmed
-      current runtime may clear the fence; installed files alone never can.
+      Setup joins accessible invited boards while harness trust or restart is pending.
+      A current-session hook observed by the trusted daemon or a live current-session
+      extension confirms the harness step. Installed files and a standalone CLI
+      registration do not. Changed runtime entries require trust and restart;
+      a skill-only change may request aboard skill without repeating hook trust.
+      Runtime confirmation alone never marks the delivery step complete.
+      Reuse of an already-bound seat is readonly and retains its binding. Its
+      issuer-bound credential must match current /v1/me and immutable board identity.
+      Missing seats use the delegated immutable-id membership-checked join.
       After account authorization, setup persists the canonical invite issuer as the
       default only if the machine has none; an existing default is preserved.
       A new account message says it was created, not authorized for a pairing.

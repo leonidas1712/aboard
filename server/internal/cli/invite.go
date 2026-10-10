@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"slices"
@@ -25,6 +26,9 @@ const invitePrompt = "You have the Aboard skill. Join with this line, read the c
 // use the selected seat and the admission request path; board and guest codes remain
 // person-only.
 func runInvite(ctx context.Context, a *app, args []string) error {
+	if len(args) > 0 && args[0] == "edit" {
+		return runInviteEdit(ctx, a, args[1:])
+	}
 	if len(args) > 0 && (args[0] == "list" || args[0] == "revoke") {
 		return runInviteManagement(ctx, a, args[0], args[1:])
 	}
@@ -480,5 +484,46 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 		return apiError(r.StatusCode(), r.Body)
 	}
 	a.emit(map[string]any{"server": srv, "id": r.JSON200.Id, "revoked": r.JSON200.Revoked, "changed": r.JSON200.Changed}, "Revoked invitation "+r.JSON200.Id+" on "+srv.URL+".\n")
+	return nil
+}
+
+func runInviteEdit(ctx context.Context, a *app, args []string) error {
+	fs := a.flags("invite")
+	server := fs.String("server", "", "the invitation issuer")
+	boardFlag := fs.String("board", "", "select this board seat")
+	as := fs.String("as", "", "select this agent")
+	handle := fs.String("handle", "", "suggested person handle; empty clears it")
+	pos, err := a.parse(fs, args, inviteUsage, 1, 1)
+	if err != nil {
+		return err
+	}
+	supplied := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "handle" {
+			supplied = true
+		}
+	})
+	if !supplied {
+		return usageError("invite edit requires --handle.", inviteUsage)
+	}
+	a.agentServerFlag = *server
+	srv, selectedBoard, c, err := a.admissionClient(ctx, *server, *boardFlag, *as)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := a.requestContext(ctx)
+	defer cancel()
+	r, err := c.api.EditServerInviteWithResponse(ctx, pos[0], nil, api.EditServerInvite{SuggestedHandle: handleArg(*handle)})
+	if err != nil {
+		return c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return apiError(r.StatusCode(), r.Body)
+	}
+	out := map[string]any{"server": srv, "invite": r.JSON200}
+	if selectedBoard != "" {
+		out["board"] = selectedBoard
+	}
+	a.emit(out, "Updated suggested handle for invitation "+pos[0]+" on "+srv.URL+".\n")
 	return nil
 }
