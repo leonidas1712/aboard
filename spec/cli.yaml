@@ -4327,6 +4327,11 @@ $defs:
       not clear it; a fresh confirmed different boot is required. Another saved setup
       cannot bypass the fence. Reusing an already-bound current-session seat must not
       rotate its binding merely to continue setup or invalidate completed verification.
+      Reuse is checked through readonly current-session seats and their issuer-bound
+      seat credentials: current /v1/me and immutable board identity must match.
+      Missing seats still use the delegated immutable-id membership-checked join.
+      When no original runtime boot could be observed, a subsequent actual confirmed
+      current runtime may clear the fence; installed files alone never can.
       After account authorization, setup persists the canonical invite issuer as the
       default only if the machine has none; an existing default is preserved.
       A new account message says it was created, not authorized for a pairing.
