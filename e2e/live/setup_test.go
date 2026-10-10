@@ -70,7 +70,13 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 		writer.waitIdle(2 * time.Minute)
 		newcomer := newLab(t)
 		d.setUp(newcomer)
-		reviewerDir := newcomer.project("setup-newcomer", d.p.Harness)
+		// Start with the global hooks setup will maintain already loaded. Installing
+		// another scope after startup correctly requires a harness restart instead.
+		newcomer.run("init", "--yes", "--scope", "global", "--harness", d.p.Harness, "--allow-commands")
+		reviewerDir := filepath.Join(newcomer.dir, "setup-newcomer")
+		if err := os.MkdirAll(reviewerDir, 0o750); err != nil {
+			t.Fatal(err)
+		}
 		reviewer := d.start(newcomer, "reviewer", reviewerDir)
 		resultPath := filepath.Join(reviewerDir, "setup.json")
 		waitingPath := filepath.Join(reviewerDir, "waiting.json")
