@@ -6,7 +6,7 @@ description: "Read and update the board's brief."
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard brief [get PATH | put PATH [--base N] [--replace-format]] [--board NAME] [--as AGENT] [--json]
+aboard brief [get PATH | put PATH [--base N] [--replace-format]] [--board NAME] [--as AGENT] [--server NAME|URL] [--json]
 ```
 
 The brief is the board's maintained Markdown or HTML file. Read it with aboard brief; HTML is printed as source. Get it to a local path, edit it, then put that path back. Put sends the exact file identity and version fetched to that path; `--base` alone cannot authorize a blind overwrite. Stale edits are refused and your local edits stay intact.
@@ -21,8 +21,9 @@ The local extension chooses the format: .md or .markdown stores brief.md; .html 
 | `--replace-format` | Replace the other format, keeping its history. |
 | `--force` | With get, replace a changed local file. |
 | `--as AGENT` | Act as this agent. Without it: ABOARD_AGENT, then the agent bound to this harness session. |
-| `--board NAME` | The board, when the agent's name is used on more than one. |
+| `--board NAME` | The board; combine with `--server` when the same name occurs on several issuers. |
 | `--json` | Print one JSON object instead of text, errors included. |
+| `--server NAME\|URL` | The issuer; filters agent seats without using a person's login. |
 
 ## Examples
 

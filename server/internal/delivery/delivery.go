@@ -337,6 +337,7 @@ type HandoffManifest struct {
 	RenderVersion int
 	PrefixHash    string
 	MultiSeat     bool
+	MultiIssuer   bool
 	ID            string
 	Session       SessionKey
 	Boot          string

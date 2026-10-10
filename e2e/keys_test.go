@@ -355,6 +355,7 @@ func TestSwarmSaysWhenTheKeyItsSeatsCameFromEnds(t *testing.T) {
 	s := newSwarmEnv(t)
 	s.writeBoardFile("board: keyed\nagents:\n  - {name: worker, harness: claude-code, launcher: headless}\n")
 	s.run("swarm", "up", "--json")
+	s.run("servers", "use", "local")
 	if ag := agentsByName(t, s.run("swarm", "ps", "--json").json(t))["worker"]; ag["seat_credential"] != "works" {
 		t.Fatalf("the worker's seat after swarm up: %v", ag)
 	}
@@ -407,9 +408,9 @@ func TestSwarmSaysWhenTheKeyItsSeatsCameFromEnds(t *testing.T) {
 }
 
 // aboard login checks where a key would go before it reads or sends one, wherever the
-// server came from: a project's .aboard naming a server over plain http, or an address
-// that isn't a server's, is refused without a request.
-func TestLoginRefusesAnUnsafeServerFromTheProject(t *testing.T) {
+// server address is explicit: plain HTTP outside loopback and malformed
+// server addresses are refused before saving or sending the key.
+func TestLoginRefusesAnUnsafeExplicitServer(t *testing.T) {
 	t.Parallel()
 	home := newPersonHome(t, "maya")
 	for url, code := range map[string]string{
@@ -419,13 +420,9 @@ func TestLoginRefusesAnUnsafeServerFromTheProject(t *testing.T) {
 		"ftp://team.example.com":       "invalid_request",
 		"https://team.example.com?a=b": "invalid_request",
 	} {
-		project := `{"server":{"name":"` + url + `","url":"` + url + `"},"board":"none"}`
-		if err := os.WriteFile(filepath.Join(home.dir, ".aboard"), []byte(project), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		r := home.exec(nil, "abh_"+strings.Repeat("A", 43)+"\n", "login", "--json")
+		r := home.exec(nil, "abh_"+strings.Repeat("A", 43)+"\n", "login", url, "--json")
 		if r.code != 1 || errorCode(t, r.json(t)) != code {
-			t.Fatalf("login with .aboard naming %s:\n%s", url, r)
+			t.Fatalf("login with explicit server %s:\n%s", url, r)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(home.configDir(), "servers.json")); err == nil {

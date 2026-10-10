@@ -60,7 +60,7 @@ func runMidturnDelivery(ctx context.Context, a *app, args []string) error {
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	case *as != "":
 		if *serverFlag != "" {
-			t, err = a.selectBoard(*boardFlag)
+			t, err = a.humanBoard(ctx, *boardFlag)
 			if err != nil {
 				return err
 			}

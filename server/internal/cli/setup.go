@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,7 @@ type setupOutput struct {
 	Person         *api.Person         `json:"person,omitempty"`
 	Next           *api.NextStep       `json:"next,omitempty"`
 	PairingRequest *api.PairingRequest `json:"pairing_request,omitempty"`
+	skillInstalled bool
 }
 
 func newSetupOutput(srv serverRef) setupOutput {
@@ -49,9 +51,23 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 	handle := flags.String("handle", "", "your visible name on this server")
 	name := flags.String("name", "", "this machine's name")
 	server := flags.String("server", "", "the issuer of a pairing request")
-	pos, err := a.parse(flags, args, use, 1, 1)
+	continueFlag := flags.Bool("continue", false, "resume the saved invitation without repeating its secret")
+	pos, err := a.parse(flags, args, use, 0, 1)
 	if err != nil {
 		return err
+	}
+	if *continueFlag {
+		selector := ""
+		if len(pos) == 1 {
+			selector = pos[0]
+		}
+		srv, invite, err := a.continuedSetup(selector, *server)
+		if err != nil {
+			return err
+		}
+		pos = []string{srv.URL + "/join#" + invite}
+	} else if len(pos) != 1 {
+		return usageError("Paste an invite link or pairing request id, or use --continue for a saved setup.", use)
 	}
 	if !isInviteLink(pos[0]) {
 		if !strings.HasPrefix(pos[0], "prq_") {
@@ -73,6 +89,7 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		if err != nil {
 			return err
 		}
+		out.skillInstalled = out.Next != nil && strings.Contains(out.Next.Resume, "Read the aboard skill now")
 		out.Steps[3].Message = "Harness configuration still needs runtime confirmation."
 		if err := a.continueSetupPairing(ctx, &out, pos[0]); err != nil {
 			return err
@@ -95,9 +112,22 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 	if err := a.prepareServerName(&srv, ""); err != nil {
 		return err
 	}
+	if err := a.stageSetupInvite(srv, invite); err != nil {
+		return err
+	}
 	h := strings.TrimSpace(*handle)
 	if h == "" {
-		h = rules.NormalizeName(a.env.Getenv("USER"))
+		path, err := a.setupPendingPath(srv, invite)
+		if err != nil {
+			return err
+		}
+		pending, err := readSetupPending(path)
+		if err != nil {
+			return err
+		}
+		if pending != nil {
+			h = pending.Handle
+		}
 	}
 	machine := *name
 	if machine == "" {
@@ -109,6 +139,15 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	if !ok {
+		return emitSetup(a, out)
+	}
+	if h == "" {
+		suggested := rules.NormalizeName(a.env.Getenv("USER"))
+		if suggested == "" {
+			suggested = "teammate"
+		}
+		out.Steps[1].Message = "Your visible name needs your person's choice; the invite has not been used."
+		out.Next = &api.NextStep{Command: a.setupContinueCommand(srv, invite) + " --handle " + commandWord(suggested), Resume: "Ask your person what name they'd like teammates to see. Suggested name: " + suggested + " (availability is checked when you continue). Set --handle to their chosen name, then Continue Aboard setup."}
 		return emitSetup(a, out)
 	}
 	pending, err := a.redeemSetup(ctx, srv, invite, h, machine, nil)
@@ -147,6 +186,7 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 	out.Steps[4].Message = "This invite has no accessible pairing request."
 	out.Steps[5].Message = "Delivery has not been verified by a session round trip."
 	out.Next = next
+	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Read the aboard skill now")
 	if pending.Receipt.PairingRequestId != nil {
 		if err := a.continueSetupPairing(ctx, &out, *pending.Receipt.PairingRequestId); err != nil {
 			return err
@@ -160,6 +200,11 @@ func setupRecoveryNext(srv serverRef) *api.NextStep {
 }
 
 func emitSetup(a *app, out setupOutput) error {
+	if out.skillInstalled && out.Next != nil && !strings.Contains(out.Next.Resume, "Read the aboard skill now") {
+		next := *out.Next
+		next.Resume = "Read the aboard skill now; it loads automatically in your next session. " + next.Resume
+		out.Next = &next
+	}
 	var text strings.Builder
 	fmt.Fprintf(&text, "Setup on %s: %s\n", out.Server.URL, out.State)
 	for _, step := range out.Steps {
@@ -190,7 +235,7 @@ func (a *app) redeemSetup(ctx context.Context, srv serverRef, invite, handle, na
 	if err != nil {
 		return nil, err
 	}
-	if pending == nil {
+	if pending == nil || pending.Token == "" {
 		// An invite never chooses an account already logged in on this machine.
 		logins, err := a.readServerLogins()
 		if err != nil {
@@ -229,6 +274,14 @@ func (a *app) redeemSetup(ctx context.Context, srv serverRef, invite, handle, na
 			err := apiError(response.StatusCode(), response.Body)
 			if response.StatusCode() >= 400 && response.StatusCode() < 500 {
 				refusal := asError(err)
+				if response.StatusCode() == http.StatusConflict && refusal.Code == "handle_taken" {
+					// This first response proves no account was created; retain the invite
+					// for another chosen name, never reset an uncertain attempted proof.
+					if err := saveSetupPending(path, &setupPending{Server: srv.URL, Invite: invite}); err != nil {
+						return nil, err
+					}
+					refusal.Next = &api.NextStep{Command: a.setupContinueCommand(srv, invite) + " --handle NAME", Resume: "Ask your person for another visible name; the invite is still unspent. Continue Aboard setup with their choice."}
+				}
 				if refusal.Next == nil {
 					refusal.Next = &api.NextStep{Command: "aboard help setup", Resume: "Ask the inviter to resolve this refusal or send a new invite, then run setup with that invite. Keep the saved proof for the refused request."}
 				}
@@ -349,7 +402,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if key.Harness == "codex" {
 		trust = "Approve Aboard's project hooks in Codex, then restart Codex."
 	}
-	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: trust + " Continue Aboard setup."}, nil
+	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: "Read the aboard skill now; it loads automatically in your next session. " + trust + " Continue Aboard setup."}, nil
 }
 
 func (a *app) setupInstalled(out *setupOutput) (exe string, installed bool, err error) {

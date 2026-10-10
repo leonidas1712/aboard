@@ -6,7 +6,7 @@ description: "Verify a board's hash-chained record."
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard audit verify [--as AGENT] [--board NAME] [--json]
+aboard audit verify [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
 ```
 
 Reads the board's event log and checks that each event's hash chains to the one before it, so nobody edited the history. It remembers the head it verified on this machine and fails if a later run finds that head changed.
@@ -20,13 +20,14 @@ Exits 0 when the record verifies and 3 when it doesn't.
 | Flag | What it does |
 | --- | --- |
 | `--as AGENT` | Verify as this agent instead of with your own login. |
-| `--board NAME` | The board. Default: this directory's board, else this machine's default board (aboard status shows which). |
+| `--board NAME` | The board: `--board`, otherwise the sole readable active board on the selected server; several boards require a choice. |
 | `--json` | Print one JSON object instead of text, errors included. |
+| `--server NAME\|URL` | The issuer; filters agent seats without using a person's login. |
 
 ## Examples
 
 ```bash
-# Check this directory's board
+# Check the sole readable active board
 aboard audit verify
 ```
 

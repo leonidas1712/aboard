@@ -72,6 +72,26 @@ func actorOf(m Member) events.Actor {
 
 // append seals and stores the next event on b, and advances b's head.
 func (s *Service) append(tx Tx, b *Board, typ string, actor events.Actor, at time.Time, data any) (events.Event, error) {
+	if fields, ok := data.(map[string]any); ok {
+		kind := ""
+		switch typ {
+		case events.PersonAdded:
+			kind = "added"
+			if fields["action_kind"] == "invited" {
+				kind = "invited"
+			}
+		case events.PersonRoleChanged, events.PersonMadeOwner:
+			kind = "role_changed"
+		}
+		if kind != "" {
+			copied := make(map[string]any)
+			for k, v := range fields {
+				copied[k] = v
+			}
+			copied["action_kind"] = kind
+			data = copied
+		}
+	}
 	if s.adminAuthorization != nil {
 		if original, ok := data.(map[string]any); ok {
 			copied := make(map[string]any)

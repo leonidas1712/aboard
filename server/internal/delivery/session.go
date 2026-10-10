@@ -744,7 +744,7 @@ func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
 	}
 	var previous *AgentRef
 	for _, ref := range s.agentRefs() {
-		if ref.Key() != agent.Key() && (!multiSeatEnabled || ref.Board == agent.Board) {
+		if ref.Key() != agent.Key() && (!multiSeatEnabled || ref.Server == agent.Server && ref.Board == agent.Board) {
 			s.unbind(ctx, ref)
 			previous = &ref
 		}
@@ -1938,7 +1938,7 @@ func (s *session) modeNotes() (notes string, told map[AgentRef]Mode) {
 		}
 		if m := s.d.mode(ref); a.told != m {
 			if a.told != "" {
-				lines = append(lines, deliverytext.ModeChanged(ref.Board, string(a.told), string(m)))
+				lines = append(lines, deliverytext.ModeChanged(ref.Board, string(a.told), string(m), s.textContext(ref)))
 			}
 			told[ref] = m
 		}
@@ -1974,7 +1974,7 @@ func (s *session) startNote(reopened, turnEnd bool) (mode Mode, note string) {
 	refs := s.agentRefs()
 	if len(refs) != 1 {
 		if len(refs) == 0 && s.lost != nil {
-			return "", deliverytext.Lost(s.lost.Name, s.lost.Board)
+			return "", deliverytext.Lost(s.lost.Name, s.lost.Board, deliverytext.Context{Server: s.lost.Server, BoardQualified: true})
 		}
 		return "", ""
 	}
@@ -2001,10 +2001,7 @@ func partSeqs(parts []offer) []int {
 func previewTextFor(m Message, renderContext deliverytext.Context) string {
 	cut := m
 	cut.Body, cut.Truncated, cut.ExpectsReply = strings.ToValidUTF8(m.Body[:min(previewLimit, len(m.Body))], ""), true, false
-	command := "aboard inbox"
-	if renderContext.BoardQualified {
-		command += " --board " + m.Board
-	}
+	command := deliverytext.InboxCommand(m.Board, renderContext)
 	return deliverytext.Bundle(m.Board, []Message{cut}, renderContext) +
 		fmt.Sprintf("\nMessage #%d is longer than fits here; all of it waits in your inbox: run %s to read it now.", m.Seq, command)
 }

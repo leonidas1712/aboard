@@ -111,7 +111,7 @@ func TestUnboundInvitePrefersOwnPendingPairing(t *testing.T) {
 	writer.run("join", "--board", board, "--server", tm.url(), "--json")
 	writer.run("pairing", "request", "@maya", "--board", board, "Review the change", "--json")
 	fresh := maya.claudeSession("s-invite-pairing-recipient")
-	r := fresh.runExit("invite", "--server", tm.url(), "--json")
+	r := fresh.runExit("invite", "--person", "--server", tm.url(), "--json")
 	if r.code != 1 || errorCode(t, r.json(t)) != "agent_session_required" {
 		t.Fatalf("unbound invitation did not refuse: %v", r)
 	}

@@ -131,6 +131,8 @@ func TestSwarmSaysWhenItsBoardIsGone(t *testing.T) {
 	s := newSwarmEnv(t)
 	s.writeBoardFile("board: gone\nagents:\n  - {name: worker, harness: claude-code, launcher: headless}\n")
 	s.run("swarm", "up", "--json")
+	s.run("up")
+	s.run("servers", "use", "local")
 	tm := &team{t: t, admin: s.env}
 	kim := tm.person("kim")
 	s.run("board", "add", "@kim", "--board", "gone")
@@ -178,6 +180,8 @@ func TestSwarmSaysWhenItsBoardIsGone(t *testing.T) {
 func TestSwarmUpSaysAHiddenBoardMayHoldItsName(t *testing.T) {
 	t.Parallel()
 	s := newSwarmEnv(t)
+	s.run("up")
+	s.run("servers", "use", "local")
 	tm := &team{t: t, admin: s.env}
 	kim := tm.person("kim")
 	status, v := tm.call("POST", "/v1/boards", tm.key(kim), map[string]any{"name": "secret", "template": "general", "visibility": "private"})

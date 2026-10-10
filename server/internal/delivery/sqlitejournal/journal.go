@@ -234,15 +234,7 @@ func (j *Journal) Bind(ctx context.Context, b delivery.Binding) error {
 func (j *Journal) BindGeneration(ctx context.Context, b delivery.Binding, advance bool) (delivery.Binding, error) {
 	err := j.write(ctx, func(tx *sql.Tx) error {
 		var err error
-		if b.RetainSiblings {
-			var otherServers int
-			if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM bindings WHERE harness = ? AND session_id = ? AND server <> ?`, b.Session.Harness, b.Session.ID, b.Agent.Server).Scan(&otherServers); err != nil {
-				return err
-			}
-			if otherServers != 0 {
-				return errors.New("a session cannot bind seats from another server")
-			}
-		}
+
 		if b.Agent.MemberID != "" {
 			b.Generation, err = bindingGeneration(ctx, tx, b, advance)
 			if err != nil {

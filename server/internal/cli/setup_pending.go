@@ -39,8 +39,7 @@ func (a *app) setupPendingPath(srv serverRef, invite string) (string, error) {
 	if err := privateSetupDir(p.state); err != nil {
 		return "", err
 	}
-	digest := sha256.Sum256([]byte(srv.URL + "\x00" + invite))
-	return filepath.Join(p.state, "onboarding", hex.EncodeToString(digest[:])+".json"), nil
+	return filepath.Join(p.state, "onboarding", setupInviteID(srv, invite)+".json"), nil
 }
 
 func privateSetupDir(dir string) error {
@@ -86,7 +85,7 @@ func lockSetup(path string) (*os.File, error) {
 		return nil, err
 	}
 	st, err := f.Stat()
-	if err == nil && (!st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0) {
+	if err == nil && (!st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 || !setupOwned(st)) {
 		err = errors.New("setup lock is not a private regular file")
 	}
 	if err == nil {
@@ -112,12 +111,26 @@ func readSetupPending(path string) (*setupPending, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 {
+	if !st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 || !setupOwned(st) {
 		return nil, newError("setup_state_unwritable", "The pending account proof is not a private regular file.", "Keep the pending proof unchanged and ask your person to fix its permissions.")
 	}
 	var pending setupPending
-	if err := json.NewDecoder(io.LimitReader(f, 1024*1024)).Decode(&pending); err != nil {
+	decoder := json.NewDecoder(io.LimitReader(f, 1024*1024))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&pending); err != nil {
 		return nil, newError("setup_state_invalid", "The saved setup proof cannot be read.", "Keep this file; ask your person to recover setup without creating another account.")
+	}
+	if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return nil, invalidSetupState()
+	}
+	if err := validateSetupBinding(path, &pending); err != nil {
+		return nil, err
+	}
+	if pending.Token == "" {
+		if pending.Handle != "" || pending.Name != "" || pending.DisplayName != nil || pending.Attempted || pending.Receipt != nil || pending.Connected != nil {
+			return nil, invalidSetupState()
+		}
+		return &pending, nil
 	}
 	raw := strings.TrimPrefix(pending.Token, "abh_")
 	bits, err := base64.RawURLEncoding.Strict().DecodeString(raw)
@@ -173,4 +186,114 @@ func (a *app) createSetupPending(srv serverRef, invite, handle, name string, dis
 		return nil, fmt.Errorf("generate pending setup proof: %w", err)
 	}
 	return &setupPending{Server: srv.URL, Invite: invite, Token: "abh_" + base64.RawURLEncoding.EncodeToString(bits), Handle: handle, Name: name, DisplayName: display}, nil
+}
+
+func setupOwned(st os.FileInfo) bool {
+	owner, ok := st.Sys().(*syscall.Stat_t)
+	return ok && int64(owner.Uid) == int64(os.Getuid())
+}
+
+func invalidSetupState() error {
+	return newError("setup_state_invalid", "The saved setup state is invalid.", "Keep the saved file unchanged; ask your person to recover setup without creating another account or key.")
+}
+
+func setupInviteID(srv serverRef, invite string) string {
+	digest := sha256.Sum256([]byte(srv.URL + "\x00" + invite))
+	return hex.EncodeToString(digest[:])
+}
+
+func validateSetupBinding(path string, pending *setupPending) error {
+	srv, err := parseServerURL(pending.Server)
+	if err != nil || srv.URL != pending.Server || !strings.HasPrefix(pending.Invite, "abi_") || strings.ContainsAny(pending.Invite, " \t\r\n?#") || filepath.Base(path) != setupInviteID(srv, pending.Invite)+".json" {
+		return invalidSetupState()
+	}
+	return nil
+}
+
+func (a *app) stageSetupInvite(srv serverRef, invite string) error {
+	path, err := a.setupPendingPath(srv, invite)
+	if err != nil {
+		return err
+	}
+	pending := &setupPending{Server: srv.URL, Invite: invite}
+	if err := validateSetupBinding(path, pending); err != nil {
+		return err
+	}
+	lock, err := lockSetup(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = lock.Close() }()
+	existing, err := readSetupPending(path)
+	if err != nil || existing != nil {
+		return err
+	}
+	return saveSetupPending(path, pending)
+}
+
+func (a *app) continuedSetup(selector, serverFlag string) (serverRef, string, error) {
+	if selector != "" {
+		bits, err := hex.DecodeString(selector)
+		if err != nil || len(bits) != 32 || hex.EncodeToString(bits) != selector {
+			return serverRef{}, "", invalidSetupState()
+		}
+	}
+	filter := ""
+	if serverFlag != "" {
+		srv, err := a.namedServer(serverFlag)
+		if err != nil {
+			return serverRef{}, "", err
+		}
+		filter = srv.URL
+	}
+	p, err := a.paths()
+	if err != nil {
+		return serverRef{}, "", err
+	}
+	if err := privateSetupDir(p.state); err != nil {
+		return serverRef{}, "", err
+	}
+	dir := filepath.Join(p.state, "onboarding")
+	if err := privateSetupDir(dir); err != nil {
+		return serverRef{}, "", err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return serverRef{}, "", err
+	}
+	var candidates []*setupPending
+	choices := []map[string]string{}
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".json") || selector != "" && entry.Name() != selector+".json" {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		pending, err := readSetupPending(path)
+		if err != nil {
+			return serverRef{}, "", err
+		}
+		if pending == nil || filter != "" && pending.Server != filter {
+			continue
+		}
+		candidates = append(candidates, pending)
+		id := strings.TrimSuffix(entry.Name(), ".json")
+		choices = append(choices, map[string]string{"id": id, "server": pending.Server, "command": "aboard setup --continue " + id + " --handle NAME"})
+	}
+	if len(candidates) == 0 {
+		return serverRef{}, "", newError("setup_not_found", "No saved setup matches this selection.", "Start setup with the original invite link.")
+	}
+	if len(candidates) > 1 {
+		e := newError("setup_ambiguous", "Several saved setups match this selection.", "Choose a saved setup id and run aboard setup --continue ID --handle NAME.")
+		e.Details = map[string]any{"setups": choices}
+		return serverRef{}, "", e
+	}
+	return a.serverRefFor(candidates[0].Server), candidates[0].Invite, nil
+}
+
+func (a *app) setupContinueCommand(srv serverRef, invite string) string {
+	selected, saved, err := a.continuedSetup("", "")
+	if err == nil && selected.URL == srv.URL && saved == invite {
+		return "aboard setup --continue"
+	}
+	return "aboard setup --continue " + setupInviteID(srv, invite)
 }

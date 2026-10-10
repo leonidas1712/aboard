@@ -93,12 +93,12 @@ func TestUpgradeKeepsAServerFromBeforePeople(t *testing.T) {
 		t.Fatalf("reviewer's inbox after the upgrade: %v", msgs)
 	}
 	e.run("say", "--as", "reviewer", "--to", "@writer", "Done.")
-	if r := e.run("audit", "verify"); !strings.HasPrefix(r.stdout, "OK: 8 events on writer-reviewer verified") {
+	if r := e.run("audit", "verify", "--server", "local", "--board", "writer-reviewer"); !strings.HasPrefix(r.stdout, "OK: 8 events on writer-reviewer verified") {
 		t.Fatalf("audit verify after the upgrade:\n%s", r)
 	}
 
 	// The first person is the server's admin, so they can invite people.
-	e.run("invite", "--server")
+	e.run("invite", "--person", "--server", "local")
 
 	backups, err := filepath.Glob(filepath.Join(e.dataDir(), "backups", "aboard-*-schema-10.db"))
 	if err != nil || len(backups) != 1 {

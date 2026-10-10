@@ -59,6 +59,7 @@ func runPairing(ctx context.Context, a *app, args []string) error {
 	if (action == "accept" || action == "select") && (*as != "" || *board != "") {
 		return usageError("Endpoint selection uses this exact session and the request id; do not pass --as or --board.", pairingUsage)
 	}
+	a.agentServerFlag = *server
 	key, inSession, err := a.checkSession(ctx)
 	if err != nil {
 		return err
@@ -128,9 +129,9 @@ func runPairing(ctx context.Context, a *app, args []string) error {
 		if err != nil {
 			return err
 		}
-		seatServer := ""
-		if len(seats) > 0 {
-			seatServer = seats[0].Server
+		seatServer, err := sessionIssuer(seats, *server)
+		if err != nil {
+			return err
 		}
 		srv, err = a.boardServer(ctx, *server, seatServer)
 		if err != nil {

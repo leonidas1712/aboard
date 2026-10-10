@@ -75,11 +75,14 @@ func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 	if werr != nil {
 		return Response{V: 1, Error: werr}
 	}
+	issuerAgents := agents[:0]
 	for _, agent := range agents {
-		if agent.Server != req.Server {
-			return errorResponse("session_on_another_server", "This session belongs to another issuer server.", "Use a session on the requested server.")
+		if agent.Server == req.Server {
+			issuerAgents = append(issuerAgents, agent)
 		}
 	}
+	agents = issuerAgents
+
 	runtime := d.cfg.PairingFor(req.Server)
 	if runtime == nil {
 		return errorResponse("internal", "Pairing is unavailable in this daemon.", "Restart an up-to-date daemon.")

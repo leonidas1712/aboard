@@ -92,7 +92,7 @@ func TestOpenLogsTheBrowserInOnceAsItsPerson(t *testing.T) {
 	board := "writer-reviewer"
 	e.sayAs("writer", "--to", "@reviewer", "Draft is in notes.md.")
 
-	out := e.openUI("true").json(t)
+	out := e.openUI("true", "--board", board).json(t)
 	if out["opened"] != true || out["board"] != board || out["server_started"] != false {
 		t.Fatalf("aboard open: %v", out)
 	}
@@ -212,7 +212,7 @@ func TestOpenInsideASessionNeverShowsTheLoginLink(t *testing.T) {
 	e.run("pair", "writer-reviewer")
 	browser, saved := e.recordingBrowser()
 	for _, session := range []string{"CLAUDECODE=1", "ABOARD_SESSION=claude-code:5f1c", "ABOARD_AGENT=writer"} {
-		r := e.exec([]string{session, "BROWSER=" + browser}, "", "open", "--json")
+		r := e.exec([]string{session, "BROWSER=" + browser}, "", "open", "--board", "writer-reviewer", "--json")
 		if r.code != 0 {
 			t.Fatalf("with %s:\n%s", session, r)
 		}
@@ -236,10 +236,10 @@ func TestOpenInsideASessionNeverShowsTheLoginLink(t *testing.T) {
 			t.Fatalf("the link the browser got doesn't log in: %d %s", got.status, got.body)
 		}
 	}
-	text := e.exec([]string{"CLAUDECODE=1", "BROWSER=" + browser}, "", "open")
+	text := e.exec([]string{"CLAUDECODE=1", "BROWSER=" + browser}, "", "open", "--board", "writer-reviewer")
 	expectLines(t, text, "Opened writer-reviewer in your browser: http://"+e.addr+"/?board=writer-reviewer")
 
-	r := e.exec([]string{"CLAUDECODE=1", "BROWSER=false"}, "", "open", "--json")
+	r := e.exec([]string{"CLAUDECODE=1", "BROWSER=false"}, "", "open", "--board", "writer-reviewer", "--json")
 	out := r.json(t)
 	if r.code != 1 || field(t, out, "error.code") != "browser_unavailable" ||
 		field(t, out, "error.hint") != "Give your human this command to run in their own terminal: aboard open --board writer-reviewer" {
@@ -353,9 +353,9 @@ func TestOpenSignsABrowserInToATeamServer(t *testing.T) {
 		t.Fatalf("aboard open on a machine connected to one server: %v", out)
 	}
 
-	// A directory linked to a board on the team server opens that board there.
+	// Without --board the browser opens the board list, regardless of the folder.
 	out = alex.openUI("true").json(t)
-	if out["board"] != "payments" || out["ui_url"] != s.url+"/?board=payments" || !strings.HasSuffix(field(t, out, "url").(string), "&board=payments") {
+	if out["board"] != nil || out["ui_url"] != s.url+"/" || strings.Contains(field(t, out, "url").(string), "&board=") {
 		t.Fatalf("aboard open in a directory linked to payments: %v", out)
 	}
 	if got := me(signIn(out["url"].(string))); got != "alex" {

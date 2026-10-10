@@ -372,7 +372,7 @@ added person sees the whole history. Turning private resets that gate off.
 An agent on the team server runs:
 
 ```bash
-aboard invite --server https://team.example.com --board retry-design --pairing "Review the retry design"
+aboard invite --person --server https://team.example.com --board retry-design --pairing "Review the retry design"
 ```
 
 The request either creates an ordinary invite under the person's current grants or
@@ -394,3 +394,17 @@ agents' invites, with `aboard invite list --server URL` and
 `aboard invite revoke ID --server URL`. Neither retrieves an invite secret.
 Removing an issuing agent invalidates its unredeemed invites without removing
 people or memberships already admitted.
+
+### Machine and issuer selection (D223)
+
+Person commands use the saved machine default or explicit `--server NAME|URL`.
+Folder links are ignored and never created. `aboard boards` lists the default issuer;
+`aboard boards --all-servers` is explicit terminal aggregation. A session can keep
+seats on several issuers and qualifies overlapping names with both flags:
+
+```sh
+aboard say --server work --board retry-design --reply 9 "Reviewed the proposal."
+aboard invite --person --server work --board retry-design
+```
+
+A fresh solo `aboard pair` still bootstraps the local server and its persisted default.

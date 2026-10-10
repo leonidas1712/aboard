@@ -49,22 +49,22 @@ func writeJSONFile(path string, v any, perm os.FileMode) error {
 	return writeFileAtomic(path, append(data, '\n'), perm)
 }
 
-// readJSONFile decodes path into v. It reports whether the file existed.
-func readJSONFile(path string, v any) (bool, error) {
+// readJSONFile decodes path into v; a missing file leaves v unchanged.
+func readJSONFile(path string, v any) error {
 	data, err := os.ReadFile(filepath.Clean(path))
 	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
+		return nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("read %s: %w", path, err)
+		return fmt.Errorf("read %s: %w", path, err)
 	}
 	if err := json.Unmarshal(data, v); err != nil {
-		return true, &Error{
+		return &Error{
 			Code: "invalid_request", Message: "The file " + path + " is not valid JSON.",
 			Hint: "Fix or delete the file, then run the command again.", Err: err,
 		}
 	}
-	return true, nil
+	return nil
 }
 
 // updateJSONFile reads path into v, calls change, and writes v back, holding an exclusive
@@ -82,7 +82,7 @@ func updateJSONFile(path string, v any, change func() error) error {
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("lock %s: %w", path, err)
 	}
-	if _, err := readJSONFile(path, v); err != nil {
+	if err := readJSONFile(path, v); err != nil {
 		return err
 	}
 	if err := change(); err != nil {

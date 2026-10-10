@@ -64,12 +64,20 @@ func (h *handlers) SetAllowance(ctx context.Context, req SetAllowanceRequestObje
 	return convert[SetAllowance200JSONResponse](allowanceOf(a))
 }
 
-func approvalOf(ctx context.Context, a board.Approval) map[string]any {
+func (h *handlers) approvalOf(ctx context.Context, a board.Approval) map[string]any {
 	out := map[string]any{
 		"id": a.ID, "person_id": a.PersonID, "agent_id": a.AgentID,
 		"parent_key_id": a.ParentKeyID, "payload_hash": a.PayloadHash, "action": board.AdminActionJSON(a.Action),
 		"state": a.State, "created_at": a.CreatedAt,
 	}
+	boards := []string{}
+	if a.Action.BoardID != "" {
+		boards = append(boards, a.Action.BoardID)
+	}
+	if a.Action.Invite != nil {
+		boards = append(boards, a.Action.Invite.Boards...)
+	}
+	out["display"] = h.onboardingDisplay(ctx, a.PersonID, a.AgentID, boards)
 	if a.ExpiresAt != nil {
 		out["expires_at"] = a.ExpiresAt
 	}
@@ -85,6 +93,9 @@ func approvalOf(ctx context.Context, a board.Approval) map[string]any {
 		provenance := map[string]any{
 			"person_id": auth.PersonID, "agent_id": auth.AgentID,
 			"parent_key_id": auth.ParentKeyID, "payload_hash": auth.PayloadHash, "via": auth.Via,
+		}
+		if auth.Kind != "" {
+			provenance["kind"] = auth.Kind
 		}
 		if auth.AllowanceID != "" {
 			provenance["allowance_id"] = auth.AllowanceID
@@ -106,8 +117,8 @@ func approvalNext(ctx context.Context, id string) map[string]any {
 	return map[string]any{"command": onboardingCommand(ctx, "aboard approvals allow "+id), "resume": "Continue after your person allows or declines this exact action."}
 }
 
-func adminResultOf(ctx context.Context, r board.AdminActionResult) map[string]any {
-	out := map[string]any{"state": r.State, "approval": approvalOf(ctx, r.Approval)}
+func (h *handlers) adminResultOf(ctx context.Context, r board.AdminActionResult) map[string]any {
+	out := map[string]any{"state": r.State, "approval": h.approvalOf(ctx, r.Approval)}
 	if r.State == "pending" {
 		out["next"] = approvalNext(ctx, r.Approval.ID)
 	}
@@ -117,14 +128,14 @@ func adminResultOf(ctx context.Context, r board.AdminActionResult) map[string]an
 	return out
 }
 
-func (h *handlers) ListApprovals(ctx context.Context, _ ListApprovalsRequestObject) (ListApprovalsResponseObject, error) {
-	list, err := h.svc.ListApprovals(ctx, principal(ctx))
+func (h *handlers) ListApprovals(ctx context.Context, req ListApprovalsRequestObject) (ListApprovalsResponseObject, error) {
+	list, err := h.svc.ListApprovals(ctx, principal(ctx), approvalState(req.Params.State))
 	if err != nil {
 		return nil, err
 	}
 	out := make([]map[string]any, 0, len(list))
 	for _, a := range list {
-		out = append(out, approvalOf(ctx, a))
+		out = append(out, h.approvalOf(ctx, a))
 	}
 	return convert[ListApprovals200JSONResponse](map[string]any{"approvals": out})
 }
@@ -177,7 +188,7 @@ func (h *handlers) RequestAdminAction(ctx context.Context, req RequestAdminActio
 	if err != nil {
 		return nil, err
 	}
-	out := adminResultOf(ctx, r)
+	out := h.adminResultOf(ctx, r)
 	if r.State == "pending" {
 		return convert[RequestAdminAction202JSONResponse](out)
 	}
@@ -193,7 +204,7 @@ func (h *handlers) AllowApproval(ctx context.Context, req AllowApprovalRequestOb
 	if err != nil {
 		return nil, onboardingError(ctx, err, "aboard approvals allow "+req.Approval)
 	}
-	out := adminResultOf(ctx, r)
+	out := h.adminResultOf(ctx, r)
 	if always && r.Approval.Action.Kind == "invite_people" {
 		out["warning"] = inviteAllowanceWarning
 	}
@@ -205,5 +216,12 @@ func (h *handlers) DeclineApproval(ctx context.Context, req DeclineApprovalReque
 	if err != nil {
 		return nil, onboardingError(ctx, err, "aboard approvals decline "+req.Approval)
 	}
-	return convert[DeclineApproval200JSONResponse](approvalOf(ctx, a))
+	return convert[DeclineApproval200JSONResponse](h.approvalOf(ctx, a))
+}
+
+func approvalState(state *ListApprovalsParamsState) string {
+	if state == nil {
+		return "all"
+	}
+	return string(*state)
 }

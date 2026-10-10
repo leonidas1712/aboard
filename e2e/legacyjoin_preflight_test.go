@@ -143,7 +143,7 @@ func TestLegacyExtensionRefusesNewSeatsBeforeAPIWrites(t *testing.T) {
 			defer foreign.Close()
 			guest := "Join Aboard board foreign on " + strings.TrimPrefix(foreign.URL, "http://") + " as guest with code " + code
 			r = e.exec(s.vars, "", "join", guest, "--json")
-			if r.code == 0 || !strings.Contains(r.stdout+r.stderr, "session_on_another_server") || foreignCalls.Load() != 0 {
+			if r.code == 0 || !strings.Contains(r.stdout+r.stderr, "extension_outdated") || foreignCalls.Load() != 0 {
 				t.Fatalf("cross-server guest join: calls=%d\n%s", foreignCalls.Load(), r)
 			}
 		})

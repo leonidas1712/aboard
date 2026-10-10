@@ -364,6 +364,7 @@ type QueuedMessages struct {
 
 // QueuedMessage binds one pending message to its immutable board and seat.
 type QueuedMessage struct {
+	Server    string `json:"server,omitempty"`
 	Board     string `json:"board,omitempty"`
 	BoardID   string `json:"board_id"`
 	MemberID  string `json:"member_id"`

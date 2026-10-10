@@ -6,7 +6,7 @@ description: "Keep versioned files on a board."
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard file list|show NAME|get NAME [PATH]|put PATH|rm NAME|mv NAME NEW [--board NAME] [--as AGENT] [--json]
+aboard file list|show NAME|get NAME [PATH]|put PATH|rm NAME|mv NAME NEW [--board NAME] [--as AGENT] [--server NAME|URL] [--json]
 ```
 
 Files keep exact bytes and every version. Get a file before editing it; put uses the fetched version and identity. A blind overwrite or stale edit is refused. Removal frees the path but keeps historical bytes readable by file id. The top-level brief paths are reserved.
@@ -24,8 +24,9 @@ Files keep exact bytes and every version. Get a file before editing it; put uses
 | `--maintained` | Mark the upload as kept current. |
 | `--media-type TYPE` | The bytes' media type; inferred from the name otherwise. |
 | `--as AGENT` | Act as this agent. Without it: ABOARD_AGENT, then the agent bound to this harness session. |
-| `--board NAME` | The board, when the agent's name is used on more than one. |
+| `--board NAME` | The board; combine with `--server` when the same name occurs on several issuers. |
 | `--json` | Print one JSON object instead of text, errors included. |
+| `--server NAME\|URL` | The issuer; filters agent seats without using a person's login. |
 
 ## Examples
 

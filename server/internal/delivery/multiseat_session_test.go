@@ -41,18 +41,18 @@ func TestSessionRetainsSeatsAndAcknowledgesEqualBoardSequences(t *testing.T) {
 	}
 }
 
-func TestAddingSeatOnAnotherServerRefusesWithoutChangingBinding(t *testing.T) {
+func TestAddingSeatOnAnotherServerRetainsBothBindings(t *testing.T) {
 	r := newRig(t)
 	a, b := reviewer, planner
 	a.MemberID, b.MemberID = "mem_docs", "mem_other"
 	b.Server = "https://other.invalid"
 	r.bind("codex", "one-server", a)
 	got := r.call(delivery.Request{Op: delivery.OpBind, Harness: "codex", Session: "one-server", Agent: &b})
-	if got.Error == nil || got.Error.Code != "session_on_another_server" {
+	if got.Error != nil {
 		t.Fatalf("cross-server bind: %+v", got)
 	}
 	refs := r.ok(delivery.Request{Op: delivery.OpAgents, Harness: "codex", Session: "one-server"}).Agents
-	if len(refs) != 1 || refs[0].MemberID != a.MemberID {
-		t.Fatalf("refused bind changed original seat: %+v", refs)
+	if len(refs) != 2 {
+		t.Fatalf("cross-server bind lost a seat: %+v", refs)
 	}
 }

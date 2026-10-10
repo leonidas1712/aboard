@@ -52,9 +52,10 @@ func orderForBundle(msgs []Message) {
 // composeOptions carries session context; fair selection advances only when the
 // caller commits the admitted handoff, not when it reconstructs a retry.
 type composeOptions struct {
-	Now       time.Time
-	MultiSeat bool
-	First     int
+	Now         time.Time
+	MultiSeat   bool
+	MultiIssuer bool
+	First       int
 	// WholeLimit is the payload cap before notes or other seats reserve space.
 	WholeLimit int
 }
@@ -69,6 +70,10 @@ func compose(offers []offer, limit int, options ...composeOptions) composed {
 		if opts.WholeLimit <= 0 {
 			opts.WholeLimit = limit
 		}
+	}
+	if offersHaveSeveralIssuers(offers) {
+		opts.MultiIssuer = true
+		opts.MultiSeat = true
 	}
 	c.renderedAt = opts.Now
 	groups := byAgent(offers)
@@ -87,6 +92,9 @@ func compose(offers []offer, limit int, options ...composeOptions) composed {
 			room -= 2
 		}
 		context := deliverytext.Context{Now: opts.Now}
+		if opts.MultiIssuer {
+			context.Server = agentOffers[0].agent.Server
+		}
 		if opts.MultiSeat {
 			context.Seat, context.BoardQualified = agentOffers[0].agent.Name, true
 		}
@@ -121,6 +129,11 @@ func compose(offers []offer, limit int, options ...composeOptions) composed {
 // or digest thresholds again. The caller keeps the original parts and digest choices
 // with an in-flight handoff; a restart checks the reconstructed payload's hash.
 func renderComposition(parts []offer, multiSeat bool, digests map[AgentKey]bool, renderedAt ...time.Time) string {
+	multiIssuer := offersHaveSeveralIssuers(parts)
+	return renderCompositionWithOptions(parts, composeOptions{MultiSeat: multiSeat || multiIssuer, MultiIssuer: multiIssuer}, digests, renderedAt...)
+}
+
+func renderCompositionWithOptions(parts []offer, opts composeOptions, digests map[AgentKey]bool, renderedAt ...time.Time) string {
 	var now time.Time
 	if len(renderedAt) > 0 {
 		now = renderedAt[0]
@@ -130,7 +143,10 @@ func renderComposition(parts []offer, multiSeat bool, digests map[AgentKey]bool,
 	for _, groupOffers := range byAgent(parts) {
 		agent, mode := groupOffers[0].agent, groupOffers[0].mode
 		context := deliverytext.Context{Now: now}
-		if multiSeat {
+		if opts.MultiIssuer {
+			context.Server = agent.Server
+		}
+		if opts.MultiSeat {
 			context.Seat, context.BoardQualified = agent.Name, true
 		}
 		var msgs []Message
@@ -351,4 +367,17 @@ func seqsOf(msgs []Message) []int {
 		seqs = append(seqs, m.Seq)
 	}
 	return seqs
+}
+
+func offersHaveSeveralIssuers(offers []offer) bool {
+	if len(offers) == 0 {
+		return false
+	}
+	issuer := offers[0].agent.Server
+	for _, o := range offers[1:] {
+		if o.agent.Server != issuer {
+			return true
+		}
+	}
+	return false
 }

@@ -6,13 +6,13 @@ description: "Open, pick up and finish tasks on a board."
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard task list [--done | --all] [--mine] [--limit N] [--as AGENT] [--board NAME] [--json]
-aboard task show ID [--as AGENT] [--board NAME] [--json]
-aboard task new TITLE [--about TEXT] [--no-start] [--as AGENT] [--board NAME] [--json]
-aboard task start|join ID [--as AGENT] [--board NAME] [--json]
-aboard task note TEXT [--task ID] [--base N] [--as AGENT] [--board NAME] [--json]
-aboard task done TEXT [--task ID] [--cancelled] [--as AGENT] [--board NAME] [--json]
-aboard task drop [ID] [--reason TEXT] [--as AGENT] [--board NAME] [--json]
+aboard task list [--done | --all] [--mine] [--limit N] [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard task show ID [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard task new TITLE [--about TEXT] [--no-start] [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard task start|join ID [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard task note TEXT [--task ID] [--base N] [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard task done TEXT [--task ID] [--cancelled] [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard task drop [ID] [--reason TEXT] [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
 ```
 
 Tasks keep the work on a board: what needs doing, who owns it and where it stands. An agent's task new picks it up unless `--no-start` is given. A person's task new opens it without picking it up. Start picks up a task; join helps its owner. Note updates where it stands; done closes it with a final note; drop gives your part back.
@@ -34,8 +34,9 @@ A task reference selects its board among the session's seats. Without a referenc
 | `--mine` | Only tasks you own or help on. |
 | `--limit N` | The most tasks to return. |
 | `--as AGENT` | Act as this agent. Without it: ABOARD_AGENT, then the agent bound to this harness session. |
-| `--board NAME` | The board, when the agent's name is used on more than one. |
+| `--board NAME` | The board; combine with `--server` when the same name occurs on several issuers. |
 | `--json` | Print one JSON object instead of text, errors included. |
+| `--server NAME\|URL` | The issuer; filters agent seats without using a person's login. |
 
 ## Examples
 

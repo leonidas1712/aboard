@@ -84,8 +84,25 @@ func TestAgentInviteSafetyForAllowanceAndApproval(t *testing.T) {
 			t.Fatalf("notice handoff: %s", raw)
 		}
 	}
-	if strings.Contains(raw, "abi_") || strings.Contains(raw, "parent_key_id") || strings.Contains(raw, "boards") {
+	if strings.Contains(raw, "abi_") || strings.Contains(raw, "parent_key_id") {
 		t.Fatalf("notice leaked invite material: %s", raw)
+	}
+	var shape struct {
+		Notices []map[string]json.RawMessage `json:"notices"`
+	}
+	if err := json.Unmarshal([]byte(raw), &shape); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range shape.Notices {
+		if _, ok := n["boards"]; ok {
+			t.Fatalf("notice exposed invite payload: %s", raw)
+		}
+		var labels struct {
+			Boards []any `json:"boards"`
+		}
+		if err := json.Unmarshal(n["display"], &labels); err != nil || len(labels.Boards) != 0 {
+			t.Fatalf("ordinary invite invented board labels: %v %s", err, raw)
+		}
 	}
 	for _, token := range []string{agent, s.addHuman("other")} {
 		status, raw = onboardingCall(t, s, "GET", "/v1/me/invite-notices", "", token)

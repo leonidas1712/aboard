@@ -286,8 +286,8 @@ person's decision.
 Last, remove the binary with the command uninstall printed, such as
 `rm ~/go/bin/aboard`. Uninstall doesn't delete it because it can't tell how it was
 installed. A session that is still open may run the hooks it loaded when it started;
-once the binary is gone they do nothing. A project's `.aboard` file, which links the
-folder to a board, holds no secrets; delete it if you like.
+once the binary is gone they do nothing. Legacy `.aboard` files are ignored and left
+untouched; delete them if you like.
 
 Check that nothing is left: `aboard status --json` shows empty `setup.global` and
 `setup.project`, and `aboard uninstall --json` lists no `files` other than ones it

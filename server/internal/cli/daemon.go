@@ -403,7 +403,11 @@ func (a *app) callDaemon(ctx context.Context, req delivery.Request) (delivery.Re
 		return delivery.Response{}, daemonGone(err)
 	}
 	if resp.Error != nil {
-		return resp, &Error{Code: resp.Error.Code, Message: resp.Error.Message, Hint: resp.Error.Hint, Details: resp.Error.Details}
+		hint := resp.Error.Hint
+		if resp.Error.Code == "session_on_another_server" {
+			hint = "This daemon supports only one issuer per session; upgrade Aboard and restart the daemon before retrying. Existing seats were kept."
+		}
+		return resp, &Error{Code: resp.Error.Code, Message: resp.Error.Message, Hint: hint, Details: resp.Error.Details}
 	}
 	return resp, nil
 }

@@ -49,7 +49,7 @@ func (a *app) readServerLogins() (serverLogins, error) {
 		return serverLogins{}, err
 	}
 	var l serverLogins
-	_, err = readJSONFile(p.servers(), &l)
+	err = readJSONFile(p.servers(), &l)
 	return l, err
 }
 

@@ -15,11 +15,16 @@ func pairingEndpointOf(e *board.PairingEndpoint) any {
 
 func (h *handlers) pairingOf(ctx context.Context, r board.PairingRequest) map[string]any {
 	out := map[string]any{"id": r.ID, "server_id": r.ServerID, "board_id": r.BoardID, "inviter_id": r.InviterID, "initiating_agent_id": r.InitiatingAgentID, "work": r.Work, "state": r.State, "generation": r.Generation, "created_at": r.CreatedAt, "expires_at": r.ExpiresAt}
+	out["display"] = h.onboardingDisplay(ctx, r.InviterID, r.InitiatingAgentID, []string{r.BoardID})
 	if r.RecipientID != "" {
 		out["recipient_id"] = r.RecipientID
 	}
 	if r.InviteID != "" {
 		out["invite_id"] = r.InviteID
+	}
+	if r.ChosenRecipientAgentID != "" {
+		out["chosen_recipient_agent_id"] = r.ChosenRecipientAgentID
+		out["choice_message_id"] = r.ChoiceMessageID
 	}
 	if r.Initiator != nil {
 		out["initiator"] = pairingEndpointOf(r.Initiator)
@@ -146,4 +151,12 @@ func (h *handlers) VerifyPairingRoundTrip(ctx context.Context, req VerifyPairing
 		return nil, err
 	}
 	return convert[VerifyPairingRoundTrip200JSONResponse](h.pairingOf(ctx, r))
+}
+
+func (h *handlers) ChoosePairingAgent(ctx context.Context, req ChoosePairingAgentRequestObject) (ChoosePairingAgentResponseObject, error) {
+	r, err := h.svc.ChoosePairingAgent(ctx, principal(ctx), req.Pairing, req.Body.AgentId, req.Body.Generation)
+	if err != nil {
+		return nil, err
+	}
+	return convert[ChoosePairingAgent200JSONResponse](h.pairingOf(ctx, r))
 }

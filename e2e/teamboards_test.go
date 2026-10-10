@@ -102,7 +102,7 @@ func TestABoardsPeopleFromTheCLI(t *testing.T) {
 	removed := maya.run("board", "remove", "@sam", "--json").json(t)
 	matchesCLISpec(t, "BoardRemoveOutput", removed)
 	expectLines(t, maya.run("board", "remove", "@kim"), "Removed kim from "+board+".")
-	if r := sam.runExit("board", "people", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
+	if r := sam.runExit("board", "people", "--board", board, "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
 		t.Fatalf("sam after removal:\n%s", r)
 	}
 	if status, v := tm.call("GET", "/v1/me/inbox", samAgent, nil); status != http.StatusForbidden || errorCode(t, v) != "agent_removed" {
@@ -159,7 +159,7 @@ func TestTurningABoardPrivateAndOpenFromTheCLI(t *testing.T) {
 	if r := sam.runExit("join", line, "--json"); r.code != 1 || errorCode(t, r.json(t)) != "join_code_invalid" {
 		t.Fatalf("a join code after the board turned private:\n%s", r)
 	}
-	if r := sam.runExit("board", "people", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
+	if r := sam.runExit("board", "people", "--board", board, "--json"); r.code != 1 || errorCode(t, r.json(t)) != "board_not_found" {
 		t.Fatalf("sam after private:\n%s", r)
 	}
 
@@ -191,8 +191,8 @@ func TestUpgradeMakesExistingBoardsOpenAndOwned(t *testing.T) {
 	if status != http.StatusOK || v["visibility"] != "open" || v["on_board"] != true {
 		t.Fatalf("the board after the upgrade: %d %v", status, v)
 	}
-	expectLines(t, e.run("board", "people"), "writer-reviewer · open · 1 person", "  alex (owner)", "    @writer · disconnected", "    @reviewer · disconnected")
-	e.run("audit", "verify")
+	expectLines(t, e.run("board", "people", "--server", "local", "--board", "writer-reviewer"), "writer-reviewer · open · 1 person", "  alex (owner)", "    @writer · disconnected", "    @reviewer · disconnected")
+	e.run("audit", "verify", "--server", "local", "--board", "writer-reviewer")
 }
 
 // Only an admin's own key changes who may create boards; when it says admins, a member
