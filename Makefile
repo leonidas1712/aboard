@@ -219,7 +219,7 @@ web/out/.built: $(WEB_SOURCES)
 
 ## sandbox: open a shell to test this checkout by hand, isolated from your own setup (NAME=<name>); on an existing sandbox, opens another shell in it
 sandbox: web/out/.built dev
-	@TEAM="$(TEAM)" scripts/sandbox open "$(NAME)"
+	@TEAM="$(TEAM)" FRESH="$(or $(FRESH),0)" scripts/sandbox open "$(NAME)"
 
 ## sandbox-update: rebuild, then restart a sandbox's server and daemon on the new build, keeping its data (NAME=<name>)
 sandbox-update: web/out/.built dev

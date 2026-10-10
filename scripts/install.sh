@@ -26,6 +26,8 @@
 #
 #   ABOARD_VERSION       the version to install, such as 0.2.0 (default: the latest
 #                        release)
+#   ABOARD_INSTALL_FROM  dev sandboxes only: an absolute local binary path; requires
+#                        ABOARD_SANDBOX_NAME and installs only under the sandbox HOME
 #   ABOARD_INSTALL_DIR   the folder to install into (default: ~/.local/bin)
 #   ABOARD_DOWNLOAD_URL  where releases are downloaded from (default:
 #                        https://github.com/leonidas1712/aboard/releases); https only,
@@ -57,115 +59,128 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 
-# The system.
-case "$(uname -s)" in
-Darwin) os=darwin ;;
-Linux) os=linux ;;
-*) fail "aboard has builds for macOS and Linux only, not $(uname -s). Build it from source: https://github.com/$repo#quick-start" ;;
-esac
-case "$(uname -m)" in
-x86_64 | amd64) arch=amd64 ;;
-arm64 | aarch64) arch=arm64 ;;
-*) fail "aboard has builds for arm64 and amd64 only, not $(uname -m)." ;;
-esac
-# A shell running under Rosetta on an Apple silicon Mac reports x86_64; install the
-# native build.
-if [ "$os" = darwin ] && [ "$arch" = amd64 ] && [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || true)" = 1 ]; then
-	arch=arm64
-fi
-
-# Where to download from.
-base=${ABOARD_DOWNLOAD_URL:-https://github.com/$repo/releases}
-base=${base%/}
-case "$base" in
-https://*) proto=https ;;
-http://127.0.0.1:* | http://localhost:* | http://127.0.0.1/* | http://localhost/*) proto=http ;;
-*) fail "ABOARD_DOWNLOAD_URL must start with https:// (got $base)." ;;
-esac
-
-# Only curl: it can refuse a redirect from https to http (--proto-redir), which some
-# wget builds follow.
-command -v curl >/dev/null 2>&1 || fail "downloading needs curl; install it and run this again."
-download() { curl -fsSL --proto "=$proto" --proto-redir "=$proto" --retry 2 -o "$2" "$1"; }
-fetch() {
-	download "$1" "$2" || fail "couldn't download $1. Check your connection and run this again."
-}
-
-if command -v sha256sum >/dev/null 2>&1; then
-	sha256() { sha256sum "$1" | cut -d ' ' -f 1; }
-elif command -v shasum >/dev/null 2>&1; then
-	sha256() { shasum -a 256 "$1" | cut -d ' ' -f 1; }
+if [ -n "${ABOARD_INSTALL_FROM:-}" ]; then
+	[ -n "${ABOARD_SANDBOX_NAME:-}" ] || fail "ABOARD_INSTALL_FROM is only for a named dev sandbox."
+	case "$ABOARD_INSTALL_FROM" in /*) ;; *) fail "ABOARD_INSTALL_FROM must be an absolute binary path." ;; esac
+	[ "${ABOARD_INSTALL_DIR:-$HOME/.local/bin}" = "$HOME/.local/bin" ] || fail "A dev build installs only in the sandbox HOME/.local/bin."
+	[ ! -L "$HOME/.local" ] && [ ! -L "$HOME/.local/bin" ] || fail "A dev install folder must not link outside the sandbox HOME."
+	[ -f "$ABOARD_INSTALL_FROM" ] && [ ! -L "$ABOARD_INSTALL_FROM" ] && [ -x "$ABOARD_INSTALL_FROM" ] || fail "The local dev binary is missing, linked or not executable. Build it with make dev."
+	"$ABOARD_INSTALL_FROM" version >/dev/null 2>&1 || fail "The local dev binary does not run."
+	tmp=$(mktemp -d 2>/dev/null || mktemp -d -t aboard-install)
+	mkdir "$tmp/unpacked"
+	cp "$ABOARD_INSTALL_FROM" "$tmp/unpacked/aboard" || fail "Could not stage the local dev binary."
+	version=local-dev
+	say "Installing a local development build; no release download or signature check."
 else
-	fail "checking the download needs sha256sum or shasum; install one and run this again."
-fi
-
-# lower prints the default $1, or $2 when it is a smaller whole number.
-lower() {
-	case "$2" in
-	"" | *[!0-9]*) echo "$1" ;;
-	*) if [ "$2" -lt "$1" ]; then echo "$2"; else echo "$1"; fi ;;
+	# The system.
+	case "$(uname -s)" in
+	Darwin) os=darwin ;;
+	Linux) os=linux ;;
+	*) fail "aboard has builds for macOS and Linux only, not $(uname -s). Build it from source: https://github.com/$repo#quick-start" ;;
 	esac
-}
+	case "$(uname -m)" in
+	x86_64 | amd64) arch=amd64 ;;
+	arm64 | aarch64) arch=arm64 ;;
+	*) fail "aboard has builds for arm64 and amd64 only, not $(uname -m)." ;;
+	esac
+	# A shell running under Rosetta on an Apple silicon Mac reports x86_64; install the
+	# native build.
+	if [ "$os" = darwin ] && [ "$arch" = amd64 ] && [ "$(sysctl -n sysctl.proc_translated 2>/dev/null || true)" = 1 ]; then
+		arch=arm64
+	fi
 
-tmp=$(mktemp -d 2>/dev/null || mktemp -d -t aboard-install)
+	# Where to download from.
+	base=${ABOARD_DOWNLOAD_URL:-https://github.com/$repo/releases}
+	base=${base%/}
+	case "$base" in
+	https://*) proto=https ;;
+	http://127.0.0.1:* | http://localhost:* | http://127.0.0.1/* | http://localhost/*) proto=http ;;
+	*) fail "ABOARD_DOWNLOAD_URL must start with https:// (got $base)." ;;
+	esac
 
-# The version, and the archive's name in checksums.txt.
-version=${ABOARD_VERSION:-}
-version=${version#v}
-if [ -z "$version" ]; then
-	fetch "$base/latest/download/checksums.txt" "$tmp/latest.txt"
-	version=$(awk -v suffix="_${os}_${arch}.tar.gz" '
+	# Only curl: it can refuse a redirect from https to http (--proto-redir), which some
+	# wget builds follow.
+	command -v curl >/dev/null 2>&1 || fail "downloading needs curl; install it and run this again."
+	download() { curl -fsSL --proto "=$proto" --proto-redir "=$proto" --retry 2 -o "$2" "$1"; }
+	fetch() {
+		download "$1" "$2" || fail "couldn't download $1. Check your connection and run this again."
+	}
+
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256() { sha256sum "$1" | cut -d ' ' -f 1; }
+	elif command -v shasum >/dev/null 2>&1; then
+		sha256() { shasum -a 256 "$1" | cut -d ' ' -f 1; }
+	else
+		fail "checking the download needs sha256sum or shasum; install one and run this again."
+	fi
+
+	# lower prints the default $1, or $2 when it is a smaller whole number.
+	lower() {
+		case "$2" in
+		"" | *[!0-9]*) echo "$1" ;;
+		*) if [ "$2" -lt "$1" ]; then echo "$2"; else echo "$1"; fi ;;
+		esac
+	}
+
+	tmp=$(mktemp -d 2>/dev/null || mktemp -d -t aboard-install)
+
+	# The version, and the archive's name in checksums.txt.
+	version=${ABOARD_VERSION:-}
+	version=${version#v}
+	if [ -z "$version" ]; then
+		fetch "$base/latest/download/checksums.txt" "$tmp/latest.txt"
+		version=$(awk -v suffix="_${os}_${arch}.tar.gz" '
 		{ n = $2; if (substr(n, 1, 7) == "aboard_" && substr(n, length(n) - length(suffix) + 1) == suffix) print substr(n, 8, length(n) - 7 - length(suffix)) }
 	' "$tmp/latest.txt" | head -n 1)
-	[ -n "$version" ] || fail "the latest release has no build for $os/$arch."
-fi
-case "$version" in
-*[!0-9A-Za-z.+-]* | "") fail "ABOARD_VERSION must be a version such as 0.2.0 (got $version)." ;;
-esac
-archive="aboard_${version}_${os}_${arch}.tar.gz"
-release="$base/download/v$version"
-
-say "Downloading aboard $version for $os/$arch"
-fetch "$release/checksums.txt" "$tmp/checksums.txt"
-fetch "$release/checksums.txt.sigstore.json" "$tmp/checksums.txt.sigstore.json"
-fetch "$release/$archive" "$tmp/$archive"
-
-# The signature on the checksums.
-identity="$identity_prefix$version"
-if command -v cosign >/dev/null 2>&1; then
-	if ! cosign verify-blob --bundle "$tmp/checksums.txt.sigstore.json" \
-		--certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
-		"$tmp/checksums.txt" >"$tmp/cosign.log" 2>&1; then
-		cat "$tmp/cosign.log" >&2
-		fail "the checksums' signature doesn't check out: they weren't signed by aboard's release workflow for v$version. Nothing was installed."
+		[ -n "$version" ] || fail "the latest release has no build for $os/$arch."
 	fi
-	say "Checked the signature: signed by aboard's release workflow for v$version"
-else
-	say "cosign isn't installed, so the checksums' signature wasn't checked. To check it, install cosign and run:"
-	say "  cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity $identity --certificate-oidc-issuer $issuer checksums.txt"
-fi
+	case "$version" in
+	*[!0-9A-Za-z.+-]* | "") fail "ABOARD_VERSION must be a version such as 0.2.0 (got $version)." ;;
+	esac
+	archive="aboard_${version}_${os}_${arch}.tar.gz"
+	release="$base/download/v$version"
 
-# The archive's checksum.
-want=$(awk -v name="$archive" '$2 == name { print $1 }' "$tmp/checksums.txt")
-[ "$(printf '%s\n' "$want" | grep -c .)" = 1 ] || fail "checksums.txt for v$version has no single entry for $archive. Nothing was installed."
-got=$(sha256 "$tmp/$archive")
-[ "$got" = "$want" ] || fail "$archive doesn't match its checksum (got $got, want $want): the download is incomplete or was changed. Nothing was installed; run this again."
+	say "Downloading aboard $version for $os/$arch"
+	fetch "$release/checksums.txt" "$tmp/checksums.txt"
+	fetch "$release/checksums.txt.sigstore.json" "$tmp/checksums.txt.sigstore.json"
+	fetch "$release/$archive" "$tmp/$archive"
 
-# The archive's contents: plain files with plain names only.
-tar -tzf "$tmp/$archive" >"$tmp/names" 2>/dev/null || fail "$archive isn't a readable archive. Nothing was installed."
-tar -tvzf "$tmp/$archive" >"$tmp/entries" 2>/dev/null || fail "$archive isn't a readable archive. Nothing was installed."
-if grep -v -E '^[A-Za-z0-9_][A-Za-z0-9._-]*$' "$tmp/names" >/dev/null || grep -v '^-' "$tmp/entries" >/dev/null; then
-	fail "$archive holds something other than plain files (a folder, a link or a path). Nothing was installed."
-fi
-# The same limits as aboard upgrade: no file over 64 MiB, 128 MiB in all, 32 files.
-# Tests lower them with the ABOARD_INSTALL_MAX_* variables, which can only lower them.
-max_file=$(lower 67108864 "${ABOARD_INSTALL_MAX_FILE:-}")
-max_total=$(lower 134217728 "${ABOARD_INSTALL_MAX_TOTAL:-}")
-max_files=$(lower 32 "${ABOARD_INSTALL_MAX_FILES:-}")
-[ "$(grep -c . "$tmp/names")" -le "$max_files" ] || fail "$archive holds more than $max_files files. Nothing was installed."
-# One status line, always from END: ok, or the first problem. The size is the 5th field
-# in bsdtar's listing and the 3rd in GNU and busybox tar's, whose 2nd is owner/group.
-limits=$(awk -v max_file="$max_file" -v max_total="$max_total" '
+	# The signature on the checksums.
+	identity="$identity_prefix$version"
+	if command -v cosign >/dev/null 2>&1; then
+		if ! cosign verify-blob --bundle "$tmp/checksums.txt.sigstore.json" \
+			--certificate-identity "$identity" --certificate-oidc-issuer "$issuer" \
+			"$tmp/checksums.txt" >"$tmp/cosign.log" 2>&1; then
+			cat "$tmp/cosign.log" >&2
+			fail "the checksums' signature doesn't check out: they weren't signed by aboard's release workflow for v$version. Nothing was installed."
+		fi
+		say "Checked the signature: signed by aboard's release workflow for v$version"
+	else
+		say "cosign isn't installed, so the checksums' signature wasn't checked. To check it, install cosign and run:"
+		say "  cosign verify-blob --bundle checksums.txt.sigstore.json --certificate-identity $identity --certificate-oidc-issuer $issuer checksums.txt"
+	fi
+
+	# The archive's checksum.
+	want=$(awk -v name="$archive" '$2 == name { print $1 }' "$tmp/checksums.txt")
+	[ "$(printf '%s\n' "$want" | grep -c .)" = 1 ] || fail "checksums.txt for v$version has no single entry for $archive. Nothing was installed."
+	got=$(sha256 "$tmp/$archive")
+	[ "$got" = "$want" ] || fail "$archive doesn't match its checksum (got $got, want $want): the download is incomplete or was changed. Nothing was installed; run this again."
+
+	# The archive's contents: plain files with plain names only.
+	tar -tzf "$tmp/$archive" >"$tmp/names" 2>/dev/null || fail "$archive isn't a readable archive. Nothing was installed."
+	tar -tvzf "$tmp/$archive" >"$tmp/entries" 2>/dev/null || fail "$archive isn't a readable archive. Nothing was installed."
+	if grep -v -E '^[A-Za-z0-9_][A-Za-z0-9._-]*$' "$tmp/names" >/dev/null || grep -v '^-' "$tmp/entries" >/dev/null; then
+		fail "$archive holds something other than plain files (a folder, a link or a path). Nothing was installed."
+	fi
+	# The same limits as aboard upgrade: no file over 64 MiB, 128 MiB in all, 32 files.
+	# Tests lower them with the ABOARD_INSTALL_MAX_* variables, which can only lower them.
+	max_file=$(lower 67108864 "${ABOARD_INSTALL_MAX_FILE:-}")
+	max_total=$(lower 134217728 "${ABOARD_INSTALL_MAX_TOTAL:-}")
+	max_files=$(lower 32 "${ABOARD_INSTALL_MAX_FILES:-}")
+	[ "$(grep -c . "$tmp/names")" -le "$max_files" ] || fail "$archive holds more than $max_files files. Nothing was installed."
+	# One status line, always from END: ok, or the first problem. The size is the 5th field
+	# in bsdtar's listing and the 3rd in GNU and busybox tar's, whose 2nd is owner/group.
+	limits=$(awk -v max_file="$max_file" -v max_total="$max_total" '
 	status != "" { next }
 	{
 		size = (index($2, "/") > 0) ? $3 : $5
@@ -178,21 +193,23 @@ limits=$(awk -v max_file="$max_file" -v max_total="$max_total" '
 		if (status == "") status = "ok"
 		print status
 	}' "$tmp/entries") || limits=unreadable
-# Anything but exactly "ok" refuses.
-case "$limits" in
-ok) ;;
-"large "*) fail "$archive holds ${limits#large }, larger than $max_file bytes. Nothing was installed." ;;
-total) fail "$archive unpacks to more than $max_total bytes. Nothing was installed." ;;
-*) fail "$archive's listing couldn't be read. Nothing was installed." ;;
-esac
-mkdir "$tmp/unpacked"
-tar -xzf "$tmp/$archive" -C "$tmp/unpacked" || fail "couldn't unpack $archive. Nothing was installed."
-new="$tmp/unpacked/aboard"
-if [ ! -f "$new" ] || [ -L "$new" ]; then
-	fail "$archive has no aboard program. Nothing was installed."
+	# Anything but exactly "ok" refuses.
+	case "$limits" in
+	ok) ;;
+	"large "*) fail "$archive holds ${limits#large }, larger than $max_file bytes. Nothing was installed." ;;
+	total) fail "$archive unpacks to more than $max_total bytes. Nothing was installed." ;;
+	*) fail "$archive's listing couldn't be read. Nothing was installed." ;;
+	esac
+	mkdir "$tmp/unpacked"
+	tar -xzf "$tmp/$archive" -C "$tmp/unpacked" || fail "couldn't unpack $archive. Nothing was installed."
+	new="$tmp/unpacked/aboard"
+	if [ ! -f "$new" ] || [ -L "$new" ]; then
+		fail "$archive has no aboard program. Nothing was installed."
+	fi
+	chmod 755 "$tmp"/unpacked/aboard*
+	"$new" version >/dev/null 2>&1 || fail "the downloaded aboard doesn't run on this system. Nothing was installed."
+
 fi
-chmod 755 "$tmp"/unpacked/aboard*
-"$new" version >/dev/null 2>&1 || fail "the downloaded aboard doesn't run on this system. Nothing was installed."
 
 # Install: each program goes in under a temporary name, then is renamed into place.
 dir=${ABOARD_INSTALL_DIR:-$HOME/.local/bin}
