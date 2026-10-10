@@ -515,7 +515,7 @@ func TestSessionBoardsArchived(t *testing.T) {
 		}
 		return out.String()
 	}
-	if out := run(); !strings.HasSuffix(out, "1 archived board: aboard boards --archived\n") {
+	if out := run(); !strings.HasSuffix(out, "1 archived board: aboard boards --archived --server "+srv.URL+"\n") {
 		t.Fatalf("session boards: %q", out)
 	}
 	if out := run("--archived"); !strings.Contains(out, "old-plans") || strings.Contains(out, "join with") || strings.Contains(out, "aboard boards --archived") {
@@ -575,7 +575,7 @@ func TestBoardLifecycleOnARealServer(t *testing.T) {
 	if r := e.run("board", "archive"); r.code != 0 || r.stdout != "Archived "+board+". It's read-only now; restore with: aboard board restore "+board+".\n" {
 		t.Fatalf("archive: %d %q %q", r.code, r.stdout, r.stderr)
 	}
-	if r := e.run("boards"); r.code != 0 || strings.Contains(r.stdout, board+" ") || !strings.HasSuffix(r.stdout, "1 archived board: aboard boards --archived\n") {
+	if r := e.run("boards"); r.code != 0 || strings.Contains(r.stdout, board+" ") || !strings.HasSuffix(r.stdout, "1 archived board: aboard boards --archived --server "+srv.URL+"\n") {
 		t.Fatalf("boards: %d %q %q", r.code, r.stdout, r.stderr)
 	}
 	r := e.run("boards", "--archived", "--json")

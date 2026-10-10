@@ -50,7 +50,6 @@ func TestDefaultServerIgnoresLegacyFolderAndChoosesOnlyBoard(t *testing.T) {
 		t.Fatalf("multiple boards must require a choice: %s", ambiguous)
 	}
 	person.run("status", "--server", second.url(), "--board", "same", "--json")
-
 }
 
 func TestKnownServerWithoutDefaultRequiresSelection(t *testing.T) {

@@ -103,6 +103,11 @@ func boardCommand(command, board string, contexts []Context) string {
 	return command
 }
 
+// InboxCommand identifies the inbox named by a delivery preview.
+func InboxCommand(board string, context Context) string {
+	return boardCommand("aboard inbox", board, []Context{context})
+}
+
 // Reaction is one emoji on a message and how many members reacted with it.
 type Reaction struct {
 	Emoji string
@@ -485,9 +490,10 @@ func Reopened(name, board, mode string, turnEnd bool) string {
 
 // Lost tells a session that started again that another session resumed the agent it
 // filled meanwhile, so it has none now, and how to take the agent back.
-func Lost(name, board string) string {
+func Lost(name, board string, contexts ...Context) string {
+	command := boardCommand("aboard resume "+shellWord(name), board, contexts)
 	return fmt.Sprintf("Aboard: this session was %s on %s until another session resumed %s; it has no agent now. "+
-		"To act as %s here again, run aboard resume %s, which leaves the other session without it.", name, board, name, name, name)
+		"To act as %s here again, run %s, which leaves the other session without it.", name, board, name, name, command)
 }
 
 func showMessageAge(at, now time.Time) bool {

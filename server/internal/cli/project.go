@@ -3,9 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
-	"path/filepath"
 )
 
 // projectFileName is the deprecated folder-link filename.

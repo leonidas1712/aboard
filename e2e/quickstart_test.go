@@ -320,7 +320,6 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 	if errorCode(t, r.json(t)) != "agent_not_selected" {
 		t.Fatalf("no selected agent: %s", r)
 	}
-
 }
 
 // TestMessageBodiesCannotForgeTheWrapper sends bodies that try to close the untrusted

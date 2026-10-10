@@ -126,7 +126,7 @@ func runAudit(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	heads := pinnedHeads{}
-	if _, err := readJSONFile(p.heads(), &heads); err != nil {
+	if err := readJSONFile(p.heads(), &heads); err != nil {
 		return err
 	}
 	pins := &pinCheck{}

@@ -166,7 +166,7 @@ func runFile(ctx context.Context, a *app, args []string) error {
 	}
 	statePath := filepath.Join(p.state, "files.json")
 	var remembered []fetchedFile
-	if _, err := readJSONFile(statePath, &remembered); err != nil {
+	if err := readJSONFile(statePath, &remembered); err != nil {
 		return err
 	}
 	local := pos[1]
@@ -303,7 +303,7 @@ func (a *app) uploadLocalFile(ctx context.Context, t target, c *client, local st
 	}
 	statePath := filepath.Join(p.state, "files.json")
 	var entries []fetchedFile
-	if _, err := readJSONFile(statePath, &entries); err != nil {
+	if err := readJSONFile(statePath, &entries); err != nil {
 		return nil, err
 	}
 	var previous *fetchedFile

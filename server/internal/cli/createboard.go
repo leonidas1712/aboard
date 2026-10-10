@@ -89,9 +89,6 @@ func (a *app) runSessionBoardNew(ctx context.Context, key delivery.SessionKey, n
 	}
 	text += a.seatBoardReminder(ctx, key, joined.Board.Name)
 	joinCommand := "aboard join --server " + commandWord(srv.URL) + " --board " + commandWord(joined.Board.Name)
-	if stays != nil {
-		joinCommand += " --server " + commandWord(srv.URL)
-	}
 	a.emit(struct {
 		Server      serverRef     `json:"server"`
 		Board       api.Board     `json:"board"`

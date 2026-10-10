@@ -65,7 +65,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		return creationNeedsSession()
 	}
 	started := false
-	srv := a.localServer()
+	var srv serverRef
 	var c *client
 	var joined *api.JoinResult
 	var moved *previousAgent

@@ -85,8 +85,7 @@ func (a *app) resolveServer(flag string) (serverRef, error) {
 	if err != nil {
 		return serverRef{}, err
 	}
-	switch {
-	case def != nil:
+	if def != nil {
 		return a.selectedServer(*def, "default"), nil
 	}
 	return serverRef{}, serverNotSelected(known)
@@ -100,11 +99,11 @@ func serverNotSelected(known []knownServer) *Error {
 		choices = append(choices, k.URL)
 	}
 	e := newError("server_not_selected", "No default server is selected.", "Run aboard servers use NAME, or pass --server NAME|URL. With no known server, run aboard up or aboard connect <invite link>.")
-	labelled := make([]map[string]string, 0, len(known))
+	labeled := make([]map[string]string, 0, len(known))
 	for _, k := range known {
-		labelled = append(labelled, map[string]string{"name": k.Name, "url": k.URL, "command": "aboard servers use " + commandWord(k.Name)})
+		labeled = append(labeled, map[string]string{"name": k.Name, "url": k.URL, "command": "aboard servers use " + commandWord(k.Name)})
 	}
-	e.Details = map[string]any{"choices": choices, "server_choices": labelled}
+	e.Details = map[string]any{"choices": choices, "server_choices": labeled}
 	return e
 }
 
@@ -260,30 +259,14 @@ func (a *app) offerDefault(srv serverRef) (isDefault bool, text string, err erro
 	if def != nil && def.URL == srv.URL {
 		return true, "", nil
 	}
-	switch {
-	case def == nil:
-		if err := a.setDefaultServer(srv); err != nil {
-			return false, "", err
-		}
-		if len(known) < 2 {
-			return true, "", nil
-		}
-		return true, "The default server is now " + srv.URL + ".\n", nil
-	case def.URL != local.URL && a.interactive():
-		ok, err := a.asker().confirm("Make "+srv.URL+" this machine's default server instead of "+def.URL+"?",
-			"Person commands act on the default server. Change it later with aboard servers use.", false)
-		if errors.Is(err, errAborted) {
-			ok, err = false, nil
-		}
-		if err != nil {
-			return false, "", err
-		}
-		if ok {
+	if def == nil {
+		if len(known) == 1 {
 			if err := a.setDefaultServer(srv); err != nil {
 				return false, "", err
 			}
-			return true, "The default server is now " + srv.URL + ".\n", nil
+			return true, "", nil
 		}
+		return false, "No default server is selected; choose one with aboard servers use NAME.\n", nil
 	}
 	stays := def.URL
 	if def.URL == local.URL {
