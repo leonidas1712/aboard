@@ -134,7 +134,7 @@
 #   details.choices retains URLs; optional details.server_choices holds ServerChoice
 #   objects with labels, URLs and runnable commands. Board/agent ambiguity retains
 #   details.boards and adds issuer URLs to details.seats; never expose hidden boards.
-#   With no known server, up/pair/board new bootstrap local and persist its initial
+#   With no known server, up/pair/board new/open bootstrap local and persist its initial
 #   default. connect/setup may establish a first default; adding a server never
 #   replaces one. Every follow-up command preserves the selected issuer.
 # - Agent commands never use the person's login: say, read, react, inbox, status,
@@ -2077,13 +2077,14 @@ $defs:
     description: |
       Opens the web UI in the default browser, already signed in as the person. The
       server follows D223 explicit --server (or positional NAME|URL) then machine
-      default. Missing default returns server_not_selected (exit 1) before reading
+      default. On a fresh machine with no known server, open starts local and persists
+      it as the initial default, without a server prompt. Known servers without a
+      default return server_not_selected (exit 1) before reading
       a login key or requesting a login code. Text lists "aboard open local",
       "aboard open work", and each other known name, safely quoted. JSON always has
       {error:{code,message,hint,details:{choices,server_choices}}}; choices is an
       array of canonical URLs, and server_choices is an array of ServerChoice
-      objects whose command is aboard open NAME. An empty known-server set gives
-      empty arrays and the existing up/connect hint. It asks that server for a one-time
+      objects whose command is aboard open NAME. It asks that server for a one-time
       login code (POST /v1/login-codes) with the key this machine keeps for it (the local
       owner's login on the local server), and opens <server>/#code=…[&board=NAME], where
       <server> is the server's URL as this machine connected to it: a team server's public
