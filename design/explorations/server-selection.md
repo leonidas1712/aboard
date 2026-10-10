@@ -82,7 +82,9 @@ A new unbound session can join through an explicit server or the machine default
 An already bound session's join without `--server` uses its unique current issuer;
 if it has several issuers, it lists choices. Join lines carry their own issuer and
 can add a seat there. The CLI never opens a person's key to implement agent selection
-or joining; the trusted daemon uses its existing issuer-bound delegation.
+or board-name joining; the trusted daemon uses its existing issuer-bound delegation.
+Join-line code redemption keeps its existing issuer-bound person-key path; D197's
+delegation scope is unchanged.
 
 All delivery parts retain issuer URL and immutable member ID. A multi-issuer bundle
 labels each board with the canonical server URL and gives issuer-qualified reply,
