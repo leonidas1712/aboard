@@ -52,7 +52,9 @@ The `/install` redirect lives in `vercel.json`, so it only works on Vercel, not 
 - `public/`: the tab icons (`favicon.svg`, `favicon.ico` and PNG sizes: the mark as it looks
   in dark on a near-black tile, the same in either theme), the apple-touch icon and the
   web manifest.
-- `vercel.json`: the `/install` redirect and cache headers.
+- `vercel.json`: the `/install` redirect, cache headers, and `ignoreCommand`, which
+  skips a build when a commit changes nothing under `site/`, so pull requests elsewhere
+  in the repository don't use up Vercel's daily deployment limit.
 
 ## Deploy on Vercel
 
