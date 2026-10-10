@@ -327,19 +327,16 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
   );
 }
 
-/** invitePrompt is the text to send a colleague. It matches the CLI's `aboard approvals allow` and the join page. */
-export function invitePrompt(link: string, pairing: boolean): string {
-  return `Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup ${link} --handle <name you'd like teammates to see>.${pairing ? " Verify you can exchange messages with the inviting agent." : ""}`;
-}
-
-/** InviteIssued shows the link and prompt of an invite the person just allowed. The server returns the secret once, so this stays until dismissed and a reload loses it. */
+/** InviteIssued shows the link and prompt the server made for an invite the person just allowed. The server returns the secret once, so this stays until dismissed and a reload loses it. */
 export function InviteIssued({ invite, onDismiss }: { invite: ServerInvite; onDismiss: () => void }) {
-  const link = `${window.location.origin}/join#${invite.invite}`;
+  // The contract lets link be absent; the address is then built from the secret. A missing prompt is left out, never rebuilt here.
+  const link = invite.link ?? `${window.location.origin}/join#${invite.invite}`;
   return (
     <section className="ob-invite-issued flex flex-col gap-3 rounded-box border border-field-border bg-selected px-3.5 py-3" aria-label="The invite you made">
       <p className="font-bold">The invite is ready</p>
       <Command label="Invite link" command={link} copyLabel="Copy the invite link" />
-      <Command label="Prompt for the colleague's agent" command={invitePrompt(link, invite.pairing_request_id !== undefined)} copyLabel="Copy the prompt" />
+      {invite.suggested_handle && <p className="text-meta text-muted">Invited as @{invite.suggested_handle}</p>}
+      {invite.prompt && <Command label="Prompt for the colleague's agent" command={invite.prompt} copyLabel="Copy the prompt" />}
       <p className="text-meta text-muted">Shown once. Send both to the person you&apos;re inviting; your agent can also collect them. Copy them now; they aren&apos;t shown again.</p>
       <div>
         <Button variant="quiet" onClick={onDismiss}>
