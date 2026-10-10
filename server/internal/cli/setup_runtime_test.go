@@ -123,3 +123,25 @@ func TestSetupKeepsPendingHarnessAction(t *testing.T) {
 		t.Fatalf("setup selected an endpoint before the required restart: accepts=%d result=%+v", accepts.Load(), out)
 	}
 }
+
+func TestCodexSetupNamesGlobalHooksAndKeepsConfirmedRuntime(t *testing.T) {
+	e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
+	e.env["ABOARD_SESSION"] = "codex:setup-current"
+	e.env["ABOARD_BOOT"] = "current-boot"
+	if err := os.MkdirAll(filepath.Join(e.home, ".codex"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
+	fakeDaemonAnswering(t, a, func(delivery.Request) delivery.Response {
+		return delivery.Response{V: delivery.ProtocolVersion, Boot: "current-boot", RuntimeReady: true}
+	})
+	exe := filepath.Join(e.home, "aboard")
+	first, err := a.setupHarness(context.Background(), exe)
+	if err != nil || first == nil || !strings.Contains(first.Resume, "global hooks") || strings.Contains(first.Resume, "project hooks") {
+		t.Fatalf("wrong hook scope: %v %v", first, err)
+	}
+	next, err := a.setupHarness(context.Background(), exe)
+	if err != nil || next != nil {
+		t.Fatalf("confirmed global hooks still need restart: %v %v", next, err)
+	}
+}

@@ -30,6 +30,10 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+- Setup describes delivery as waiting for the inviter's agents to reply. Codex
+  trust guidance names global hooks; already confirmed hooks need no restart.
+  This CLI wording change is additive; delivery completion rules are unchanged.
+
 - Agents may run `aboard upgrade`; keys and login keep their existing restrictions.
   `aboard --version` aliases `aboard version`, including JSON output. Invite minimum
   version advice exempts development builds. These CLI changes are additive.

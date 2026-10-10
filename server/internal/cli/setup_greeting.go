@@ -20,9 +20,6 @@ type setupHello struct {
 }
 
 func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id string, pending *setupPending) error {
-	if out.Steps[3].State != "complete" {
-		return nil
-	}
 	key, ok := a.sessionKey()
 	if !ok {
 		return nil
@@ -47,6 +44,9 @@ func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id st
 		command = "aboard setup " + commandWord(id) + " --server " + commandWord(out.Server.URL)
 	}
 	out.Steps[5].Message = "Waiting for a reply from " + inviter + "'s agents."
+	if out.Steps[3].State != "complete" {
+		return nil
+	}
 	out.Next = &api.NextStep{Command: command, Resume: "The inviting person's agents will greet you when they next run. Continue Aboard setup to check for a reply."}
 	agents, err := a.sessionAgents(ctx, key)
 	if err != nil {

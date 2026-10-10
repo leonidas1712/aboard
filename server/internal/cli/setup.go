@@ -218,7 +218,7 @@ func runSetup(ctx context.Context, a *app, args []string) (result error) {
 	}
 	out.Steps[3].Message = "Harness configuration needs trust or restart confirmation."
 	out.Steps[4].Message = "This invite has no boards to join."
-	out.Steps[5].Message = "Delivery has not been verified by a session round trip."
+	out.Steps[5].Message = "Waiting for a reply from the inviting person's agents."
 	out.Next = next
 	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Run aboard skill now")
 	out.continueCommand = a.setupContinueCommand(srv, invite)
@@ -273,6 +273,10 @@ func emitSetup(a *app, out setupOutput) error {
 		label := step.Step
 		if label == "pairing" {
 			label = "joining"
+		}
+		if step.Step == "delivery" && step.State == "pending" && strings.HasPrefix(step.Message, "Waiting for a reply") {
+			fmt.Fprintf(&text, "%s: %s\n", label, step.Message)
+			continue
 		}
 		fmt.Fprintf(&text, "%s: %s", label, step.State)
 		if step.Message != "" {
@@ -483,7 +487,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 		trust = "Run /hooks, approve Aboard's hooks, then restart Claude Code."
 	}
 	if key.Harness == "codex" {
-		trust = "Approve Aboard's project hooks in Codex, then restart Codex."
+		trust = "Approve Aboard's global hooks in Codex, then restart Codex."
 	}
 	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: "Run aboard skill now; it loads automatically in your next session. " + trust + " Continue Aboard setup."}, nil
 }

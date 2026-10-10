@@ -128,6 +128,7 @@ the board.
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
 | Sandboxed invite setup returns an exact saved continuation and asks for harness approval | in review; text/JSON real-binary recovery passes | D224 |
+| Setup waiting text names the inviter and Codex global hooks without repeating confirmed restart steps | in review; wording regressions failed first | D224 |
 | Agent-operable upgrades, version flag alias and development-build invite guidance | in review; acceptance tests failed first | D224 |
 | Invitations name the minimum CLI version and how to upgrade; unknown commands explain that the installed CLI may be older than the server | in review (#311); unit/e2e and quick pass | D224 |
 | A backup of the database before every migration, keeping the last three, and every pending migration in one transaction | done (#118) | D148, D184, D199 |
