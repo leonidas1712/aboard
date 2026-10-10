@@ -16,6 +16,7 @@ type OnboardingBoardDisplay struct{ ID, Name, Title string }
 type OnboardingDisplay struct {
 	PersonHandle, AgentName, AgentHarness string
 	Boards                                []OnboardingBoardDisplay
+	RequestedOn                           *OnboardingBoardDisplay
 }
 
 // OnboardingLabels resolves only boards and agents currently visible to the caller.
@@ -59,6 +60,8 @@ func (s *Service) OnboardingLabels(ctx context.Context, p Principal, personID, a
 				return err
 			}
 			if _, _, _, err := s.see(tx, p, b.Name); err == nil {
+				source := boardDisplay(b)
+				out.RequestedOn = &source
 				out.AgentName = m.Name
 				if m.Harness != nil && (p.Human != nil || b.Policy.ShowHarness) {
 					out.AgentHarness = *m.Harness

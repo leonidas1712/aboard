@@ -23,6 +23,9 @@ func (h *handlers) onboardingDisplay(ctx context.Context, personID, agentID stri
 		return out
 	}
 	out["boards"] = displayBoards(labels.Boards)
+	if b := labels.RequestedOn; b != nil {
+		out["requested_on"] = map[string]any{"id": b.ID, "name": b.Name, "title": b.Title}
+	}
 	if labels.PersonHandle != "" {
 		out["person_handle"] = labels.PersonHandle
 	}

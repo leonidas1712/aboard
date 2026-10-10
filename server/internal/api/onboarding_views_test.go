@@ -166,7 +166,7 @@ func TestOnboardingLabelsDisappearWhenAnAdminLosesPrivateBoardAccess(t *testing.
 		t.Fatalf("approval execution kind: %d %s", status, raw)
 	}
 	status, raw = onboardingCall(t, s, "GET", "/v1/me/invite-notices", "", s.browserToken(s.owner))
-	if status != 200 || !strings.Contains(raw, `"agent_name":"codex"`) || !strings.Contains(raw, name) {
+	if status != 200 || !strings.Contains(raw, `"agent_name":"codex"`) || !strings.Contains(raw, `"requested_on":`) || !strings.Contains(raw, name) {
 		t.Fatalf("visible notice: %d %s", status, raw)
 	}
 	removed, err := s.client(maya).RemovePersonWithResponse(ctx, name, "alex", nil)
