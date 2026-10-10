@@ -297,3 +297,39 @@ func TestAFailedAcknowledgementHidesNoBlock(t *testing.T) {
 		t.Fatalf("again: %+v %v", again.Seats, err)
 	}
 }
+
+func TestMultiIssuerInboxQualifiesWrappersAndCopiedCommands(t *testing.T) {
+	firstURL, firstOwner := testServer(t)
+	secondURL, secondOwner := testServer(t)
+	first := seatOn(t, firstURL, firstOwner)
+	second := seatOn(t, secondURL, secondOwner)
+	if first.Board != second.Board {
+		t.Fatal("fixture must use equal board names across issuers")
+	}
+	postTo(t, firstURL, firstOwner, first.Board, 1)
+	postTo(t, secondURL, secondOwner, second.Board, 1)
+	seats := []delivery.AgentRef{
+		{Server: firstURL, Board: first.Board, Name: first.Name, MemberID: first.MemberID},
+		{Server: secondURL, Board: second.Board, Name: second.Name, MemberID: second.MemberID},
+	}
+	out, err := inboxApp(t).inboxSeats(context.Background(), seats, credentials{Agents: []agentCredential{first, second}}, 0, false, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Bundle == nil || len(out.Seats) != 2 {
+		t.Fatalf("missing issuer inboxes: %+v", out)
+	}
+	for _, seat := range out.Seats {
+		for _, wrapped := range seat.Wrapped {
+			if !strings.Contains(wrapped, `server="`+seat.Server+`"`) {
+				t.Fatalf("wrapper lost issuer: %s", wrapped)
+			}
+		}
+		for _, command := range []string{"aboard say", "aboard read"} {
+			qualified := command + " --server " + seat.Server + " --board " + seat.Board
+			if !strings.Contains(*out.Bundle, qualified) {
+				t.Fatalf("copied command lost issuer %q: %s", qualified, *out.Bundle)
+			}
+		}
+	}
+}
