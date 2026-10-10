@@ -72,6 +72,9 @@ func runBoardArchive(ctx context.Context, a *app, sel, asFlag string, restore bo
 		return apiError(status, body)
 	}
 	name, restoreCmd := t.board, "aboard board restore "+shellWord(t.board)
+	if a.selectedServerFlag() != "" || a.qualifyAgentOutput {
+		restoreCmd += " --server " + commandWord(t.server.URL)
+	}
 	var text string
 	switch {
 	case !restore && out.Changed:
@@ -100,6 +103,9 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 	if named != "" {
 		command += " " + shellWord(named)
 	}
+	if issuer := a.selectedServerFlag(); issuer != "" {
+		command += " --server " + commandWord(issuer)
+	}
 	if asFlag != "" {
 		return newError("human_command_in_session",
 			"Deleting a board is up to a person, and --as says this command runs as the agent "+asFlag+".",
@@ -113,6 +119,11 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 		return err
 	}
 	command = "aboard board delete " + shellWord(t.board)
+	archiveCmd := "aboard board archive " + shellWord(t.board)
+	if a.selectedServerFlag() != "" {
+		command += " --server " + commandWord(t.server.URL)
+		archiveCmd += " --server " + commandWord(t.server.URL)
+	}
 	if !yes && !a.interactive() {
 		return newError("confirmation_required",
 			"Deleting "+t.board+" ends every way into it for good. It needs a yes first.",
@@ -134,7 +145,7 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 		if err == nil && (b.Lifecycle == nil || *b.Lifecycle != api.BoardLifecycleArchived) {
 			return newError("board_not_archived",
 				t.board+" isn't archived, and only an archived board can be deleted.",
-				"Archive it first with aboard board archive "+shellWord(t.board)+", then delete it.")
+				"Archive it first with "+archiveCmd+", then delete it.")
 		}
 	}
 	if !yes {

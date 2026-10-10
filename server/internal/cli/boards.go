@@ -128,6 +128,9 @@ func (a *app) boardsGroup(ctx context.Context, srv serverRef, c *client, agent *
 			Added:   addedOf(b),
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 		}
+		if row.Added != nil {
+			row.Added.Join = "aboard join --board " + commandWord(b.Name) + " --server " + commandWord(srv.URL)
+		}
 		p, err := c.api.ListPeopleWithResponse(ctx, b.Name)
 		if err != nil {
 			return boardsOutput{}, c.unreachable(err)
