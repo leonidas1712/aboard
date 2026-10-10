@@ -5443,6 +5443,7 @@ components:
         recipient_agent_name: { type: string, description: Current chosen or bound recipient agent name; only while visible. }
         recipient_agent_harness: { type: string }
         key_name: { type: string, description: Current approval target key name; only for an authorized viewer. }
+        target_handle: { type: string, description: Current approval target person handle; display only and distinct from the requesting person. }
         person_handle: { type: string, description: Current inviter or requester handle; never authority. }
         agent_name: { type: string }
         agent_harness: { type: string }
