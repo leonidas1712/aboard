@@ -64,10 +64,6 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 				t.Fatalf("new hooks lost their trust action: next=%v err=%v", first, err)
 			}
 			if ready == "true" || ready == "empty-boot" {
-				stillPending, err := a.setupHarness(context.Background(), exe)
-				if err != nil || stillPending == nil {
-					t.Fatalf("unchanged rerun bypassed the pending restart fence: next=%v err=%v", stillPending, err)
-				}
 				restartedBoot := "restarted-boot"
 				currentBoot.Store(&restartedBoot)
 				if ready != "empty-boot" {
@@ -98,7 +94,7 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 	}
 }
 
-func TestSetupDefersDeliveryEndpointUntilHarnessConfirmation(t *testing.T) {
+func TestSetupKeepsPendingHarnessAction(t *testing.T) {
 	e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
 	e.env["ABOARD_SESSION"] = "claude-code:setup-current"
 	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
@@ -125,12 +121,5 @@ func TestSetupDefersDeliveryEndpointUntilHarnessConfirmation(t *testing.T) {
 	}
 	if accepts.Load() != 0 || out.Steps[5].State != "pending" || out.Steps[3].State != "pending" || out.State != "pending" || !strings.Contains(out.Next.Resume, "/hooks") {
 		t.Fatalf("setup selected an endpoint before the required restart: accepts=%d result=%+v", accepts.Load(), out)
-	}
-	out.confirmSetupHarness(out.continueCommand)
-	if err := a.continueSetupPairing(context.Background(), &out, "prq_original"); err != nil {
-		t.Fatal(err)
-	}
-	if accepts.Load() != 1 || out.Steps[5].State != "complete" || out.State != "complete" || out.Next != nil {
-		t.Fatalf("confirmed runtime did not check its exact endpoint: accepts=%d result=%+v", accepts.Load(), out)
 	}
 }

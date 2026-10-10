@@ -1,8 +1,23 @@
 package cli
 
 import (
+	"context"
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
+
+func (a *app) setupRuntimeReady(ctx context.Context, key delivery.SessionKey, setups []harnessSetup) (bool, error) {
+	for _, setup := range setups {
+		for _, change := range setup.Changes {
+			if (change.Kind == "hooks" || change.Kind == "file") && change.Action != actionUnchanged {
+				return false, nil
+			}
+		}
+	}
+	boot := a.env.Getenv("ABOARD_BOOT")
+	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpAgents, Harness: key.Harness, Session: key.ID, Boot: boot})
+	return err == nil && resp.RuntimeReady && (boot == "" || boot == resp.Boot), nil
+}
 
 func (out *setupOutput) confirmSetupHarness(command string) {
 	out.Steps[3].State = "complete"

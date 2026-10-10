@@ -1,12 +1,9 @@
 package cli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -206,7 +203,7 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		return err
 	}
 	if joined && pending.Receipt.PairingRequestId != nil {
-		if err := a.continueSetupPairing(ctx, &out, *pending.Receipt.PairingRequestId); err != nil {
+		if err := a.continueSetupGreeting(ctx, &out, *pending.Receipt.PairingRequestId, pending); err != nil {
 			return err
 		}
 	}
@@ -436,21 +433,12 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if !ok {
 		return &api.NextStep{Command: "aboard init", Resume: "Set up this harness and restart it, then Continue Aboard setup."}, nil
 	}
-	fencePath, err := a.setupRuntimeFencePath(key.Harness)
-	if err != nil {
-		return nil, err
-	}
-	lock, err := lockSetup(fencePath)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = lock.Close() }()
 	c := initChoices{scope: scopeGlobal, harnesses: []string{key.Harness}}
 	setups, err := a.planInit(ctx, c, []harnessSetup{{Name: key.Harness, Detected: h.Detected(a.henv())}}, exe)
 	if err != nil {
 		return nil, err
 	}
-	ready, err := a.guardSetupRuntime(ctx, key, setups, fencePath)
+	ready, err := a.setupRuntimeReady(ctx, key, setups)
 	if err != nil {
 		return nil, err
 	}
@@ -493,68 +481,5 @@ func (a *app) setupInstalled(out *setupOutput) (exe string, installed bool, err 
 }
 
 func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id string) error {
-	if out.Steps[3].State != "complete" {
-		return nil
-	}
-	harnessNext := out.Next
-	defer func() {
-		if out.Steps[3].State != "complete" && harnessNext != nil {
-			out.Next = harnessNext
-		}
-	}()
-	command := out.continueCommand
-	if command == "" {
-		command = "aboard setup " + commandWord(id) + " --server " + commandWord(out.Server.URL)
-	}
-	out.Next = &api.NextStep{Command: command, Resume: "Continue Aboard setup in the session that should take part."}
-	if _, ok := a.sessionKey(); !ok {
-		out.Steps[4].Message = "Continue in the intended harness session to join the boards."
-		return nil
-	}
-	var captured bytes.Buffer
-	worker := *a
-	worker.json = true
-	worker.env.Stdout = &captured
-	worker.env.Stderr = io.Discard
-	if err := runPairing(ctx, &worker, []string{"accept", id, "--here", "--server", out.Server.URL}); err != nil {
-		out.Steps[4].Message = "The current session could not finish joining; Continue Aboard setup to retry."
-		if !strings.Contains(out.Next.Resume, "Continue Aboard setup") {
-			out.Next.Resume += " Continue Aboard setup."
-		}
-		return nil
-	}
-	var accepted struct {
-		Server  serverRef          `json:"server"`
-		Request api.PairingRequest `json:"request"`
-	}
-	if err := json.Unmarshal(captured.Bytes(), &accepted); err != nil {
-		return newError("internal", "The delivery check result could not be read.", "Continue Aboard setup before trying again.")
-	}
-	if accepted.Server.URL != out.Server.URL || accepted.Request.Id != id || accepted.Request.ServerId == "" {
-		return newError("internal", "The delivery check result did not match the requested server and identity.", "Continue Aboard setup; do not create a replacement.")
-	}
-	out.PairingRequest = &accepted.Request
-	if out.Steps[1].State != "complete" {
-		out.Steps[1].State = "complete"
-		out.Steps[1].Message = "Your current account is authorized for this setup."
-	}
-	out.Steps[2].State = "complete"
-	out.Steps[2].Message = "Current board access and delivery participation were checked."
-	out.Steps[4].State = "complete"
-	out.Steps[4].Message = "This exact session joined the invited boards."
-	out.Steps[5].Message = "Both current sessions' round trips are not yet verified."
-	out.Next = &api.NextStep{Command: command, Resume: "The inviting session may be offline. Continue Aboard setup to check the exact sessions’ delivery round trips."}
-	if accepted.Request.State == api.PairingStateReady {
-		first, second := accepted.Request.Initiator, accepted.Request.Recipient
-		if first == nil || second == nil || first.AgentId == "" || second.AgentId == "" || first.SessionBinding == "" || second.SessionBinding == "" || first.Generation <= 0 || second.Generation <= 0 {
-			return newError("internal", "The completed delivery check omitted its current session evidence.", "Continue Aboard setup and ask the admin to check the server.")
-		}
-		out.Steps[5].State = "complete"
-		out.Steps[5].Message = "Both current-generation session round trips were verified."
-		if out.Steps[3].State == "complete" {
-			out.State = "complete"
-			out.Next = nil
-		}
-	}
-	return nil
+	return a.continueSetupGreeting(ctx, out, id, nil)
 }
