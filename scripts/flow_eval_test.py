@@ -15,6 +15,10 @@ class ReportTests(unittest.TestCase):
         messages.append({'from': {'kind': 'agent', 'name': 'claude'}, 'body': 'Hello Maya'})
         self.assertTrue(hello_from(messages, {'claude'}))
 
+    def test_hi_from_the_expected_agent_is_a_greeting(self):
+        self.assertTrue(hello_from([{'from': {'kind': 'agent', 'name': 'claude'},
+                                    'body': 'Hi Maya, welcome to the board.'}], {'claude'}))
+
     def test_friction_uses_assistant_text_and_shell_calls_not_tool_echo(self):
         rows = [
             {'message': {'role': 'assistant', 'content': [

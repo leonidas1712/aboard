@@ -147,7 +147,7 @@ def friction(records):
 def hello_from(messages, names):
     return any(m.get('from', {}).get('kind') == 'agent' and
                m['from'].get('name') in names and
-               re.search(r'\bhello\b', m.get('body', ''), re.I)
+               re.search(r'\b(?:hello|hi|hey)\b', m.get('body', ''), re.I)
                for m in messages)
 
 
@@ -264,7 +264,7 @@ class Eval:
                               '[projects.' + json.dumps(str(info['project'])) + ']\ntrust_level = "trusted"\n')
             config.chmod(0o600)
             argv = [self.args.codex, '-m', self.args.models[1], '-s', 'workspace-write',
-                    '-a', 'never', '--add-dir', str(self.root)]
+                    '-a', 'on-request', '--add-dir', str(self.root)]
         info['argv'] = argv
         launch = self.root / (side + '-launch.json')
         write_json(launch, {'env': {k: env[k] for k in ISOLATION if k in env},
@@ -494,7 +494,7 @@ class Eval:
         self.tmux('send-keys', '-t', 'flow:' + side, 'C-c', 'C-c')
         launch = self.root / (side + '-launch.json')
         config = json.loads(launch.read_text())
-        config['argv'] = info['argv'] + ['--resume', ids[-1]] if side == 'leo' else [self.args.codex, 'resume', '-m', self.args.models[1], '-s', 'workspace-write', '-a', 'never', '--add-dir', str(self.root), ids[-1]]
+        config['argv'] = info['argv'] + ['--resume', ids[-1]] if side == 'leo' else [self.args.codex, 'resume', '-m', self.args.models[1], '-s', 'workspace-write', '-a', 'on-request', '--add-dir', str(self.root), ids[-1]]
         write_json(launch, config)
         cmd = shlex.join([sys.executable, str(Path(__file__).resolve()), '--launch', str(launch)])
         self.tmux('respawn-pane', '-k', '-t', 'flow:' + side, cmd)
