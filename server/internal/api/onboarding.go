@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/board"
 )
@@ -22,8 +23,13 @@ func (h *handlers) GetOnboardingReceipt(ctx context.Context, _ GetOnboardingRece
 	return convert[GetOnboardingReceipt200JSONResponse](onboardingOf(r))
 }
 
-func serverInviteOf(inv board.NewServerInvite) map[string]any {
+func (h *handlers) serverInviteOf(inv board.NewServerInvite) map[string]any {
 	out := map[string]any{"id": inv.Invite.ID, "invite": inv.Secret, "server_role": board.ServerMember, "expires_at": inv.Invite.ExpiresAt}
+	if issuer := strings.TrimRight(h.svc.Config().IssuerURL, "/"); issuer != "" {
+		link := issuer + "/join#" + inv.Secret
+		out["link"] = link
+		out["prompt"] = invitationPrompt(link, inv.Invite.SuggestedHandle, inv.Invite.PairingRequestID != "")
+	}
 	if inv.Invite.SuggestedHandle != "" {
 		out["suggested_handle"] = inv.Invite.SuggestedHandle
 	}
@@ -34,4 +40,15 @@ func serverInviteOf(inv board.NewServerInvite) map[string]any {
 		out["pairing_request_id"] = inv.Invite.PairingRequestID
 	}
 	return out
+}
+
+func invitationPrompt(link, handle string, pairing bool) string {
+	if handle == "" {
+		handle = "<name you'd like teammates to see>"
+	}
+	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle " + handle + "."
+	if pairing {
+		prompt += " Verify you can exchange messages with the inviting agent."
+	}
+	return prompt
 }

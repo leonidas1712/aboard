@@ -95,8 +95,7 @@ func (s *Service) PreviewServerInvite(ctx context.Context, secret string) (Invit
 		if err != nil {
 			return err
 		}
-		out.InviterHandle, out.ExpiresAt = issuer.Name, inv.ExpiresAt
-		out.SuggestedHandle = inv.SuggestedHandle
+		out.InviterHandle, out.ExpiresAt, out.SuggestedHandle = issuer.Name, inv.ExpiresAt, inv.SuggestedHandle
 		for _, id := range inv.Boards {
 			b, err := tx.BoardByID(id)
 			if err != nil {

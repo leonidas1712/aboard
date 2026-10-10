@@ -21,6 +21,9 @@ func (h *handlers) ListServerInvites(ctx context.Context, _ ListServerInvitesReq
 		if i.ParentKeyID != "" {
 			entry["parent_key_id"] = i.ParentKeyID
 		}
+		if i.SuggestedHandle != "" {
+			entry["suggested_handle"] = i.SuggestedHandle
+		}
 		if i.IssuingAgentID != "" {
 			entry["issuing_agent_id"] = i.IssuingAgentID
 		}

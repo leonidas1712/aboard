@@ -82,8 +82,10 @@ func TestOnlyAnAdminsOwnKeyManagesThePeopleOnTheServer(t *testing.T) {
 		_, err = w.svc.RemoveFromServer(ctx, p, "maya", true)
 		wantCode(t, name+" removing a person", err, "human_token_required")
 	}
-	_, err = w.svc.ListServerPeople(ctx, alexAgent)
-	wantCode(t, "an agent listing the server's people", err, "human_token_required")
+	people, err := w.svc.ListServerPeople(ctx, alexAgent)
+	if err != nil || len(people) == 0 {
+		t.Fatalf("agent list: %v %v", people, err)
+	}
 	_, err = w.svc.RemoveFromServer(ctx, w.maya, "sam", false)
 	wantCode(t, "a member removing someone", err, "server_admin_required")
 	_, err = w.svc.RemoveFromServer(ctx, w.alex, "nobody", false)

@@ -136,8 +136,8 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "approvals", Group: groupMaintain,
 			Summary:     "See held actions, or allow or decline one",
-			Usage:       []string{"aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals allow ID [--always] [--server SERVER] [--json]", "aboard approvals decline ID [--server SERVER] [--json]"},
-			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category and warns when enabling invite-people. A newly created invite is returned once; a replay never returns its token again.",
+			Usage:       []string{"aboard approvals [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals show ID [--server SERVER] [--board BOARD] [--as AGENT] [--json]", "aboard approvals allow ID [--always] [--server SERVER] [--json]", "aboard approvals decline ID [--server SERVER] [--json]"},
+			Description: "Your person sees their agents' requests; an agent sees only its own. Pending requests come first. Only your person can allow or decline the recorded action. --always also enables its allowance category and warns when enabling invite-people. After approval, the requesting agent runs approvals show ID to collect its invite link and colleague prompt once. A person’s show reads only nonsecret metadata. A lost response gets one retry with the same seat and key; a later invocation cannot reveal the invite again.",
 			Flags:       []helpFlag{{"--server", "SERVER", "The server that issued the approval id."}, flagBoard, flagAs, {"--always", "", "Also enable this action's allowance category."}, flagJSON},
 			Examples:    []helpExample{{"aboard approvals", "List your agents' requests."}, {"aboard approvals allow apr_ID", "Allow the recorded action once."}},
 			SeeAlso:     []string{"allowance", "invite", "board"},
@@ -383,12 +383,12 @@ func helpText(templates string) []commandHelp {
 			Name: "people", Group: groupStart,
 			Summary: "List the people on a server; admins change roles and remove people",
 			Usage: []string{
-				"aboard people [--server URL] [--json]",
+				"aboard people [--server URL] [--board BOARD] [--as AGENT] [--json]",
 				"aboard people rename @old new [--server URL] [--board NAME] [--as AGENT] [--json]",
 				"aboard people role @handle admin|member [--server URL] [--json]",
 				"aboard people remove @handle [--yes] [--server URL] [--json]",
 			},
-			Description: "aboard people lists everyone on the server with their role: admin, member or guest. " +
+			Description: "aboard people lists everyone on the server with their role: admin, member or guest. A non-guest agent lists non-guest people through its current seat, never through the person’s login. " +
 				"An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite --guest) and reaches only the boards guest codes brought them onto. " +
 				"The server is --server or the machine's saved default (aboard servers); known servers without a saved default require a choice before credentials are used.\n\n" +
 				"people rename changes your own handle, or another person’s if you are an admin. An active agent may rename only its own person through its seat, without using a person key. Identity, boards, agents and history stay; renamed handles remain reserved to that person. " +
@@ -399,6 +399,8 @@ func helpText(templates string) []commandHelp {
 			Flags: []helpFlag{
 				{"--yes", "", "Remove the person without asking."},
 				{"--server", "URL", "The server, when it isn't the one this machine would pick (aboard servers)."},
+				{"--board", "BOARD", "For people reads only, select the agent seat on this board."},
+				{"--as", "AGENT", "For people reads only, select this agent's seat credential."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -637,21 +639,21 @@ func helpText(templates string) []commandHelp {
 			Usage: []string{
 				"aboard invite [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --guest HANDLE [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
-				"aboard invite --person [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--handle HANDLE] [--ttl DURATION] [--json]",
-				"aboard invite list [--server SERVER] [--json]",
-				"aboard invite edit ID --handle HANDLE [--server SERVER] [--board NAME] [--as AGENT] [--json]",
+				"aboard invite --person [--handle NAME] [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]",
+				"aboard invite list [--server SERVER] [--board BOARD] [--as AGENT] [--json]",
 				"aboard invite revoke ID [--server SERVER] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
-				"With --person it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. --handle suggests the invitee’s account handle, which they may change before redemption. invite edit ID --handle HANDLE changes only that suggestion on an outstanding invitation. list shows your own invitation metadata without secrets; revoke ends one invitation.\n\n" +
+				"With --person it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. --handle suggests a name without reserving it; setup defaults to it and may override it. list shows your own invitation metadata without secrets; agents use their current seat and person scope. revoke ends one invitation.\n\n" +
 				"Use --server NAME|URL to choose the issuer; only --person selects a person invitation. Bare --server with no value or board is a deprecated alias for --person. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code or agent-issued invite, 168h for a person-issued invite."},
 				{"--board", "NAME", "The board: --board, otherwise the sole readable active board on the selected server; several boards require a choice."},
 				{"--person", "", "Invite a person to the server; repeat --board to bundle memberships."},
+				{"--handle", "NAME", "Suggest the recipient’s handle with --person; no name is reserved."},
 				{"--pairing", "WORK", "Propose work with this verified current session; requires --person and one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
 				{"--server", "[NAME|URL]", "Select the issuer by name or URL. Bare --server with no value or board remains a deprecated alias for --person."},

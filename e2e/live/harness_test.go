@@ -850,3 +850,33 @@ func appendFile(t *testing.T, path, text string) {
 		t.Fatal(err)
 	}
 }
+
+// Startup can leave the submitted prompt as the last conversation line marked ›.
+// Only the cancellable startup status below that line proves it left the composer.
+func codexPromptTaken(screen, prefix string) bool {
+	input := codexInput(screen)
+	if !strings.Contains(input, prefix) {
+		return true
+	}
+	lines := strings.Split(input, "\n")
+	for _, line := range lines[1:] {
+		if codexStartupLine(line) {
+			return true
+		}
+	}
+	return false
+}
+
+func codexStartupLine(line string) bool {
+	line = strings.Join(strings.Fields(line), " ")
+	return line == "Waiting for startup · esc cancel"
+}
+
+func codexStarting(screen string) bool {
+	for _, line := range strings.Split(screen, "\n") {
+		if codexStartupLine(line) {
+			return true
+		}
+	}
+	return false
+}

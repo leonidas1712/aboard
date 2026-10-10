@@ -142,6 +142,12 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		return emitSetup(a, out)
 	}
 	if h == "" {
+		h, err = a.suggestedSetupHandle(ctx, srv, invite)
+		if err != nil {
+			return err
+		}
+	}
+	if h == "" {
 		suggested := rules.NormalizeName(a.env.Getenv("USER"))
 		if suggested == "" {
 			suggested = "teammate"
@@ -193,6 +199,23 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		}
 	}
 	return emitSetup(a, out)
+}
+
+func (a *app) suggestedSetupHandle(ctx context.Context, srv serverRef, invite string) (string, error) {
+	c, err := a.client(ctx, srv, "", requestTimeout)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := a.requestContext(ctx)
+	defer cancel()
+	r, err := c.api.PreviewServerInviteWithResponse(ctx, api.PreviewServerInviteJSONRequestBody{Invite: invite})
+	if err != nil {
+		return "", c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return "", apiError(r.StatusCode(), r.Body)
+	}
+	return deref(r.JSON200.SuggestedHandle), nil
 }
 
 func setupRecoveryNext(srv serverRef) *api.NextStep {

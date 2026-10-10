@@ -962,9 +962,8 @@ $defs:
       person invite without --person: without --board it selects the only readable
       active board or returns board selection choices, as other board commands do.
       The unreleased bundled person spelling changes to --person --board (D223).
-      --handle HANDLE suggests the invitee's person handle. It neither reserves the
-      handle nor binds the invitee's identity. The server's prompt and preview carry
-      the current suggestion; the invitee may choose another handle at redemption.
+      --handle NAME suggests the recipient’s handle without reserving it. Setup
+      defaults to it, while an explicit setup --handle wins. Text uses @NAME when set.
       Lifetime is --ttl (1m to 720h): person default 168h, agent default 24h.
       Agents use their issuer-bound seat and D222 allowance/approval checks, never
       the person's login. No selected seat returns agent_session_required with a
@@ -1014,6 +1013,7 @@ $defs:
         type: array
         items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
       pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+      suggested_handle: { type: string, maxLength: 40 }
       prompt: { type: string, description: Ready-to-send colleague setup prompt, shown only on issuance. }
 
   ServerInviteEditOutput:
@@ -1034,16 +1034,22 @@ $defs:
 
   ServerInvitesOutput:
     description: |
+      `aboard invite list` uses an active non-guest agent's seat on the selected issuer
+      to read only its person's invitation metadata. --board and --as select that
+      credential when a session holds several seats; they grant no mutation authority.
+      Agent output includes the selected board. No link or person key is exposed.
+
       aboard invite list --server SERVER [--json] lists only your invitations and
       your agents' invitations, with immutable issuer agent id and state; text marks
       agent-issued invitations explicitly with the issuing agent display handle. Never returns
-      an invite secret or hidden board name. Person-only; agents get
-      human_token_required with next.command. Losing admin authority does not
+      an invite secret or hidden board name. Current non-guest agents use their
+      selected seat issuer and person scope, never a person key. Losing admin authority does not
       prevent inspecting or revoking your own invitations. Exit 0 or 1.
     type: object
     required: [server, invites]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string, description: "The selected agent seat's board; omitted for person reads." }
       invites:
         type: array
         items: { $ref: "openapi.yaml#/components/schemas/ServerInviteMetadata" }
@@ -3226,11 +3232,18 @@ $defs:
   # ---------- aboard people [--server URL] ----------
   PeopleOutput:
     description: |
+      `aboard people` accepts --board and --as to select a non-guest agent's current
+      seat credential within --server. With several matching seats it refuses
+      board_ambiguous until selected; it never guesses or uses a person's login.
+      Agent output includes the selected board. These selectors do not apply to
+      people role or remove.
+
       The people on the server (GET /v1/people), oldest first, each with their server
       role: admin, member or guest. The server is --server (one this machine holds a key
       for), otherwise the persisted default (D223); a fresh local bootstrap
-      establishes the local default if needed. A person command: inside a harness session, or with ABOARD_AGENT
-      set, it refuses with human_command_in_session before it sends anything. Text
+      establishes the local default if needed. Agents use their current active non-guest
+      seat and its issuer, returning only non-guest people; no person login fallback.
+      An unbound agent refuses before authenticated HTTP. Text
       output:
         People on https://team.example.com:
           HANDLE  SERVER ROLE  NAME
@@ -3241,6 +3254,7 @@ $defs:
     required: [server, people]
     properties:
       server: { $ref: "#/$defs/ServerRef" }
+      board: { type: string, description: "The selected agent seat's board; omitted for person reads." }
       people:
         type: array
         items: { $ref: openapi.yaml#/components/schemas/Person }
@@ -4126,6 +4140,32 @@ $defs:
         type: array
         items: { $ref: "openapi.yaml#/components/schemas/Approval" }
 
+  ApprovalOutcomeOutput:
+    description: |
+      aboard approvals show ID [--server SERVER] [--board BOARD] [--json] reads
+      one own approval. In an agent session it uses only the exact requesting
+      seat token and collects the issued invite outcome once. The first collection
+      includes the server's invite link and ready-to-send prompt. The CLI retries a
+      transport failure once with the same original seat and Idempotency-Key; it
+      never replaces credentials or reissues the request. The server permits only
+      that winning key to recover for 10 minutes, with current authority rechecked.
+      A new approvals show invocation uses a new key and receives nonsecret metadata.
+      A person reads nonsecret metadata only, without consuming the agent's result.
+      Missing, foreign and inaccessible approvals use approval_not_found. Lists,
+      decision notifications and next steps never contain invite secrets.
+      Exit 0 for a visible pending or terminal result, 1 for a refusal.
+    type: object
+    required: [server, approval, collected]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
+      collected: { type: boolean }
+      invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+      prompt: { type: string }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
   ApprovalDecisionOutput:
     description: |
       aboard approvals allow ID [--always] [--server SERVER] [--json] executes the
@@ -4344,3 +4384,10 @@ $defs:
                   location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
                   reopen_command: { type: string }
                   resume_command: { type: string }
+
+# GEN-52 additive invite hints and read-only agent access:
+# invite --person --handle NAME carries an unreserved suggested_handle through the
+# invitation, approval payload and preview. setup defaults to it; an explicit
+# setup --handle wins. Prompts name the hint, and text displays @NAME when present.
+# people and invite list accept the exact current active non-guest seat, on its issuer,
+# never a person credential fallback. Invite revoke and other mutations retain their gates.

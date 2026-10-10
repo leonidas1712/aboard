@@ -137,7 +137,7 @@ func (h *handlers) adminResultOf(ctx context.Context, r board.AdminActionResult)
 		out["next"] = approvalNext(ctx, r.Approval.ID)
 	}
 	if r.Invite != nil {
-		out["invite"] = serverInviteOf(*r.Invite)
+		out["invite"] = h.serverInviteOf(*r.Invite)
 	}
 	return out
 }

@@ -67,12 +67,21 @@ func (t *tx) AdminCount() (int, error) {
 
 // SetHumanRole sets a person's server role.
 func (t *tx) SetHumanRole(id, role string) error {
-	return t.exec("UPDATE humans SET role = ? WHERE id = ?", role, id)
+	if err := t.exec("UPDATE humans SET role = ? WHERE id = ?", role, id); err != nil {
+		return err
+	}
+	if role != "admin" {
+		return t.clearApprovalCapsules("SELECT id FROM admin_approvals WHERE person_id=?", id)
+	}
+	return nil
 }
 
 // RemoveHuman marks a person removed from the server, keeping the first time.
 func (t *tx) RemoveHuman(id, at, by string) error {
-	return t.exec("UPDATE humans SET removed_at = ?, removed_by = ? WHERE id = ? AND removed_at IS NULL", at, by, id)
+	if err := t.exec("UPDATE humans SET removed_at = ?, removed_by = ? WHERE id = ? AND removed_at IS NULL", at, by, id); err != nil {
+		return err
+	}
+	return t.clearApprovalCapsules("SELECT id FROM admin_approvals WHERE person_id=?", id)
 }
 
 const accessKeyColumns = "id, human_id, name, digest, created_at, expires_at, revoked_at, last_used_at, idle_seconds"
@@ -113,7 +122,10 @@ func (t *tx) KeysOf(humanID, now string) ([]board.KeyUsage, error) {
 
 // RevokeAccessKey marks an access key revoked, keeping the first time it was.
 func (t *tx) RevokeAccessKey(id, at string) error {
-	return t.exec("UPDATE access_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL", at, id)
+	if err := t.exec("UPDATE access_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL", at, id); err != nil {
+		return err
+	}
+	return t.clearApprovalCapsules("SELECT id FROM admin_approvals WHERE parent_key_id=?", id)
 }
 
 // UseAccessKey records a use of an access key, and moves its expiry when expires is set.
@@ -488,16 +500,28 @@ func (t *tx) StreamMembers(boardID string) ([]board.Member, error) {
 
 // SetMemberStatus sets whether a member is on its board: active, left or removed.
 func (t *tx) SetMemberStatus(memberID, status string) error {
-	return t.exec("UPDATE members SET status = ? WHERE id = ?", status, memberID)
+	if err := t.exec("UPDATE members SET status = ? WHERE id = ?", status, memberID); err != nil {
+		return err
+	}
+	if status != string(board.StatusActive) {
+		return t.clearApprovalCapsules("SELECT a.id FROM admin_approvals a JOIN members m ON m.id=? WHERE a.agent_id=m.id OR (m.kind='human' AND a.person_id=m.human_id AND (EXISTS (SELECT 1 FROM members issuer WHERE issuer.id=a.agent_id AND issuer.board_id=m.board_id) OR EXISTS (SELECT 1 FROM admin_approval_outcomes o JOIN server_invites i ON i.id=o.invite_id,json_each(i.boards) j WHERE o.approval_id=a.id AND j.value=m.board_id)))", memberID)
+	}
+	return nil
 }
 
 // RemoveAgent marks an agent removed, with when and by whom. An agent that left by
 // itself is stored as left, with no removed_by.
 func (t *tx) RemoveAgent(memberID, at, by string) error {
+	var err error
 	if by == board.RemovedBySelf {
-		return t.exec("UPDATE members SET status = 'left', removed_at = ?, removed_by = NULL WHERE id = ? AND kind = 'agent'", at, memberID)
+		err = t.exec("UPDATE members SET status='left',removed_at=?,removed_by=NULL WHERE id=? AND kind='agent'", at, memberID)
+	} else {
+		err = t.exec("UPDATE members SET status='removed',removed_at=?,removed_by=? WHERE id=? AND kind='agent'", at, by, memberID)
 	}
-	return t.exec("UPDATE members SET status = 'removed', removed_at = ?, removed_by = ? WHERE id = ? AND kind = 'agent'", at, by, memberID)
+	if err != nil {
+		return err
+	}
+	return t.clearApprovalCapsules("SELECT id FROM admin_approvals WHERE agent_id=?", memberID)
 }
 
 // SetAgentToken replaces an agent's token and the key it stops with.
@@ -672,7 +696,13 @@ func lifecycleDefault(v string) string {
 
 // SetBoardLifecycle changes only access state, retaining all rows and the name.
 func (t *tx) SetBoardLifecycle(id, lifecycle string) error {
-	return t.exec("UPDATE boards SET lifecycle = ? WHERE id = ?", lifecycle, id)
+	if err := t.exec("UPDATE boards SET lifecycle = ? WHERE id = ?", lifecycle, id); err != nil {
+		return err
+	}
+	if lifecycle != "active" {
+		return t.clearApprovalCapsules("SELECT o.approval_id FROM admin_approval_outcomes o JOIN server_invites i ON i.id=o.invite_id WHERE EXISTS (SELECT 1 FROM members m WHERE m.id=i.issuing_agent_id AND m.board_id=?) OR EXISTS (SELECT 1 FROM json_each(i.boards) j WHERE j.value=?)", id, id)
+	}
+	return nil
 }
 
 // ReservedHandle identifies the person to whom a renamed handle belongs forever.

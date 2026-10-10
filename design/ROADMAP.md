@@ -1,5 +1,12 @@
 # Roadmap
 
+### Onboarding approval outcomes (GEN-52)
+
+Review: PR #297 adds requesting-agent collection with encrypted, bounded recovery,
+server-owned invite prompts, original-session selection, suggested handles and
+seat-scoped people/invite reads. Browser copy-once UI landed in #296. Focused checks
+pass; the isolated three-harness setup proof and affected live gate remain pending.
+
 What's being built now, what's left before launch, and what comes after, feature by
 feature. Each stage separates **features** (something new) from **enhancements** (a
 change to something that already exists). This is a living list: reorder it, add to it

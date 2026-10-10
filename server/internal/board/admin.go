@@ -165,8 +165,8 @@ func (s *Service) validateAdmin(tx ReadTx, owner Principal, a AdminAction) error
 		if a.Invite == nil || a.BoardID != "" || a.PersonID != "" || a.Role != "" || a.KeyID != "" || a.Policy != nil {
 			return adminInvalid("An invite action accepts only invite options.", "Use invite_people with an invite payload.")
 		}
-		if a.Invite.SuggestedHandle != "" && !validName(a.Invite.SuggestedHandle) {
-			return adminInvalid("The suggested handle is invalid.", "Use lowercase letters, digits and single dashes, at most 40 characters.")
+		if a.Invite.SuggestedHandle != "" && (!validName(a.Invite.SuggestedHandle) || len(a.Invite.SuggestedHandle) > 40) {
+			return adminInvalid("Invalid suggested handle.", "Use lowercase letters, digits and single dashes, at most 40 characters.")
 		}
 		if a.Invite.TTLSeconds != nil {
 			if *a.Invite.TTLSeconds < 60 || *a.Invite.TTLSeconds > 2592000 {

@@ -20,7 +20,7 @@ type InvitePairingInput struct{ InitiatingAgentID, Work string }
 
 // InvitePeopleInput freezes the requested lifetime and bundled admissions.
 type InvitePeopleInput struct {
-	SuggestedHandle string `json:"suggested_handle,omitempty"`
+	SuggestedHandle string
 	TTLSeconds      *int
 	Boards          []string
 	Pairing         *InvitePairingInput

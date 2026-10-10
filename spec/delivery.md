@@ -1767,3 +1767,18 @@ the generation. Removed/revoked authority and terminal requests cannot renew.
 
 D223 multi-issuer rules above are contract-first pending the complete CLI/daemon
 implementation and isolated live proof. Existing single-issuer framing remains valid.
+
+## Held approval outcomes
+
+The requesting CLI registers its held approval with the trusted daemon using only
+nonsecret ids. The daemon retains the issuer, seat, exact harness session, boot and
+binding generation. On that session's next turn, it reads the decision through the
+requesting seat's credential and tells the agent to run the actual issuer-qualified
+`aboard approvals show` command. Only the explicit collection API may release the
+invite link; the daemon never collects it or puts it on the control socket or in a
+hook. Failed metadata reads do not discard a watch.
+
+An executed invite's optional pairing id permits automatic initiating-side selection
+only for that still-bound originating session. A changed boot, seat generation or
+closed session invalidates automatic selection. The existing pairing credential and
+confirmed delivery handshake remain authoritative; a notice is not delivery proof.
