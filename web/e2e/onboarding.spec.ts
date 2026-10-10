@@ -302,6 +302,9 @@ test("the invite page previews a real invite link without using it", async ({ pa
   expect(String(preview.prompt)).toContain(invite);
   await expect(page.getByLabel("Prompt for your agent")).toHaveText(String(preview.prompt));
   if (preview.suggested_handle) await expect(page.getByText(`Invited as @${preview.suggested_handle}`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Or set it up in a terminal" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy prompt" })).toBeVisible();
+  await expect(page.getByRole("main")).not.toContainText(/pair/i);
   // Previewing never spends the invite: it still makes an account.
   const connected = await api(null, "POST", "/v1/connect", { invite, handle: "dana", key_name: "laptop" });
   expect(connected.status).toBe(201);

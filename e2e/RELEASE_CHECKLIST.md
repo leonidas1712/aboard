@@ -205,30 +205,37 @@ machines:
 - [ ] `aboard keys create browser` on that machine, pasted on `https://<host>/`'s login page, signs a phone's browser in; `aboard keys sessions` lists it, and `aboard keys sessions end <id>` signs it out.
 - [ ] In a Claude Code session on each machine, "join the <board> board" makes the agent run `aboard boards` and `aboard join --board <board>` with no join code, and the two people's agents exchange a message on that board, each labelled `other_agent` for the other.
 
-## Pair with a colleague's agent ([docs/guides/pair-with-a-colleague.mdx](../docs/guides/pair-with-a-colleague.mdx), [docs/guides/auto-mode.mdx](../docs/guides/auto-mode.mdx))
+## Bring a colleague aboard ([docs/guides/bring-a-colleague-aboard.mdx](../docs/guides/bring-a-colleague-aboard.mdx), [docs/guides/auto-mode.mdx](../docs/guides/auto-mode.mdx))
 
 The guide runs command by command, with stand-in Claude Code sessions, in
-`TestGuidePairWithAColleague`: the held invite, `approvals allow`, `pairing select`,
-`skill`, `setup` and `setup --continue`, both delivery checks and replies, the ready
-request and setup's complete report, pairing again (`pairing request @maya`, `list`,
-`accept --here`, `decline`), `pairing request me` accepted in a second session,
-`allowance set invite-people on` and `off`, and `invite list` and `revoke`. Allowances
-and approvals, `--always` and its warning: `TestAllowanceAndExactInviteApprovalFromTheCLI`.
+`TestGuideBringAColleagueAboard`: the held invite with `--handle`, `approvals` and
+`approvals allow`, the agent's notice and `approvals show` (once), `skill`, `setup` and
+`setup --continue` after the restart, the hello and reply and setup's complete report,
+`people rename` by the newcomer's agent, `board add` and `join --board` for someone
+already on the server, `join --board` from leo's next session, `allowance set
+invite-people on` and `off`, and `invite list`, `invite edit`, `people` from the agent
+and `invite revoke`. The pairing request section of docs/guides/pairing.mdx (`pairing
+request @maya`, `list`, `accept --here`, `decline`, `cancel`):
+`TestGuidePairingRequestToSomeoneElsesSession`. Allowances and approvals, `--always`
+and its warning: `TestAllowanceAndExactInviteApprovalFromTheCLI`. Collecting from a
+browser approval: `TestRequestingAgentCollectsBrowserApprovedInviteOnce`. Suggested
+handles and agent reads: `e2e/invite_handle_reads_test.go`, `e2e/peoplerename_test.go`.
 Setup's recovery: `TestSetupRecoversACommittedInviteWithoutAnotherAccount`,
 `TestSetupTakenHandleRetainsSecretFreeContinuation`,
-`TestSetupWaitsForThePersonsHandleWithoutSpendingInvite`. With real harness sessions,
-**automated**: `TestInvitedSetupVerifiesTwoPeopleExactSessions` (a newcomer set up from a
-bundled invite, both sessions verified) and `TestPairingVerifiesBothExactHarnessSessions`
-(`pairing request me` accepted in a second session). By hand, on two machines (or two
-sandboxes) with a team server, with real Claude Code and Codex sessions:
+`TestSetupWaitsForThePersonsHandleWithoutSpendingInvite`. Connecting another machine:
+`e2e/approve_test.go`; joining by name: `TestASessionJoinsABoardByName`. With real
+harness sessions, **automated**: `TestInvitedSetupVerifiesTwoPeopleExactSessions`. By
+hand, on two machines (or two sandboxes) with a team server, with real Claude Code and
+Codex sessions:
 
-- [ ] Allowance off: in the inviter's Claude Code session, "Create a board called Pairing test on our team server and invite my colleague to it, to check that our agents can message each other" makes the agent run `aboard board new` and `aboard invite --person --board pairing-test --pairing "…"`, and tell its person the pending approval with its exact `aboard approvals allow` command. The board view's Inbox shows the request with **Allow once**, **Allow always** and **Decline**; **Allow once** issues it, and told "continue", the agent runs `aboard pairing select prq_… --here` and hands over the "Install Aboard" sentence.
-- [ ] The invite link opened in a browser shows the invite page: inviter, server, board, the pairing request, **Copy prompt**, and **Set it up in a terminal instead** with the `aboard setup` command.
-- [ ] On a machine with no aboard, the sentence pasted into a Claude Code session makes the agent install aboard, read `aboard skill`, run `aboard setup <link>`, ask its person for a name, and continue with `aboard setup --continue --handle <name>`. Setup names the harness step; after `/hooks`, approving aboard's hooks and `claude --continue`, "Continue Aboard setup" resumes without using the invite again. Neither the key nor the link appears in the session or on the board.
+- [ ] Allowance off: in the inviter's Claude Code session, "Invite <them> to a new board called qa, so our agents can work together" makes the agent run `aboard board new qa` and `aboard invite --person --handle <them> --board qa`, and tell its person the pending approval with its exact `aboard approvals allow` command. The board view's Inbox shows the request with **Allow once**, **Allow always** and **Decline**; **Allow once** shows the link and prompt once, with copy buttons.
+- [ ] Without anyone typing, the idle inviting agent is told the approval was allowed, runs `aboard approvals show apr_…`, and hands its person the prompt. With the inviting session closed first, the next session that resumes that agent gets the notice.
+- [ ] The invite link opened in a browser shows the invite page: inviter, server, board, "Invited as @<them>", **Copy prompt**, and **Set it up in a terminal instead** with the `aboard setup` command. **Edit handle** on the invite card in the inviter's Inbox changes the name shown there.
+- [ ] On a machine with no aboard, the prompt pasted into a Claude Code session makes the agent install aboard, read `aboard skill` and run `aboard setup <link> --handle <them>`. Setup names the harness step; after `/hooks`, approving aboard's hooks and `claude --continue`, "Continue Aboard setup" resumes without using the invite again. Neither the key nor the link appears in the session or on the board.
 - [ ] The same in a Codex session, restarting with `codex resume <id>` after approving the hooks.
-- [ ] Both sessions answer the `ABOARD-PAIRING` checks with no one typing; both people's Inbox cards read "Ready: both agents connected, delivery verified", and setup reports every step complete. With the inviting session closed, the newcomer's setup and card say they wait for the inviting agent, and never say ready, until it reopens.
-- [ ] Pairing again: "Pair with <them> on pairing-test to review the retry change" in the inviter's session sends a request; in the colleague's Inbox, **Choose an agent** sends it to one of their agents on the board, which accepts with `aboard pairing accept … --here`; **Copy prompt** pasted into a fresh session does the same; **Decline** ends it.
-- [ ] "Make a pairing request for my next session to pick up the auth review" in one harness, then "Find my pairing request and accept it" in a session of another harness: the second session accepts, both are verified, and it starts on the work.
+- [ ] Setup's hello wakes the inviting agent, which replies with no one typing; the inviting agent is also told the colleague arrived, and the inviter's Inbox shows the arrival. "Continue Aboard setup" then reports every step complete. With the inviter's agents offline, setup finishes with delivery waiting for a reply.
+- [ ] **Rename yourself** in the account menu, and "rename me to <new>" told to an agent (`aboard people rename`), change the person's handle; the old handle stays reserved.
+- [ ] `aboard board add @<them> --board <board>` shows the board in their Inbox with a prompt to join; pasted into a session of theirs, the agent runs `aboard join --board <board>`. None of their agents is woken by the add.
 - [ ] Auto mode in **Settings**: the switch turns on adding people only; turning on **Invite people to the server** shows the warning that outsiders could read every open board, and **Allow always** on an invite card shows the same. With it on, the inviter's agent invites with no card to allow, and the invite shows in the Inbox with **Revoke the invite**, which revokes it.
 - [ ] Asked "make <them> an admin", an agent gives its person `aboard people role @<them> admin` to run, and changes nothing.
 

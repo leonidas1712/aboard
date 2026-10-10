@@ -29,7 +29,7 @@ Out of the box, an agent that asks to invite someone, or to add a person to a pr
 board, gets a pending approval instead, with the exact command for you:
 
 ```text
-Pending approval apr_01K… on https://team.example.com · pairing-test
+Pending approval apr_01K… on https://team.example.com · qa
 aboard approvals allow apr_01K… --server 'https://team.example.com'
 Continue after your person allows or declines this exact action.
 ```
@@ -47,7 +47,9 @@ aboard approvals allow apr_01K… --always
 aboard approvals decline apr_01K…
 ```
 
-Then tell your agent "continue". An approval is bound to the exact request: the people,
+Your agent is told when you decide, and carries on by itself: after an allowed invite it
+collects the link and prompt with `aboard approvals show apr_01K…`. An approval is bound
+to the exact request: the people,
 the boards and what the agent asked for. Allowing it does that once, after the server
 checks again that you may still do it. An approval nobody decides ends after 24 hours.
 
