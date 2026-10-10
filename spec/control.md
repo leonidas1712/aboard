@@ -1006,6 +1006,12 @@ to issuer plus immutable member ID. Equal names or IDs on different servers neve
 select, replace, confirm or authorize another issuer's seat. agents/status return
 all working seats with their existing server fields. Capability preflight for
 combined handoffs remains mandatory before remote resource writes.
+This includes a second seat on another issuer: disconnected, unknown or old
+extension support refuses before creating, redeeming or binding that seat.
+The CLI accepts session_on_another_server from an older daemon as a refusal,
+preserves its upgrade hint, and never retries by dropping siblings, replacing
+credentials or bypassing the capability preflight. Updating aboard and restarting
+the daemon is the next step; protocol v1 remains compatible.
 
 CLI selection resolves names to issuer URLs before contacting this socket. Person
 defaults do not move bound agents. Every boards/inbox/pairing/control request targets
@@ -1014,6 +1020,6 @@ Pairing validation examines the requested issuer's seats only; unrelated sibling
 issuers do not veto a handover. No delegation or person credential appears in a
 socket answer. No server API or record event changes are introduced.
 
-D223 is contract-first until its CLI selector, admission, journal and delivery changes
-land together. No adapter may enable cross-issuer admission before those checks and
+D223 is approved, with its implementation in review. Its CLI selector, admission,
+journal and delivery changes land together. No adapter may enable cross-issuer admission before those checks and
 issuer-labelled handovers are implemented. The existing protocol/capability stays v1.

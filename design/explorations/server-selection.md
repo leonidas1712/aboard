@@ -112,7 +112,7 @@ invariant blocks simultaneous seats, report it before substituting a switch.
 
 ## Build and proof
 
-1. Review this design and proposed D223. Then update CLI, delivery, control-socket
+1. D223 is approved. Update CLI, delivery, control-socket
    and harness-profile contracts where needed. No new server API or record event is
    expected. Keep legacy output fields deprecated rather than deleting them.
 2. Watch acceptance fail for default beating a legacy link, commands from the home
