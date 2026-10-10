@@ -1,4 +1,5 @@
 import type { Board, Member, Message, Task } from "./api";
+import { newerFirst } from "./time";
 
 export type Notice = { id: string; board: string; title: string; who: string; text: string; detail: string; task?: string };
 export type BoardFacts = { board: Board; members: Member[]; tasks: Task[] };
@@ -34,7 +35,7 @@ export function worthALook(facts: BoardFacts[], me: string, now: number): Notice
 }
 
 export function orderedAsks(asks: Message[]): Message[] {
-  return [...asks].filter((m) => m.ask?.state === "open").sort((a, b) => Number(b.ask!.blocking) - Number(a.ask!.blocking) || b.at.localeCompare(a.at) || (a.board === b.board ? b.seq - a.seq : b.id.localeCompare(a.id)));
+  return [...asks].filter((m) => m.ask?.state === "open").sort((a, b) => Number(b.ask!.blocking) - Number(a.ask!.blocking) || newerFirst(a.at, b.at) || (a.board === b.board ? b.seq - a.seq : b.id.localeCompare(a.id)));
 }
 /** askSummary is an ask's first line: what the agent did, by the skill's convention. */
 export function askSummary(body: string): string {

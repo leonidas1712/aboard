@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, Clock, CornerDownLeft, Menu } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { type AskList, type Board, type Me, type Member, type Message, ackBoard, follow, get, listTasks } from "./api";
@@ -147,7 +147,9 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const list = listing.current;
     rememberInbox({ id: current.id, slot: index, scroll: list && list.scrollHeight > list.clientHeight ? list.scrollTop : window.scrollY });
   }, [current, index]);
-  useEffect(() => {
+  // A layout effect, so the keys work from the first painted frame: a passive effect can
+  // run after the paint, and a key pressed in between would be dropped.
+  useLayoutEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (typing(e)) return;
       if (pressed("help", e)) setKeysOpen(true);
