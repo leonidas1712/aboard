@@ -15,7 +15,25 @@ func pairingEndpointOf(e *board.PairingEndpoint) any {
 
 func (h *handlers) pairingOf(ctx context.Context, r board.PairingRequest) map[string]any {
 	out := map[string]any{"id": r.ID, "server_id": r.ServerID, "board_id": r.BoardID, "inviter_id": r.InviterID, "initiating_agent_id": r.InitiatingAgentID, "work": r.Work, "state": r.State, "generation": r.Generation, "created_at": r.CreatedAt, "expires_at": r.ExpiresAt}
-	out["display"] = h.onboardingDisplay(ctx, r.InviterID, r.InitiatingAgentID, []string{r.BoardID})
+	display := h.onboardingDisplay(ctx, r.InviterID, r.InitiatingAgentID, []string{r.BoardID})
+	agentID := r.ChosenRecipientAgentID
+	if r.Recipient != nil {
+		agentID = r.Recipient.AgentID
+	}
+	if r.RecipientID != "" {
+		if labels, err := h.svc.OnboardingLabels(ctx, principal(ctx), r.RecipientID, agentID, []string{r.BoardID}); err == nil && len(labels.Boards) > 0 {
+			if labels.PersonHandle != "" {
+				display["recipient_handle"] = labels.PersonHandle
+			}
+			if labels.AgentName != "" {
+				display["recipient_agent_name"] = labels.AgentName
+			}
+			if labels.AgentHarness != "" {
+				display["recipient_agent_harness"] = labels.AgentHarness
+			}
+		}
+	}
+	out["display"] = display
 	if r.RecipientID != "" {
 		out["recipient_id"] = r.RecipientID
 	}

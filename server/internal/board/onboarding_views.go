@@ -159,3 +159,31 @@ func approvalDeadline(a Approval) (time.Time, error) {
 	created, err := time.Parse(time.RFC3339Nano, a.CreatedAt)
 	return created.Add(24 * time.Hour), err
 }
+
+// ApprovalKeyName resolves a current key label only after rechecking the approval's visibility.
+func (s *Service) ApprovalKeyName(ctx context.Context, p Principal, id string) (string, error) {
+	var name string
+	err := s.st.Read(ctx, func(tx ReadTx) error {
+		h, err := caller(tx, p, stamp(s.clk.Now()))
+		if err != nil {
+			return err
+		}
+		a, err := tx.Approval(id)
+		if err != nil {
+			return err
+		}
+		if a.PersonID != h.ID || (p.Agent != nil && p.Agent.ID != a.AgentID) || a.Action.Kind != "revoke_key" {
+			return approvalMissing()
+		}
+		if err := s.approvalVisible(tx, Principal{Human: &h, KeyID: p.KeyID}, a); err != nil {
+			return err
+		}
+		k, err := tx.AccessKeyByID(a.Action.KeyID)
+		if err != nil {
+			return err
+		}
+		name = k.Name
+		return nil
+	})
+	return name, err
+}

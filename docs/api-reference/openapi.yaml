@@ -689,8 +689,8 @@ paths:
       operationId: revokeServerInvite
       summary: Revoke your invitation
       description: |
-        Person access key only; agents and browsers get human_token_required with
-        next.command. Revoke only an invitation issued by this person or their
+        Person access key or own browser session; browser writes require Origin and
+        CSRF. Agents get human_token_required with next.command. Revoke only an invitation issued by this person or their
         agents, in one transaction. Missing and another person's id are the same
         invite_not_found. Revocation is idempotent, contains no secret, and prevents
         redemption immediately. It does not remove an already connected account.
@@ -5439,6 +5439,10 @@ components:
       additionalProperties: false
       required: [boards]
       properties:
+        recipient_handle: { type: string, description: Current pairing recipient handle; display only. }
+        recipient_agent_name: { type: string, description: Current chosen or bound recipient agent name; only while visible. }
+        recipient_agent_harness: { type: string }
+        key_name: { type: string, description: Current approval target key name; only for an authorized viewer. }
         person_handle: { type: string, description: Current inviter or requester handle; never authority. }
         agent_name: { type: string }
         agent_harness: { type: string }
@@ -8668,6 +8672,10 @@ components:
       required: ["id", "person_id", "agent_id", "parent_key_id", "action", "payload_hash", "state", "created_at"]
       properties:
         display: { $ref: "#/components/schemas/OnboardingDisplay" }
+        decision:
+          type: string
+          enum: [once, always]
+          description: The recorded allow mode. Absent on older approvals and non-allow decisions; never inferred from current allowance settings.
         execution: { $ref: "#/components/schemas/AdminExecution" }
         id:
           type: "string"
