@@ -20,22 +20,17 @@ type setupHello struct {
 }
 
 func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id string, pending *setupPending) error {
-	if out.Steps[3].State != "complete" {
-		return nil
-	}
+	out.Steps[5].Message = "Waiting for a reply from the inviting person's agents."
 	key, ok := a.sessionKey()
 	if !ok {
 		return nil
 	}
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpPairing, Harness: key.Harness, Session: key.ID, Server: out.Server.URL, PairingAction: "get", PairingID: id})
-	if err != nil {
-		return err
-	}
-	if resp.Server != out.Server.URL || resp.Pairing == nil || resp.Pairing.ID != id || resp.Pairing.BoardID == "" || resp.Pairing.InviterID == "" {
-		return newError("internal", "The invitation's delivery information did not match its issuer.", "Continue Aboard setup on the original server.")
+	if err != nil || resp.Server != out.Server.URL || resp.Pairing == nil || resp.Pairing.ID != id || resp.Pairing.BoardID == "" || resp.Pairing.InviterID == "" {
+		return nil //nolint:nilerr // Optional inviter metadata must not block the saved setup.
 	}
 	if pending != nil && (pending.Receipt == nil || !slices.Contains(pending.Receipt.Boards, resp.Pairing.BoardID)) {
-		return newError("internal", "The delivery board was not in the authenticated invitation receipt.", "Continue the original saved setup.")
+		return nil
 	}
 	inviter := "the inviting person"
 	var display api.OnboardingDisplay
@@ -47,6 +42,9 @@ func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id st
 		command = "aboard setup " + commandWord(id) + " --server " + commandWord(out.Server.URL)
 	}
 	out.Steps[5].Message = "Waiting for a reply from " + inviter + "'s agents."
+	if out.Steps[3].State != "complete" {
+		return nil
+	}
 	out.Next = &api.NextStep{Command: command, Resume: "The inviting person's agents will greet you when they next run. Continue Aboard setup to check for a reply."}
 	agents, err := a.sessionAgents(ctx, key)
 	if err != nil {
