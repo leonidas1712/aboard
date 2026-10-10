@@ -4353,7 +4353,8 @@ $defs:
       registration do not. Changed runtime entries require trust and restart;
       a skill-only change may request aboard skill without repeating hook trust.
       Runtime confirmation alone never marks the delivery step complete.
-      While waiting, delivery says "Waiting for a reply from @INVITER's agents."
+      While waiting, text retains "delivery: pending · Waiting for a reply from
+      @INVITER's agents."
       (or "the inviting person" when no display handle is available), never a
       session round trip. Inviter display lookup is best-effort: unavailable, refused
       or mismatched metadata retains that fallback and never fails setup or advances
