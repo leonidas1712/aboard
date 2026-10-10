@@ -5403,6 +5403,7 @@ components:
         person_handle: { type: string, description: Current inviter or requester handle; never authority. }
         agent_name: { type: string }
         agent_harness: { type: string }
+        requested_on: { $ref: "#/components/schemas/OnboardingBoardDisplay", description: The issuing or requesting agent's board, only while visible to the viewer. }
         boards:
           type: array
           items: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
