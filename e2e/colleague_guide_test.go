@@ -55,6 +55,11 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	if r := ls.run("pairing", "select", request, "--here"); !strings.HasPrefix(r.stdout, request+" · board pairing-test · awaiting_account") {
 		t.Fatalf("pairing select:\n%s", r)
 	}
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("final delivery-check metadata:\n%s", ls.runExit("pairing", "list", "--json"))
+		}
+	})
 
 	// 3. maya's agent reads the skill and sets her up from the one link. It asks for her
 	// name before it uses the invite.
@@ -79,14 +84,22 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"Setup on "+url+": pending",
 		"installed: complete · Aboard is installed; its owner can update it.",
 		"account: complete · Your account was created and its saved key was verified.",
-		"memberships: complete · Current board access and delivery participation were checked.",
+		"memberships: complete · Current accessible memberships were checked; removed access was not recreated.",
 		"harness: pending · Harness configuration needs trust or restart confirmation.",
-		"joining: complete · This exact session joined the invited boards.",
-		"delivery: pending · Both current sessions' round trips are not yet verified.",
+		"joining: complete · This exact session joined the invited boards; existing seats were reused.",
+		"delivery: pending · Delivery has not been verified by a session round trip.",
 		"aboard init --harness claude-code",
 		"Run aboard skill now; it loads automatically in your next session. Run /hooks, approve Aboard's hooks, then restart Claude Code. Continue Aboard setup.")
 	if strings.Contains(set.stdout+set.stderr, link) || strings.Contains(set.stdout+set.stderr, tm.key(maya)) {
 		t.Fatal("setup printed the invite or the key")
+	}
+
+	// Loading the installed hooks requires the documented harness restart. The
+	// resumed conversation keeps its seat, while setup binds the new exact boot.
+	ms = maya.claudeSessionFrom("s-maya", "resume")
+	continued := ms.run("setup", "--continue")
+	if !strings.Contains(continued.stdout, "harness: complete") || !strings.Contains(continued.stdout, "delivery: pending") {
+		t.Fatalf("setup after loading hooks in the resumed harness:\n%s", continued)
 	}
 
 	// 4. Each session gets the other's delivery check and replies to it. Nothing is
