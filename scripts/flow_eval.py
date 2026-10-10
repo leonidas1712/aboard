@@ -308,7 +308,7 @@ class Eval:
     def observe(self):
         people = self.person('leo', 'people', '--server', 'qa', check=False)
         members = self.person('leo', 'board', 'people', '--board', 'qa', '--server', 'qa', check=False)
-        board = self.person('leo', 'read', '--board', 'qa', '--server', 'qa', '--limit', '200', check=False)
+        board = self.person('leo', 'read', '--as', 'claude', '--board', 'qa', '--server', 'qa', '--limit', '200', check=False)
         write_json(self.root / 'board.json', board)
         write_json(self.root / 'people.json', people)
         write_json(self.root / 'members.json', members)
@@ -393,6 +393,9 @@ class Eval:
         end = time.monotonic() + 60
         while time.monotonic() < end:
             screen = self.screen(side)
+            if side == 'maya' and 'Set up security for Daybreak mode' in screen:
+                self.tmux('send-keys', '-t', 'flow:' + side, 'Escape')
+                continue
             marker = '❯' if side == 'leo' else '›'
             if marker in screen and not any(word in screen for word in ('Resuming session', 'esc to interrupt')):
                 return
@@ -416,6 +419,8 @@ class Eval:
             for side, screen in screens.items():
                 if 'Hooks need review' in screen and 'Trust all and continue' in screen:
                     self.tmux('send-keys', '-t', 'flow:' + side, '2', 'Enter')
+                elif 'hooks need review' in screen and 't trust all' in screen:
+                    self.tmux('send-keys', '-t', 'flow:' + side, 't', 'Escape')
                 elif 'Yes, I trust this folder' in screen:
                     self.tmux('send-keys', '-t', 'flow:' + side, 'Down', 'Enter')
             if not initial and '❯' in screens['leo'] and ('›' in screens['maya'] or 'codex' in screens['maya'].lower()):
