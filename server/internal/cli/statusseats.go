@@ -44,7 +44,7 @@ func (a *app) sessionSeats(ctx context.Context, agents []delivery.AgentRef, cred
 		}
 		rows = append(rows, row)
 	}
-	slices.SortFunc(rows, func(x, y seatRow) int { return strings.Compare(x.Board, y.Board) })
+	slices.SortFunc(rows, func(x, y seatRow) int { return strings.Compare(x.Server+"\x00"+x.Board, y.Server+"\x00"+y.Board) })
 	return rows
 }
 
@@ -91,7 +91,16 @@ func (a *app) readSeat(ctx context.Context, cred agentCredential, row *seatRow) 
 // two reminder lines (seats_usage).
 func seatsText(server string, rows []seatRow) (text string, usage []string) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Seats:  %d in this session, on %s\n", len(rows), server)
+	issuers := map[string]bool{}
+	for _, row := range rows {
+		issuers[row.Server] = true
+	}
+	multi := len(issuers) > 1
+	if multi {
+		fmt.Fprintf(&b, "Seats:  %d in this session, across %d servers\n", len(rows), len(issuers))
+	} else {
+		fmt.Fprintf(&b, "Seats:  %d in this session, on %s\n", len(rows), server)
+	}
 	boardW, nameW, roleW, modeW := 0, 0, 0, 0
 	for _, r := range rows {
 		boardW, nameW = max(boardW, len(r.Board)), max(nameW, len(r.Name))
@@ -101,6 +110,9 @@ func seatsText(server string, rows []seatRow) (text string, usage []string) {
 		cols := []string{
 			fmt.Sprintf("%-*s", boardW, r.Board), fmt.Sprintf("%-*s", nameW, r.Name),
 			fmt.Sprintf("%-*s", roleW, deref(r.Role)), fmt.Sprintf("%-*s", modeW, r.Delivery),
+		}
+		if multi {
+			cols = append([]string{r.Server}, cols...)
 		}
 		if r.Presence != nil {
 			cols = append(cols, presenceText(*r.Presence))
@@ -116,6 +128,12 @@ func seatsText(server string, rows []seatRow) (text string, usage []string) {
 	usage = []string{
 		fmt.Sprintf("Commands that act on one board need --board, such as aboard say --board %s \"…\".", rows[0].Board),
 		fmt.Sprintf("Reply with: aboard say --board %s --reply SEQ \"…\"", rows[len(rows)-1].Board),
+	}
+	if multi {
+		usage = []string{
+			"Commands that act on one seat need --server and --board when ambiguous.",
+			"Reply with: aboard say --server " + commandWord(rows[len(rows)-1].Server) + " --board " + commandWord(rows[len(rows)-1].Board) + " --reply SEQ \"…\"",
+		}
 	}
 	for _, u := range usage {
 		b.WriteString("        " + u + "\n")

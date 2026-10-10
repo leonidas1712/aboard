@@ -907,7 +907,8 @@ one-server-per-session restriction; requested for #279).** A person uses an expl
 are ignored and left untouched; doctor identifies legacy regular files without
 reading the state directory as a link. With known servers and no default, return
 choices before credentials or writes. Fresh local bootstrap establishes the initial
-local default, and adding a server never changes an existing default. Person board
+local default; older installs with only an initialized local server retain that
+bootstrap default. Adding a server never changes an existing default. Person board
 selection uses `--board`, or the sole accessible active board, otherwise choices.
 `--server` selects an issuer; `invite --person` selects person invitation, while
 bare `invite --server` remains a deprecated compatibility alias. A session can keep

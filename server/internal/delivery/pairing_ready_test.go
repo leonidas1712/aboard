@@ -206,3 +206,18 @@ func TestReadyPairingRerunRequiresExactCurrentEndpoint(t *testing.T) {
 		}
 	})
 }
+
+func TestPairingIgnoresUnrelatedIssuerSeats(t *testing.T) {
+	p := &readyPairingRuntime{row: delivery.PairingRequest{ID: "prq_other", ServerID: "srv_one", BoardID: "brd_docs", InviterID: "hum_inviter", RecipientID: "hum_recipient", State: "pending", Generation: 1}}
+	r, f := seatsRigWith(t, func(c *delivery.Config) { c.PairingFor = func(string) delivery.PairingRuntime { return p } })
+	f.boards = []delivery.SeatBoard{{Name: "docs", Board: json.RawMessage(`{"id":"brd_docs"}`)}}
+	r.register("s1", "boot1")
+	joined := r.call(delivery.Request{Op: delivery.OpJoin, Harness: "claude-code", Session: "s1", Agent: &delivery.AgentRef{Server: "https://other.example", Board: "other", Name: "other"}})
+	if joined.Error != nil {
+		t.Fatalf("unrelated join: %+v", joined)
+	}
+	got := r.call(delivery.Request{Op: delivery.OpPairing, Harness: "claude-code", Session: "s1", Server: serverURL, PairingAction: "accept", PairingID: "prq_other", IdempotencyKey: "accept-other"})
+	if got.Error != nil || got.Pairing == nil {
+		t.Fatalf("requested issuer blocked by unrelated seat: %+v", got)
+	}
+}

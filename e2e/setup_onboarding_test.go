@@ -25,7 +25,7 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 		t.Fatalf("board lookup: %d", status)
 	}
 	boardID := field(t, b, "id").(string)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--board", name, "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--board", name, "--json").json(t)
 	matchesCLISpec(t, "ServerInviteOutput", invite)
 	link := field(t, invite, "link").(string)
 	wantPrompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent."
@@ -110,7 +110,7 @@ func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	name := tm.newBoard(tm.admin, "private")
-	invite := tm.admin.run("invite", "--server", tm.url(), "--board", name, "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--board", name, "--json").json(t)
 	target, err := url.Parse(tm.url())
 	if err != nil {
 		t.Fatal(err)
@@ -153,7 +153,7 @@ type setupLostResponseTransport struct {
 func TestOwnInviteCommandsListMetadataAndRevokeOnce(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	link := field(t, invite, "link").(string)
 	listed := tm.admin.run("invite", "list", "--server", tm.url(), "--json")
 	matchesCLISpec(t, "ServerInvitesOutput", listed.json(t))
@@ -189,7 +189,7 @@ func (p *setupLostResponseTransport) RoundTrip(r *http.Request) (*http.Response,
 func TestSetupWaitsForThePersonsHandleWithoutSpendingInvite(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	link := field(t, invite, "link").(string)
 	person := newPersonHome(t, "newcomer")
 	session := person.claudeSession("missing-handle")
@@ -243,7 +243,7 @@ func TestSetupWaitsForThePersonsHandleWithoutSpendingInvite(t *testing.T) {
 func TestSetupTakenHandleRetainsSecretFreeContinuation(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	link := field(t, invite, "link").(string)
 	person := newPersonHome(t, "newcomer")
 	session := person.claudeSession("taken-handle")

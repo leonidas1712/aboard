@@ -34,17 +34,18 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	pairing := fs.String("pairing", "", "proposed work with this session on exactly one bundled board")
 	roleFlag := fs.String("role", "", "the role the agent joins as; default: the role the board's template invites, else member")
 	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h for codes and agent invites, 168h for person invites")
+	personFlag := fs.Bool("person", false, "invite a person to this server")
 	var serverFlag optionalValue
-	fs.Var(&serverFlag, "server", "invite a person to the server instead of an agent to a board; --server URL names the server")
+	fs.Var(&serverFlag, "server", "select the issuer; only a bare flag retains the deprecated person-invite alias")
 	guestFlag := fs.String("guest", "", "make a guest code that lets this person, from outside the server, onto the board once")
 	pos, err := a.parse(fs, args, inviteUsage, 0, 1)
 	if err != nil {
 		return err
 	}
 	guest := handleArg(*guestFlag)
-	if serverFlag.set {
+	if *personFlag || (serverFlag.set && serverFlag.value == "" && len(pos) == 0 && len(boards) == 0 && *guestFlag == "" && *pairing == "") {
 		if *roleFlag != "" || guest != "" {
-			return usageError("aboard invite --server invites a person to the whole server, so it takes no --role or --guest.", inviteUsage)
+			return usageError("A person invite takes no --role or --guest; use a board code for those options.", inviteUsage)
 		}
 		// --server is a switch, so "--server URL" leaves the URL as an argument.
 		srv := serverFlag.value
@@ -54,10 +55,18 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 			}
 			srv = pos[0]
 		}
+		a.agentServerFlag = srv
 		return runBundledServerInvite(ctx, a, srv, *ttl, boards, *pairing)
 	}
 	if len(boards) > 1 || *pairing != "" {
-		return usageError("Multiple boards and --pairing require --server.", inviteUsage)
+		return usageError("Multiple boards and --pairing require --person.", inviteUsage)
+	}
+	if serverFlag.set {
+		a.boardServerFlag = serverFlag.value
+		if len(pos) == 1 && a.boardServerFlag == "" {
+			a.boardServerFlag = pos[0]
+			pos = nil
+		}
 	}
 	boardFlag := ""
 	if len(boards) == 1 {
@@ -75,10 +84,13 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 	if *roleFlag != "" {
 		command += " --role " + shellWord(*roleFlag)
 	}
-	if err := a.refuseInSession(what, command+boardArg(a.namedBoard(boardFlag))); err != nil {
+	if *ttl != 0 {
+		command += " --ttl " + commandWord(ttl.String())
+	}
+	if err := a.refuseInSession(what, command+a.boardFlags(boardFlag)); err != nil {
 		return err
 	}
-	t, err := a.humanBoard(boardFlag)
+	t, err := a.humanBoard(ctx, boardFlag)
 	if err != nil {
 		return err
 	}

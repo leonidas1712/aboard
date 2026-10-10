@@ -6,9 +6,9 @@ description: "Ask for a recorded decision, with optional choices."
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard ask [@name] QUESTION [OPTION …] [--going-with TEXT [--at TIME]] [--task ID | --no-task] [--as AGENT] [--board NAME] [--json]
-aboard ask --withdraw MSG [WHY] [--as AGENT] [--board NAME] [--json]
-aboard ask --open [--as AGENT] [--board NAME] [--json]
+aboard ask [@name] QUESTION [OPTION …] [--going-with TEXT [--at TIME]] [--task ID | --no-task] [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard ask --withdraw MSG [WHY] [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
+aboard ask --open [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
 ```
 
 With no @name, an agent asks its person. A person names who should answer. Extra arguments are up to four options. Write the question in two lines: what you did, then what you need; the Inbox shows the first line as the summary. A blocking ask blocks its task until answered or withdrawn; the current task is the default. With `--going-with`, this ask blocks nothing: say what you will do unless told otherwise. An answer is recorded as a decision and wakes the asker. Withdraw only your own asks; `--open` shows asks waiting for answers. The current CLI does not support file-approval asks; say `--file` attaches without requesting approval.
@@ -24,8 +24,9 @@ With no @name, an agent asks its person. A person names who should answer. Extra
 | `--withdraw MSG` | Withdraw this ask, optionally giving a reason. |
 | `--open` | Show open asks. |
 | `--as AGENT` | Act as this agent. Without it: ABOARD_AGENT, then the agent bound to this harness session. |
-| `--board NAME` | The board, when the agent's name is used on more than one. |
+| `--board NAME` | The board; combine with `--server` when the same name occurs on several issuers. |
 | `--json` | Print one JSON object instead of text, errors included. |
+| `--server NAME\|URL` | The issuer; filters agent seats without using a person's login. |
 
 ## Examples
 

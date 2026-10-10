@@ -34,31 +34,7 @@ func runAgents(ctx context.Context, a *app, args []string) error {
 	groups := []ownAgentsGroup{}
 	var text strings.Builder
 	if a.agentSelected(*as) {
-		var t target
-		var cred agentCredential
-		var err error
-		if key, ok := a.sessionKey(); ok && *as == "" && a.env.Getenv("ABOARD_AGENT") == "" && *board == "" {
-			seats, e := a.sessionAgents(ctx, key)
-			if e != nil {
-				return e
-			}
-			if len(seats) > 0 {
-				creds, e := a.readCredentials()
-				if e != nil {
-					return e
-				}
-				var found bool
-				cred, found = creds.forSeat(seats[0])
-				if !found {
-					return usageError("This session has no saved agent credential.", "Run aboard status to check its seats.")
-				}
-				t.server = a.serverRefFor(cred.Server)
-			} else {
-				t, cred, err = a.agentTarget(ctx, *board, *as)
-			}
-		} else {
-			t, cred, err = a.agentTarget(ctx, *board, *as)
-		}
+		t, cred, err := a.agentTarget(ctx, *board, *as)
 		if err != nil {
 			return err
 		}

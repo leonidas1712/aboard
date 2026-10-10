@@ -22,8 +22,12 @@ func TestBoardsAcrossServersAndDefaultReads(t *testing.T) {
 	for _, url := range []string{first.url(), second.url()} {
 		person.run("board", "new", "same", "--server", url)
 	}
-	// A folder link does not limit a machine-wide board list.
-	listed := person.run("boards", "--json").json(t)
+	// Aggregation is explicit; the default list stays on one issuer.
+	defaultList := person.run("boards", "--json").json(t)
+	if field(t, defaultList, "server.url") != first.url() || defaultList["servers"] != nil {
+		t.Fatalf("default board list: %v", defaultList)
+	}
+	listed := person.run("boards", "--all-servers", "--json").json(t)
 	matchesCLISpec(t, "BoardsOutput", listed)
 	groups, ok := listed["servers"].([]any)
 	if !ok || len(groups) != 2 {
@@ -40,8 +44,8 @@ func TestBoardsAcrossServersAndDefaultReads(t *testing.T) {
 	if field(t, single, "server.url") != first.url() || single["servers"] != nil {
 		t.Fatalf("single server: %v", single)
 	}
-	if err := os.Remove(filepath.Join(person.dir, ".aboard")); err != nil {
-		t.Fatal(err)
+	if _, err := os.Stat(filepath.Join(person.dir, ".aboard")); !os.IsNotExist(err) {
+		t.Fatalf("board creation wrote a folder link: %v", err)
 	}
 	person.run("servers", "use", second.url())
 	status := person.run("status", "--board", "same", "--json").json(t)
@@ -73,7 +77,7 @@ func TestBoardsAcrossServersAndDefaultReads(t *testing.T) {
 	}
 	w.stop()
 	second.admin.run("down")
-	partial := person.run("boards", "--json").json(t)
+	partial := person.run("boards", "--all-servers", "--json").json(t)
 	groups = field(t, partial, "servers").([]any)
 	successes, failures := 0, 0
 	for _, group := range groups {
@@ -87,11 +91,11 @@ func TestBoardsAcrossServersAndDefaultReads(t *testing.T) {
 	if successes != 1 || failures != 1 {
 		t.Fatalf("partial list: %v", partial)
 	}
-	if !strings.Contains(person.run("boards").stdout, first.url()) {
+	if !strings.Contains(person.run("boards", "--all-servers").stdout, first.url()) {
 		t.Fatal("partial text hid successful server")
 	}
 	first.admin.run("down")
-	failed := person.runExit("boards", "--json")
+	failed := person.runExit("boards", "--all-servers", "--json")
 	if failed.code != 1 || len(field(t, failed.json(t), "servers").([]any)) != 2 {
 		t.Fatalf("all unavailable: %s", failed)
 	}

@@ -115,7 +115,7 @@ func TestAgentInviteReturnsPendingWithoutUsingPersonLogin(t *testing.T) {
 	e := lifecycleMachine(t, srv.URL, "never-human", agentCredential{Server: srv.URL, Board: "work", Name: "scout", MemberID: "mem_scout", Token: "exact-seat"})
 	e.env["ABOARD_AGENT"] = "scout"
 	var out bytes.Buffer
-	code := Run(context.Background(), []string{"invite", "--server", srv.URL, "--ttl", "2h", "--json"}, e.environment(&out, &out))
+	code := Run(context.Background(), []string{"invite", "--person", "--server", srv.URL, "--ttl", "2h", "--json"}, e.environment(&out, &out))
 	var result struct {
 		State string       `json:"state"`
 		Next  api.NextStep `json:"next"`

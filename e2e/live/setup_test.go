@@ -27,7 +27,7 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 		writer := d.start(inviter, "writer", writerDir)
 		writer.bind("writer")
 		invitePath := filepath.Join(writerDir, "invite.json")
-		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
+		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
 		var invitation struct {
 			Invite struct {
 				Secret string `json:"invite"`

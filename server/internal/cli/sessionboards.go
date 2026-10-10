@@ -22,11 +22,11 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 	if err != nil {
 		return err
 	}
-	sessionServer := ""
-	if len(agents) > 0 {
-		sessionServer = agents[0].Server
+	sessionServer, err := sessionIssuer(agents, a.selectedServerFlag())
+	if err != nil {
+		return err
 	}
-	srv, err := a.boardServer(ctx, "", sessionServer)
+	srv, err := a.boardServer(ctx, a.selectedServerFlag(), sessionServer)
 	if err != nil {
 		return err
 	}
@@ -60,6 +60,9 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
 			Seat:    &seatName{},
 		}
+		if row.Added != nil {
+			row.Added.Join = "aboard join --server " + commandWord(srv.URL) + " --board " + commandWord(b.Name)
+		}
 		if b.PeopleCount != nil {
 			row.People = *b.PeopleCount
 		}
@@ -88,7 +91,7 @@ func (a *app) sessionBoards(ctx context.Context, key delivery.SessionKey, projec
 		ArchivedCount *int              `json:"archived_count,omitempty"`
 		Hidden        []api.HiddenBoard `json:"hidden_boards"`
 	}{srv, nil, person, key.String(), false, listLifecycle(archived), rows, resp.ArchivedCount, []api.HiddenBoard{}},
-		sessionBoardsText(rows, archived)+archivedHint(archived, false, resp.ArchivedCount))
+		strings.ReplaceAll(sessionBoardsText(rows, archived), "join with aboard join --board ", "join with aboard join --server "+commandWord(srv.URL)+" --board ")+strings.ReplaceAll(archivedHint(archived, false, resp.ArchivedCount), "aboard boards --archived", "aboard boards --archived --server "+commandWord(srv.URL)))
 	return nil
 }
 

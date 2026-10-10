@@ -297,3 +297,87 @@ func TestAFailedAcknowledgementHidesNoBlock(t *testing.T) {
 		t.Fatalf("again: %+v %v", again.Seats, err)
 	}
 }
+
+func TestMultiIssuerInboxQualifiesWrappersAndCopiedCommands(t *testing.T) {
+	firstURL, firstOwner := testServer(t)
+	secondURL, secondOwner := testServer(t)
+	first := seatOn(t, firstURL, firstOwner)
+	second := seatOn(t, secondURL, secondOwner)
+	if first.Board != second.Board {
+		t.Fatal("fixture must use equal board names across issuers")
+	}
+	postTo(t, firstURL, firstOwner, first.Board, 1)
+	postTo(t, secondURL, secondOwner, second.Board, 1)
+	seats := []delivery.AgentRef{
+		{Server: firstURL, Board: first.Board, Name: first.Name, MemberID: first.MemberID},
+		{Server: secondURL, Board: second.Board, Name: second.Name, MemberID: second.MemberID},
+	}
+	out, err := inboxApp(t).inboxSeats(context.Background(), seats, credentials{Agents: []agentCredential{first, second}}, 0, false, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Bundle == nil || len(out.Seats) != 2 {
+		t.Fatalf("missing issuer inboxes: %+v", out)
+	}
+	for _, seat := range out.Seats {
+		for _, wrapped := range seat.Wrapped {
+			if !strings.Contains(wrapped, `server="`+seat.Server+`"`) {
+				t.Fatalf("wrapper lost issuer: %s", wrapped)
+			}
+		}
+		for _, command := range []string{"aboard say", "aboard read"} {
+			qualified := command + " --server " + seat.Server + " --board " + seat.Board
+			if !strings.Contains(*out.Bundle, qualified) {
+				t.Fatalf("copied command lost issuer %q: %s", qualified, *out.Bundle)
+			}
+		}
+	}
+}
+
+func TestExplicitIssuerInboxKeepsIssuerInCopiedReply(t *testing.T) {
+	firstURL, firstOwner := testServer(t)
+	secondURL, secondOwner := testServer(t)
+	first := seatOn(t, firstURL, firstOwner)
+	second := seatOn(t, secondURL, secondOwner)
+	postTo(t, firstURL, firstOwner, first.Board, 1)
+	postTo(t, secondURL, secondOwner, second.Board, 1)
+	a := inboxApp(t)
+	for _, cred := range []agentCredential{first, second} {
+		if err := a.saveCredential(cred); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var output bytes.Buffer
+	a.env.Stdout, a.env.Stderr = &output, io.Discard
+	if code := Run(context.Background(), []string{"inbox", "--server", secondURL, "--as", second.Name, "--peek", "--json"}, a.env); code != 0 {
+		t.Fatalf("inbox failed: %s", output.String())
+	}
+	var inbox struct {
+		Bundle string `json:"bundle"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &inbox); err != nil {
+		t.Fatal(err)
+	}
+	command := "aboard say --server " + secondURL + " --board " + second.Board
+	if !strings.Contains(inbox.Bundle, command) || strings.Contains(inbox.Bundle, firstURL) {
+		t.Fatalf("selected issuer lost in copied reply: %s", inbox.Bundle)
+	}
+	output.Reset()
+	args := append(strings.Fields(strings.TrimPrefix(command, "aboard ")), "--as", second.Name, "--reply", "4", "B-only reply", "--json")
+	if code := Run(context.Background(), args, a.env); code != 0 {
+		t.Fatalf("copied reply failed: %s", output.String())
+	}
+	for _, target := range []struct {
+		url, token, board string
+		replies           int
+	}{{firstURL, firstOwner, first.Board, 0}, {secondURL, secondOwner, second.Board, 1}} {
+		status, messages := do(t, "GET", target.url+"/v1/boards/"+target.board+"/messages", target.token, nil)
+		if status != http.StatusOK {
+			t.Fatalf("read copied reply: %d", status)
+		}
+		raw, _ := json.Marshal(messages)
+		if strings.Count(string(raw), "B-only reply") != target.replies {
+			t.Fatalf("copied reply reached wrong issuer: %s", raw)
+		}
+	}
+}

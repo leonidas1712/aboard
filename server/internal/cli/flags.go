@@ -20,7 +20,15 @@ func (a *app) flags(name string) *flag.FlagSet {
 // checks that there are between minPos and maxPos positional arguments (maxPos < 0
 // means no limit).
 func (a *app) parse(fs *flag.FlagSet, args []string, usage string, minPos, maxPos int) ([]string, error) {
+	agentFlags := agentSelectionFlags(fs.Name())
+	if agentFlags && fs.Lookup("server") == nil {
+		fs.String("server", "", "the issuing server of the selected agent seat")
+	}
 	pos, err := parseInterspersed(fs, args)
+	if agentFlags {
+		a.agentServerFlag = fs.Lookup("server").Value.String()
+	}
+
 	if errors.Is(err, flag.ErrHelp) {
 		if err := a.showHelp(fs.Name()); err != nil {
 			return nil, err
@@ -107,3 +115,19 @@ func (o *optionalValue) Set(v string) error {
 
 // IsBoolFlag lets the flag stand alone, as a switch.
 func (o *optionalValue) IsBoolFlag() bool { return true }
+
+func agentSelectionFlags(name string) bool {
+	switch name {
+	case "say", "read", "inbox", "status", "audit", "react", "ask", "task", "file", "brief", "board", "leave", "agent", "agents", "boards", "delivery", "delivery midturn", "allowance", "approvals", "resume":
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *app) selectedServerFlag() string {
+	if a.boardServerFlag != "" {
+		return a.boardServerFlag
+	}
+	return a.agentServerFlag
+}

@@ -60,6 +60,11 @@ type seatReader struct {
 // Unavailable and acknowledges nothing.
 func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds credentials, limit int, ack bool, wait int) (inboxSeatsOutput, error) {
 	out := inboxSeatsOutput{Seats: []inboxSeat{}}
+	issuers := map[string]bool{}
+	for _, seat := range seats {
+		issuers[seat.Server] = true
+	}
+	multiIssuer := len(issuers) > 1
 	sorted := slices.Clone(seats)
 	slices.SortFunc(sorted, func(x, y delivery.AgentRef) int { return strings.Compare(x.Board, y.Board) })
 	timeout := time.Duration(wait)*time.Second + requestTimeout
@@ -114,13 +119,17 @@ func (a *app) inboxSeats(ctx context.Context, seats []delivery.AgentRef, creds c
 		}
 		seat.Work = in.Work
 		seat.Nudges = a.taskNudges(ctx, r.c, r.ref, in, "inbox", true)
+		dc := deliverytext.Context{BoardQualified: len(seats) > 1}
+		if multiIssuer {
+			dc.Server = r.ref.Server
+		}
 		var tms []deliverytext.Message
 		for _, m := range msgs {
-			seat.Wrapped = append(seat.Wrapped, deliveryText(m))
+			seat.Wrapped = append(seat.Wrapped, deliverytext.Format(textMessage(m), dc))
 			tms = append(tms, textMessage(m))
 		}
 		shown = append(shown, msgs...)
-		groups = append(groups, deliverytext.Group{Board: in.Board, Messages: tms})
+		groups = append(groups, deliverytext.Group{Board: in.Board, Messages: tms, Context: dc})
 		read = append(read, seat)
 	}
 	// Then each seat read is acknowledged up to the last message it read. One whose
@@ -198,16 +207,25 @@ func (a *app) waitAnySeat(ctx context.Context, readers []seatReader, wait int, o
 // <count>" header line.
 func inboxSeatsText(out inboxSeatsOutput) string {
 	var b strings.Builder
+	issuers := map[string]bool{}
+	for _, seat := range out.Seats {
+		issuers[seat.Server] = true
+	}
+	multi := len(issuers) > 1
 	for i, s := range out.Seats {
 		if i > 0 {
 			b.WriteString("\n")
 		}
+		board := s.Board
+		if multi {
+			board = s.Server + " · " + board
+		}
 		if len(s.msgs) == 0 {
-			fmt.Fprintf(&b, "%s · no new messages\n", s.Board)
+			fmt.Fprintf(&b, "%s · no new messages\n", board)
 			b.WriteString(nudgesText(s.Nudges))
 			continue
 		}
-		fmt.Fprintf(&b, "%s · %d new\n%s%s\n", s.Board, len(s.msgs), nudgesText(s.Nudges), strings.Join(s.Wrapped, "\n\n"))
+		fmt.Fprintf(&b, "%s · %d new\n%s%s\n", board, len(s.msgs), nudgesText(s.Nudges), strings.Join(s.Wrapped, "\n\n"))
 	}
 	if out.Unavailable > 0 {
 		fmt.Fprintf(&b, "%s couldn't be read; aboard status says which.\n", counted(out.Unavailable, "seat"))

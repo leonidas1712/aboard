@@ -45,12 +45,13 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 	archived := fs.Bool("archived", false, "list only archived boards")
 	as := fs.String("as", "", "list this agent's board")
 	serverFlag := fs.String("server", "", "list boards on this server only")
+	allServers := fs.Bool("all-servers", false, "list boards on every known server")
 	boardFlag := fs.String("board", "", "the agent's board, when its name is used on several")
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
 	}
-	if *serverFlag != "" && a.agentSelected(*as) {
-		return usageError("--server selects a person's server; agents stay on their own server.", use)
+	if *allServers && (*serverFlag != "" || a.agentSelected(*as)) {
+		return usageError("--all-servers is person-only and cannot be combined with --server.", use)
 	}
 	var (
 		srv   serverRef
@@ -84,7 +85,7 @@ func runBoards(ctx context.Context, a *app, args []string) error {
 		if *boardFlag != "" {
 			return usageError("--board picks an agent's board, so it works only with --as.", use)
 		}
-		return a.humanBoards(ctx, project, linked, *serverFlag, *all, *archived)
+		return a.humanBoards(ctx, project, linked, *serverFlag, *all, *archived, *allServers)
 	}
 	g, err := a.boardsGroup(ctx, srv, c, agent, project, linked, *all, *archived)
 	if err != nil {
@@ -126,6 +127,9 @@ func (a *app) boardsGroup(ctx context.Context, srv serverRef, c *client, agent *
 			Name: b.Name, Title: b.Title, Visibility: b.Visibility, Lifecycle: b.Lifecycle, OnBoard: b.OnBoard, Unread: b.Unread,
 			Added:   addedOf(b),
 			Default: linked && project.Board == b.Name && (project.Server.URL == "" || project.Server.URL == srv.URL),
+		}
+		if row.Added != nil {
+			row.Added.Join = "aboard join --board " + commandWord(b.Name) + " --server " + commandWord(srv.URL)
 		}
 		p, err := c.api.ListPeopleWithResponse(ctx, b.Name)
 		if err != nil {
@@ -278,23 +282,19 @@ type boardsFailure struct {
 	Hint    string `json:"hint"`
 }
 
-func (a *app) humanBoards(ctx context.Context, project projectFile, linked bool, flag string, all, archived bool) error {
+func (a *app) humanBoards(ctx context.Context, project projectFile, linked bool, flag string, all, archived, allServers bool) error {
 	known, def, err := a.knownServers()
 	if err != nil {
 		return err
 	}
-	if flag = strings.TrimSuffix(strings.TrimSpace(flag), "/"); flag == localServerName {
-		flag = a.localServer().URL
-	}
-	if flag != "" {
-		srv, err := a.namedServer(flag)
+	if !allServers {
+		srv, err := a.resolveServer(flag)
 		if err != nil {
 			return err
 		}
-		srv = a.selectedServer(srv, "flag")
 		known = []knownServer{{Name: srv.Name, URL: srv.URL}}
 	} else if len(known) == 0 {
-		known = []knownServer{{Name: a.localServer().Name, URL: a.localServer().URL}}
+		return serverNotSelected(known)
 	}
 	groups := make([]boardsOutput, 0, len(known))
 	var text strings.Builder

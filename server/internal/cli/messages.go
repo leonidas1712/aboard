@@ -98,7 +98,7 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		if a.agentSelected(*as) {
 			return newError("human_command_in_session", "Only a person may use --to mine.", "An agent uses --to owner:<handle> with its own seat.")
 		}
-		if t, err = a.humanBoard(*boardFlag); err != nil {
+		if t, err = a.humanBoard(ctx, *boardFlag); err != nil {
 			return err
 		}
 		if cred.Token, err = a.readOwnerToken(t.server); err != nil {
@@ -276,17 +276,23 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 	}
 	// In a session with several seats and no --board, the inbox covers every seat.
 	if key, ok := a.sessionKey(); ok && *boardFlag == "" && *as == "" && strings.TrimSpace(a.env.Getenv("ABOARD_AGENT")) == "" {
-		if seats, err := a.sessionAgents(ctx, key); err == nil && len(seats) > 1 {
-			creds, err := a.readCredentials()
+		if seats, err := a.sessionAgents(ctx, key); err == nil {
+			seats, err = a.filterAgentSeats(seats, *boardFlag)
 			if err != nil {
 				return err
 			}
-			out, err := a.inboxSeats(ctx, seats, creds, *limit, !*peek, *wait)
-			if err != nil {
-				return err
+			if len(seats) > 1 {
+				creds, err := a.readCredentials()
+				if err != nil {
+					return err
+				}
+				out, err := a.inboxSeats(ctx, seats, creds, *limit, !*peek, *wait)
+				if err != nil {
+					return err
+				}
+				a.emit(out, inboxSeatsText(out))
+				return nil
 			}
-			a.emit(out, inboxSeatsText(out))
-			return nil
 		}
 	}
 	t, cred, err := a.agentTarget(ctx, *boardFlag, *as)
@@ -331,14 +337,19 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		}
 	}
 
+	dc := deliverytext.Context{BoardQualified: *boardFlag != ""}
+	if a.agentServerFlag != "" || a.qualifyAgentOutput {
+		dc.BoardQualified = true
+		dc.Server = t.server.URL
+	}
 	wrapped := make([]string, 0, len(msgs))
 	for _, m := range msgs {
-		wrapped = append(wrapped, deliveryText(m))
+		wrapped = append(wrapped, deliveryText(m, dc))
 	}
 	var bundle *string
 	text := in.Board + " · no new messages\n"
 	if len(msgs) > 0 {
-		b := bundleText(in.Board, msgs)
+		b := bundleText(in.Board, msgs, dc)
 		bundle = &b
 		text = fmt.Sprintf("%s · %d new\n", in.Board, len(msgs)) + strings.Join(wrapped, "\n\n") + "\n"
 	}

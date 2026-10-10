@@ -176,15 +176,15 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 	mu.Lock()
 	ownerRequests, seatRequests = 0, 0
 	mu.Unlock()
-	e.run("status", "--json")
-	e.run("audit", "verify", "--json")
+	e.run("status", "--board", seat.Board, "--json")
+	e.run("audit", "verify", "--board", seat.Board, "--json")
 	mu.Lock()
 	human, agent := ownerRequests, seatRequests
 	mu.Unlock()
 	if human == 0 || agent != 0 {
 		t.Fatalf("terminal control used wrong credential: person %d, seat %d", human, agent)
 	}
-	bound.run("join", "--board", "other")
+	bound.run("join", "--board", "other", "--name", "reader")
 	for _, selection := range []struct {
 		name       string
 		vars, args []string

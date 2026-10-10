@@ -37,7 +37,7 @@ func runBoardNew(ctx context.Context, a *app, name, title string, private bool, 
 	if err := a.refuseInSession("Creating a board", command); err != nil {
 		return err
 	}
-	srv, _, err := a.personServer(ctx, serverFlag)
+	srv, _, err := a.bootstrapServer(ctx, serverFlag)
 	if err != nil {
 		return err
 	}
@@ -62,40 +62,14 @@ func runBoardNew(ctx context.Context, a *app, name, title string, private bool, 
 		return keyRejected(srv, r.StatusCode(), r.Body)
 	}
 	b := r.JSON201
-	// A directory linked to no board is linked to this one, as pair does, so the board
-	// commands that follow, run here, act on it. A linked directory keeps its board.
-	project, hasProject, err := a.readProject()
-	if err != nil {
-		return err
-	}
-	linked := !hasProject
-	if linked {
-		if err := a.writeProject(projectFile{Server: srv, Board: b.Name}); err != nil {
-			return err
-		}
-	}
-	// A directory linked to a board on another server keeps it, so every command in the
-	// guidance names the new board's server.
+	linked := false
 	var stays *staysLinked
-	if hasProject && project.Server.URL != "" && project.Server.URL != srv.URL {
-		stays = &staysLinked{Server: project.Server, Board: project.Board}
-	}
-	join := "aboard join --board " + b.Name
+	join := "aboard join --server " + commandWord(srv.URL) + " --board " + commandWord(b.Name)
 	text := fmt.Sprintf("Created board %s on %s, open to everyone on the server.\n", b.Name, srv.URL)
 	if b.Visibility == api.BoardVisibilityPrivate {
-		text = fmt.Sprintf("Created board %s on %s, private: only the people on it see it.\n", b.Name, srv.URL)
+		text = fmt.Sprintf("Created board %s on %s, private: only its people see it.\n", b.Name, srv.URL)
 	}
-	add := "aboard board add @handle"
-	switch {
-	case linked:
-		text += "Linked this directory to " + b.Name + ", so board commands run here act on it.\n"
-	case stays != nil:
-		text += fmt.Sprintf("This directory stays linked to %s on %s, so board commands for %s need --server %s.\n", stays.Board, stays.Server.URL, b.Name, srv.URL)
-		join += " --server " + srv.URL
-		add += " --board " + b.Name + " --server " + srv.URL
-	default:
-		add += " --board " + b.Name
-	}
+	add := "aboard board add @handle --server " + commandWord(srv.URL) + " --board " + commandWord(b.Name)
 	notice := noticeFor(b.Policy)
 	if notice != nil {
 		text += notice.Message + "\n"

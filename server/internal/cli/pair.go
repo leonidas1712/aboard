@@ -29,6 +29,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 	boardName := fs.String("board", "", "name of the new board")
 	title := fs.String("title", "", "the new board's title, free text people read beside its name")
 	agentName := fs.String("name", "", "name of this session's agent")
+	serverFlag := fs.String("server", "", "create on this server")
 	newBoard := fs.Bool("new", false, "create another board even though this directory is linked to one")
 	pos, err := a.parse(fs, args, use, 0, 1)
 	if err != nil {
@@ -64,7 +65,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		return creationNeedsSession()
 	}
 	started := false
-	srv := a.localServer()
+	var srv serverRef
 	var c *client
 	var joined *api.JoinResult
 	var moved *previousAgent
@@ -74,11 +75,15 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		if err != nil {
 			return err
 		}
-		sessionServer := ""
-		if len(agents) > 0 {
-			sessionServer = agents[0].Server
+		sessionServer, err := sessionIssuer(agents, *serverFlag)
+		if err != nil {
+			return err
 		}
-		srv, err = a.boardServer(ctx, "", sessionServer)
+		if sessionServer == "" {
+			srv, _, err = a.bootstrapServer(ctx, *serverFlag)
+		} else {
+			srv, err = a.boardServer(ctx, *serverFlag, sessionServer)
+		}
 		if err != nil {
 			return err
 		}
@@ -105,7 +110,7 @@ func runPair(ctx context.Context, a *app, args []string) error {
 		useAs = useFor(joined.Agent.Name)
 		useAs.BoundSession = optional(session.String())
 	} else {
-		started, err = a.ensureLocal(ctx)
+		srv, started, err = a.bootstrapServer(ctx, *serverFlag)
 		if err != nil {
 			return err
 		}

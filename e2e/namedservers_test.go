@@ -45,7 +45,7 @@ func TestNamedServersKeepIssuerAndAllowAgentBookkeeping(t *testing.T) {
 		t.Fatalf("selection name: %v", opened)
 	}
 	project := person.openUI("true").json(t)
-	if field(t, project, "server_selection.source") != "project" || field(t, project, "server.url") != tm.url() {
+	if field(t, project, "server_selection.source") != "default" || field(t, project, "server.url") != tm.url() {
 		t.Fatalf("project: %v", project)
 	}
 	badOpen := person.openUI("true", "fly", "--server", "elsewhere")
@@ -53,8 +53,8 @@ func TestNamedServersKeepIssuerAndAllowAgentBookkeeping(t *testing.T) {
 		t.Fatalf("conflicting open: %s", badOpen)
 	}
 	person.run("servers", "use", "elsewhere")
-	if err := os.Remove(filepath.Join(person.dir, ".aboard")); err != nil {
-		t.Fatal(err)
+	if _, err := os.Stat(filepath.Join(person.dir, ".aboard")); !os.IsNotExist(err) {
+		t.Fatalf("board creation wrote a folder link: %v", err)
 	}
 	def := person.openUI("true").json(t)
 	if field(t, def, "server.url") != other.url() || field(t, def, "server_selection.source") != "default" {

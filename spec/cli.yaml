@@ -130,11 +130,12 @@
 #   only a legacy regular link file; it neither parses the state directory nor
 #   follows symlinks. Legacy ProjectFile and project source values stay deprecated.
 #   Known servers without a default return server_not_selected before credentials
-#   or writes, even with only one known server. No implicit local/only fallback.
+#   or writes, even with only one remote server. An initialized sole local server
+#   retains its bootstrap default, including state from before explicit defaults.
 #   details.choices retains URLs; optional details.server_choices holds ServerChoice
 #   objects with labels, URLs and runnable commands. Board/agent ambiguity retains
 #   details.boards and adds issuer URLs to details.seats; never expose hidden boards.
-#   With no known server, up/pair/board new bootstrap local and persist its initial
+#   With no known server, up/pair/board new/open bootstrap local and persist its initial
 #   default. connect/setup may establish a first default; adding a server never
 #   replaces one. Every follow-up command preserves the selected issuer.
 # - Agent commands never use the person's login: say, read, react, inbox, status,
@@ -2077,13 +2078,14 @@ $defs:
     description: |
       Opens the web UI in the default browser, already signed in as the person. The
       server follows D223 explicit --server (or positional NAME|URL) then machine
-      default. Missing default returns server_not_selected (exit 1) before reading
+      default. On a fresh machine with no known server, open starts local and persists
+      it as the initial default, without a server prompt. Known servers without a
+      default return server_not_selected (exit 1) before reading
       a login key or requesting a login code. Text lists "aboard open local",
       "aboard open work", and each other known name, safely quoted. JSON always has
       {error:{code,message,hint,details:{choices,server_choices}}}; choices is an
       array of canonical URLs, and server_choices is an array of ServerChoice
-      objects whose command is aboard open NAME. An empty known-server set gives
-      empty arrays and the existing up/connect hint. It asks that server for a one-time
+      objects whose command is aboard open NAME. It asks that server for a one-time
       login code (POST /v1/login-codes) with the key this machine keeps for it (the local
       owner's login on the local server), and opens <server>/#code=…[&board=NAME], where
       <server> is the server's URL as this machine connected to it: a team server's public
@@ -2296,6 +2298,10 @@ $defs:
   # ---------- aboard doctor ----------
   DoctorOutput:
     description: |
+      On a fresh machine with no known server, doctor reports its local server as
+      not running, with an aboard up fix, rather than server_not_selected. The same
+      local_server diagnostic applies after the local server stops. This server
+      check reads no login and does not start the server.
       A regular legacy .aboard link file produces a warning check named
       legacy_folder_link with code legacy_folder_link. Its text says the old link
       is ignored and can be deleted; its fix names servers use and --board.
@@ -2437,7 +2443,10 @@ $defs:
       or a bound harness session, board metadata is read with that seat's own token;
       the person's login is never a fallback. An unknown explicit agent returns
       agent_not_selected. An unbound session shows local diagnostics without any
-      authenticated board read. A terminal with no agent selected uses its own login.
+      authenticated board read. Before local bootstrap, a terminal reports local setup
+      diagnostics without starting a server or reading a login. A selected stopped
+      server remains diagnostic-only. A terminal with no agent selected uses its own
+      login only when the selected server is reachable.
       With --launch, run in a
       session whose first prompt from aboard swarm up gave a launch ticket (Codex), it
       first hands the ticket in, so the session takes its seat; a ticket already taken
@@ -4003,7 +4012,9 @@ $defs:
       own-token messages, including accepted queue entries absent from the unread inbox,
       and acknowledges nothing; acked_up_to is null. It never cancels scheduled delivery.
       Entries are invalidated on seat/session changes.
-      With several seats each entry remains bound to its immutable board/member ids.
+      With several seats each entry remains bound to its canonical issuer and immutable board/member ids.
+      New daemons include server on every entry. Older server-less entries are accepted only
+      when one observed issuer makes the identity unambiguous.
     type: object
     required: [count, messages]
     properties:
@@ -4014,6 +4025,7 @@ $defs:
           type: object
           required: [board_id, member_id, message_id, seq, from, boundary]
           properties:
+            server: { type: string, description: Canonical issuing server URL; additive for older daemon compatibility. }
             board_id: { type: string }
             board: { type: string, description: Current readable board name; immutable board_id remains the identity. }
             member_id: { type: string }
