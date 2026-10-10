@@ -56,7 +56,7 @@ func TestApprovalCollectionRetriesLostResponseWithOriginalIssuerSeatAndKey(t *te
 				link := "http://" + r.Host + "/join#abi_recorded"
 				_ = json.NewEncoder(w).Encode(map[string]any{
 					"approval":  map[string]any{"id": "apr_own", "person_id": "hum_owner", "agent_id": "mem_shared", "parent_key_id": "key_parent", "state": "executed", "payload_hash": "hash", "created_at": "2026-10-10T00:00:00Z", "action": map[string]any{"kind": "invite_people"}},
-					"collected": true,
+					"collected": false,
 					"invite":    map[string]any{"id": "inv_own", "invite": "abi_recorded", "server_role": "member", "expires_at": "2026-10-11T00:00:00Z", "link": link, "prompt": "Server-owned colleague handover"},
 				})
 			}))
@@ -114,7 +114,7 @@ func TestApprovalCollectionRetriesLostResponseWithOriginalIssuerSeatAndKey(t *te
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatal(err)
 			}
-			if !result.Collected || result.Prompt != "Server-owned colleague handover" || result.Invite.Link != issuer.URL+"/join#abi_recorded" {
+			if result.Collected || result.Prompt != "Server-owned colleague handover" || result.Invite.Link != issuer.URL+"/join#abi_recorded" {
 				t.Fatalf("server handover lost: %s", out.String())
 			}
 		})
