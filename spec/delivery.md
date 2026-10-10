@@ -1793,52 +1793,24 @@ confirmed delivery handshake remain authoritative; a notice is not delivery proo
 
 ### Durable idle wake
 
-The daemon also retains a nonsecret notice for an executed, declined or expired
-approval, so its exact originating session can act while idle. An invite-linked
-request gains a separate arrival notice when the colleague's exact accepting
-session joins; its text names that person and seat and asks the inviter to say
-hello and answer the delivery check. No eligible captured seat means no guessed
-wake. Joining or greeting alone never means delivery was verified.
+The daemon retains nonsecret approval outcomes and colleague arrival notices on
+the requesting permanent agent seat. An arrival names the person and invited
+board and asks the inviter to greet them. Fresh issuer-bound reads recheck current
+ownership, key, access and lifecycle before delivery. Removed authority cancels
+the notice. No invite secret, collected outcome or person credential is included.
 
-Each notice has an immutable identity and kind, canonical issuer, requesting seat,
-approval or invite-linked request id, original session, boot and binding generation.
-These are private daemon bookkeeping, never board messages or events. The journal
-stores no invite secret, account key, message body or collected outcome. Before
-each attempt the daemon reads the relevant metadata through the original seat's
-issuer-bound credential and rechecks current access, ownership, parent key,
-lifecycle, session, boot and binding. It never falls back to a person's login or
-chooses an endpoint from recent activity. Changed or revoked authority cancels
-the notice rather than replaying stale content.
+Use the existing harness delivery path: next-turn context or an idle wake. Busy
+sessions wait for the next permitted boundary; delivery-off and paused delivery
+remain respected. If the original session is gone, the next session that explicitly
+resumes the same seat receives the notice. Never choose a session by recent activity.
+This fallback transfers no secret-collection or pairing-endpoint authority.
 
-A notice-only handoff is a typed part of the durable handoff manifest. Empty
-message sequences are permitted only for that validated notice part. It carries
-the notice identity, rendering version and payload hash, without inventing a board
-sequence. Preparation atomically binds it to the manifest. The normal hook, queue
-or extension adapter delivers the nonsecret context to that exact session, either
-on its next turn or as an idle wake. Busy sessions keep the notice for the next
-permitted boundary; delivery-off and paused delivery do not get bypassed. A notice
-does not grant authority to execute its suggested command.
+Notice identities and pending state are durable private daemon bookkeeping, with
+bounded retry and deduplication. There are no new proof types or pairing receipts.
+A notice appends no board event, advances no read cursor and grants no permission.
+Existing transport semantics apply; queue admission is not a claim that an agent
+read or acted on the notice. Failed output leaves it pending for retry.
 
-The notice is marked delivered only by that exact handoff's confirmation. Queue
-admission, a successful metadata GET, a read cursor, an ACK, rendering or a failed
-stdout write cannot mark it delivered. Confirmation atomically finishes the notice
-with the handoff. Hook context carries the exact
-handoff id and boot; its receipt is sent only after the stdout or stderr write
-succeeds. Generic later prompt or tool events never confirm typed notice parts.
-The queue and extension adapters retain their exact transport confirmation.
-Failed or interrupted attempts retain the same identity and retry with bounded
-backoff; recovery deduplicates confirmed notices. While the
-original session remains bound, a busy session is never replaced for delivery.
-If it closes or loses its binding, retain the nonsecret notice on that same
-permanent agent seat. The next session that explicitly resumes or binds that seat
-may receive it after all fresh issuer, ownership, key, access and lifecycle checks.
-Cancel the old unconfirmed attempt and bind a new handoff to the replacement's
-exact session, boot and binding generation; an old confirmation cannot complete
-the new attempt. This fallback never transfers the original session's endpoint
-credential, secret collection authority or permission to select a pairing endpoint.
-Notice-only parts append no event, advance no cursor and cannot supply pairing
-round-trip evidence. Ordinary message parts retain all their existing checks.
-
-The person's Inbox also shows the colleague's arrival, naming the board, person
-and chosen agent. This is a fresh access-filtered view of existing membership and
-invite-linked request metadata, not a new board event or delivery confirmation.
+The person's Inbox also shows the colleague's arrival, naming the board and person,
+with the chosen agent when available. This is a fresh access-filtered view of
+existing membership and invite metadata, not an event or delivery confirmation.

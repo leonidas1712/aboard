@@ -192,11 +192,9 @@ hook (Codex 0.160 resuming a thread) reports in this way.
 
 ### `turn_start`: a turn started, and what it is given
 
-A response carrying a durable nonsecret outcome notice includes its exact
-`handoff_id` and current `boot`. The hook sends `received` for that handoff only
-after writing the context successfully. Failed output sends no receipt; the notice
-remains pending for retry. A later prompt or tool boundary cannot implicitly
-confirm a notice-bearing handoff. Ordinary message confirmation is unchanged.
+Durable nonsecret approval and arrival notices use existing nudge or adapter
+context. They introduce no new proof type or receipt wire fields. Existing message
+confirmation remains unchanged; a notice grants no secret-collection authority.
 
 Sent by a hook of op `prompt` (Claude Code's and Codex's `UserPromptSubmit`) and by a
 harness extension as a turn starts, before the model runs (omp: `before_agent_start`,
