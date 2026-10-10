@@ -58,6 +58,9 @@ func (a *app) knownServers() ([]knownServer, *serverRef, error) {
 		}
 	}
 	want := logins.Default
+	if want == "" && len(known) == 1 && known[0].Local {
+		want = local.URL
+	}
 	if want == localServerName {
 		want = local.URL
 	}

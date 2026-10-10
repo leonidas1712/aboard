@@ -212,7 +212,7 @@ func TestOpenInsideASessionNeverShowsTheLoginLink(t *testing.T) {
 	e.run("pair", "writer-reviewer")
 	browser, saved := e.recordingBrowser()
 	for _, session := range []string{"CLAUDECODE=1", "ABOARD_SESSION=claude-code:5f1c", "ABOARD_AGENT=writer"} {
-		r := e.exec([]string{session, "BROWSER=" + browser}, "", "open", "--json")
+		r := e.exec([]string{session, "BROWSER=" + browser}, "", "open", "--board", "writer-reviewer", "--json")
 		if r.code != 0 {
 			t.Fatalf("with %s:\n%s", session, r)
 		}
@@ -236,10 +236,10 @@ func TestOpenInsideASessionNeverShowsTheLoginLink(t *testing.T) {
 			t.Fatalf("the link the browser got doesn't log in: %d %s", got.status, got.body)
 		}
 	}
-	text := e.exec([]string{"CLAUDECODE=1", "BROWSER=" + browser}, "", "open")
+	text := e.exec([]string{"CLAUDECODE=1", "BROWSER=" + browser}, "", "open", "--board", "writer-reviewer")
 	expectLines(t, text, "Opened writer-reviewer in your browser: http://"+e.addr+"/?board=writer-reviewer")
 
-	r := e.exec([]string{"CLAUDECODE=1", "BROWSER=false"}, "", "open", "--json")
+	r := e.exec([]string{"CLAUDECODE=1", "BROWSER=false"}, "", "open", "--board", "writer-reviewer", "--json")
 	out := r.json(t)
 	if r.code != 1 || field(t, out, "error.code") != "browser_unavailable" ||
 		field(t, out, "error.hint") != "Give your human this command to run in their own terminal: aboard open --board writer-reviewer" {

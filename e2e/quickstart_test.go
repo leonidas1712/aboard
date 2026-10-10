@@ -162,7 +162,7 @@ func TestCommandWithoutAgentListsChoices(t *testing.T) {
 	pair := e.run("pair", "writer-reviewer", "--json")
 	e.run("join", field(t, pair.json(t), "join.line").(string))
 
-	r := e.runExit("say", "hello", "--json")
+	r := e.runExit("say", "hello", "--board", "writer-reviewer", "--json")
 	if r.code != 1 {
 		t.Fatalf("want exit 1\n%s", r)
 	}

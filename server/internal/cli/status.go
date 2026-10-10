@@ -151,10 +151,21 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	if agentBoard == nil && !a.agentSelected(*as) {
 		srv, resolveErr := a.resolveServer(a.selectedServerFlag())
 		if resolveErr != nil {
-			return resolveErr
+			known, _, knownErr := a.knownServers()
+			if knownErr != nil {
+				return knownErr
+			}
+			if asError(resolveErr).Code != "server_not_selected" || len(known) != 0 {
+				return resolveErr
+			}
+			srv = a.localServer()
 		}
 		out.Server = srv
-		t, err = a.humanBoard(ctx, *boardFlag)
+		if a.serverAnswers(ctx, srv) {
+			t, err = a.humanBoard(ctx, *boardFlag)
+		} else {
+			err = newError("board_not_selected", "The server is not running.", "Run aboard up.")
+		}
 	}
 	switch {
 	case agentBoard != nil && (err != nil || t.board != agentBoard.board || t.server.URL != agentBoard.server.URL):

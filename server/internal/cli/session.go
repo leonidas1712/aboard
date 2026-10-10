@@ -68,7 +68,20 @@ func (a *app) agentTarget(ctx context.Context, boardFlag, asFlag string) (target
 			return t, cred, err
 		}
 	}
-	return target{}, agentCredential{}, newError("agent_not_selected", "No working agent seat matches this selection.", "Run aboard status to see bound seats, or name a saved seat with --as, --server and --board.")
+	issuer, err := a.agentIssuer()
+	if err != nil {
+		return target{}, agentCredential{}, err
+	}
+	choices := []string{}
+	for _, cred := range creds.Agents {
+		if (issuer == "" || cred.Server == issuer) && (boardFlag == "" || cred.Board == boardFlag) {
+			choices = append(choices, cred.Name)
+		}
+	}
+	slices.Sort(choices)
+	e := newError("agent_not_selected", "No working agent seat matches this selection.", "Run aboard status to see bound seats, or name a saved seat with --as, --server and --board.")
+	e.Details = map[string]any{"choices": slices.Compact(choices), "board_source": selectedNone}
+	return target{}, agentCredential{}, e
 }
 
 // oneSeat checks remaining bound seats after explicit name, issuer and board filters.

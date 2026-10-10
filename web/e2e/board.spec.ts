@@ -96,7 +96,7 @@ test("the board view shows the room live, posts as the person and verifies the r
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--title", "Docs review", "--json"));
   aboard("join", pair.join.line);
 
-  const open = JSON.parse(aboard("open", "--json"));
+  const open = JSON.parse(aboard("open", "--board", pair.board.name, "--json"));
   expect(open.url).toMatch(/\/#code=abl_[^&]+&board=writer-reviewer$/);
   await openLink(page, open.url);
 
