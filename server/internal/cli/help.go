@@ -645,7 +645,7 @@ func helpText(templates string) []commandHelp {
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
 				"With --person it invites a person to the selected server: it prints a link that works once, for one new person, who runs aboard connect with it on their machine and becomes a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. list shows your own invitation metadata without secrets; revoke ends one invitation.\n\n" +
-				"Use --server NAME|URL to choose the issuer; it does not select a person invitation when combined with --board. Bare --server is a deprecated alias for --person. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
+				"Use --server NAME|URL to choose the issuer; only --person selects a person invitation. Bare --server with no value or board is a deprecated alias for --person. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code or agent-issued invite, 168h for a person-issued invite."},
@@ -653,7 +653,7 @@ func helpText(templates string) []commandHelp {
 				{"--person", "", "Invite a person to the server; repeat --board to bundle memberships."},
 				{"--pairing", "WORK", "Propose work with this verified current session; requires --person and one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
-				{"--server", "[URL]", "Select the issuer by name or URL. Bare --server remains a deprecated alias for --person."},
+				{"--server", "[NAME|URL]", "Select the issuer by name or URL. Bare --server with no value or board remains a deprecated alias for --person."},
 				flagJSON,
 			},
 			Examples: []helpExample{
