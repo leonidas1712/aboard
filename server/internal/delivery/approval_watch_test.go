@@ -64,7 +64,7 @@ func TestApprovalDecisionReachesOriginalNextTurnAfterRestart(t *testing.T) {
 	r.restart()
 	reader.set("executed", "", nil)
 	got := approvalTurn(r, "s1", "b1")
-	if !strings.Contains(got.Nudge, "aboard approvals show 'apr_own' --server '"+serverURL+"' --board 'docs'") {
+	if !strings.Contains(got.Nudge, "aboard approvals show 'apr_own' --server '"+serverURL+"' --board 'docs' --json") {
 		t.Fatalf("no actual outcome command: %+v", got)
 	}
 	if got := approvalTurn(r, "s1", "b1"); !strings.Contains(got.Nudge, "approval apr_own") {

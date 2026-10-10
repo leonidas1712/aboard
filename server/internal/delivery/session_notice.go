@@ -69,10 +69,10 @@ func (s *session) renderNotice(ctx context.Context, n DurableNotice, a *agentSta
 		if n.Session == s.key && n.Boot == s.boot && n.Generation == a.generation {
 			_, selected := s.selectApprovalPairing(ctx, row, ApprovalWatch{ID: n.SourceID, BoardID: n.BoardID, Agent: n.Agent, Session: n.Session, Boot: n.Boot, Generation: n.Generation})
 			if selected {
-				return fmt.Sprintf("Aboard approval %s on %s was %s. Run aboard approvals show %s --server %s --board %s to read its outcome.\nThe requesting session is selected as the initiating pairing endpoint; ready still requires the delivery check.", row.ID, a.ref.Server, row.State, shellWord(row.ID), shellWord(a.ref.Server), shellWord(a.ref.Board)), false
+				return fmt.Sprintf("Aboard approval %s on %s was %s. Run aboard approvals show %s --server %s --board %s --json to read its outcome.\nThe requesting session is selected as the initiating pairing endpoint; ready still requires the delivery check.", row.ID, a.ref.Server, row.State, shellWord(row.ID), shellWord(a.ref.Server), shellWord(a.ref.Board)), false
 			}
 		}
-		cmd := "aboard approvals show " + shellWord(row.ID) + " --server " + shellWord(a.ref.Server) + " --board " + shellWord(a.ref.Board)
+		cmd := "aboard approvals show " + shellWord(row.ID) + " --server " + shellWord(a.ref.Server) + " --board " + shellWord(a.ref.Board) + " --json"
 		return fmt.Sprintf("Aboard approval %s on %s was %s. Run %s to read its outcome.", row.ID, a.ref.Server, row.State, cmd), false
 	case "colleague_arrival":
 		if s.d.cfg.PairingFor == nil {
@@ -99,7 +99,7 @@ func (s *session) renderNotice(ctx context.Context, n DurableNotice, a *agentSta
 			Handle string `json:"recipient_handle"`
 		}
 		_ = json.Unmarshal(row.Display, &display)
-		return fmt.Sprintf("Aboard colleague %s joined board %s at %s. This notice is not a completed delivery check.", display.Handle, a.ref.Board, a.ref.Server), false
+		return fmt.Sprintf("Aboard colleague %s joined board %s at %s. Say hello to them on this board.", display.Handle, a.ref.Board, a.ref.Server), false
 	}
 	return "", true
 }

@@ -14,7 +14,7 @@ func TestTerminalApprovalUsesExistingIdleHookTransport(t *testing.T) {
 	reader.set("executed", "", nil)
 	h := r.wait("s1", "b1", false)
 	got := h.next()
-	if !strings.Contains(got.Bundle, "aboard approvals show 'apr_own'") || got.HandoffID != "" {
+	if !strings.Contains(got.Bundle, "aboard approvals show 'apr_own' --server '"+serverURL+"' --board 'docs' --json") || got.HandoffID != "" {
 		t.Fatal("notice did not use ordinary handoff", got)
 	}
 	r.eventually("notice handed", 0, func() bool {
@@ -138,7 +138,7 @@ func TestArrivalNeedsRedeemedAccountNotChosenEndpoint(t *testing.T) {
 	pairing.row.State = "awaiting_session"
 	pairing.mu.Unlock()
 	got := approvalTurn(r, "s1", "b1")
-	if !strings.Contains(got.Nudge, "pat joined board docs") || strings.Contains(got.Nudge, "chosen session") {
+	if !strings.Contains(got.Nudge, "pat joined board docs") || !strings.Contains(got.Nudge, "Say hello to them on this board.") {
 		t.Fatal(got)
 	}
 	pairing.mu.Lock()
