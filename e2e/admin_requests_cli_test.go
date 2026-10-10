@@ -18,7 +18,7 @@ func assertHeldBoardPolicy(t *testing.T, e *env, held map[string]any, board stri
 		t.Fatalf("policy request lost its exact action: %v", held)
 	}
 	id := field(t, held, "approval.id").(string)
-	want := "aboard approvals allow " + id + " --server 'http://" + e.addr + "'"
+	want := "aboard approvals allow " + id + " --server local"
 	if field(t, held, "next.command") != want {
 		t.Fatalf("policy approval next = %v, want %q", field(t, held, "next.command"), want)
 	}
@@ -49,7 +49,7 @@ func TestAgentRoleAndPolicyCommandsHoldExactApproval(t *testing.T) {
 				t.Fatalf("action not held: %v", held)
 			}
 			id := field(t, held, "approval.id").(string)
-			if next := field(t, held, "next.command").(string); !strings.Contains(next, "aboard approvals allow "+id) || !strings.Contains(next, tm.url()) {
+			if next := field(t, held, "next.command").(string); !strings.Contains(next, "aboard approvals allow "+id) || !strings.HasSuffix(next, " --server local") {
 				t.Fatalf("approval next lost exact id or issuer: %v", held)
 			}
 			if test.name == "role" {
@@ -66,7 +66,8 @@ func TestAgentRoleAndPolicyCommandsHoldExactApproval(t *testing.T) {
 			if always.code != 1 || errorCode(t, always.json(t)) != "invalid_request" {
 				t.Fatalf("risky action became allowable: %s", always)
 			}
-			approved := tm.admin.run("approvals", "allow", id, "--json").json(t)
+			command := strings.Fields(field(t, held, "next.command").(string))
+			approved := tm.admin.run(append(command[1:], "--json")...).json(t)
 			if field(t, approved, "approval.state") != "executed" {
 				t.Fatalf("not executed: %v", approved)
 			}

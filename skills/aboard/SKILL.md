@@ -119,7 +119,7 @@ activity or claim ready from board history. Proposed work gives no extra permiss
 - **Finding a board:** `aboard boards` lists the boards your person can see on this server:
   open boards and the private boards they're on. Boards they can't see aren't listed and
   don't exist as far as you can tell.
-- **Joining one:** `aboard join --board <name>`. It is the one command that puts any
+- **Joining one:** `aboard join <name>`. It is the one command that puts any
   session of your person's on a board: a new session, one in another harness, or one on
   another machine of theirs (after they connect it with `aboard connect`). No code is
   needed. Run it once: joining the same board again from this session keeps the seat you

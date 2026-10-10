@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased contract additions
+
+- Add person-only onboarding Inbox reads and optional invite-notice suggested handles.
+
 ## Approved D223 contract changes (implementation in review)
 
 - Person commands use explicit `--server` or the persisted machine default.
@@ -25,6 +29,16 @@ publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
 
 ## Unreleased
+
+### CLI onboarding polish (GEN-60)
+
+- `aboard join BOARD` uses the existing name-based join path; join codes retain
+  their meaning. This is additive for CLI users and scripts.
+- Invite and approval output uses known server labels, one recipient line and a
+  plain invite link. Setup prints its skill instruction once. A repeat collection
+  names the exact revoke and new-invite commands without returning the secret.
+- Invite prompts and approval notices leave delivery checking to setup's hello
+  and reply. Internal compatibility metadata remains unchanged.
 
 ### Contract changes for paste-session setup (GEN-55)
 

@@ -64,11 +64,11 @@ func TestApprovalDecisionReachesOriginalNextTurnAfterRestart(t *testing.T) {
 	r.restart()
 	reader.set("executed", "", nil)
 	got := approvalTurn(r, "s1", "b1")
-	if !strings.Contains(got.Nudge, "aboard approvals show 'apr_own' --server '"+serverURL+"' --board 'docs'") {
+	if !strings.Contains(got.Nudge, "aboard approvals show 'apr_own' --server '"+serverURL+"' --board 'docs' --json") {
 		t.Fatalf("no actual outcome command: %+v", got)
 	}
-	if got := approvalTurn(r, "s1", "b1"); strings.Contains(got.Nudge, "approval apr_own") {
-		t.Fatal("already reported decision repeated")
+	if got := approvalTurn(r, "s1", "b1"); !strings.Contains(got.Nudge, "approval apr_own") {
+		t.Fatal("unshown Nudge consumed the pending notice")
 	}
 }
 
@@ -84,7 +84,7 @@ func TestApprovalFailedFreshReadRemainsRecoverable(t *testing.T) {
 	}
 }
 
-func TestApprovalOriginDoesNotFollowSeatOrNewBoot(t *testing.T) {
+func TestApprovalNoticeRetainsItsOriginalAuthorityAfterResume(t *testing.T) {
 	for _, change := range []string{"rebind", "boot", "incoming_boot", "closed"} {
 		t.Run(change, func(t *testing.T) {
 			r, reader, agent := approvalFixture(t)
@@ -103,8 +103,10 @@ func TestApprovalOriginDoesNotFollowSeatOrNewBoot(t *testing.T) {
 			case "closed":
 				r.ok(delivery.Request{Op: delivery.OpEnd, Harness: "claude-code", Session: "s1", Boot: "b1"})
 			}
-			if got := approvalTurn(r, session, boot); strings.Contains(got.Nudge, "approval apr_own") {
-				t.Fatalf("origin followed changed runtime: %+v", got)
+			_ = approvalTurn(r, session, boot)
+			origins, err := r.journal.ApprovalSeatWatches(context.Background(), agent)
+			if err != nil || len(origins) != 1 || origins[0].Session.ID != "s1" || origins[0].Boot != "b1" {
+				t.Fatal("notice transferred original authority", origins, err)
 			}
 		})
 	}
@@ -168,10 +170,10 @@ func TestApprovalAutomaticallySelectsOnlyItsOriginatingPairing(t *testing.T) {
 			writes, side, selected := pairing.writes, pairing.side, pairing.selectedAgent
 			pairing.mu.Unlock()
 			if mode == "original" {
-				if writes != 1 || side != "initiator" || selected.Key() != agent.Key() || !strings.Contains(got.Nudge, "requesting session is selected") {
+				if writes != 1 || side != "initiator" || selected.Key() != agent.Key() || !strings.Contains(got.Nudge, "Your invite was approved. Collect its link with the command above.") {
 					t.Fatalf("origin not selected: %d %s %+v %+v", writes, side, selected, got)
 				}
-			} else if writes != 0 || strings.Contains(got.Nudge, "requesting session is selected") {
+			} else if writes != 0 || strings.Contains(got.Nudge, "Your invite was approved. Collect its link with the command above.") {
 				t.Fatalf("selected wrong endpoint: %d %+v", writes, got)
 			}
 		})

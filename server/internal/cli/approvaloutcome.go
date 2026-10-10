@@ -36,6 +36,20 @@ func (a *app) showApproval(ctx context.Context, c *client, srv serverRef, board,
 		}
 		outcome = r.JSON200
 	}
+	if collect && outcome.Invite == nil && outcome.Approval.Execution != nil && outcome.Approval.Execution.InviteId != nil {
+		server := " --server " + commandWord(srv.Name)
+		request := "aboard invite --person" + server
+		if board != "" {
+			request += " --board " + commandWord(board)
+		}
+		outcome.Next = &api.NextStep{
+			Command: "aboard invite revoke " + commandWord(*outcome.Approval.Execution.InviteId) + server,
+			Resume:  "Already collected, revoked or expired. If you lost the link, ask your person to revoke it with this command, then request a new invite: " + request,
+		}
+	}
+	if outcome.Next != nil {
+		outcome.Next.Command = labelOnboardingCommand(outcome.Next.Command, srv)
+	}
 	out := map[string]any{"server": srv, "approval": outcome.Approval, "collected": outcome.Collected}
 	text := fmt.Sprintf("%s · %s on %s", outcome.Approval.Id, outcome.Approval.State, srv.Name)
 	if board != "" {

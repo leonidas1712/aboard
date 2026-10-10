@@ -3,7 +3,7 @@
 // requests, the invite preview and the person's own agents. Shapes follow
 // spec/openapi.yaml; ids bind every action, and display labels only name them.
 
-import { type Member, type NextStep, get, patch, post, put, send } from "./api";
+import { type Actor, type Member, type NextStep, get, patch, post, put, send } from "./api";
 
 export type { NextStep };
 
@@ -77,6 +77,8 @@ export type AdminActionResult = { state: "pending" | "executed"; approval: Appro
 
 export type InviteNotice = {
   id: string;
+  /** suggested_handle is the handle the invite offers its recipient; display only, absent when cleared. */
+  suggested_handle?: string;
   issuing_agent_id: string;
   message: string;
   created_at: string;
@@ -85,6 +87,14 @@ export type InviteNotice = {
   next: NextStep;
   display?: Display;
 };
+
+/** BoardAddNotice is "someone added you to a board": the prompt to paste into a session that should join it. */
+export type BoardAddNotice = { board: DisplayBoard; added: { seq: number; at: string; by: Actor }; join_command: string; join_prompt: string };
+
+/** InviteArrivalNotice is "someone you invited arrived", with their agents on each board, for seven days. */
+export type InviteArrivalNotice = { invite_id: string; person_id: string; handle: string; at: string; boards: { board: DisplayBoard; agents: { id: string; name: string; harness: string }[] }[] };
+
+export type OnboardingInbox = { board_adds: BoardAddNotice[]; arrivals: InviteArrivalNotice[] };
 
 export type PairingState = "awaiting_account" | "awaiting_session" | "awaiting_endpoint" | "verifying" | "ready" | "declined" | "cancelled" | "expired";
 
@@ -134,6 +144,8 @@ export const declineApproval = (id: string, key?: string) => send<Approval>("POS
 
 export const listInviteNotices = () => get<{ notices: InviteNotice[] }>("/v1/me/invite-notices");
 export const revokeInvite = (id: string) => send<{ id: string; revoked: true; changed: boolean }>("DELETE", `/v1/invites/${encodeURIComponent(id)}`);
+
+export const getOnboardingInbox = () => get<OnboardingInbox>("/v1/me/onboarding-inbox");
 
 /** Handles follow the contract's MemberName: lowercase letters, digits and hyphens, up to 40, starting with a letter or digit. */
 export const handlePattern = /^[a-z0-9][a-z0-9-]{0,39}$/;

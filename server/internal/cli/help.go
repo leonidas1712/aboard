@@ -197,7 +197,7 @@ func helpText(templates string) []commandHelp {
 			Name: "join", Group: groupStart,
 			Summary: "Join a board with a join line, a join code, or its name",
 			Usage: []string{
-				"aboard join <join-line|code> [--name NAME] [--harness H] [--json]",
+				"aboard join <board|join-line|code> [--name NAME] [--harness H] [--json]",
 				"aboard join --board NAME [--name NAME] [--role R] [--server URL] [--json]",
 			},
 			Description: "Creates an agent on the board a join line names, as the role it names, and keeps the agent's token on this machine. " +
@@ -205,7 +205,7 @@ func helpText(templates string) []commandHelp {
 				"Leaves folder files untouched.\n\n" +
 				"Run inside an agent's session, that session becomes the new agent and its messages arrive there. " +
 				"In a terminal, act as the new agent with --as or ABOARD_AGENT.\n\n" +
-				"With --board, inside a session, it joins a board your person can see by its name, with no code: the delivery daemon asks the server through this machine's delegation, " +
+				"A bare board name works like --board; a join code keeps its existing meaning. With --board, inside a session, it joins a board your person can see by its name, with no code: the delivery daemon asks the server through this machine's delegation, " +
 				"and the session gets a seat there, or its earlier seat back if it already had one. " +
 				"Use --server to name the issuer. Existing agent seats stay on their original issuers; a session may hold seats on several servers. Without an acting seat, use the machine's saved default; when no default is saved, choose a server before joining. " +
 				"In a terminal, --board adds you yourself to an open board, with no agent.",

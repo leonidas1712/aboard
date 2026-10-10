@@ -469,8 +469,10 @@ func (h hookCall) waitOn(conn io.ReadWriter, req delivery.Request) (code int, do
 				}
 				return 0, true
 			}
+			if _, err := io.WriteString(h.a.env.Stderr, resp.Bundle+"\n\nAboard delivery: new messages for this session.\n"); err != nil {
+				return 0, true
+			}
 			_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
-			_, _ = io.WriteString(h.a.env.Stderr, resp.Bundle+"\n\nAboard delivery: new messages for this session.\n")
 			if h.continued != nil {
 				*h.continued = true
 			}

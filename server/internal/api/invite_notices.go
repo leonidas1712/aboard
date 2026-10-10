@@ -10,7 +10,7 @@ func (h *handlers) ListInviteNotices(ctx context.Context, _ ListInviteNoticesReq
 	notices := make([]map[string]any, 0, len(list))
 	for _, v := range list {
 		i := v.Invite
-		notices = append(notices, map[string]any{
+		notice := map[string]any{
 			"id": i.ID, "issuing_agent_id": i.IssuingAgentID,
 			"display": h.onboardingDisplay(ctx, i.CreatedBy, i.IssuingAgentID, i.Boards),
 			"message": "Your agent invited someone", "created_at": i.CreatedAt,
@@ -19,7 +19,11 @@ func (h *handlers) ListInviteNotices(ctx context.Context, _ ListInviteNoticesReq
 				"command": onboardingCommand(ctx, "aboard invite revoke '"+i.ID+"'"),
 				"resume":  "Revoke an unredeemed invite in your terminal. Redeemed people and memberships remain.",
 			},
-		})
+		}
+		if i.SuggestedHandle != "" {
+			notice["suggested_handle"] = i.SuggestedHandle
+		}
+		notices = append(notices, notice)
 	}
 	return convert[ListInviteNotices200JSONResponse](map[string]any{"notices": notices})
 }
