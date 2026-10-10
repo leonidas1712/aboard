@@ -23,7 +23,7 @@ export GOTOOLCHAIN := $(shell awk '/^toolchain /{print $$2}' go.mod 2>/dev/null)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e web-lab-check lab lab-export lab-shots install dev release-snapshot release release-check sandbox sandbox-update sandbox-clean
+.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e web-lab-check lab lab-export lab-shots install dev release-snapshot release release-check sandbox sandbox-update sandbox-clean sandbox-team sandbox-team-stop sandbox-team-clean
 
 ## check: format check, lint, vet, generated code, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check harness-table-check docs-check test e2e extension-test vuln
@@ -219,15 +219,15 @@ web/out/.built: $(WEB_SOURCES)
 
 ## sandbox: open a shell to test this checkout by hand, isolated from your own setup (NAME=<name>); on an existing sandbox, opens another shell in it
 sandbox: web/out/.built dev
-	@scripts/sandbox open "$(NAME)"
+	@TEAM="$(TEAM)" FRESH="$(or $(FRESH),0)" scripts/sandbox open "$(NAME)"
 
 ## sandbox-update: rebuild, then restart a sandbox's server and daemon on the new build, keeping its data (NAME=<name>)
 sandbox-update: web/out/.built dev
-	@scripts/sandbox update "$(NAME)"
+	@TEAM="$(TEAM)" scripts/sandbox update "$(NAME)"
 
 ## sandbox-clean: stop a sandbox's server and daemon and remove it (NAME=<name>)
 sandbox-clean:
-	@scripts/sandbox clean "$(NAME)"
+	@TEAM="$(TEAM)" scripts/sandbox clean "$(NAME)"
 
 ## web-check: build and typecheck the web UI, check it holds no lab code, then run its browser smoke test
 web-check: web
@@ -306,3 +306,16 @@ $(GOVULNCHECK):
 ## load: isolated real-server and daemon load proof, with no model calls
 load:
 	go run ./lab/load $(LOAD_ARGS)
+
+## sandbox-team: start an isolated local HTTPS team server (TEAM=<team>, default: team)
+sandbox-team: web/out/.built dev
+	@$(REQUIRE_GO); go build -o $(BIN)/sandbox-team ./scripts/sandboxteam
+	@scripts/sandbox team-start "$(or $(TEAM),team)"
+
+## sandbox-team-clean: stop and remove the team's server and every person's sandbox
+sandbox-team-clean:
+	@scripts/sandbox team-clean "$(or $(TEAM),team)"
+
+## sandbox-team-stop: stop the shared team server, keeping all data
+sandbox-team-stop:
+	@scripts/sandbox team-stop "$(or $(TEAM),team)"
