@@ -27,7 +27,7 @@ func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id st
 	}
 	resp, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpPairing, Harness: key.Harness, Session: key.ID, Server: out.Server.URL, PairingAction: "get", PairingID: id})
 	if err != nil || resp.Server != out.Server.URL || resp.Pairing == nil || resp.Pairing.ID != id || resp.Pairing.BoardID == "" || resp.Pairing.InviterID == "" {
-		return nil
+		return nil //nolint:nilerr // Optional inviter metadata must not block the saved setup.
 	}
 	if pending != nil && (pending.Receipt == nil || !slices.Contains(pending.Receipt.Boards, resp.Pairing.BoardID)) {
 		return nil
