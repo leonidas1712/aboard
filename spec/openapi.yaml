@@ -4263,13 +4263,20 @@ paths:
         After a person allows an invite request, its execution response still
         shows the approver the link once. Independently, the requesting seat may
         collect the same issued invite once. Consumption is durable and atomic:
-        concurrent collectors have one secret-bearing winner. Pending, declined,
+        concurrent collectors with different keys have one secret-bearing winner. Pending, declined,
         expired, already collected and older non-collectable requests return only
         nonsecret metadata. Revoked, redeemed or expired invites are never revealed.
-        Do not retain secrets in approvals, events, logs, lists, next steps or the
-        idempotency response cache. Repeated collection cannot reissue an invite
-        or reveal its secret, even with the same Idempotency-Key. A lost collection
-        response remains consumed; the person can revoke and issue a new invite.
+        The server holds one encrypted outcome capsule per newly approved invite,
+        separate from approvals, events, logs, lists, next steps, plain exports and
+        the general idempotency response cache. Its original expiry is no later than
+        the invite's expiry (24 hours at most for agent-issued invitations). After
+        collection, only the exact winning seat and same Idempotency-Key may recover
+        that response for at most 10 minutes, with current authority rechecked.
+        A different key is a nonsecret repeat. Redemption, revocation or loss of
+        issuing authority prevents any reveal and clears the capsule; elapsed
+        capsules are ignored on reads and purged. No retry reissues an invitation.
+        Once the retry window closes, the person must revoke and request a new invite
+        if its response was lost. ServerInvite.link and prompt are server-owned.
 
         The requesting agent's next turn receives a nonsecret decision notice
         naming this approval and the issuer-qualified approvals show command.
@@ -4285,7 +4292,7 @@ paths:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "200":
-          description: Outcome; invite included only on the first authorized collection
+          description: Outcome; invite on first authorized collection or bounded winning-key recovery
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ApprovalOutcome" }
@@ -5592,6 +5599,13 @@ components:
       type: object
       required: [id, invite, server_role, expires_at]
       properties:
+        link:
+          type: string
+          format: uri
+          description: "Secret-bearing invitation link built from the configured canonical public issuer URL; present only on issuance or authorized outcome collection, never metadata reads."
+        prompt:
+          type: string
+          description: "Server-owned ready-to-send setup prompt for this link and suggested handle; present only with the secret-bearing invitation."
         suggested_handle:
           type: string
           pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"

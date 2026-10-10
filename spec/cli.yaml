@@ -4128,7 +4128,11 @@ $defs:
       aboard approvals show ID [--server SERVER] [--board BOARD] [--json] reads
       one own approval. In an agent session it uses only the exact requesting
       seat token and collects the issued invite outcome once. The first collection
-      includes the invite link and ready-to-send prompt; repeats are nonsecret.
+      includes the server's invite link and ready-to-send prompt. The CLI retries a
+      transport failure once with the same original seat and Idempotency-Key; it
+      never replaces credentials or reissues the request. The server permits only
+      that winning key to recover for 10 minutes, with current authority rechecked.
+      A new approvals show invocation uses a new key and receives nonsecret metadata.
       A person reads nonsecret metadata only, without consuming the agent's result.
       Missing, foreign and inaccessible approvals use approval_not_found. Lists,
       decision notifications and next steps never contain invite secrets.
