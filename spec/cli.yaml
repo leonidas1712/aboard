@@ -4322,6 +4322,11 @@ $defs:
       are unchanged by this setup attempt. Changed runtime entries still require
       trust and restart. A skill-only change may request aboard skill without
       repeating an already confirmed hook trust action.
+      Changed runtime entries retain a private machine-local restart fence for that
+      harness across setup attempts. Seeing unchanged files on a later attempt does
+      not clear it; a fresh confirmed different boot is required. Another saved setup
+      cannot bypass the fence. Reusing an already-bound current-session seat must not
+      rotate its binding merely to continue setup or invalidate completed verification.
       After account authorization, setup persists the canonical invite issuer as the
       default only if the machine has none; an existing default is preserved.
       A new account message says it was created, not authorized for a pairing.
