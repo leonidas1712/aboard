@@ -4,7 +4,7 @@ import { createServer as httpServer } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Page, expect, test } from "@playwright/test";
+import { type Locator, type Page, expect, test } from "@playwright/test";
 
 // The board's brief in the board view, against a real server in an isolated home: an
 // agent writes it through the public API, the page shows it with its freshness, a person
@@ -500,4 +500,70 @@ test("screenshots of the brief", async ({ page }) => {
   await held.release();
   await brief.getByRole("button", { name: "Show v3" }).click();
   await shoot("conflict");
+});
+
+test("a Markdown table in the brief is drawn as a table that scrolls inside the brief", async ({ page }) => {
+  const board = "brief-table";
+  await openBoard(page, board);
+  const md = [
+    "# Plan",
+    "",
+    "| Item | Owner | State |",
+    "|:---|:---:|---:|",
+    "| #305 thing | @codex | **ready** |",
+    "| `a\\|b` | [docs](https://example.com/d) | one \\| two |",
+    "no|leading|pipes",
+    "",
+    "Item | Owner",
+    "--- | ---",
+    "short row | x",
+    "",
+    "A lone | pipe stays text, and so does",
+    "a | b on its own line.",
+    "",
+    "| Wide | " + Array.from({ length: 12 }, (_, i) => `column-with-a-long-name-${i}`).join(" | ") + " |",
+    "|---|" + "---|".repeat(12),
+    "| x | " + Array.from({ length: 12 }, () => "value-value-value").join(" | ") + " |",
+    "",
+  ].join("\n");
+  await putBrief(board, "brief.md", md);
+  const brief = page.getByRole("region", { name: "Brief" });
+  await brief.getByRole("button", { name: "Show full brief" }).click();
+  const body = brief.getByLabel("The brief, brief.md v1");
+  const tables = body.locator("table");
+  await expect(tables).toHaveCount(3);
+
+  const first = tables.nth(0);
+  await expect(first.locator("thead th")).toHaveText(["Item", "Owner", "State"]);
+  await expect(first.locator("tbody tr")).toHaveCount(3);
+  await expect(first.locator("tbody tr").nth(0).locator("td")).toHaveText(["#305 thing", "@codex", "ready"]);
+  // Alignment from the separator row.
+  const align = (loc: Locator) => loc.evaluate((e) => getComputedStyle(e).textAlign);
+  expect(await align(first.locator("th").nth(0))).toBe("left");
+  expect(await align(first.locator("th").nth(1))).toBe("center");
+  expect(await align(first.locator("td").nth(2))).toBe("right");
+  // Inline formatting in cells; an escaped pipe stays in its cell; a short row is padded.
+  await expect(first.locator("tbody tr").nth(0).locator("strong")).toHaveText("ready");
+  const second = first.locator("tbody tr").nth(1);
+  await expect(second.locator("td")).toHaveCount(3);
+  await expect(second.locator("td code")).toHaveText("a|b");
+  await expect(second.locator("td a")).toHaveAttribute("href", "https://example.com/d");
+  await expect(second.locator("td").nth(2)).toHaveText("one | two");
+  await expect(first.locator("tbody tr").nth(2).locator("td")).toHaveText(["no", "leading", "pipes"]);
+
+  // Outer pipes are optional.
+  await expect(tables.nth(1).locator("th")).toHaveText(["Item", "Owner"]);
+  await expect(tables.nth(1).locator("tbody td")).toHaveText(["short row", "x"]);
+
+  // A pipe in a paragraph is still text.
+  await expect(body.locator("p", { hasText: "A lone | pipe stays text" })).toHaveText("A lone | pipe stays text, and so does a | b on its own line.");
+  await expect(body.locator("script, iframe")).toHaveCount(0);
+
+  // On a phone the wide table scrolls inside its container; the page does not.
+  await page.setViewportSize({ width: 390, height: 800 });
+  const wrap = tables.nth(2).locator("xpath=..");
+  const m = await wrap.evaluate((e) => ({ scroll: e.scrollWidth, client: e.clientWidth }));
+  expect(m.scroll).toBeGreaterThan(m.client);
+  const doc = await page.evaluate(() => ({ s: document.documentElement.scrollWidth, c: document.documentElement.clientWidth }));
+  expect(doc.s).toBeLessThanOrEqual(doc.c);
 });
