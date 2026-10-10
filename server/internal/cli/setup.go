@@ -274,10 +274,6 @@ func emitSetup(a *app, out setupOutput) error {
 		if label == "pairing" {
 			label = "joining"
 		}
-		if step.Step == "delivery" && step.State == "pending" && strings.HasPrefix(step.Message, "Waiting for a reply") {
-			fmt.Fprintf(&text, "%s: %s\n", label, step.Message)
-			continue
-		}
 		fmt.Fprintf(&text, "%s: %s", label, step.State)
 		if step.Message != "" {
 			fmt.Fprintf(&text, " · %s", step.Message)

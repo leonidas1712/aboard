@@ -45,7 +45,7 @@ func TestSetupPrintsSkillInstructionOnce(t *testing.T) {
 	}
 }
 
-func TestSetupWaitingTextDoesNotCallDeliveryPending(t *testing.T) {
+func TestSetupWaitingTextKeepsDeliveryStatus(t *testing.T) {
 	e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
 	var text bytes.Buffer
 	a := e.app(&text, &text)
@@ -54,7 +54,7 @@ func TestSetupWaitingTextDoesNotCallDeliveryPending(t *testing.T) {
 	if err := emitSetup(a, out); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(text.String(), "delivery: pending") || !strings.Contains(text.String(), "delivery: Waiting for a reply from @alex's agents.") {
-		t.Fatalf("waiting delivery was labeled pending: %s", &text)
+	if !strings.Contains(text.String(), "delivery: pending · Waiting for a reply from @alex's agents.") {
+		t.Fatalf("waiting delivery lost its status: %s", &text)
 	}
 }
