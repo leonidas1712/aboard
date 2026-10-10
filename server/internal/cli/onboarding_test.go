@@ -453,7 +453,7 @@ func TestExecutedBundledInviteSelectsItsOriginalSessionWithoutReissuing(t *testi
 			if issued.Load() != 1 || selected.Load() != 1 || result.Invite == nil || result.Invite.Invite != "abi_once" {
 				t.Fatalf("issued=%d selected=%d output=%s", issued.Load(), selected.Load(), out.String())
 			}
-			if fail && (result.Next == nil || result.Next.Command != "aboard doctor --server "+commandWord(srv.URL) || strings.Contains(result.Next.Resume, "pairing select")) {
+			if fail && (result.Next == nil || result.Next.Command != "aboard doctor --server server" || strings.Contains(result.Next.Resume, "pairing select")) {
 				t.Fatalf("missing same-invite recovery: %s", out.String())
 			}
 		})
