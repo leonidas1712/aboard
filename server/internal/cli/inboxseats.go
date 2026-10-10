@@ -198,16 +198,25 @@ func (a *app) waitAnySeat(ctx context.Context, readers []seatReader, wait int, o
 // <count>" header line.
 func inboxSeatsText(out inboxSeatsOutput) string {
 	var b strings.Builder
+	issuers := map[string]bool{}
+	for _, seat := range out.Seats {
+		issuers[seat.Server] = true
+	}
+	multi := len(issuers) > 1
 	for i, s := range out.Seats {
 		if i > 0 {
 			b.WriteString("\n")
 		}
+		board := s.Board
+		if multi {
+			board = s.Server + " · " + board
+		}
 		if len(s.msgs) == 0 {
-			fmt.Fprintf(&b, "%s · no new messages\n", s.Board)
+			fmt.Fprintf(&b, "%s · no new messages\n", board)
 			b.WriteString(nudgesText(s.Nudges))
 			continue
 		}
-		fmt.Fprintf(&b, "%s · %d new\n%s%s\n", s.Board, len(s.msgs), nudgesText(s.Nudges), strings.Join(s.Wrapped, "\n\n"))
+		fmt.Fprintf(&b, "%s · %d new\n%s%s\n", board, len(s.msgs), nudgesText(s.Nudges), strings.Join(s.Wrapped, "\n\n"))
 	}
 	if out.Unavailable > 0 {
 		fmt.Fprintf(&b, "%s couldn't be read; aboard status says which.\n", counted(out.Unavailable, "seat"))

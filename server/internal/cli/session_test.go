@@ -21,7 +21,7 @@ func TestAgentByName(t *testing.T) {
 		{"one board", "reviewer", "", "", "t3", "", nil},
 		{"two boards need a choice", "writer", "", "", "", "agent_ambiguous", []string{"docs", "docs-2"}},
 		{"--board picks", "writer", "docs-2", "", "t2", "", nil},
-		{"the directory's board picks", "writer", "", "docs", "t1", "", nil},
+		{"the directory never selects", "writer", "", "docs", "", "agent_ambiguous", []string{"docs", "docs-2"}},
 		{"unknown name", "ghost", "", "", "", "agent_not_selected", nil},
 	}
 	for _, tt := range tests {
