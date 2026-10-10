@@ -4,7 +4,10 @@
 // who you are on this board, which server this is, and this browser's settings.
 
 import { ChevronDown, Settings2 } from "lucide-react";
-import { type Allowance, getAllowance } from "./onboarding-api";
+import { type Allowance, getAllowance, handlePattern, renameSelf } from "./onboarding-api";
+import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Problem } from "./chrome";
 import { useEffect, useState } from "react";
 import {
   DropdownMenu,
@@ -44,6 +47,49 @@ function Swatch({ colours: [left, right, accent] }: { colours: readonly [string,
   );
 }
 
+/** RenameSelf asks for a new handle for the signed-in person; the server's refusal is shown as it words it. */
+function RenameSelf({ current, open, onClose, onRenamed }: { current: string; open: boolean; onClose: () => void; onRenamed: (handle: string) => void }) {
+  const [draft, setDraft] = useState(current);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setDraft(current); }, [open, current]);
+  const save = async () => {
+    const value = draft.trim();
+    if (!handlePattern.test(value)) {
+      setError(new ApiError(400, "invalid_request", "A handle uses lowercase letters, digits and hyphens, up to 40, and starts with a letter or digit.", ""));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await renameSelf(current, value);
+      onRenamed(r.person.handle);
+      onClose();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <AlertDialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setError(null); } }}>
+      <AlertDialogContent>
+        <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+          <AlertDialogTitle>Rename yourself</AlertDialogTitle>
+          <AlertDialogDescription>Your new handle shows on every board you are on. Your agents, keys and history stay yours.</AlertDialogDescription>
+          <label htmlFor="rename-self" className="text-meta text-muted">New handle</label>
+          <input id="rename-self" className="min-h-11 rounded-control border border-field-border bg-surface px-3 text-ink" value={draft} maxLength={40} autoCapitalize="none" spellCheck={false} onChange={(e) => setDraft(e.target.value)} />
+          {error !== null && <Problem error={error} />}
+          <AlertDialogFooter>
+            <Button type="submit" disabled={busy}>{busy ? "Renaming…" : "Rename"}</Button>
+            <AlertDialogCancel asChild><Button type="button" variant="secondary">Cancel</Button></AlertDialogCancel>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 type Props = {
   person?: Me | null;
   /** admin is true when the person is an admin of this board and another person is on it. */
@@ -54,7 +100,10 @@ type Props = {
 
 export function Account({ admin, onSignOut, person }: Props) {
   const [loadedMe, setMe] = useState<Me | null>(null);
-  const me = person ?? loadedMe;
+  const [renamed, setRenamed] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const base = person ?? loadedMe;
+  const me = base && renamed ? { ...base, name: renamed } : base;
   const [showPeople, setShowPeople] = useState(false);
   // Settings shows once the server answers for the person's allowance (auto mode).
   const [allowance, setAllowance] = useState<Allowance | null>(null);
@@ -112,6 +161,7 @@ export function Account({ admin, onSignOut, person }: Props) {
           )}
         </dl>
         <DropdownMenuSeparator />
+        {me.kind === "human" && <><DropdownMenuItem onSelect={() => setTimeout(() => setRenaming(true))}>Rename yourself</DropdownMenuItem><DropdownMenuSeparator /></>}
         {showPeople && <><DropdownMenuItem asChild><a href="/?view=people">People</a></DropdownMenuItem><DropdownMenuSeparator /></>}
         {allowance && <><DropdownMenuItem asChild><a href="/?view=settings" className="settings-item flex items-center gap-2"><Settings2 className="size-4 text-muted" strokeWidth={1.5} aria-hidden /><span className="flex-1">Settings</span><span className="text-meta text-muted">{allowance.categories.length > 0 ? "Auto mode on" : "Agents ask you"}</span></a></DropdownMenuItem><DropdownMenuSeparator /></>}
         {midturn.view && (
@@ -163,6 +213,7 @@ export function Account({ admin, onSignOut, person }: Props) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <RenameSelf current={me.name} open={renaming} onClose={() => setRenaming(false)} onRenamed={setRenamed} />
     {midturnProblem && (
       <p role="alert" className="midturn-problem basis-full rounded-box border border-field-border bg-selected px-3 py-2 text-ink">
         {midturnProblem}

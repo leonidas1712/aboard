@@ -3,7 +3,7 @@
 // requests, the invite preview and the person's own agents. Shapes follow
 // spec/openapi.yaml; ids bind every action, and display labels only name them.
 
-import { type Member, type NextStep, get, post, put, send } from "./api";
+import { type Member, type NextStep, get, patch, post, put, send } from "./api";
 
 export type { NextStep };
 
@@ -134,6 +134,17 @@ export const declineApproval = (id: string, key?: string) => send<Approval>("POS
 
 export const listInviteNotices = () => get<{ notices: InviteNotice[] }>("/v1/me/invite-notices");
 export const revokeInvite = (id: string) => send<{ id: string; revoked: true; changed: boolean }>("DELETE", `/v1/invites/${encodeURIComponent(id)}`);
+
+/** Handles follow the contract's MemberName: lowercase letters, digits and hyphens, up to 40, starting with a letter or digit. */
+export const handlePattern = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/** editInviteHandle changes only the handle an invite suggests; an empty string clears it. */
+export const editInviteHandle = (id: string, suggested_handle: string) =>
+  patch<{ id: string; suggested_handle?: string }>(`/v1/invites/${encodeURIComponent(id)}`, { suggested_handle });
+
+/** renameSelf changes the signed-in person's handle. */
+export const renameSelf = (current: string, handle: string) =>
+  post<{ person: Person; changed: boolean }>(`/v1/people/${encodeURIComponent(current)}/rename`, { handle });
 
 export const listPairing = () => get<{ requests: PairingRequest[] }>("/v1/pairing-requests");
 export const choosePairingAgent = (id: string, agent: string, generation: number, key?: string) =>
