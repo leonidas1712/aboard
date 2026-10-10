@@ -4078,6 +4078,32 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /v1/me/onboarding-inbox:
+    get:
+      tags: [onboarding]
+      operationId: listOnboardingInbox
+      summary: Read your board-add and invite-arrival Inbox items
+      description: |
+        Own person key or browser session only. Board adds reuse Board.added's
+        unread bookkeeping and disappear after an own agent joins or the person
+        reads past the add. Arrival items describe an invite you issued whose
+        recipient now has an active agent on a bundled board, for seven days after
+        redemption. Only active boards the caller is currently on, and active people and
+        agents on those boards, are returned. Reads never move cursors or wake agents.
+        Copy join_prompt into a new session, or choose an own agent from
+        GET /v1/me/agents and copy the same prompt into its resumed session.
+        This is an explicit handoff, never server-side dispatch or a grant.
+        Every join command retains the request's canonical issuer; join rechecks
+        current membership and uses that session's own authority.
+      responses:
+        "200":
+          description: Your current onboarding Inbox items
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardingInbox" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+
   /v1/me/invite-notices:
     get:
       tags: ["onboarding"]
@@ -8682,11 +8708,61 @@ components:
     AllowanceCategory:
       type: "string"
       enum: ["invite-people", "add-people"]
+    OnboardingInbox:
+      type: object
+      additionalProperties: false
+      required: [board_adds, arrivals]
+      properties:
+        board_adds:
+          type: array
+          items: { $ref: "#/components/schemas/BoardAddNotice" }
+        arrivals:
+          type: array
+          items: { $ref: "#/components/schemas/InviteArrivalNotice" }
+    BoardAddNotice:
+      type: object
+      additionalProperties: false
+      required: [board, added, join_command, join_prompt]
+      properties:
+        board: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
+        added: { $ref: "#/components/schemas/BoardAdded" }
+        join_command: { type: string, description: Shell-quoted join command on the canonical issuer; no secrets. }
+        join_prompt: { type: string, description: "Copy into a new or resumed own agent session. Guidance, never authority." }
+    InviteArrivalNotice:
+      type: object
+      additionalProperties: false
+      required: [invite_id, person_id, handle, at, boards]
+      properties:
+        invite_id: { type: string }
+        person_id: { type: string }
+        handle: { type: string, description: Current handle of the invited person. }
+        at: { $ref: "#/components/schemas/Timestamp" }
+        boards:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [board, agents]
+            properties:
+              board: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
+              agents:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [id, name, harness]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    harness: { type: string }
     InviteNotice:
       type: object
       additionalProperties: false
       required: [id, issuing_agent_id, message, created_at, expires_at, state, next]
       properties:
+        suggested_handle:
+          type: string
+          description: Current optional suggested recipient handle, display metadata only; omitted when cleared.
         display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         issuing_agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
