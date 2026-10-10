@@ -292,3 +292,36 @@ func TestPendingMessagesKeepPromptNoticeForCombinedBundle(t *testing.T) {
 		t.Fatal("suppressed notice did not join message handoff", bundle)
 	}
 }
+
+func TestNoticeDefersToMessageAtOrdinaryBundleLimit(t *testing.T) {
+	reader := &approvalReader{decision: delivery.ApprovalDecision{ID: "apr_own", AgentID: "mem_own", State: "pending"}}
+	r, _ := seatsRigWith(t, func(c *delivery.Config) { c.ApprovalFor = func(string) delivery.ApprovalRuntime { return reader } })
+	agent := delivery.AgentRef{Server: serverURL, Board: "docs", Name: "claude", MemberID: "mem_own"}
+	r.server.HoldModes()
+	r.server.SetHeldMode(agent, delivery.ModeAll)
+	r.register("s1", "b1")
+	r.bind("claude-code", "s1", agent)
+	r.ok(delivery.Request{Op: delivery.OpApprovalWatch, Harness: "claude-code", Session: "s1", Server: serverURL, ApprovalID: "apr_own", Agent: &agent})
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	reader.set("executed", "", nil)
+	body := strings.Repeat("x", delivery.BundleLimit-300)
+	seq := r.post(agent, body, false)
+	got := r.wait("s1", "b1", false).next()
+	if !strings.Contains(got.Bundle, body) || strings.Contains(got.Bundle, "Aboard approval apr_own") {
+		t.Fatal("notice displaced a message that fits the ordinary bundle", len(got.Bundle))
+	}
+	rows, err := r.journal.Notices(context.Background(), agent)
+	if err != nil || len(rows) != 1 || rows[0].Handed || rows[0].Cancelled {
+		t.Fatal("deferred notice was consumed", rows, err)
+	}
+	skipped, err := r.journal.Deliveries(context.Background(), delivery.StateSkipped)
+	if err != nil || len(skipped) != 0 || r.server.Cursor(agent) != 0 {
+		t.Fatal("notice skipped or prematurely acknowledged message", skipped, err)
+	}
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	r.eventually("message acknowledged normally", 0, func() bool { return r.server.Cursor(agent) == seq })
+	notice := r.wait("s1", "b1", false).next()
+	if !strings.Contains(notice.Bundle, "Aboard approval apr_own") {
+		t.Fatal("deferred notice did not recover", notice)
+	}
+}

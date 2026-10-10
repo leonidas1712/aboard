@@ -1441,12 +1441,13 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if len(offers) > 0 {
 		notice, noticeText = s.nextNotice(ctx)
 	}
-	prefix := withNotes(noticeText, notes)
+	prefix := notes
 	limit := BundleLimit
 	stopHand := s.key.Harness == "codex" && s.waiter != nil
 	if stopHand {
 		limit = codexStopLimit
 	}
+	handoffLimit := limit
 	if prefix != "" {
 		limit -= len(prefix) + 1
 	}
@@ -1460,6 +1461,11 @@ func (s *session) tryDeliver(ctx context.Context) {
 		}
 		s.scheduleRetry()
 		return
+	}
+	if noticeText != "" && len(withNotes(withNotes(noticeText, prefix), c.text)) <= handoffLimit {
+		prefix = withNotes(noticeText, prefix)
+	} else {
+		notice = DurableNotice{}
 	}
 	c.text = withNotes(prefix, c.text)
 	handoff, handed, prepareErr := s.prepare(ctx, c, prefix, c.text)
