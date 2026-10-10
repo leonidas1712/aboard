@@ -17,6 +17,7 @@ import (
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
 type sessionMsg struct {
+	noticeWake  bool
 	queueReport *queueReportResult
 	// A control request, answered on reply.
 	req       Request
@@ -116,6 +117,7 @@ type ackResult struct {
 // session is one open conversation in one harness. Everything below mail is changed
 // only by the session's own goroutine, in run.
 type session struct {
+	noticeAt    time.Time
 	shown       []ShownRecord
 	shownLoaded bool
 	shownBoot   string
@@ -236,6 +238,7 @@ func (s *session) run(ctx context.Context) error {
 		s.checkAlive(ctx)
 		s.refreshAll(false)
 		s.reportPresence(false)
+		s.armNotices(ctx)
 	}
 	for {
 		var timer <-chan time.Time
@@ -252,11 +255,13 @@ func (s *session) run(ctx context.Context) error {
 				s.handle(ctx, m)
 			}
 			s.tryDeliver(ctx)
+			s.tryNotice(ctx)
 			s.reportPresence(renew)
 			s.publishQueues(ctx)
 		case <-timer:
 			s.checkStalls(ctx)
 			s.tryDeliver(ctx)
+			s.tryNotice(ctx)
 			s.reportPresence(false)
 			s.publishQueues(ctx)
 		}
@@ -265,6 +270,8 @@ func (s *session) run(ctx context.Context) error {
 
 func (s *session) handle(ctx context.Context, m sessionMsg) {
 	switch {
+	case m.noticeWake:
+		s.armNotices(ctx)
 	case m.queueReport != nil:
 		s.onQueueReport(*m.queueReport)
 	case m.preflight != nil:
@@ -399,9 +406,6 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		if req.Op == OpTurnStart || req.Harness != "omp" {
 			ok.Nudge = s.briefStartNudge(ctx)
 		}
-		if req.Boot == "" || req.Boot == s.boot {
-			ok.Nudge = strings.TrimSpace(ok.Nudge + "\n\n" + s.approvalNotices(ctx))
-		}
 		s.busyAt = s.now()
 		s.inTurn = !s.adapter.WaitsForIdle()
 		s.working = true
@@ -416,6 +420,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		}
 		if req.Op == OpTurnStart {
 			ok.Bundle = s.atTurnStart(ctx)
+		}
+		if req.Boot == "" || req.Boot == s.boot {
+			ok.Nudge = strings.TrimSpace(ok.Nudge + "\n\n" + s.approvalNotices(ctx))
 		}
 	case OpBoundary, OpUrgent:
 		if slices.Contains(req.Capabilities, "midturn-peer") && req.Boot != "" && s.boot != "" && req.Boot != s.boot {
@@ -825,6 +832,7 @@ func (s *session) onRestoreSeat(ctx context.Context, agent AgentRef) {
 	s.d.setGeneration(agent, binding.Generation)
 	s.d.setProblem(agent, "")
 	s.d.setOwner(agent, s)
+	s.armNotices(ctx)
 	s.refresh(a, s.waiter != nil)
 }
 
@@ -904,6 +912,7 @@ func (s *session) onAdopt(ctx context.Context, agent AgentRef) {
 		}
 	}
 	a.adopting = false
+	s.armNotices(ctx)
 	s.refresh(a, s.waiter != nil)
 }
 
@@ -1427,15 +1436,21 @@ func (s *session) tryDeliver(ctx context.Context) {
 		offers = s.offers(s.queueFilter())
 	}
 	notes, told := s.modeNotes()
+	var notices []renderedNotice
+	if len(offers) > 0 {
+		notices = s.pendingNotices(ctx)
+	}
+	prefix := notes
 	limit := BundleLimit
 	stopHand := s.key.Harness == "codex" && s.waiter != nil
 	if stopHand {
 		limit = codexStopLimit
 	}
-	if notes != "" {
-		limit -= len(notes) + 1
+	handoffLimit := limit
+	if prefix != "" {
+		limit -= len(prefix) + 1
 	}
-	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), notes)
+	c := s.composePending(offers, limit, s.compositionOptions(BundleLimit), prefix)
 	if !stopHand {
 		s.skip(ctx, c.tooLarge)
 	}
@@ -1446,8 +1461,18 @@ func (s *session) tryDeliver(ctx context.Context) {
 		s.scheduleRetry()
 		return
 	}
-	c.text = withNotes(notes, c.text)
-	handoff, handed, prepareErr := s.prepare(ctx, c, notes, c.text)
+	var handedNotices []DurableNotice
+	var noticeText string
+	for _, n := range notices {
+		candidate := withNotes(noticeText, n.text)
+		if len(withNotes(withNotes(candidate, notes), c.text)) <= handoffLimit {
+			noticeText = candidate
+			handedNotices = append(handedNotices, n.notice)
+		}
+	}
+	prefix = withNotes(noticeText, notes)
+	c.text = withNotes(prefix, c.text)
+	handoff, handed, prepareErr := s.prepare(ctx, c, prefix, c.text)
 	if prepareErr != nil {
 		s.gatherUntil = s.now().Add(s.prepareFailed("prepare handoff", prepareErr))
 		return
@@ -1469,6 +1494,9 @@ func (s *session) tryDeliver(ctx context.Context) {
 	if err == nil {
 		s.accepted(ctx, handed, idle)
 		s.markTold(told)
+		for _, notice := range handedNotices {
+			s.markNoticeHanded(ctx, notice)
+		}
 	}
 	if s.adapter.WaitsForIdle() || hookHand {
 		s.waiter = nil // a waiting hook takes one bundle, or has gone
@@ -1630,6 +1658,14 @@ func (s *session) nextTimer() time.Time {
 	}
 	if !s.stallAt.IsZero() && (next.IsZero() || s.stallAt.Before(next)) {
 		next = s.stallAt
+	}
+	if s.open && s.canTake() && !s.noticeAt.IsZero() {
+		if !s.now().Before(s.noticeAt) {
+			s.noticeAt = s.now().Add(time.Second)
+		}
+		if next.IsZero() || s.noticeAt.Before(next) {
+			next = s.noticeAt
+		}
 	}
 	for _, a := range s.agents {
 		if !a.adopting && a.problem == "" && a.fetched && !a.queueSending && !a.queueStopped && !a.queueNext.IsZero() && (next.IsZero() || a.queueNext.Before(next)) {

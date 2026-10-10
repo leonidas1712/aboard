@@ -1788,3 +1788,34 @@ An executed invite's optional pairing id permits automatic initiating-side selec
 only for that still-bound originating session. A changed boot, seat generation or
 closed session invalidates automatic selection. The existing pairing credential and
 confirmed delivery handshake remain authoritative; a notice is not delivery proof.
+
+### Durable idle wake
+
+The daemon retains nonsecret approval outcomes and colleague arrival notices on
+the requesting permanent agent seat. An arrival names the person and invited
+board and asks the inviter to greet them. Fresh issuer-bound reads recheck current
+ownership, key, access and lifecycle before delivery. Removed authority cancels
+the notice. No invite secret, collected outcome or person credential is included.
+
+When notices and board messages are pending, prepend all fresh eligible notices
+that fit to their shared message bundle. Allocate messages first; if a notice would
+displace a valid message, leave that notice pending. Notice overhead never makes a message
+undeliverable or eligible for skipping. A standalone notice must not consume the waiting hook ahead of
+those messages. Message allocations, confirmation and read cursors retain their
+existing semantics.
+
+Use the existing harness delivery path: next-turn context or an idle wake. Busy
+sessions wait for the next permitted boundary; delivery-off and paused delivery
+remain respected. If the original session is gone, the next session that explicitly
+resumes the same seat receives the notice. Never choose a session by recent activity.
+This fallback transfers no secret-collection or pairing-endpoint authority.
+
+Notice identities and pending state are durable private daemon bookkeeping, with
+bounded retry and deduplication. There are no new proof types or pairing receipts.
+A notice appends no board event, advances no read cursor and grants no permission.
+Existing transport semantics apply; queue admission is not a claim that an agent
+read or acted on the notice. Failed output leaves it pending for retry.
+
+The person's Inbox also shows the colleague's arrival, naming the board and person,
+with the chosen agent when available. This is a fresh access-filtered view of
+existing membership and invite metadata, not an event or delivery confirmation.
