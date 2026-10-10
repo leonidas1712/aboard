@@ -4408,6 +4408,45 @@ paths:
           $ref: "#/components/responses/Error"
         "501":
           $ref: "#/components/responses/Error"
+  /v1/pairing-requests/{pairing}/choose:
+    post:
+      tags: [onboarding]
+      operationId: choosePairingAgent
+      summary: Ask an own agent to accept a pairing
+      description: |
+        Person key or browser only. With current-generation CAS, choose an active own
+        seat on the pairing board before a recipient endpoint is bound. Browser
+        writes require Origin and CSRF. One transaction saves the selected immutable
+        agent id and posts an addressed message from the person to that seat, with
+        an issuer-qualified accept command. The browser never supplies a session
+        binding or endpoint secret. The chosen session accepts through the existing
+        trusted-runtime path; only that seat may bind the recipient endpoint.
+        Repeating the same choice returns it without another message. A different
+        choice or an already bound endpoint conflicts; cancel and make a new request.
+        Current access, lifecycle and ownership are checked on replay too.
+      parameters:
+        - name: pairing
+          in: path
+          required: true
+          schema: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AcceptPairingRequest" }
+      responses:
+        "200":
+          description: Chosen seat; no endpoint credential or handshake acceptance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PairingRequest" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /v1/pairing-requests/{pairing}/accept:
     post:
       tags: ["onboarding"]
@@ -8724,6 +8763,8 @@ components:
       additionalProperties: false
       required: ["id", "server_id", "board_id", "inviter_id", "initiating_agent_id", "work", "state", "generation", "created_at", "expires_at"]
       properties:
+        chosen_recipient_agent_id: { type: string, description: Person-selected own seat; not an accepted endpoint. }
+        choice_message_id: { type: string, description: Addressed request message posted once by the choosing person. }
         display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id:
           type: "string"

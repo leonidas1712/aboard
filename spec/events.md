@@ -362,3 +362,8 @@ Administrative authorization adds optional `kind`: `invited`, `added`, or
 client authority; older records and other action kinds omit it. Existing person
 admission and board-role events also expose this kind as `data.action_kind`.
 An invite-bundled admission is `invited`; a direct addition is `added`.
+
+A person choosing their own pairing recipient seat posts one ordinary addressed
+`message.posted` in the same transaction as the choice. The record sender is the
+authenticated person. The message asks that agent to accept through its trusted
+runtime; it carries no endpoint secret and does not prove acceptance or delivery.
