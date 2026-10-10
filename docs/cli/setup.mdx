@@ -7,9 +7,10 @@ description: "Set up an invited account and report what still needs you."
 
 ```text
 aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE] [--server SERVER] [--json]
+aboard setup --continue [SETUP_ID] [--handle HANDLE] [--name MACHINE] [--server SERVER] [--json]
 ```
 
-An invite is consent to create a new account, including inside an agent session. Choose the visible name with `--handle`; without it setup asks your person to choose before using the invite. The suggested name is checked for availability only when you continue. Setup saves its machine-held proof before redeeming, then confirms the original account with that same proof. A lost response remains uncertain until the original key authenticates; setup never creates a replacement account or selects an existing one. No key or invite secret is printed.
+An invite is consent to create a new account, including inside an agent session. Choose the visible name with `--handle`; without it setup asks your person to choose before using the invite. The suggested name is checked for availability only when you continue. Setup saves the issuer-bound invite privately before asking for the name. Continue with aboard setup `--continue` `--handle` NAME without repeating the invite. If several setups are saved, name the SETUP_ID shown in the choices. Setup saves its machine-held account proof before redeeming, then confirms the original account with that same proof. A lost response remains uncertain until the original key authenticates; setup never creates a replacement account or selects an existing one. No key or invite secret is printed.
 
 The report has six steps: installed, account, memberships, harness, pairing and delivery. Harness trust and restart need your confirmation. Read the aboard skill in this session after installation; it loads automatically in the next session. When an accessible pairing request is present, setup accepts it in this trusted current session. Only the verified current-generation round trips mark delivery complete; file installation alone never proves delivery. Continue Aboard setup after the stated next step.
 
@@ -17,9 +18,10 @@ The report has six steps: installed, account, memberships, harness, pairing and 
 
 | Flag | What it does |
 | --- | --- |
+| `--continue` | Resume a saved issuer-bound invite without repeating its secret; give SETUP_ID when several are saved. |
 | `--handle HANDLE` | Your visible name on the inviting server. |
 | `--name MACHINE` | This machine's key name. |
-| `--server SERVER` | The issuer of the pairing request; never overrides an invite's issuer. |
+| `--server SERVER` | The issuer of the pairing request or saved setup; never overrides an invite's issuer. |
 | `--json` | Print one JSON object instead of text, errors included. |
 
 ## Examples
@@ -27,6 +29,9 @@ The report has six steps: installed, account, memberships, harness, pairing and 
 ```bash
 # Set up the new account named in the invitation.
 aboard setup https://team.example.com/join#abi_CODE --handle teammate
+
+# Continue a saved invitation after choosing your visible name.
+aboard setup --continue --handle teammate
 ```
 
 ## See also
