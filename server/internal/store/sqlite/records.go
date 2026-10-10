@@ -700,7 +700,7 @@ func (t *tx) SetBoardLifecycle(id, lifecycle string) error {
 		return err
 	}
 	if lifecycle != "active" {
-		return t.clearApprovalCapsules("SELECT o.approval_id FROM admin_approval_outcomes o JOIN server_invites i ON i.id=o.invite_id WHERE EXISTS (SELECT 1 FROM json_each(i.boards) j WHERE j.value=?)", id)
+		return t.clearApprovalCapsules("SELECT o.approval_id FROM admin_approval_outcomes o JOIN server_invites i ON i.id=o.invite_id WHERE EXISTS (SELECT 1 FROM members m WHERE m.id=i.issuing_agent_id AND m.board_id=?) OR EXISTS (SELECT 1 FROM json_each(i.boards) j WHERE j.value=?)", id, id)
 	}
 	return nil
 }

@@ -523,7 +523,7 @@ func TestSameKeyRecoveryRechecksAuthorityAndClearsItsCapability(t *testing.T) {
 }
 
 func TestApprovalCapsuleDepartureMatchesExactAuthority(t *testing.T) {
-	for _, departure := range []string{"sibling_agent", "issuing_agent", "person_on_issuing_board", "bundled_board_archived", "person_on_bundled_board"} {
+	for _, departure := range []string{"sibling_agent", "issuing_agent", "person_on_issuing_board", "bundled_board_archived", "person_on_bundled_board", "issuing_board_archived", "issuing_board_maintenance"} {
 		t.Run(departure, func(t *testing.T) {
 			t.Parallel()
 			s := newTestServer(t)
@@ -537,7 +537,7 @@ func TestApprovalCapsuleDepartureMatchesExactAuthority(t *testing.T) {
 				mustStatus(t, b, err, 200)
 			}
 			path := ""
-			if departure == "person_on_issuing_board" {
+			if departure == "person_on_issuing_board" || departure == "issuing_board_archived" || departure == "issuing_board_maintenance" {
 				path = heldInvite(t, s, agent)
 			} else {
 				status, raw := onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{"boards":["`+b.JSON200.Id+`"]}}`, agent)
@@ -572,7 +572,15 @@ func TestApprovalCapsuleDepartureMatchesExactAuthority(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if departure == "bundled_board_archived" {
+			if departure == "issuing_board_maintenance" {
+				// Model an older database whose lifecycle change did not clear the capsule.
+				if _, err = db.ExecContext(t.Context(), "UPDATE boards SET lifecycle='archived' WHERE id=?", b.JSON200.Id); err != nil {
+					t.Fatal(err)
+				}
+				if err = s.st.PurgeResponses(t.Context()); err != nil {
+					t.Fatal(err)
+				}
+			} else if departure == "bundled_board_archived" || departure == "issuing_board_archived" {
 				archived, e := s.client(s.owner).ArchiveBoardWithResponse(t.Context(), name, nil)
 				mustStatus(t, archived, e, 200)
 			} else if err = s.st.Write(t.Context(), func(tx board.Tx) error { return tx.SetMemberStatus(memberID, string(board.StatusLeft)) }); err != nil {

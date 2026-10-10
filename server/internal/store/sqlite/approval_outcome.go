@@ -47,6 +47,7 @@ func (t *tx) purgeApprovalCapsules(now string) error {
  WHERE i.used_at IS NOT NULL OR i.revoked_at IS NOT NULL OR i.expires_at<=?
  OR h.id IS NULL OR h.role!='admin' OR h.removed_at IS NOT NULL
  OR m.id IS NULL OR m.status!='active' OR m.human_id!=i.created_by OR m.key_id!=i.parent_key_id
+ OR NOT EXISTS (SELECT 1 FROM boards issuer_board WHERE issuer_board.id=m.board_id AND issuer_board.lifecycle='active')
  OR k.id IS NULL OR k.human_id!=i.created_by OR k.revoked_at IS NOT NULL OR k.expires_at<=?
  OR NOT EXISTS (SELECT 1 FROM members hm WHERE hm.board_id=m.board_id AND hm.human_id=h.id AND hm.kind='human' AND hm.status='active')
  OR EXISTS (SELECT 1 FROM json_each(i.boards) j LEFT JOIN boards b ON b.id=j.value WHERE b.id IS NULL OR b.lifecycle!='active'
