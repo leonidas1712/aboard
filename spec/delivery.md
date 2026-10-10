@@ -1797,7 +1797,7 @@ The daemon also retains a nonsecret notice for an executed, declined or expired
 approval, so its exact originating session can act while idle. An invite-linked
 request gains a separate arrival notice when the colleague's exact accepting
 session joins; its text names that person and seat and asks the inviter to say
-hello and answer the delivery check. No eligible captured origin means no guessed
+hello and answer the delivery check. No eligible captured seat means no guessed
 wake. Joining or greeting alone never means delivery was verified.
 
 Each notice has an immutable identity and kind, canonical issuer, requesting seat,
@@ -1823,7 +1823,18 @@ The notice is marked delivered only by that exact handoff's confirmation. Queue
 admission, a successful metadata GET, a read cursor, an ACK, rendering or a failed
 stdout write cannot mark it delivered. Confirmation atomically finishes the notice
 with the handoff. Failed or interrupted attempts retain the same identity and
-retry with bounded backoff; recovery deduplicates confirmed notices. A replacement
-session cannot inherit an old origin, even when it resumes the same agent.
+retry with bounded backoff; recovery deduplicates confirmed notices. While the
+original session remains bound, a busy session is never replaced for delivery.
+If it closes or loses its binding, retain the nonsecret notice on that same
+permanent agent seat. The next session that explicitly resumes or binds that seat
+may receive it after all fresh issuer, ownership, key, access and lifecycle checks.
+Cancel the old unconfirmed attempt and bind a new handoff to the replacement's
+exact session, boot and binding generation; an old confirmation cannot complete
+the new attempt. This fallback never transfers the original session's endpoint
+credential, secret collection authority or permission to select a pairing endpoint.
 Notice-only parts append no event, advance no cursor and cannot supply pairing
 round-trip evidence. Ordinary message parts retain all their existing checks.
+
+The person's Inbox also shows the colleague's arrival, naming the board, person
+and chosen agent. This is a fresh access-filtered view of existing membership and
+invite-linked request metadata, not a new board event or delivery confirmation.
