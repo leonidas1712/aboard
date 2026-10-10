@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/board"
 )
 
 func heldInvite(t *testing.T, s *testServer, agent string) string {
@@ -516,6 +517,91 @@ func TestSameKeyRecoveryRechecksAuthorityAndClearsItsCapability(t *testing.T) {
 			}
 			if len(capsule) != 0 {
 				t.Fatal("invalidated capsule survived")
+			}
+		})
+	}
+}
+
+func TestApprovalCapsuleDepartureMatchesExactAuthority(t *testing.T) {
+	for _, departure := range []string{"sibling_agent", "issuing_agent", "person_on_issuing_board", "bundled_board_archived", "person_on_bundled_board"} {
+		t.Run(departure, func(t *testing.T) {
+			t.Parallel()
+			s := newTestServer(t)
+			name, agent, _ := s.pair("starter")
+			_, sibling := s.joinAs(s.owner, name, "member", "codex")
+			b, err := s.client(s.owner).GetBoardWithResponse(t.Context(), name)
+			mustStatus(t, b, err, 200)
+			if departure == "person_on_bundled_board" {
+				name = s.privateBoard(s.owner)
+				b, err = s.client(s.owner).GetBoardWithResponse(t.Context(), name)
+				mustStatus(t, b, err, 200)
+			}
+			path := ""
+			if departure == "person_on_issuing_board" {
+				path = heldInvite(t, s, agent)
+			} else {
+				status, raw := onboardingCall(t, s, "POST", "/v1/me/admin-requests", `{"kind":"invite_people","invite":{"boards":["`+b.JSON200.Id+`"]}}`, agent)
+				var held struct {
+					Approval struct {
+						ID string `json:"id"`
+					} `json:"approval"`
+				}
+				if e := json.Unmarshal([]byte(raw), &held); e != nil || status != 202 {
+					t.Fatalf("hold: %d %s %v", status, raw, e)
+				}
+				path = "/v1/me/approvals/" + held.Approval.ID
+			}
+			status, raw := onboardingCall(t, s, "POST", path+"/allow", `{}`, s.owner)
+			if status != 200 {
+				t.Fatalf("allow: %d %s", status, raw)
+			}
+			db, err := sql.Open("sqlite", s.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = db.Close() }()
+			token := agent
+			if departure == "sibling_agent" {
+				token = sibling
+			}
+			me, err := s.client(token).GetMeWithResponse(t.Context())
+			mustStatus(t, me, err, 200)
+			memberID := me.JSON200.Id
+			if departure == "person_on_issuing_board" || departure == "person_on_bundled_board" {
+				if err = db.QueryRowContext(t.Context(), "SELECT id FROM members WHERE board_id=? AND kind='human'", b.JSON200.Id).Scan(&memberID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if departure == "bundled_board_archived" {
+				archived, e := s.client(s.owner).ArchiveBoardWithResponse(t.Context(), name, nil)
+				mustStatus(t, archived, e, 200)
+			} else if err = s.st.Write(t.Context(), func(tx board.Tx) error { return tx.SetMemberStatus(memberID, string(board.StatusLeft)) }); err != nil {
+				t.Fatal(err)
+			}
+			var capsule []byte
+			if err = db.QueryRowContext(t.Context(), "SELECT capsule FROM admin_approval_outcomes WHERE approval_id=?", strings.TrimPrefix(path, "/v1/me/approvals/")).Scan(&capsule); err != nil {
+				t.Fatal(err)
+			}
+			if departure == "sibling_agent" {
+				if len(capsule) == 0 {
+					t.Fatal("unrelated agent departure cleared the issuer's capability")
+				}
+				status, raw = onboardingCall(t, s, "POST", path+"/collect", `{}`, sibling)
+				if strings.Contains(raw, "abi_") {
+					t.Fatalf("sibling revealed invite: %d %s", status, raw)
+				}
+				status, raw = onboardingCall(t, s, "POST", path+"/collect", `{}`, agent)
+				if status != 200 || !strings.Contains(raw, "abi_") {
+					t.Fatalf("issuer lost valid collection: %d %s", status, raw)
+				}
+			} else {
+				if len(capsule) != 0 {
+					t.Fatal("lost issuing authority did not erase the capability")
+				}
+				status, raw = onboardingCall(t, s, "POST", path+"/collect", `{}`, agent)
+				if strings.Contains(raw, "abi_") {
+					t.Fatalf("lost authority revealed invite: %d %s", status, raw)
+				}
 			}
 		})
 	}

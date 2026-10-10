@@ -504,7 +504,7 @@ func (t *tx) SetMemberStatus(memberID, status string) error {
 		return err
 	}
 	if status != string(board.StatusActive) {
-		return t.clearApprovalCapsules("SELECT a.id FROM admin_approvals a JOIN members m ON m.id=? WHERE a.agent_id=m.id OR (a.person_id=m.human_id AND EXISTS (SELECT 1 FROM server_invites i,json_each(i.boards) j WHERE i.id=json_extract(a.execution,'$.invite_id') AND j.value=m.board_id))", memberID)
+		return t.clearApprovalCapsules("SELECT a.id FROM admin_approvals a JOIN members m ON m.id=? WHERE a.agent_id=m.id OR (m.kind='human' AND a.person_id=m.human_id AND (EXISTS (SELECT 1 FROM members issuer WHERE issuer.id=a.agent_id AND issuer.board_id=m.board_id) OR EXISTS (SELECT 1 FROM admin_approval_outcomes o JOIN server_invites i ON i.id=o.invite_id,json_each(i.boards) j WHERE o.approval_id=a.id AND j.value=m.board_id)))", memberID)
 	}
 	return nil
 }
@@ -700,7 +700,7 @@ func (t *tx) SetBoardLifecycle(id, lifecycle string) error {
 		return err
 	}
 	if lifecycle != "active" {
-		return t.clearApprovalCapsules("SELECT a.id FROM admin_approvals a JOIN server_invites i ON i.id=json_extract(a.execution,'$.invite_id') WHERE EXISTS (SELECT 1 FROM json_each(i.boards) j WHERE j.value=?)", id)
+		return t.clearApprovalCapsules("SELECT o.approval_id FROM admin_approval_outcomes o JOIN server_invites i ON i.id=o.invite_id WHERE EXISTS (SELECT 1 FROM json_each(i.boards) j WHERE j.value=?)", id)
 	}
 	return nil
 }
