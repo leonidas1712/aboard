@@ -39,7 +39,7 @@ func invitedSetupProof(t *testing.T, name string, held bool) {
 		writer := d.start(inviter, "writer", writerDir)
 		writer.bind("writer")
 		invitePath := filepath.Join(writerDir, "invite.json")
-		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. If a later approval notice says this request executed, run its aboard approvals show command once and save that JSON outcome to the same private file. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
+		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. If a later approval notice says this request executed, run its aboard approvals show command once and save that JSON outcome to the same private file. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, invitePath))
 		if held {
 			var pending struct {
 				State    string `json:"state"`
