@@ -3,11 +3,14 @@
 package e2e
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -25,11 +28,18 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	invite := tm.admin.run("invite", "--server", tm.url(), "--board", name, "--json").json(t)
 	matchesCLISpec(t, "ServerInviteOutput", invite)
 	link := field(t, invite, "link").(string)
+	wantPrompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent."
+	if field(t, invite, "prompt") != wantPrompt {
+		t.Fatalf("colleague JSON prompt: %v", invite)
+	}
 	person := newPersonHome(t, "newcomer")
 	session := person.claudeSession("newcomer-setup")
 	first := session.run("connect", link, "--handle", "newcomer", "--json")
 	out := first.json(t)
 	matchesCLISpec(t, "SetupOutput", out)
+	if !strings.Contains(field(t, out, "next.resume").(string), "Read the aboard skill now") {
+		t.Fatalf("pairing next lost current skill instruction: %v", out)
+	}
 	if out["state"] == "complete" {
 		t.Fatal("setup claimed delivery verified without a pairing handshake")
 	}
@@ -75,7 +85,7 @@ func TestAgentConnectRejectsAnInvalidFirstInvite(t *testing.T) {
 	tm := newTeam(t)
 	for _, jsonOutput := range []bool{false, true} {
 		person := newPersonHome(t, "newcomer")
-		args := []string{"connect", tm.url() + "/join#abi_x"}
+		args := []string{"connect", tm.url() + "/join#abi_x", "--handle", "newcomer"}
 		if jsonOutput {
 			args = append(args, "--json")
 		}
@@ -117,13 +127,13 @@ func TestSetupRecoversACommittedInviteWithoutAnotherAccount(t *testing.T) {
 	server := httptest.NewServer(proxy)
 	t.Cleanup(server.Close)
 	link := strings.Replace(field(t, invite, "link").(string), tm.url(), server.URL, 1)
-	person := newPersonHome(t, "recoverer")
+	person := newPersonHome(t, "different-machine-user")
 	session := person.claudeSession("recovering-setup")
 	first := session.runExit("setup", link, "--handle", "recoverer", "--json")
 	if first.code != 1 || first.json(t)["state"] != "uncertain" || !transport.dropped.Load() {
 		t.Fatalf("lost commit response did not remain uncertain: %s", first)
 	}
-	recovered := session.run("setup", link, "--handle", "recoverer", "--json").json(t)
+	recovered := session.run("setup", link, "--json").json(t)
 	matchesCLISpec(t, "SetupOutput", recovered)
 	if field(t, recovered, "steps.1.state") != "complete" || transport.connects.Load() != 1 {
 		t.Fatalf("recovery repeated redemption instead of authenticating its saved key: %v", recovered)
@@ -174,4 +184,83 @@ func (p *setupLostResponseTransport) RoundTrip(r *http.Request) (*http.Response,
 		return nil, errors.New("test dropped the committed connection response")
 	}
 	return response, err
+}
+
+func TestSetupWaitsForThePersonsHandleWithoutSpendingInvite(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	link := field(t, invite, "link").(string)
+	person := newPersonHome(t, "newcomer")
+	session := person.claudeSession("missing-handle")
+	out := session.run("setup", link, "--json").json(t)
+	matchesCLISpec(t, "SetupOutput", out)
+	if out["state"] != "pending" || field(t, out, "steps.1.state") != "pending" || out["person"] != nil {
+		t.Fatalf("setup redeemed without a person-selected handle: %v", out)
+	}
+	if !strings.Contains(field(t, out, "next.resume").(string), "Ask your person") || !strings.Contains(field(t, out, "next.command").(string), "--handle") {
+		t.Fatalf("missing actionable name choice: %v", out)
+	}
+	ordinary := newPersonHome(t, "terminal-choice")
+	waiting := ordinary.run("setup", link, "--json").json(t)
+	if waiting["person"] != nil || field(t, waiting, "steps.1.state") != "pending" {
+		t.Fatalf("non-TTY setup redeemed: %v", waiting)
+	}
+	if strings.Contains(field(t, out, "next.command").(string), link) {
+		t.Fatal("setup repeated invite secret")
+	}
+	if field(t, out, "next.command") != "aboard setup --continue --handle newcomer" {
+		t.Fatalf("setup continuation is not runnable without a secret: %v", out)
+	}
+	saved, err := filepath.Glob(filepath.Join(person.stateDir(), "onboarding", "*.json"))
+	if err != nil || len(saved) != 1 {
+		t.Fatalf("missing saved invitation: %v files=%d", err, len(saved))
+	}
+	st, err := os.Stat(saved[0])
+	if err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("saved invitation is not private: %v", err)
+	}
+	savedBytes, err := os.ReadFile(saved[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var staged map[string]any
+	if err := json.Unmarshal(savedBytes, &staged); err != nil {
+		t.Fatal(err)
+	}
+	if staged["token"] != "" || staged["handle"] != "" || staged["attempted"] != false {
+		t.Fatal("waiting for a name created or attempted an account proof")
+	}
+	resumed := session.run("setup", "--continue", "--handle", "newcomer", "--json").json(t)
+	if !strings.Contains(field(t, resumed, "next.resume").(string), "Read the aboard skill now") {
+		t.Fatalf("current session was not told to load skill: %v", resumed)
+	}
+	if field(t, resumed, "person.handle") != "newcomer" {
+		t.Fatalf("invite was spent or account changed: %v", resumed)
+	}
+}
+
+func TestSetupTakenHandleRetainsSecretFreeContinuation(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	link := field(t, invite, "link").(string)
+	person := newPersonHome(t, "newcomer")
+	session := person.claudeSession("taken-handle")
+	session.run("setup", link, "--json")
+	refused := session.runExit("setup", "--continue", "--handle", "alex", "--json")
+	if refused.code != 1 || errorCode(t, refused.json(t)) != "handle_taken" || !strings.HasPrefix(field(t, refused.json(t), "error.next.command").(string), "aboard setup --continue") {
+		t.Fatalf("taken handle lost continuation: %s", refused)
+	}
+	if strings.Contains(refused.stdout+refused.stderr, link) {
+		t.Fatal("handle refusal repeated invite secret")
+	}
+	text := session.runExit("setup", "--continue", "--handle", "alex")
+	if text.code != 1 || !strings.Contains(text.stdout+text.stderr, "aboard setup --continue --handle NAME") || strings.Contains(text.stdout+text.stderr, link) {
+		t.Fatalf("text refusal lost its secret-free next step: %s", text)
+	}
+	resumed := session.run("setup", "--continue", "--handle", "newcomer", "--json").json(t)
+	if field(t, resumed, "person.handle") != "newcomer" {
+		t.Fatal("handle_taken spent invitation or replaced the requested account")
+	}
 }

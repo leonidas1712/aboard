@@ -191,7 +191,7 @@ func TestInviteConnectsASecondPerson(t *testing.T) {
 		t.Fatalf("invite output:\n%s", inv)
 	}
 	expectLines(t, inv, "Invite for "+tm.url()+": one person, as a member, once, within 168 hours. On their machine, run:", "  aboard connect "+link,
-		"", "Set up Aboard and join using "+link+". Verify you can exchange messages with the inviting agent.")
+		"", "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent.")
 
 	maya := newPersonHome(t, "maya")
 	out := maya.run("connect", link, "--display-name", "Maya Chen", "--json").json(t)
