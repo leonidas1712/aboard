@@ -438,10 +438,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if err != nil {
 		return nil, err
 	}
-	ready, err := a.setupRuntimeReady(ctx, key, setups)
-	if err != nil {
-		return nil, err
-	}
+	ready := a.setupRuntimeReady(ctx, key, setups)
 	if err := a.applyInit(ctx, setups, nil); err != nil {
 		return nil, err
 	}
