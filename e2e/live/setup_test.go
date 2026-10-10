@@ -21,6 +21,7 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 		inviter := newLab(t)
 		d.setUp(inviter)
 		board := inviter.pairCLI()
+		inviter.run("allowance", "on")
 		inviter.run("allowance", "set", "invite-people", "on")
 		writerDir := inviter.project("setup-inviter", d.p.Harness)
 		writer := d.start(inviter, "writer", writerDir)
