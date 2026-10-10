@@ -32,6 +32,7 @@ func (a *approvalReader) Get(_ context.Context, _ string, seat delivery.AgentRef
 	a.reads = append(a.reads, seat)
 	return a.decision, a.err
 }
+
 func (a *approvalReader) set(state, pairing string, err error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -50,6 +51,7 @@ func approvalFixture(t *testing.T) (*rig, *approvalReader, delivery.AgentRef) {
 	r.ok(delivery.Request{Op: delivery.OpApprovalWatch, Harness: "claude-code", Session: "s1", Server: serverURL, ApprovalID: "apr_own", Agent: &agent})
 	return r, reader, agent
 }
+
 func approvalTurn(r *rig, session, boot string) delivery.Response {
 	return r.ok(delivery.Request{Op: delivery.OpTurnStart, Harness: "claude-code", Session: session, Boot: boot})
 }
@@ -62,7 +64,7 @@ func TestApprovalDecisionReachesOriginalNextTurnAfterRestart(t *testing.T) {
 	r.restart()
 	reader.set("executed", "", nil)
 	got := approvalTurn(r, "s1", "b1")
-	if !strings.Contains(got.Nudge, "aboard approvals show 'apr_own' --server '"+serverURL+"'") {
+	if !strings.Contains(got.Nudge, "aboard approvals show 'apr_own' --server '"+serverURL+"' --board 'docs'") {
 		t.Fatalf("no actual outcome command: %+v", got)
 	}
 	if got := approvalTurn(r, "s1", "b1"); strings.Contains(got.Nudge, "approval apr_own") {

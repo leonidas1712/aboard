@@ -2,11 +2,11 @@ package sqlitejournal
 
 import (
 	"context"
-
-	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 func TestApprovalWatchRetainsOriginalSessionAndRejectsReplacement(t *testing.T) {

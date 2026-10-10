@@ -1041,7 +1041,7 @@ collected outcome crosses this operation or any hook response.
 
 At `turn_start` (or legacy `prompt`), an executed, declined or expired approval adds
 nonsecret context to `nudge`, including its issuer-qualified
-`aboard approvals show ID --server URL` command. Metadata reads never collect a
+`aboard approvals show ID --server URL --board NAME` command. Metadata reads never collect a
 secret. Failed reads remain pending for a later turn. A stopped, replaced or rebound
 originating session cannot inherit the notice or automatic selection.
 

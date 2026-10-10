@@ -896,7 +896,7 @@ func (d *Daemon) callBindingLocked(ctx context.Context, req Request) Response {
 	s := d.session(key, create)
 	if s == nil {
 		switch req.Op {
-		case OpAgents, OpBind:
+		case OpAgents, OpBind, OpApprovalWatch:
 			if !ad.WaitsForIdle() && req.Op == OpAgents {
 				return Response{V: ProtocolVersion}
 			}
