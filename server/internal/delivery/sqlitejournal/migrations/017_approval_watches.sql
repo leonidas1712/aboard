@@ -7,5 +7,8 @@ CREATE TABLE approval_watches (
  boot TEXT NOT NULL,
  generation INTEGER NOT NULL,
  state TEXT NOT NULL,
+ invalidated INTEGER NOT NULL DEFAULT 0,
  PRIMARY KEY(server,approval_id)
 );
+
+CREATE INDEX approval_watches_session ON approval_watches(harness,session_id,invalidated);

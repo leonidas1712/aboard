@@ -85,7 +85,7 @@ func TestApprovalFailedFreshReadRemainsRecoverable(t *testing.T) {
 }
 
 func TestApprovalOriginDoesNotFollowSeatOrNewBoot(t *testing.T) {
-	for _, change := range []string{"rebind", "boot", "incoming_boot"} {
+	for _, change := range []string{"rebind", "boot", "incoming_boot", "closed"} {
 		t.Run(change, func(t *testing.T) {
 			r, reader, agent := approvalFixture(t)
 			reader.set("executed", "prq_invite", nil)
@@ -100,6 +100,8 @@ func TestApprovalOriginDoesNotFollowSeatOrNewBoot(t *testing.T) {
 				boot = "new"
 			case "incoming_boot":
 				boot = "new"
+			case "closed":
+				r.ok(delivery.Request{Op: delivery.OpEnd, Harness: "claude-code", Session: "s1", Boot: "b1"})
 			}
 			if got := approvalTurn(r, session, boot); strings.Contains(got.Nudge, "approval apr_own") {
 				t.Fatalf("origin followed changed runtime: %+v", got)

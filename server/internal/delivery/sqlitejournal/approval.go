@@ -27,7 +27,7 @@ func (j *Journal) SaveApprovalWatch(ctx context.Context, w delivery.ApprovalWatc
 	if current != 1 {
 		return fmt.Errorf("approval watch has no current binding")
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO approval_watches(server,approval_id,member_id,harness,session_id,boot,generation,state) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(server,approval_id) DO UPDATE SET state=excluded.state WHERE approval_watches.member_id=excluded.member_id AND approval_watches.harness=excluded.harness AND approval_watches.session_id=excluded.session_id AND approval_watches.boot=excluded.boot AND approval_watches.generation=excluded.generation`, w.Agent.Server, w.ID, w.Agent.MemberID, w.Session.Harness, w.Session.ID, w.Boot, w.Generation, string(raw))
+	result, err := tx.ExecContext(ctx, `INSERT INTO approval_watches(server,approval_id,member_id,harness,session_id,boot,generation,state) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(server,approval_id) DO UPDATE SET state=excluded.state WHERE approval_watches.member_id=excluded.member_id AND approval_watches.harness=excluded.harness AND approval_watches.session_id=excluded.session_id AND approval_watches.boot=excluded.boot AND approval_watches.generation=excluded.generation AND approval_watches.invalidated=0`, w.Agent.Server, w.ID, w.Agent.MemberID, w.Session.Harness, w.Session.ID, w.Boot, w.Generation, string(raw))
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (j *Journal) SaveApprovalWatch(ctx context.Context, w delivery.ApprovalWatc
 
 // ApprovalWatches loads nonsecret origins for one exact harness session.
 func (j *Journal) ApprovalWatches(ctx context.Context, key delivery.SessionKey) ([]delivery.ApprovalWatch, error) {
-	rows, err := j.db.QueryContext(ctx, `SELECT state FROM approval_watches WHERE harness=? AND session_id=? ORDER BY server,approval_id`, key.Harness, key.ID)
+	rows, err := j.db.QueryContext(ctx, `SELECT state FROM approval_watches WHERE harness=? AND session_id=? AND invalidated=0 ORDER BY server,approval_id`, key.Harness, key.ID)
 	if err != nil {
 		return nil, err
 	}
