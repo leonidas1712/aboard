@@ -2,6 +2,8 @@
 
 ## Approved D223 contract changes (implementation in review)
 
+- Add person-only onboarding Inbox reads and optional invite-notice suggested handles.
+
 - Person commands use explicit `--server` or the persisted machine default.
   Legacy `.aboard` folder links are ignored and left untouched. Missing defaults
   return runnable server choices; person board commands use only a unique readable

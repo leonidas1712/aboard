@@ -454,3 +454,5 @@ warning and Inbox integration are owned by the UI lane.
 Setup defaults and harness next precedence, readable CLI labels, consistent invite prompts, skill/help, and agent role/policy approval requests: in review (#291) for 0.1.4. Existing API authority and person-only key/login boundaries stay unchanged.
 
 D224 own-person rename through an active agent and suggested invite-handle edits: building (GEN-56). Invitation edits change display metadata only, never frozen approval authority.
+
+D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prompts and invite-notice handle: building (GEN-57).
