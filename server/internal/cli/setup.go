@@ -92,6 +92,9 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		}
 		out.skillInstalled = out.Next != nil && strings.Contains(out.Next.Resume, "Run aboard skill now")
 		out.Steps[3].Message = "Harness configuration still needs runtime confirmation."
+		if out.Next == nil {
+			out.confirmSetupHarness("aboard setup " + commandWord(pos[0]) + " --server " + commandWord(srv.URL))
+		}
 		if err := a.continueSetupPairing(ctx, &out, pos[0]); err != nil {
 			return err
 		}
@@ -195,6 +198,9 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 	out.Next = next
 	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Run aboard skill now")
 	out.continueCommand = a.setupContinueCommand(srv, invite)
+	if next == nil {
+		out.confirmSetupHarness(out.continueCommand)
+	}
 	joined, err := a.joinSetupBoards(ctx, &out, pending.Receipt.Boards)
 	if err != nil {
 		return err
@@ -441,6 +447,17 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if err := a.recordInit(setups, c.scope); err != nil {
 		return nil, err
 	}
+	changedRuntime := false
+	for _, setup := range setups {
+		for _, change := range setup.Changes {
+			if (change.Kind == "hooks" || change.Kind == "file") && change.Action != actionUnchanged {
+				changedRuntime = true
+			}
+		}
+	}
+	if !changedRuntime && a.setupRuntimeReady(ctx, key) {
+		return nil, nil
+	}
 	trust := "Approve Aboard's hooks in your harness, then restart this session."
 	if key.Harness == "claude-code" {
 		trust = "Run /hooks, approve Aboard's hooks, then restart Claude Code."
@@ -524,12 +541,12 @@ func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id str
 		if first == nil || second == nil || first.AgentId == "" || second.AgentId == "" || first.SessionBinding == "" || second.SessionBinding == "" || first.Generation <= 0 || second.Generation <= 0 {
 			return newError("internal", "The completed delivery check omitted its current session evidence.", "Continue Aboard setup and ask the admin to check the server.")
 		}
-		out.Steps[3].State = "complete"
-		out.Steps[3].Message = "The current harness participated in the verified round trip."
 		out.Steps[5].State = "complete"
 		out.Steps[5].Message = "Both current-generation session round trips were verified."
-		out.State = "complete"
-		out.Next = nil
+		if out.Steps[3].State == "complete" {
+			out.State = "complete"
+			out.Next = nil
+		}
 	}
 	return nil
 }
