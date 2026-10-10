@@ -443,3 +443,9 @@ warning and Inbox integration are owned by the UI lane.
 ### Onboarding QA fixes (GEN-49)
 
 Setup defaults and harness next precedence, readable CLI labels, consistent invite prompts, skill/help, and agent role/policy approval requests: in review (#291) for 0.1.4. Existing API authority and person-only key/login boundaries stay unchanged.
+
+### Developer flow evaluations
+
+| Feature | Status |
+| --- | --- |
+| Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | in review; GEN-54, baseline waits for the live-run slot |

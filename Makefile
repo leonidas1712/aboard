@@ -319,3 +319,9 @@ sandbox-team-clean:
 ## sandbox-team-stop: stop the shared team server, keeping all data
 sandbox-team-stop:
 	@scripts/sandbox team-stop "$(or $(TEAM),team)"
+
+## flow-eval: evaluate a team flow in private tmux sessions (SCENARIO=invite; spends model turns)
+.PHONY: flow-eval
+flow-eval: web/out/.built dev
+	@$(REQUIRE_GO); go build -o $(BIN)/sandbox-team ./scripts/sandboxteam
+	@python3 scripts/flow_eval.py --scenario '$(or $(SCENARIO),invite)' --models '$(or $(MODELS),haiku,gpt-6-luna)' --approval '$(or $(APPROVAL),manual)'

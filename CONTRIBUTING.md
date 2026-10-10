@@ -234,3 +234,24 @@ tests cover it.
 
 Report vulnerabilities privately, as [SECURITY.md](SECURITY.md) describes, never in a
 public issue.
+
+### Evaluate team flows with small models
+
+`make flow-eval SCENARIO=invite` starts a private team and two interactive tmux
+sessions. The admin uses Claude Haiku; the newcomer uses Codex `gpt-6-luna`,
+with no aboard installed and an empty project. Ask for the shared live-run slot
+before running it. Export the same subscription credentials used by `make live`.
+
+Scenarios are `invite`, `existing-member`, `own-session` and `interrupted`.
+`APPROVAL=auto` enables the admin's invite allowance; the default allows each
+pending request through the person's terminal. `MODELS=haiku,gpt-6-luna` overrides
+the two models. `FLOW_CODEX` can select a newer Codex executable than the one on PATH.
+
+Each run writes private transcripts, the board record, end-state checks and friction
+counters under `/tmp/aboard-flow-*`. The driver copies the inviting agent's handover,
+answers the person's handle choice and restarts only when asked. It does not supply
+missing aboard commands or repair a failed flow. Counters are transcript heuristics:
+errors, repeated commands, questions and uncertainty need a developer's review.
+A pass requires the intended person and their agent on the board, with hello messages
+in both directions. A failed or timed-out run keeps its evidence. No release install,
+real Aboard state or real harness configuration is changed.
