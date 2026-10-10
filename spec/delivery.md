@@ -1822,8 +1822,12 @@ does not grant authority to execute its suggested command.
 The notice is marked delivered only by that exact handoff's confirmation. Queue
 admission, a successful metadata GET, a read cursor, an ACK, rendering or a failed
 stdout write cannot mark it delivered. Confirmation atomically finishes the notice
-with the handoff. Failed or interrupted attempts retain the same identity and
-retry with bounded backoff; recovery deduplicates confirmed notices. While the
+with the handoff. Hook context carries the exact
+handoff id and boot; its receipt is sent only after the stdout or stderr write
+succeeds. Generic later prompt or tool events never confirm typed notice parts.
+The queue and extension adapters retain their exact transport confirmation.
+Failed or interrupted attempts retain the same identity and retry with bounded
+backoff; recovery deduplicates confirmed notices. While the
 original session remains bound, a busy session is never replaced for delivery.
 If it closes or loses its binding, retain the nonsecret notice on that same
 permanent agent seat. The next session that explicitly resumes or binds that seat
