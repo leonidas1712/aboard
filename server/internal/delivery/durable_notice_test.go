@@ -238,3 +238,57 @@ func TestNoticeUsesStableNonzeroLegacyIDAcrossExtensionReconnect(t *testing.T) {
 		t.Fatal("notice created proof manifest", manifests, err)
 	}
 }
+
+func TestDurableNoticePrecedesMessagesInOneWaitingHookHandoff(t *testing.T) {
+	for _, harness := range []string{"claude-code", "codex"} {
+		t.Run(harness, func(t *testing.T) {
+			reader := &approvalReader{decision: delivery.ApprovalDecision{ID: "apr_own", AgentID: "mem_own", State: "pending"}}
+			r, _ := seatsRigWith(t, func(c *delivery.Config) { c.ApprovalFor = func(string) delivery.ApprovalRuntime { return reader } })
+			req := delivery.Request{Op: delivery.OpRegister, Harness: harness, Session: "notice-and-messages", Boot: "b1"}
+			r.ok(req)
+			agent := delivery.AgentRef{Server: serverURL, Board: "docs", Name: "writer", MemberID: "mem_own"}
+			r.bind(harness, req.Session, agent)
+			watch := req
+			watch.Op, watch.Server, watch.ApprovalID, watch.Agent = delivery.OpApprovalWatch, serverURL, "apr_own", &agent
+			r.ok(watch)
+			req.Op = delivery.OpPrompt
+			r.ok(req)
+			reader.set("executed", "", nil)
+			seq := r.post(agent, "COLLEAGUE-BOARD-MESSAGE", false)
+			got := r.wait(req.Session, "b1", false, harness).next()
+			notice := strings.Index(got.Bundle, "Aboard approval apr_own")
+			message := strings.Index(got.Bundle, "COLLEAGUE-BOARD-MESSAGE")
+			if notice < 0 || message < 0 || notice > message {
+				t.Fatal("notice and message were not one notice-first handoff", got)
+			}
+			if r.server.Cursor(agent) != 0 {
+				t.Fatal("combined notice prematurely acknowledged message")
+			}
+			req.Op = delivery.OpPrompt
+			r.ok(req)
+			r.eventually("notice and message accepted", 0, func() bool {
+				rows, _ := r.journal.Notices(context.Background(), agent)
+				return len(rows) == 1 && rows[0].Handed && r.server.Cursor(agent) == seq
+			})
+			manifests, err := r.journal.Handoffs(context.Background())
+			if err != nil || len(manifests) != 1 || len(manifests[0].Parts) != 1 || len(manifests[0].Parts[0].Seqs) != 1 || manifests[0].Parts[0].Seqs[0] != seq {
+				t.Fatal("combined text changed message allocations", manifests, err)
+			}
+		})
+	}
+}
+
+func TestPendingMessagesKeepPromptNoticeForCombinedBundle(t *testing.T) {
+	r, reader, agent := approvalFixture(t)
+	r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	reader.set("executed", "", nil)
+	r.post(agent, "PENDING-BOARD-MESSAGE", false)
+	got := r.ok(delivery.Request{Op: delivery.OpPrompt, Harness: "claude-code", Session: "s1", Boot: "b1"})
+	if strings.Contains(got.Nudge, "Aboard approval apr_own") {
+		t.Fatal("standalone prompt notice bypassed pending board message", got)
+	}
+	bundle := r.wait("s1", "b1", false).next().Bundle
+	if !strings.Contains(bundle, "Aboard approval apr_own") || !strings.Contains(bundle, "PENDING-BOARD-MESSAGE") {
+		t.Fatal("suppressed notice did not join message handoff", bundle)
+	}
+}
