@@ -41,7 +41,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	approval := strings.Fields(lines[0])[2]
 
 	// 2. leo allows it from his terminal, and his agent takes the pairing in its session.
-	if list := leo.run("approvals"); !strings.Contains(list.stdout, approval+" · invite people · ") || !strings.Contains(list.stdout, " · pending") {
+	if list := leo.run("approvals"); !strings.Contains(list.stdout, approval+" · invite people · @claude · board pairing-test · pending") {
 		t.Fatalf("approvals:\n%s", list)
 	}
 	allowed := leo.run("approvals", "allow", approval)
@@ -55,7 +55,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		}
 	}
 	if !strings.HasPrefix(allowed.stdout, approval+" · executed on "+url+"\n") || link == "" || request == "" ||
-		!strings.Contains(allowed.stdout, "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>.") {
+		!strings.Contains(allowed.stdout, "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent.") {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
 	if r := ls.run("pairing", "select", request, "--here"); !strings.HasPrefix(r.stdout, request+" · board pairing-test · awaiting_account") {
@@ -81,18 +81,16 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"aboard setup --continue --handle maya",
 		"Ask your person what name they'd like teammates to see. Suggested name: maya (availability is checked when you continue). Set --handle to their chosen name, then Continue Aboard setup.")
 	set := ms.run("setup", "--continue", "--handle", "maya")
-	for _, want := range []string{
-		"Setup on " + url + ": pending\n",
-		"account: complete",
-		"memberships: complete",
-		"pairing: complete · This exact session accepted the pairing request.\n",
-		"delivery: pending · Both current sessions' round trips are not yet verified.\n",
-		"aboard pairing list --server " + quoted + "\n",
-	} {
-		if !strings.Contains(set.stdout, want) {
-			t.Fatalf("setup --continue lacks %q:\n%s", want, set)
-		}
-	}
+	expectLines(t, set,
+		"Setup on "+url+": pending",
+		"installed: complete · Aboard is installed; its owner can update it.",
+		"account: complete · Your account was created and its saved key was verified.",
+		"memberships: complete · Pairing participation and current board access were checked.",
+		"harness: pending · Harness configuration needs trust or restart confirmation.",
+		"pairing: complete · This exact session accepted the pairing request.",
+		"delivery: pending · Both current sessions' round trips are not yet verified.",
+		"aboard init --harness claude-code",
+		"Run aboard skill now; it loads automatically in your next session. Run /hooks, approve Aboard's hooks, then restart Claude Code. Continue Aboard setup.")
 	if strings.Contains(set.stdout+set.stderr, link) || strings.Contains(set.stdout+set.stderr, tm.key(maya)) {
 		t.Fatal("setup printed the invite or the key")
 	}
@@ -144,7 +142,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	expectLines(t, ms.run("setup", "--continue"),
 		"Setup on "+url+": complete",
 		"installed: complete · Aboard is installed; its owner can update it.",
-		"account: complete · The current account was authorized for this pairing.",
+		"account: complete · Your account was created and its saved key was verified.",
 		"memberships: complete · Pairing participation and current board access were checked.",
 		"harness: complete · The current harness participated in the verified round trip.",
 		"pairing: complete · This exact session accepted the pairing request.",
@@ -171,15 +169,15 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	expectLines(t, again, strings.Fields(again.stdout)[0]+" · board pairing-test · awaiting_endpoint", "aboard pairing list --server "+quoted)
 	second := strings.Fields(again.stdout)[0]
 	ms2 := maya.claudeSession("s-maya-2")
-	if r := ms2.run("pairing", "list", "--server", url); !strings.Contains(r.stdout, second+" · ") {
+	if r := ms2.run("pairing", "list"); !strings.Contains(r.stdout, second+" · board pairing-test · awaiting_endpoint\n") || strings.Contains(r.stdout, "brd_") {
 		t.Fatalf("maya's pairing list:\n%s", r)
 	}
-	if r := ms2.run("pairing", "accept", second, "--here", "--server", url); !strings.HasPrefix(r.stdout, second+" · board pairing-test · ") {
+	if r := ms2.run("pairing", "accept", second, "--here"); !strings.HasPrefix(r.stdout, second+" · board pairing-test · ") {
 		t.Fatalf("pairing accept:\n%s", r)
 	}
 
 	third := strings.Fields(ls.run("pairing", "request", "@maya", "--board", "pairing-test", "Another review").stdout)[0]
-	if r := ms2.run("pairing", "decline", third, "--server", url); !strings.HasPrefix(r.stdout, third+" · board pairing-test · declined") {
+	if r := ms2.run("pairing", "decline", third); !strings.HasPrefix(r.stdout, third+" · board pairing-test · declined") {
 		t.Fatalf("pairing decline:\n%s", r)
 	}
 
@@ -209,6 +207,9 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		if strings.Contains(line, " · active · issued by agent ") {
 			active = strings.Fields(line)[0]
 		}
+	}
+	if !strings.Contains(invites.stdout, " · issued by agent @claude · ") || strings.Contains(invites.stdout, "mem_") {
+		t.Fatalf("invite list shows ids instead of names:\n%s", invites)
 	}
 	if active == "" {
 		t.Fatalf("invite list:\n%s", invites)
