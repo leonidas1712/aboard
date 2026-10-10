@@ -11,6 +11,7 @@ func (h *handlers) ListServerInvites(ctx context.Context, _ ListServerInvitesReq
 	for _, v := range list {
 		i := v.Invite
 		entry := map[string]any{"id": i.ID, "created_at": i.CreatedAt, "expires_at": i.ExpiresAt, "state": v.State, "boards": i.Boards}
+		entry["display"] = h.onboardingDisplay(ctx, i.CreatedBy, i.IssuingAgentID, i.Boards)
 		if i.PairingRequestID != "" {
 			entry["pairing_request_id"] = i.PairingRequestID
 		}

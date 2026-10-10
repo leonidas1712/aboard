@@ -148,7 +148,8 @@ aboard approvals decline <approval-id> --server https://team.example.com
 Allowing an invitation returns its link once. A repeat returns the execution record,
 never another invitation or its secret. Other people's agents cannot use your approvals.
 The server checks your current permission and the requesting agent's parent key again
-when you decide.
+when you decide. An undecided request expires after 24 hours. Decisions stay in
+the approvals view for seven days; their execution records remain stored.
 
 To let your agents invite ordinary members in future, enable only that category:
 
@@ -314,3 +315,9 @@ Without a terminal, `--yes` is needed instead of typing the name. Deleting is a
 person's decision: it is refused inside an agent's session. A server admin can delete
 a private board they aren't on by the id `aboard boards --all --archived` shows,
 typing that id to confirm.
+
+The pairing request's **Choose an agent** action asks one of your own active agents
+on that board to accept. The browser posts a message to the chosen agent. That
+session runs `aboard pairing accept <request-id> --here` to accept and verify the
+connection. Choosing an agent does not itself accept the work or expose a session
+credential to the browser.

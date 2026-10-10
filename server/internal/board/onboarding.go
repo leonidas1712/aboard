@@ -131,7 +131,7 @@ func (s *Service) admitInvitedPerson(tx Tx, b *Board, issuer, target Human) erro
 	if err != nil {
 		return err
 	}
-	_, err = s.admitNewPerson(tx, b, me, target, true, nil)
+	_, err = s.admitNewPerson(tx, b, me, target, true, map[string]any{"action_kind": "invited"})
 	return err
 }
 

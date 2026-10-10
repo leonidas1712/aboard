@@ -67,7 +67,7 @@ func creationRequestHash(o Options, next http.Handler) http.Handler {
 func idempotent(o Options, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := r.Header.Get("Idempotency-Key")
-		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join" ||
+		secret := r.URL.Path == "/v1/login-codes" || r.URL.Path == "/v1/invites" || r.URL.Path == "/v1/invites/preview" || r.URL.Path == "/v1/connect" || r.URL.Path == "/v1/guest-join" ||
 			(r.URL.Path == "/v1/browser-tokens" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/browser-sessions" && r.Method == http.MethodPost) ||
 			(r.URL.Path == "/v1/keys" && r.Method == http.MethodPost) ||
@@ -239,6 +239,13 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 	case strings.HasPrefix(path, "/v1/pairing-requests/"):
 		if len(parts) < 3 {
 			return fmt.Errorf("pairing replay has no id")
+		}
+		if strings.HasSuffix(path, "/choose") {
+			var input AcceptPairingRequest
+			if err := json.Unmarshal(request, &input); err != nil {
+				return err
+			}
+			return svc.CheckPairingChoiceReplay(ctx, principal(ctx), parts[2], input.AgentId, input.Generation)
 		}
 		side := ""
 		generation := 0

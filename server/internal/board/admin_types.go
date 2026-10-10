@@ -34,8 +34,8 @@ type AdminAction struct {
 
 // AdminAuthorization records the person and scoped authority used by the acting agent.
 type AdminAuthorization struct {
-	PersonID, AgentID, ParentKeyID, Via, AllowanceID, ApprovalID, PayloadHash string
-	AllowanceRevision                                                         int
+	Kind, PersonID, AgentID, ParentKeyID, Via, AllowanceID, ApprovalID, PayloadHash string
+	AllowanceRevision                                                               int
 }
 
 // AdminExecution is the immutable nonsecret receipt saved with an executed action.
@@ -131,6 +131,9 @@ func AdminActionFromJSON(raw []byte) (AdminAction, error) {
 
 func (a AdminAuthorization) data() map[string]any {
 	out := map[string]any{"person_id": a.PersonID, "agent_id": a.AgentID, "parent_key_id": a.ParentKeyID, "via": a.Via, "payload_hash": a.PayloadHash}
+	if a.Kind != "" {
+		out["kind"] = a.Kind
+	}
 	if a.Via == "allowance" {
 		out["allowance_id"], out["allowance_revision"] = a.AllowanceID, a.AllowanceRevision
 	} else {
@@ -142,4 +145,16 @@ func (a AdminAuthorization) data() map[string]any {
 func actionHash(a AdminAction) (string, error) {
 	raw, err := events.Canonical(AdminActionJSON(a))
 	return events.HashBytes(raw), err
+}
+
+func authorizationKind(a AdminAction) string {
+	switch a.Kind {
+	case "invite_people":
+		return "invited"
+	case "add_people":
+		return "added"
+	case "set_server_role", "set_board_role":
+		return "role_changed"
+	}
+	return ""
 }

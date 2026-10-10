@@ -581,41 +581,9 @@ func (s *Service) Connect(ctx context.Context, in ConnectInput) (Connected, erro
 	var out Connected
 	err := s.st.Write(ctx, func(tx Tx) error {
 		now := s.clk.Now()
-		inv, err := tx.ServerInviteByDigest(ids.Digest(s.key, in.Invite))
-		if errors.Is(err, ErrNotFound) {
-			return inviteInvalid()
-		}
+		inv, issuer, err := s.validServerInvite(tx, in.Invite)
 		if err != nil {
 			return err
-		}
-		if inv.UsedAt != nil || inv.RevokedAt != nil || inv.ExpiresAt <= stamp(now) {
-			return inviteInvalid()
-		}
-		// The admin's authority is checked again as the invite is used.
-		if admin, err := tx.HumanByID(inv.CreatedBy); err != nil || admin.Role != ServerAdmin || admin.RemovedAt != nil {
-			if err != nil && !errors.Is(err, ErrNotFound) {
-				return err
-			}
-			return inviteInvalid()
-		}
-		if inv.IssuingAgentID != "" && inv.ParentKeyID != "" {
-			k, err := tx.AccessKeyByID(inv.ParentKeyID)
-			if err != nil || !keyWorks(k, stamp(now)) || k.HumanID != inv.CreatedBy {
-				return inviteInvalid()
-			}
-		}
-		if inv.IssuingAgentID != "" {
-			_, err := s.frozenAgent(tx, Approval{AgentID: inv.IssuingAgentID, ParentKeyID: inv.ParentKeyID, PersonID: inv.CreatedBy})
-			if err != nil {
-				return inviteInvalid()
-			}
-		}
-		issuer, err := tx.HumanByID(inv.CreatedBy)
-		if err != nil {
-			return err
-		}
-		if err := s.redeemedInviteBoards(tx, issuer, inv.Boards); err != nil {
-			return inviteInvalid()
 		}
 		if _, err := tx.ReservedHandle(in.Handle); err == nil {
 			return HandleTaken(in.Handle)

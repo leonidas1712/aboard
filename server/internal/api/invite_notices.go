@@ -12,6 +12,7 @@ func (h *handlers) ListInviteNotices(ctx context.Context, _ ListInviteNoticesReq
 		i := v.Invite
 		notices = append(notices, map[string]any{
 			"id": i.ID, "issuing_agent_id": i.IssuingAgentID,
+			"display": h.onboardingDisplay(ctx, i.CreatedBy, i.IssuingAgentID, i.Boards),
 			"message": "Your agent invited someone", "created_at": i.CreatedAt,
 			"expires_at": i.ExpiresAt, "state": v.State,
 			"next": map[string]any{
