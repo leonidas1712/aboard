@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 )
 
 var (
@@ -246,8 +247,8 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 	}
 	if r.JSON202 != nil {
 		held := r.JSON202
-		if len(afterExecution) != 0 {
-			held.Next.Resume += " After execution, select the returned pairing_request_id in this original session: aboard pairing select ID --here --server " + commandWord(srv.URL) + "."
+		if err := a.watchRequestedApproval(ctx, srv, held.Approval); err != nil {
+			held.Next.Resume += " The next-turn notice could not be registered. Check this approval with aboard approvals show " + commandWord(held.Approval.Id) + " --server " + commandWord(srv.Name) + " --board " + commandWord(board) + "; do not request another invite."
 		}
 		out := map[string]any{"server": srv, "state": "pending", "approval": held.Approval, "next": held.Next}
 		if board != "" {
@@ -276,6 +277,26 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 		complete(result)
 	}
 	return emitAdmissionResult(a, srv, board, result)
+}
+
+func (a *app) watchRequestedApproval(ctx context.Context, srv serverRef, approval api.Approval) error {
+	key, ok := a.sessionKey()
+	if !ok {
+		return nil
+	}
+	creds, err := a.readCredentials()
+	if err != nil {
+		return err
+	}
+	for _, seat := range creds.Agents {
+		if seat.Server != srv.URL || seat.MemberID != approval.AgentId {
+			continue
+		}
+		ref := delivery.AgentRef{Server: srv.URL, Board: seat.Board, Name: seat.Name, MemberID: seat.MemberID}
+		_, err := a.callDaemon(ctx, delivery.Request{Op: delivery.OpApprovalWatch, Harness: key.Harness, Session: key.ID, Boot: a.env.Getenv("ABOARD_BOOT"), Server: srv.URL, ApprovalID: approval.Id, Agent: &ref})
+		return err
+	}
+	return newError("agent_not_selected", "The approval's requesting seat is unavailable.", "Use the exact seat that requested this approval.")
 }
 
 func approvalDisplay(v api.Approval) (kind, agent, target string) {
