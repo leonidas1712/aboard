@@ -445,7 +445,7 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 			return c.unreachable(err)
 		}
 		if r.JSON200 == nil {
-			return apiError(r.StatusCode(), r.Body)
+			return a.peopleReadError(srv, r.StatusCode(), r.Body)
 		}
 		text := "Invitations on " + srv.URL + "\n"
 		for _, invite := range r.JSON200.Invites {

@@ -16,8 +16,8 @@ var peopleUsage = usageOf("people")
 
 // runPeople runs "aboard people", which lists the people on a server with their server
 // roles, and "aboard people role|remove", which an admin uses to change a person's role
-// or remove them from the server. Every form is a person's, with their own key, so it
-// refuses inside a harness session or with ABOARD_AGENT set, before it reads the key.
+// or remove them from the server. Agent directory reads use their current seat;
+// mutations retain their existing request or person-only gates.
 func runPeople(ctx context.Context, a *app, args []string) error {
 	sub := ""
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -67,7 +67,7 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 		return c.unreachable(err)
 	}
 	if r.JSON200 == nil {
-		return keyRejected(srv, r.StatusCode(), r.Body)
+		return a.peopleReadError(srv, r.StatusCode(), r.Body)
 	}
 	people, err := r.JSON200.AsServerPeople()
 	if err != nil {

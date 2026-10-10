@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 )
@@ -47,5 +48,15 @@ func TestAgentDirectoryReadsNeverUseOtherIssuerOrPersonKey(t *testing.T) {
 	}
 	if foreign.Load() != 0 || selected.Load() != 2 {
 		t.Fatalf("foreign=%d selected=%d", foreign.Load(), selected.Load())
+	}
+}
+
+func TestAgentPeopleReadRefusalNamesIssuerWithoutPersonLogin(t *testing.T) {
+	e := lifecycleMachine(t, "https://issuer.example", "never-person", agentCredential{Server: "https://issuer.example", Board: "same", Name: "helper", Token: "aba_seat"})
+	e.env["ABOARD_AGENT"] = "helper"
+	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
+	refused := a.peopleReadError(serverRef{Name: "work", URL: "https://issuer.example"}, 401, []byte(`{"error":{"code":"unauthorized","message":"Seat ended.","hint":"Run aboard resume helper --server https://issuer.example.","next":{"command":"aboard resume helper --server 'https://issuer.example'","resume":"Reconnect to https://issuer.example."}}}`))
+	if strings.Contains(refused.Hint, "aboard login") || strings.Contains(refused.Hint, "issuer.example") || !strings.Contains(refused.Hint, "--server work") || refused.Next == nil || !strings.Contains(refused.Next.Command, "--server work") {
+		t.Fatalf("agent hint: hint=%q next=%+v", refused.Hint, refused.Next)
 	}
 }
