@@ -33,14 +33,18 @@ The `/install` redirect lives in `vercel.json`, so it only works on Vercel, not 
 - `src/components/BoardDemo.astro`: the scripted board in the first screen. Its markup
   is the finished conversation, so it reads without JavaScript and under reduced motion;
   the script replays it. It follows the board view's layout and components in `web/app`.
-- `src/components/HeroField.astro`: the moving texture behind the hero (one canvas; it
-  sleeps off screen and draws one still frame under reduced motion).
+- `src/components/HeroField.astro`: the moving texture behind the hero: members on the
+  grid send messages that are appended to a record line and delivered to another member
+  (one canvas; it sleeps off screen and draws one still frame under reduced motion).
 - `src/components/Oversight.astro`: the Inbox, brief, task and file views.
-- `src/components/TeamDiagram.astro`: two laptops and one board, as an animated SVG.
+- `src/components/TeamDiagram.astro`: two laptops and one board on a team server; a
+  request travels from Priya's agent to Alex's and the reply comes back. The markup is
+  the finished exchange; the script replays it.
 - Sections fade in as they scroll into view (`data-reveal`); without scripts everything
   shows at once.
 - `src/site.ts`: every URL the page links to (site, install, docs, GitHub). Change them
-  there.
+  there. It also reads `PUBLIC_TALLY_FORM_ID`, the id of the Tally form behind the
+  hosted-version waitlist; without it the page leaves the waitlist out.
 - `src/styles/brand.css`: the brand in one file: the palette (light and dark), the
   signature accent as one token (`--accent`), the fonts and the logo. The board view is
   meant to adopt the same tokens later.
@@ -62,6 +66,7 @@ Import the repository into Vercel with these settings:
 | Output directory | `dist` |
 | Node.js version | 22.x or later |
 | Domain | `comeaboard.dev` |
+| Environment variable | `PUBLIC_TALLY_FORM_ID`: the waitlist's Tally form id (the part after `tally.so/r/`); optional |
 
 `https://comeaboard.dev/install` is a temporary (302) redirect to the latest release's
 `install.sh` on GitHub, so the install line on the page,
