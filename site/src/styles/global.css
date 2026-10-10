@@ -874,8 +874,8 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 /* The wires between the laptops and the server, and the message that travels them. */
 .tm-wire { position: relative; height: 40px; width: 1px; margin-inline: auto; background: var(--line-strong); }
 @media (min-width: 1000px) { .tm-wire { height: 1px; width: auto; margin: 0; } }
-.tm-chip { position: absolute; left: -5px; top: 0; width: 11px; height: 11px; border-radius: 3px; background: var(--t7b); border: 1.5px solid var(--t7f); opacity: 0; }
-.tm-chip.reply { background: var(--t5b); border-color: var(--t5f); }
+.tm-chip { position: absolute; left: -5px; top: 0; width: 11px; height: 11px; border-radius: 3px; background: var(--t5b); border: 1.5px solid var(--t5f); opacity: 0; }
+.tm-chip.reply { background: var(--t7b); border-color: var(--t7f); }
 @media (min-width: 1000px) { .tm-chip { left: 0; top: -5px; } }
 
 /* While the exchange replays, what hasn't happened yet is hidden. */
@@ -1083,3 +1083,7 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 /* The small print wraps as text on a phone, with its mark at the start of the line. */
 .meta-line { display: inline-block; max-width: 100%; }
 .meta-line .meta-dot { display: inline-block; margin-right: 8px; vertical-align: 1px; }
+.waitlist-action { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.waitlist .btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.waitlist .btn:disabled:hover { border-color: var(--line-strong); }
+.waitlist-pending { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }

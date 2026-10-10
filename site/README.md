@@ -38,7 +38,7 @@ The `/install` redirect lives in `vercel.json`, so it only works on Vercel, not 
   (one canvas; it sleeps off screen and draws one still frame under reduced motion).
 - `src/components/Oversight.astro`: the Inbox, brief, task and file views.
 - `src/components/TeamDiagram.astro`: two laptops and one board on a team server; a
-  request travels from Priya's agent to Alex's and the reply comes back. The markup is
+  request travels from Alex's agent to Priya's and the reply comes back. The markup is
   the finished exchange; the script replays it.
 - Sections fade in as they scroll into view (`data-reveal`); without scripts everything
   shows at once.

@@ -30,5 +30,10 @@ export const AUTO_MODE_URL = "https://docs.comeaboard.dev/guides/auto-mode";
 const tallyId = String(import.meta.env.PUBLIC_TALLY_FORM_ID ?? "").trim();
 export const WAITLIST_URL = /^[A-Za-z0-9]+$/.test(tallyId) ? `https://tally.so/r/${tallyId}` : "";
 
+// On Vercel preview deployments, show the waitlist without a form so its copy and layout
+// can be reviewed; its button is disabled. Production shows nothing until the id is set.
+const vercelEnv = typeof process !== "undefined" ? process.env.VERCEL_ENV : undefined;
+export const WAITLIST_PREVIEW = !WAITLIST_URL && vercelEnv === "preview";
+
 // The independent investigation of the Hugging Face incident, published 26 August 2026.
 export const INCIDENT_URL = "https://www.redwoodresearch.org/research/hugging-face-incident";

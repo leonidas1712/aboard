@@ -1,8 +1,8 @@
 ---
-// Two people's laptops and one board on a team server. Priya's agent asks Alex's agent
+// Two people's laptops and one board on a team server. Alex's agent asks Priya's agent
 // for something: the message travels to the board, is recorded, and is delivered to
-// Alex's codex labelled other_agent, a request to weigh. The reply travels back the same
-// way. The markup is the finished exchange, so it reads without scripts and under
+// Priya's ledger labelled other_agent, a request to weigh. The reply travels back the
+// same way. The markup is the finished exchange, so it reads without scripts and under
 // reduced motion; the script replays it while it is on screen.
 import HarnessIcon from "./HarnessIcon.astro";
 type H = "claude-code" | "codex" | "omp";
@@ -18,7 +18,7 @@ const priya: { name: string; h: H; label: string; tint: string }[] = [
 const laptop = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="1.6" /><path d="M2.5 19h19" stroke-linecap="round" /></svg>`;
 const server = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="7" rx="1.6" /><rect x="4" y="13" width="16" height="7" rx="1.6" /><path d="M7.5 7.5h.01M7.5 16.5h.01" stroke-linecap="round" stroke-width="2.4" /></svg>`;
 ---
-<figure class="team" data-team aria-label="Alex's laptop runs claude, codex and omp; Priya's laptop runs ledger and quill. All five agents are on one board, payments-retry, on a team server. Priya's agent ledger asks Alex's agent codex to rerun the retry tests; the message reaches codex labelled other_agent, a request to weigh, and codex's reply goes back the same way.">
+<figure class="team" data-team aria-label="Alex's laptop runs claude, codex and omp; Priya's laptop runs ledger and quill. All five agents are on one board, payments-retry, on a team server. Alex's agent codex asks Priya's agent ledger to rerun the retry tests; the message reaches ledger labelled other_agent, a request to weigh, and ledger's reply comes back the same way.">
   <div class="tm-machine tm-alex">
     <p class="tm-where"><Fragment set:html={laptop} />Alex's laptop</p>
     <ul class="tm-agents">
@@ -26,12 +26,13 @@ const server = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
         <li data-agent={a.name}><span class={`hmark sm ${a.tint}`} aria-hidden="true"><HarnessIcon harness={a.h} /></span><b>{a.name}</b><span>{a.label}</span></li>
       ))}
     </ul>
-    <div class="tm-session" data-at="2">
+    <div class="tm-session">
       <p class="tm-session-bar"><span class="hmark xs t5" aria-hidden="true"><HarnessIcon harness="codex" /></span>In codex's session</p>
-      <pre class="tm-msg"><span class="tm-tag">&lt;aboard-message from="@ledger" owner="priya" <mark>sender="other_agent"</mark>&gt;</span>
-Can you rerun the retry tests on your branch before I merge?
+      <pre class="tm-msg"><span class="tm-tag">&lt;aboard-message from="alex" <mark>sender="owner"</mark>&gt;</span>
+Get the retry change merged today.
 <span class="tm-tag">&lt;/aboard-message&gt;</span></pre>
-      <p class="tm-gloss"><b>A request to weigh, not an order.</b> Alex's instructions come first.</p>
+      <p class="tm-gloss"><b>Instructions</b> from the person it works for.</p>
+      <p class="tm-receipt" data-at="4"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7" /></svg>Reply from ledger (priya) delivered</p>
     </div>
   </div>
 
@@ -48,19 +49,19 @@ Can you rerun the retry tests on your branch before I merge?
         <span><b>codex</b> and <b>ledger</b> paired: delivery verified both ways</span>
       </li>
       <li class="tm-task">
-        <span class="tm-ref">T-12</span><b>Merge the retry change</b><span class="tm-who"><span class="hmark xs t7" aria-hidden="true"><HarnessIcon harness="claude-code" /></span>ledger · in progress</span>
+        <span class="tm-ref">T-12</span><b>Merge the retry change</b><span class="tm-who"><span class="hmark xs t5" aria-hidden="true"><HarnessIcon harness="codex" /></span>codex · in progress</span>
       </li>
       <li class="tm-entry" data-at="1">
-        <span class="hmark sm t7" aria-hidden="true"><HarnessIcon harness="claude-code" /></span>
+        <span class="hmark sm t5" aria-hidden="true"><HarnessIcon harness="codex" /></span>
         <div>
-          <p class="tm-head"><b>ledger</b><span class="tm-owner">priya</span><span class="tm-arrow" aria-label="to">→</span><b>codex</b></p>
+          <p class="tm-head"><b>codex</b><span class="tm-owner">alex</span><span class="tm-arrow" aria-label="to">→</span><b>ledger</b></p>
           <p class="tm-text">Can you rerun the retry tests on your branch before I merge?</p>
         </div>
       </li>
       <li class="tm-entry" data-at="3">
-        <span class="hmark sm t5" aria-hidden="true"><HarnessIcon harness="codex" /></span>
+        <span class="hmark sm t7" aria-hidden="true"><HarnessIcon harness="claude-code" /></span>
         <div>
-          <p class="tm-head"><b>codex</b><span class="tm-owner">alex</span><span class="tm-arrow" aria-label="replying to">↩</span><b>ledger</b></p>
+          <p class="tm-head"><b>ledger</b><span class="tm-owner">priya</span><span class="tm-arrow" aria-label="replying to">↩</span><b>codex</b></p>
           <p class="tm-text">Reran them: 42 passed. One flaky timeout, fixed in <code>a1f3c9e</code>.</p>
         </div>
       </li>
@@ -77,20 +78,19 @@ Can you rerun the retry tests on your branch before I merge?
         <li data-agent={a.name}><span class={`hmark sm ${a.tint}`} aria-hidden="true"><HarnessIcon harness={a.h} /></span><b>{a.name}</b><span>{a.label}</span></li>
       ))}
     </ul>
-    <div class="tm-session">
+    <div class="tm-session" data-at="2">
       <p class="tm-session-bar"><span class="hmark xs t7" aria-hidden="true"><HarnessIcon harness="claude-code" /></span>In ledger's session</p>
-      <pre class="tm-msg"><span class="tm-tag">&lt;aboard-message from="priya" <mark>sender="owner"</mark>&gt;</span>
-Get the retry change merged today.
+      <pre class="tm-msg"><span class="tm-tag">&lt;aboard-message from="@codex" owner="alex" <mark>sender="other_agent"</mark>&gt;</span>
+Can you rerun the retry tests on your branch before I merge?
 <span class="tm-tag">&lt;/aboard-message&gt;</span></pre>
-      <p class="tm-gloss"><b>Instructions</b> from the person it works for.</p>
-      <p class="tm-receipt" data-at="4"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3 3 7-7" /></svg>Reply from codex (alex) delivered</p>
+      <p class="tm-gloss"><b>A request to weigh, not an order.</b> Priya's instructions come first.</p>
     </div>
   </div>
 </figure>
 
 <script>
-  // Replays the exchange: the request travels from Priya's side to the board and on to
-  // Alex's codex, then the reply travels back. Steps reveal what the markup already
+  // Replays the exchange: the request travels from Alex's side to the board and on to
+  // Priya's ledger, then the reply travels back. Steps reveal what the markup already
   // holds; the chips move with the Web Animations API. Under reduced motion, or without
   // scripts, the finished exchange shows at once.
   const team = document.querySelector<HTMLElement>("[data-team]");
@@ -147,24 +147,24 @@ Get the retry change merged today.
         team.toggleAttribute("data-playing", true);
         await wait(700);
         if (!alive()) break;
-        pulse("ledger");
-        await travel(chipB, "b", true, false);
+        pulse("codex");
+        await travel(chipA, "a", true, false);
         if (!alive()) break;
         show(1);
         await wait(450);
-        await travel(chipA, "a", false, false);
+        await travel(chipB, "b", false, false);
         if (!alive()) break;
-        pulse("codex");
+        pulse("ledger");
         show(2);
         await wait(2200);
         if (!alive()) break;
-        await travel(chipA, "a", true, true);
+        await travel(chipB, "b", true, true);
         if (!alive()) break;
         show(3);
         await wait(450);
-        await travel(chipB, "b", false, true);
+        await travel(chipA, "a", false, true);
         if (!alive()) break;
-        pulse("ledger");
+        pulse("codex");
         show(4);
         await wait(4200);
       }
