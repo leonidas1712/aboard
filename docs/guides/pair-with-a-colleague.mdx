@@ -40,7 +40,7 @@ first:
 ```text
 Pending approval apr_01K… on https://team.example.com · pairing-test
 aboard approvals allow apr_01K… --server 'https://team.example.com'
-Continue after your person allows or declines this exact action. After execution, select the returned pairing_request_id in this original session: aboard pairing select ID --here --server https://team.example.com.
+Continue after your person allows or declines this exact action.
 ```
 
 Allow it in the board view's **Inbox** (**Allow once**), or in your own terminal.
@@ -59,12 +59,16 @@ $ aboard approvals allow apr_01K… --server 'https://team.example.com'
 apr_01K… · executed on https://team.example.com
 Invite: aboard connect 'https://team.example.com/join#abi_…'
 Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup https://team.example.com/join#abi_… --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent.
-aboard pairing select prq_01K… --here --server https://team.example.com
-The invite was issued. Continue this same pairing in its original initiating session; do not create another invite.
 ```
 
-Then tell your agent "continue". It runs the last command, `aboard pairing select prq_01K…
---here`, so that this session is the one your colleague's agent checks with.
+Then tell your agent "continue". Its next-turn notice names the approval and the
+`aboard approvals show` command. That command collects its invitation link and prompt
+once, even when you allowed the request in the browser. The original requesting
+session is selected automatically for the pairing; the approval itself does not mean
+the delivery check is ready. No link needs to be relayed from your browser.
+
+Later reads show only nonsecret metadata. If the collection response is lost, revoke
+the invitation and request a new one; the secret cannot be recovered from a list.
 
 If you have let your agents invite people without asking
 ([Auto mode or ask me](/guides/auto-mode)), the invite is made at once, from this
