@@ -189,7 +189,7 @@ func (p *setupLostResponseTransport) RoundTrip(r *http.Request) (*http.Response,
 func TestSetupWaitsForThePersonsHandleWithoutSpendingInvite(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	link := field(t, invite, "link").(string)
 	person := newPersonHome(t, "newcomer")
 	session := person.claudeSession("missing-handle")
@@ -243,7 +243,7 @@ func TestSetupWaitsForThePersonsHandleWithoutSpendingInvite(t *testing.T) {
 func TestSetupTakenHandleRetainsSecretFreeContinuation(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
-	invite := tm.admin.run("invite", "--server", tm.url(), "--json").json(t)
+	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--json").json(t)
 	link := field(t, invite, "link").(string)
 	person := newPersonHome(t, "newcomer")
 	session := person.claudeSession("taken-handle")
