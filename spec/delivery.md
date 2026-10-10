@@ -1798,7 +1798,9 @@ ownership, key, access and lifecycle before delivery. Removed authority cancels
 the notice. No invite secret, collected outcome or person credential is included.
 
 When a notice and board messages are pending, prepend the notice to their shared
-message bundle. A standalone notice must not consume the waiting hook ahead of
+message bundle when it fits. Allocate messages first; if the notice would displace
+a valid message, leave the notice pending. Notice overhead never makes a message
+undeliverable or eligible for skipping. A standalone notice must not consume the waiting hook ahead of
 those messages. Message allocations, confirmation and read cursors retain their
 existing semantics.
 
