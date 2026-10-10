@@ -34,13 +34,15 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 				}
 				reads.Add(1)
 				raw := `{"v":1,"boot":"current-boot"}`
-				if ready == "read-failed" {
+				switch ready {
+				case "read-failed":
 					return delivery.Response{V: delivery.ProtocolVersion, Error: &delivery.WireError{Code: "session_not_registered", Message: "No actual current runtime.", Hint: "Restart the harness."}}
-				} else if ready == "empty-boot" {
+				case "empty-boot":
 					raw = `{"v":1,"boot":"current-boot","runtime_ready":true}`
-				} else if ready == "old-boot" {
+				case "old-boot":
 					raw = `{"v":1,"boot":"old-boot","runtime_ready":true}`
-				} else if ready != "absent" {
+				case "absent":
+				default:
 					raw = `{"v":1,"boot":"current-boot","runtime_ready":` + ready + `}`
 				}
 				var resp delivery.Response
