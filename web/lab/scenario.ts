@@ -8,8 +8,19 @@
 // These types are the lab's mock of features that aren't in the API or the contract.
 
 import type { Presence } from "@/app/api";
+import { type Onboarding, type OnboardingStep, foldOnboarding, noOnboarding } from "./onboarding";
 
-export type ScenarioPerson = { name: string; admin?: boolean };
+export type ScenarioPerson = {
+  name: string;
+  admin?: boolean;
+  /** joined is when they joined the board, in minutes; on the board from the start when left out. */
+  joined?: number;
+  /**
+   * authorization is who let them in when an agent did it for its person: the event's
+   * data.authorization, with names for ids. via is the person's allowance or an approval.
+   */
+  authorization?: { agent: string; person: string; via: "allowance" | "approval"; as: "invited" | "added" };
+};
 
 export type ScenarioAgent = {
   name: string;
@@ -171,6 +182,8 @@ export type Step = {
   brief?: Brief | null;
   messages?: ScenarioMessage[];
   artifacts?: Artifact[];
+  /** onboarding changes the allowance, approvals, invite notices and pairing requests. */
+  onboarding?: OnboardingStep;
 };
 
 export type Scenario = {
@@ -232,6 +245,7 @@ export type Snapshot = {
   artifacts: Artifact[];
   /** opened is when each task first appeared, in minutes. */
   opened: Record<string, number>;
+  onboarding: Onboarding;
 };
 
 /** snapshot folds a scenario's steps up to and including step k. */
@@ -244,6 +258,7 @@ export function snapshot(s: Scenario, k: number): Snapshot {
   const opened: Record<string, number> = {};
   let brief: Brief | null = null;
   let briefVersion = 0;
+  let onboarding = noOnboarding;
   const messages: ScenarioMessage[] = [];
   for (const a of s.agents) {
     presence[a.name] = "idle";
@@ -266,6 +281,7 @@ export function snapshot(s: Scenario, k: number): Snapshot {
     }
     messages.push(...(step.messages ?? []));
     for (const a of step.artifacts ?? []) artifacts.set(a.id, a);
+    onboarding = foldOnboarding(onboarding, step.onboarding);
   }
   const files = [...artifacts.values()];
   // The brief is also the board's first maintained artifact.
@@ -283,7 +299,7 @@ export function snapshot(s: Scenario, k: number): Snapshot {
       body: briefMarkdown(brief),
     });
   }
-  return { step: s.steps[k], presence, presenceSince, now, tasks: [...tasks.values()], brief, briefVersion, messages, artifacts: files, opened };
+  return { step: s.steps[k], presence, presenceSince, now, tasks: [...tasks.values()], brief, briefVersion, messages, artifacts: files, opened, onboarding };
 }
 
 /** taskIds matches task ids in text, such as CHK-16. */

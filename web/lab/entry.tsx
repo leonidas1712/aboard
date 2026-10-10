@@ -12,6 +12,11 @@ import { MessageMeta, ThreadMeta } from "./experiments/chips";
 import { Inbox } from "./experiments/inbox";
 import { MessageFooter } from "./experiments/message-footer";
 import { Nav } from "./experiments/nav";
+import { AccountItem, OnboardingCentre, eventLine } from "./experiments/onboarding/board";
+import { OnboardingInbox } from "./experiments/onboarding/inbox";
+import { JoinPage } from "./experiments/onboarding/join";
+import { groups } from "./experiments/onboarding/model";
+import { Settings } from "./experiments/onboarding/settings";
 import { Text } from "./experiments/text";
 import { Title, WorkPanel } from "./experiments/work";
 import { install } from "./fake-api";
@@ -33,9 +38,10 @@ if (typeof window !== "undefined") {
   // With nothing named, the lab opens where the person would: the Inbox when something
   // waits on them, else the scenario's board.
   const q = new URLSearchParams(window.location.search);
-  if (!q.has("board") && !q.has("inbox") && !q.has("list")) {
-    const asks = asksOf(current().snap, {}).length;
-    history.replaceState(null, "", labHref(asks > 0 ? { inbox: "1" } : { board: scenario.board.name }));
+  if (!q.has("board") && !q.has("inbox") && !q.has("list") && !q.has("settings") && !q.has("join")) {
+    const { snap } = current();
+    const asks = asksOf(snap, {}).length + groups({ ...snap.onboarding, asked: {} }).needs.length;
+    history.replaceState(null, "", labHref(snap.onboarding.join ? { join: "1" } : asks > 0 ? { inbox: "1" } : { board: scenario.board.name }));
   }
   // The lab's colour schemes: ?theme= picks one for this load (screenshots use it), else
   // the one this browser chose. The page's first-paint script only knows light and dark.
@@ -58,7 +64,7 @@ if (typeof window !== "undefined") {
       if (!a || !href || !(href === "/" || href.startsWith("/?")) || e.defaultPrevented || e.metaKey || e.ctrlKey) return;
       e.preventDefault();
       const next = new URLSearchParams(href.slice(2));
-      const changes: Record<string, string | null> = { board: null, inbox: null, list: href === "/" ? "1" : null, view: null, task: null, artifact: null };
+      const changes: Record<string, string | null> = { board: null, inbox: null, list: href === "/" ? "1" : null, view: null, task: null, artifact: null, settings: null, join: null, item: null };
       for (const [k, v] of next) changes[k] = v;
       window.location.href = labHref(changes);
     },
@@ -66,12 +72,31 @@ if (typeof window !== "undefined") {
   );
 }
 
+// The onboarding scenarios have their own Inbox, Settings and invite page.
+const onboarding = scenario.steps.some((s) => s.onboarding);
+
+function place(): string | null {
+  if (typeof window === "undefined") return null;
+  const q = new URLSearchParams(window.location.search);
+  if (onboarding && q.has("join")) return "join";
+  if (onboarding && q.has("settings")) return "settings";
+  return q.has("inbox") ? "inbox" : null;
+}
+
+function Place({ onSignOut }: { onSignOut: () => void }) {
+  const p = place();
+  if (p === "join") return <JoinPage />;
+  if (p === "settings") return <Settings onSignOut={onSignOut} />;
+  return onboarding ? <OnboardingInbox onSignOut={onSignOut} /> : <Inbox onSignOut={onSignOut} />;
+}
+
 export const lab: Lab | null = {
   Overlay: Panel,
-  place: () => (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("inbox") ? "inbox" : null),
-  Place: Inbox,
+  place,
+  Place,
   Nav,
-  Centre,
+  Centre: onboarding ? OnboardingCentre : Centre,
+  ...(onboarding && { AccountItems: AccountItem, eventLine }),
   RightTitle: Title,
   RightPanel: WorkPanel,
   MessageFooter,

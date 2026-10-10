@@ -84,3 +84,11 @@ the server.
   a light page.
 - **In the conversation** (`experiments/message-footer.tsx`, `text.tsx`): an ask has
   buttons, a file shows as a card, and task ids are links.
+- **Agent-driven onboarding** (`experiments/onboarding/`, `onboarding.ts`, the
+  `onboard-inviter` and `onboard-joiner` scenarios): approvals in the Inbox (Allow once,
+  Allow always, Decline), the allowance in Settings (`settings=1`, reached from the
+  account menu), notices about invites an agent made, pairing requests with Choose an
+  agent and Copy prompt, the board's pairing line, the invite page (`join=1`), and how
+  the record reads a join an agent did for its person. The data follows the API's
+  shapes in `spec/openapi.yaml`; `item=<id>` opens one Inbox item, and
+  `allow=add-people,invite-people` starts with that allowance.

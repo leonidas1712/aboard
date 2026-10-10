@@ -19,7 +19,7 @@ import type {
 } from "@/app/api";
 import { reactionSet } from "@/app/api";
 import { canonical, genesisHash } from "@/app/record";
-import { type ScenarioMessage, type Snapshot, snapshot } from "./scenario";
+import { type ScenarioMessage, type ScenarioPerson, type Snapshot, snapshot } from "./scenario";
 import { at, current, onStep, scenario } from "./store";
 
 type Msg = {
@@ -99,7 +99,7 @@ function addEvent(w: World, type: string, atMs: number, actor: string | null, da
   return seq;
 }
 
-function join(w: World, m: Member, atMs: number) {
+function join(w: World, m: Member, atMs: number, authorization?: Record<string, unknown>) {
   w.members.push(m);
   addEvent(w, "member.joined", atMs, m.name, {
     name: m.name,
@@ -107,10 +107,28 @@ function join(w: World, m: Member, atMs: number) {
     role: m.role,
     harness: m.harness,
     access: m.access,
+    ...(authorization && { authorization }),
   });
 }
 
-function person(w: World, name: string, admin: boolean, atMs: number) {
+/**
+ * authorizationOf is the event's data.authorization for a person an agent let in, shaped
+ * as the API's AdminAuthorization, with the lab's ids (per_NAME, mem_BOARD_NAME).
+ */
+function authorizationOf(w: World, p: ScenarioPerson): Record<string, unknown> | undefined {
+  const a = p.authorization;
+  if (!a) return undefined;
+  return {
+    person_id: personId(a.person),
+    agent_id: memberId(w.board.name, a.agent),
+    parent_key_id: "key_01K7Q0LAB0PARENTKEY000000A",
+    via: a.via,
+    ...(a.via === "allowance" ? { allowance_id: "alw_01K7Q0LAB0ALLWNCE00000000", allowance_revision: 2 } : { approval_id: "apr_01K7Q2M8ZC4T9V3XWHN6RB5JDE" }),
+    payload_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  };
+}
+
+function person(w: World, name: string, admin: boolean, atMs: number, authorization?: Record<string, unknown>) {
   join(
     w,
     {
@@ -128,13 +146,14 @@ function person(w: World, name: string, admin: boolean, atMs: number) {
       owner_id: null,
     },
     atMs,
+    authorization,
   );
 }
 
 // The scenario's board, at minute 0, with the people on it from the start.
 const main: World = { board: newBoard(scenario.board.name, scenario.board.title ?? null, scenario.board.charter ?? "", at(0)), members: [], messages: [], events: [], readUpTo: 0, hashed: [] };
 addEvent(main, "board.created", at(0), me, { name: main.board.name, title: main.board.title });
-for (const p of scenario.people) person(main, p.name, p.admin ?? p.name === me, at(0));
+for (const p of scenario.people) if (p.joined === undefined) person(main, p.name, p.admin ?? p.name === me, at(0));
 worlds.set(main.board.name, main);
 for (const [i, o] of (scenario.otherBoards ?? []).entries()) {
   const w: World = { board: newBoard(o.name, o.title ?? null, "", at(-60 * 24 * (i + 2))), members: [], messages: [], events: [], readUpTo: 0, hashed: [] };
@@ -181,14 +200,19 @@ function addMessage(w: World, m: Omit<Msg, "seq" | "reactions">) {
 function sync(s: Snapshot): string[] {
   const w = main;
   const changed: string[] = [];
-  const pending: ({ kind: "join"; t: number; name: string } | { kind: "message"; t: number; m: ScenarioMessage })[] = [];
+  const pending: ({ kind: "join"; t: number; name: string } | { kind: "person"; t: number; p: ScenarioPerson } | { kind: "message"; t: number; m: ScenarioMessage })[] = [];
+  for (const p of scenario.people) {
+    if (p.joined !== undefined && p.joined <= s.step.at && !w.members.some((m) => m.name === p.name)) pending.push({ kind: "person", t: p.joined, p });
+  }
   for (const a of scenario.agents) {
     if ((a.joined ?? 0) <= s.step.at && !w.members.some((m) => m.name === a.name)) pending.push({ kind: "join", t: a.joined ?? 0.5, name: a.name });
   }
   for (const m of s.messages) if (!w.messages.some((x) => x.id === m.id)) pending.push({ kind: "message", t: m.t, m });
   pending.sort((a, b) => a.t - b.t);
   for (const p of pending) {
-    if (p.kind === "join") {
+    if (p.kind === "person") {
+      person(w, p.p.name, p.p.admin ?? false, at(p.t), authorizationOf(w, p.p));
+    } else if (p.kind === "join") {
       const a = scenario.agents.find((x) => x.name === p.name)!;
       const owner = a.owner ?? me;
       join(
@@ -445,6 +469,8 @@ async function route(method: string, path: string, q: URLSearchParams, body: Rec
     if (!w) return json({ error: { code: "board_not_found", message: `There is no board named ${b}.`, hint: "Pick one from the board list." } }, 404);
     if (!c) return json(boardView(w));
     if (c === "members" && !d) return json({ members: w.members });
+    // The lab's tasks are its own (experiments/tasks.tsx); the real task list stays empty.
+    if (c === "tasks" && !d) return json({ board: b, tasks: [], counts: {}, more: false });
     if (c === "members" && e === "delivery") {
       const m = w.members.find((x) => x.name === d)!;
       m.delivery_mode = body.mode as Member["delivery_mode"];

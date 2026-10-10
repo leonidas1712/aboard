@@ -3,6 +3,7 @@
 // Who you are, at the right of the top bar: your mark and name, opening a menu with
 // who you are on this board, which server this is, and this browser's settings.
 
+import { lab } from "aboard-lab";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -103,6 +104,7 @@ export function Account({ admin, onSignOut, person }: Props) {
         </dl>
         <DropdownMenuSeparator />
         {showPeople && <><DropdownMenuItem asChild><a href="/?view=people">People</a></DropdownMenuItem><DropdownMenuSeparator /></>}
+        {lab?.AccountItems && <lab.AccountItems />}
         {midturn.view && (
           <>
             <DropdownMenuLabel>Mid-turn messages from my agents</DropdownMenuLabel>

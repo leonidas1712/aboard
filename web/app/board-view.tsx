@@ -227,7 +227,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
       const creator = s.board.created_by.name;
       for (const e of s.events) {
         if (e.seq < from || !eventMatches(e, filter.from, filter.role)) continue;
-        const line = eventLine(e, creator, people.length <= 1);
+        const line = lab?.eventLine?.(e) ?? eventLine(e, creator, people.length <= 1);
         if (line) out.push({ kind: "event", seq: e.seq, e, line });
       }
     }
