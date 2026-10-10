@@ -21,7 +21,6 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	leo.run("up")
 	tm := &team{t: t, admin: leo}
 	url := tm.url()
-	quoted := "'" + url + "'"
 
 	// 1. leo asks his agent to make the board and invite maya to it.
 	ls := leo.claudeSession("s-leo")
@@ -44,7 +43,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	}
 	allowed := leo.run("approvals", "allow", approval, "--server", url)
 	shown := allowed.lines()
-	if len(shown) != 3 || shown[0] != approval+" · executed on local || !strings.HasPrefix(shown[1], "Invite: "+url+"/join#abi_") {
+	if len(shown) != 3 || shown[0] != approval+" · executed on local" || !strings.HasPrefix(shown[1], "Invite: "+url+"/join#abi_") {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
 	link := strings.TrimPrefix(shown[1], "Invite: ")
