@@ -126,11 +126,13 @@ type session struct {
 	adapter     Adapter
 	mail        *mailbox[sessionMsg]
 
-	boot          string
-	folder        string
-	locationBoot  string
-	locationEpoch atomic.Uint64
-	open          bool
+	runtimeHookBoot      string
+	runtimeExtensionBoot string
+	boot                 string
+	folder               string
+	locationBoot         string
+	locationEpoch        atomic.Uint64
+	open                 bool
 	// started is true once the session has been open, so a register that opens it again
 	// is a resume, not a new session.
 	started bool
@@ -346,6 +348,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 }
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
+	runtimeHook := s.currentRuntimeHook(req)
 	ok := Response{V: ProtocolVersion}
 	if req.Op != OpQueued && req.Op != OpShown && req.Op != OpApprovalWatch {
 		s.noteProcess(ctx, req)
@@ -488,9 +491,13 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 	case OpQueued:
 		return s.queued(ctx, req)
 	case OpAgents:
+		ok.RuntimeReady = s.runtimeReady()
 		ok.Boot = s.boot
 		ok.Agents = append(ok.Agents, s.agentRefs()...)
 		ok.Capabilities = negotiatedCapabilities(s.ext)
+	}
+	if runtimeHook && s.open && req.Boot == s.boot {
+		s.runtimeHookBoot = s.boot
 	}
 	s.noteLocation(ctx, req)
 	return ok
@@ -595,6 +602,7 @@ func (s *session) event(ctx context.Context, boot string) {
 // newBoot records that the session's process changed. Bundles handed to the old process
 // were never confirmed, so they are handed again.
 func (s *session) newBoot(ctx context.Context, boot string) {
+	s.runtimeHookBoot, s.runtimeExtensionBoot = "", ""
 	s.boot = boot
 	s.saveSession(ctx)
 	s.unhand(ctx)
@@ -613,6 +621,7 @@ func (s *session) unhand(ctx context.Context) {
 
 func (s *session) setOpen(ctx context.Context, open bool) {
 	if !open {
+		s.runtimeHookBoot, s.runtimeExtensionBoot = "", ""
 		s.locationEpoch.Add(1)
 		// A session that closed starts no turn; what it was handed isn't stalled.
 		s.forgetAwaiting()
@@ -696,6 +705,7 @@ func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
 }
 
 func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
+	runtimeHook := s.currentRuntimeHook(req)
 	s.noteProcess(ctx, req)
 	if !req.Started.IsZero() && req.Started.Before(s.busyAt) {
 		// The stop hook of a turn that ended before the latest prompt, reaching the daemon
@@ -726,6 +736,9 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	w.acceptedTurn(s.boot, s.peerTurn)
 	if !s.open {
 		s.setOpen(ctx, true)
+	}
+	if runtimeHook && req.Boot == s.boot {
+		s.runtimeHookBoot = s.boot
 	}
 	s.refreshAll(true)
 }
@@ -2099,5 +2112,38 @@ func newAgentState(ref AgentRef, adopting bool) *agentState {
 	return &agentState{
 		ref: ref, adopting: adopting, deliveries: map[int64]*Delivery{},
 		announced: map[int]bool{}, previewed: map[int]bool{},
+	}
+}
+
+// Runtime setup is a fresh local observation, never persisted delivery evidence.
+func (s *session) runtimeReady() bool {
+	if !s.open || s.boot == "" {
+		return false
+	}
+	if s.runtimeHookBoot == s.boot {
+		return true
+	}
+	if s.ext == nil || s.runtimeExtensionBoot != s.boot {
+		return false
+	}
+	select {
+	case <-s.ext.gone:
+		return false
+	default:
+		return true
+	}
+}
+
+func (s *session) currentRuntimeHook(req Request) bool {
+	if !req.RuntimeHook || req.Boot == "" {
+		return false
+	}
+	switch req.Op {
+	case OpRegister:
+		return true
+	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent, OpTurnEnd, OpWait:
+		return req.Boot == s.boot && (req.Started.IsZero() || !req.Started.Before(s.busyAt))
+	default:
+		return false
 	}
 }

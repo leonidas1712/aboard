@@ -66,7 +66,7 @@ func TestPairedSetupKeepsHarnessInstructionsAndNewAccountMessage(t *testing.T) {
 	recipient := person.claudeSession("setup-recipient")
 	out := recipient.run("setup", tm.url()+"/join#"+invited["invite"].(string), "--handle", "newcomer", "--json").json(t)
 	if field(t, out, "steps.4.state") != "complete" || field(t, out, "steps.3.state") != "pending" {
-		t.Fatalf("setup did not accept the endpoint while retaining pending harness confirmation: %v", out)
+		t.Fatalf("setup did not join the boards while retaining pending harness confirmation: %v", out)
 	}
 	next := field(t, out, "next.resume").(string)
 	if !strings.Contains(next, "/hooks") || !strings.Contains(next, "restart Claude Code") {

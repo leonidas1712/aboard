@@ -5547,6 +5547,8 @@ components:
     CreateInviteRequest:
       type: object
       additionalProperties: false
+      description: |
+        D224 keeps explicit pairing compatible but does not require it in the normal invite flow. An agent-issued bundled invite may create its hidden delivery-check request on the issuing seat's board when that immutable board is included. Its initiating agent is the authenticated issuing seat, never a seat chosen from recent activity. The check is created in the same authorized transaction and does not change the invite's memberships or authority. Without an eligible inviting endpoint, setup still joins the authorized boards and leaves delivery verification pending rather than guessing a session.
       properties:
         suggested_handle:
           type: string
@@ -6437,13 +6439,22 @@ components:
       description: |
         With a person's key: either `code`, or `board` and `role`, and optionally
         `session`. With a machine's delegation: `board` and `session`, and optionally
-        `role` (default `member`).
+        `role` (default `member`). A delegated board selector also accepts an
+        immutable board id, with identical current membership, lifecycle and role
+        checks. This lets setup use authenticated onboarding receipt ids without
+        resolving mutable names. A board id is never a join code or new authority.
+        An immutable-id delegated join additionally requires an already-active
+        person membership in that same transaction. It never auto-adds a removed
+        person to an open board; ordinary board-name self-join remains unchanged.
       properties:
         code:
           type: string
           description: Case-insensitive; the dash is optional.
           example: 7Q4-K2M
-        board: { $ref: "#/components/schemas/BoardName" }
+        board:
+          type: string
+          pattern: "^([a-z0-9][a-z0-9-]{0,38}[a-z0-9]|brd_[0-9A-HJKMNP-TV-Z]{26})$"
+          description: "Board name, or immutable board id for a delegated join."
         role: { $ref: "#/components/schemas/RoleName" }
         name: { $ref: "#/components/schemas/MemberName" }
         harness: { $ref: "#/components/schemas/Harness" }

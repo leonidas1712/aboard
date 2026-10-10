@@ -92,6 +92,7 @@ const (
 
 // Request is one message from a hook or the CLI to the daemon.
 type Request struct {
+	RuntimeHook       bool           `json:"runtime_hook,omitempty"`
 	ApprovalID        string         `json:"approval_id,omitempty"`
 	PairingAction     string         `json:"pairing_action,omitempty"`
 	PairingID         string         `json:"pairing_id,omitempty"`
@@ -166,6 +167,7 @@ func (r Request) Key() SessionKey { return SessionKey{Harness: r.Harness, ID: r.
 
 // Response is one message from the daemon.
 type Response struct {
+	RuntimeReady bool             `json:"runtime_ready,omitempty"`
 	PairingBoard string           `json:"pairing_board,omitempty"`
 	Pairing      *PairingRequest  `json:"pairing,omitempty"`
 	Pairings     []PairingRequest `json:"pairings,omitempty"`
