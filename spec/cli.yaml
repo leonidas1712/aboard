@@ -4002,7 +4002,9 @@ $defs:
       own-token messages, including accepted queue entries absent from the unread inbox,
       and acknowledges nothing; acked_up_to is null. It never cancels scheduled delivery.
       Entries are invalidated on seat/session changes.
-      With several seats each entry remains bound to its immutable board/member ids.
+      With several seats each entry remains bound to its canonical issuer and immutable board/member ids.
+      New daemons include server on every entry. Older server-less entries are accepted only
+      when one observed issuer makes the identity unambiguous.
     type: object
     required: [count, messages]
     properties:
@@ -4013,6 +4015,7 @@ $defs:
           type: object
           required: [board_id, member_id, message_id, seq, from, boundary]
           properties:
+            server: { type: string, description: Canonical issuing server URL; additive for older daemon compatibility. }
             board_id: { type: string }
             board: { type: string, description: Current readable board name; immutable board_id remains the identity. }
             member_id: { type: string }

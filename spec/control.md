@@ -902,10 +902,13 @@ row, even when the combined payload contains only one board's messages.
 
 ## Queued session observation (D221)
 
-The additive `queued` operation reads `harness`, `session` and `boot`; its response
+The additive `queued` operation reads `harness`, `session` and `boot`, and accepts
+optional canonical `server` to filter seats before any issuer requests; its response
 has optional `queued` with the shape `QueuedMessages` in cli.yaml. It observes only
 that session's current seats, rechecks each own-token inbox and acknowledges nothing.
-Entries may include the current readable `board` name for display. With several
+Each new entry includes its canonical `server`, paired with immutable board/member
+ids. Server-less legacy entries remain usable only with one observed issuer; otherwise
+queue state is unknown. Entries may include the current readable `board` name for display. With several
 boards, text summaries qualify message numbers with that name (or immutable id).
 A stale boot or seat is refused rather than substituted with another session. An old
 daemon's `invalid_request` leaves queue state unknown; it is never treated as no queue.
