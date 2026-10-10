@@ -700,6 +700,8 @@ paths:
         invitee may choose a different valid handle at redemption. The edit never
         changes the issuer, recipient privileges, bundled boards, expiry, pairing
         proposal, approval action or its frozen payload hash. No secret is returned.
+        Returned board ids are filtered to current caller visibility; stored bundled
+        admissions are unchanged. Cached metadata is refused if access was lost.
         Empty suggested_handle clears the suggestion. Invalid syntax is refused.
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"

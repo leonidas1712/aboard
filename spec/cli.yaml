@@ -1028,6 +1028,7 @@ $defs:
     type: object
     required: [server, invite]
     properties:
+      board: { type: string, description: Selected agent seat board; omitted for a person command. }
       server: { $ref: "#/$defs/ServerRef" }
       invite: { $ref: "openapi.yaml#/components/schemas/ServerInviteMetadata" }
 
@@ -4034,6 +4035,7 @@ $defs:
     type: object
     required: [server, person, changed]
     properties:
+      board: { type: string, description: Selected agent seat board; omitted for a person command. }
       server: { $ref: "#/$defs/ServerRef" }
       person: { $ref: openapi.yaml#/components/schemas/Person }
       changed: { type: boolean }
