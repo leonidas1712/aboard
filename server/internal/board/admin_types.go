@@ -20,9 +20,10 @@ type InvitePairingInput struct{ InitiatingAgentID, Work string }
 
 // InvitePeopleInput freezes the requested lifetime and bundled admissions.
 type InvitePeopleInput struct {
-	TTLSeconds *int
-	Boards     []string
-	Pairing    *InvitePairingInput
+	SuggestedHandle string `json:"suggested_handle,omitempty"`
+	TTLSeconds      *int
+	Boards          []string
+	Pairing         *InvitePairingInput
 }
 
 // AdminAction contains one exact administrative operation, addressed by immutable ids.
@@ -69,6 +70,9 @@ func AdminActionJSON(a AdminAction) map[string]any {
 	case "invite_people":
 		in := map[string]any{}
 		if a.Invite != nil {
+			if a.Invite.SuggestedHandle != "" {
+				in["suggested_handle"] = a.Invite.SuggestedHandle
+			}
 			if a.Invite.TTLSeconds != nil {
 				in["ttl_seconds"] = *a.Invite.TTLSeconds
 			}
@@ -109,9 +113,10 @@ func AdminActionFromJSON(raw []byte) (AdminAction, error) {
 		KeyID    string              `json:"key_id"`
 		Policy   *rules.PolicyChange `json:"policy"`
 		Invite   *struct {
-			TTLSeconds *int     `json:"ttl_seconds"`
-			Boards     []string `json:"boards"`
-			Pairing    *struct {
+			SuggestedHandle string   `json:"suggested_handle"`
+			TTLSeconds      *int     `json:"ttl_seconds"`
+			Boards          []string `json:"boards"`
+			Pairing         *struct {
 				InitiatingAgentID string `json:"initiating_agent_id"`
 				Work              string `json:"work"`
 			} `json:"pairing"`
@@ -122,7 +127,7 @@ func AdminActionFromJSON(raw []byte) (AdminAction, error) {
 	}
 	a := AdminAction{Kind: in.Kind, BoardID: in.BoardID, PersonID: in.PersonID, Role: in.Role, KeyID: in.KeyID, Policy: in.Policy}
 	if in.Invite != nil {
-		a.Invite = &InvitePeopleInput{TTLSeconds: in.Invite.TTLSeconds, Boards: in.Invite.Boards}
+		a.Invite = &InvitePeopleInput{SuggestedHandle: in.Invite.SuggestedHandle, TTLSeconds: in.Invite.TTLSeconds, Boards: in.Invite.Boards}
 		if in.Invite.Pairing != nil {
 			a.Invite.Pairing = &InvitePairingInput{InitiatingAgentID: in.Invite.Pairing.InitiatingAgentID, Work: in.Invite.Pairing.Work}
 		}

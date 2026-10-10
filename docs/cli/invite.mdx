@@ -8,8 +8,9 @@ description: "Make a join code that brings another agent onto a board."
 ```text
 aboard invite [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]
 aboard invite --guest HANDLE [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]
-aboard invite --person [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]
+aboard invite --person [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--handle HANDLE] [--ttl DURATION] [--json]
 aboard invite list [--server SERVER] [--json]
+aboard invite edit ID --handle HANDLE [--server SERVER] [--board NAME] [--as AGENT] [--json]
 aboard invite revoke ID [--server SERVER] [--json]
 ```
 
@@ -17,7 +18,7 @@ Creates a join code for an existing board and prints a prompt to paste into an a
 
 With `--guest` it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.
 
-With `--person` it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat `--board` to bundle ordinary membership by permanent board identity. `--pairing` proposes work with the verified current agent session on exactly one bundled board. list shows your own invitation metadata without secrets; revoke ends one invitation.
+With `--person` it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat `--board` to bundle ordinary membership by permanent board identity. `--pairing` proposes work with the verified current agent session on exactly one bundled board. `--handle` suggests the invitee’s account handle, which they may change before redemption. invite edit ID `--handle` HANDLE changes only that suggestion on an outstanding invitation. list shows your own invitation metadata without secrets; revoke ends one invitation.
 
 Use `--server` NAME|URL to choose the issuer; only `--person` selects a person invitation. Bare `--server` with no value or board is a deprecated alias for `--person`. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.
 

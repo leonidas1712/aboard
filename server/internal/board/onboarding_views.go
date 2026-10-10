@@ -83,8 +83,8 @@ func boardDisplay(b Board) OnboardingBoardDisplay {
 
 // InvitePreview is the nonsecret content offered to the invitation holder.
 type InvitePreview struct {
-	InviterHandle, Work, ExpiresAt string
-	Boards                         []OnboardingBoardDisplay
+	InviterHandle, Work, ExpiresAt, SuggestedHandle string
+	Boards                                          []OnboardingBoardDisplay
 }
 
 // PreviewServerInvite reads a valid invitation without spending it or changing cursors.
@@ -96,6 +96,7 @@ func (s *Service) PreviewServerInvite(ctx context.Context, secret string) (Invit
 			return err
 		}
 		out.InviterHandle, out.ExpiresAt = issuer.Name, inv.ExpiresAt
+		out.SuggestedHandle = inv.SuggestedHandle
 		for _, id := range inv.Boards {
 			b, err := tx.BoardByID(id)
 			if err != nil {
@@ -130,6 +131,10 @@ func (s *Service) validServerInvite(tx ReadTx, secret string) (ServerInvite, Hum
 	if err != nil {
 		return inv, Human{}, err
 	}
+	return s.validServerInviteRecord(tx, inv)
+}
+
+func (s *Service) validServerInviteRecord(tx ReadTx, inv ServerInvite) (ServerInvite, Human, error) {
 	now := stamp(s.clk.Now())
 	if inv.UsedAt != nil || inv.RevokedAt != nil || inv.ExpiresAt <= now {
 		return inv, Human{}, inviteInvalid()

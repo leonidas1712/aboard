@@ -384,14 +384,14 @@ func helpText(templates string) []commandHelp {
 			Summary: "List the people on a server; admins change roles and remove people",
 			Usage: []string{
 				"aboard people [--server URL] [--json]",
-				"aboard people rename @old new [--server URL] [--json]",
+				"aboard people rename @old new [--server URL] [--board NAME] [--as AGENT] [--json]",
 				"aboard people role @handle admin|member [--server URL] [--json]",
 				"aboard people remove @handle [--yes] [--server URL] [--json]",
 			},
 			Description: "aboard people lists everyone on the server with their role: admin, member or guest. " +
 				"An admin manages the server's people; a member sees every open board and the private boards they are on; a guest came in through a guest code (aboard invite --guest) and reaches only the boards guest codes brought them onto. " +
 				"The server is --server or the machine's saved default (aboard servers); known servers without a saved default require a choice before credentials are used.\n\n" +
-				"people rename changes your own handle, or another person’s if you are an admin. Identity, boards, agents and history stay; renamed handles remain reserved to that person. " +
+				"people rename changes your own handle, or another person’s if you are an admin. An active agent may rename only its own person through its seat, without using a person key. Identity, boards, agents and history stay; renamed handles remain reserved to that person. " +
 				"people role makes someone an admin, or a member again. people remove takes a person off the server at once: their keys, browser sessions and agents stop, they leave every board, and on a board where they were the last owner the person on it longest becomes owner. " +
 				"It says first what will stop and asks; without a terminal it needs --yes. Their messages stay in the record. Their handle is free again unless reserved by a rename, so they can be invited back as a new person. " +
 				"Only an admin changes roles or removes people, and the server always keeps one admin. A selected agent requests an exact role-change approval using its seat; its person executes it with aboard approvals allow ID. Roles never use the allowance.\n\n" +
@@ -637,14 +637,15 @@ func helpText(templates string) []commandHelp {
 			Usage: []string{
 				"aboard invite [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --guest HANDLE [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
-				"aboard invite --person [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]",
+				"aboard invite --person [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--handle HANDLE] [--ttl DURATION] [--json]",
 				"aboard invite list [--server SERVER] [--json]",
+				"aboard invite edit ID --handle HANDLE [--server SERVER] [--board NAME] [--as AGENT] [--json]",
 				"aboard invite revoke ID [--server SERVER] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
-				"With --person it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. list shows your own invitation metadata without secrets; revoke ends one invitation.\n\n" +
+				"With --person it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. --handle suggests the invitee’s account handle, which they may change before redemption. invite edit ID --handle HANDLE changes only that suggestion on an outstanding invitation. list shows your own invitation metadata without secrets; revoke ends one invitation.\n\n" +
 				"Use --server NAME|URL to choose the issuer; only --person selects a person invitation. Bare --server with no value or board is a deprecated alias for --person. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},

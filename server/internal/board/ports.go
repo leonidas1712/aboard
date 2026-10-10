@@ -212,6 +212,7 @@ type Tx interface {
 	SavePairingCredential(PairingCredential) error
 	DeletePairingCredentials(requestID string) error
 	RevokeServerInvite(id, at string) (bool, error)
+	SetServerInviteHandle(id, handle string) error
 	SaveOnboardingReceipt(OnboardingReceipt) error
 	SaveAllowance(Allowance) error
 	SaveApproval(Approval) error

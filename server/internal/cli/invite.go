@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"slices"
@@ -25,12 +26,16 @@ const invitePrompt = "You have the Aboard skill. Join with this line, read the c
 // use the selected seat and the admission request path; board and guest codes remain
 // person-only.
 func runInvite(ctx context.Context, a *app, args []string) error {
+	if len(args) > 0 && args[0] == "edit" {
+		return runInviteEdit(ctx, a, args[1:])
+	}
 	if len(args) > 0 && (args[0] == "list" || args[0] == "revoke") {
 		return runInviteManagement(ctx, a, args[0], args[1:])
 	}
 	fs := a.flags("invite")
 	var boards listFlag
 	fs.Var(&boards, "board", "the board; repeat to bundle server-invite memberships")
+	handle := fs.String("handle", "", "suggest the invited person’s handle")
 	pairing := fs.String("pairing", "", "proposed work with this session on exactly one bundled board")
 	roleFlag := fs.String("role", "", "the role the agent joins as; default: the role the board's template invites, else member")
 	ttl := fs.Duration("ttl", 0, "how long the code works, such as 2h; default 24h for codes and agent invites, 168h for person invites")
@@ -56,7 +61,10 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 			srv = pos[0]
 		}
 		a.agentServerFlag = srv
-		return runBundledServerInvite(ctx, a, srv, *ttl, boards, *pairing)
+		return runBundledServerInvite(ctx, a, srv, *ttl, boards, *pairing, handleArg(*handle))
+	}
+	if *handle != "" {
+		return usageError("--handle requires --person.", inviteUsage)
 	}
 	if len(boards) > 1 || *pairing != "" {
 		return usageError("Multiple boards and --pairing require --person.", inviteUsage)
@@ -189,7 +197,7 @@ func durationText(d time.Duration) string {
 
 // runServerInvite uses a person's key or an agent's selected seat to request an
 // ordinary server invitation. Without a seat, the agent must join before requesting.
-func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl time.Duration, boards []string, pairing string) error {
+func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl time.Duration, boards []string, pairing, handle string) error {
 	if pairing != "" && len(boards) != 1 {
 		return usageError("--pairing requires exactly one --board.", inviteUsage)
 	}
@@ -213,6 +221,9 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 			}
 		}
 		req := api.CreateInviteRequest{}
+		if handle != "" {
+			req.SuggestedHandle = &handle
+		}
 		if ttl != 0 {
 			seconds := int(ttl.Seconds())
 			req.TtlSeconds = &seconds
@@ -262,6 +273,9 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	req := api.CreateInviteRequest{}
+	if handle != "" {
+		req.SuggestedHandle = &handle
+	}
 	if ttl != 0 {
 		secs := int(ttl.Seconds())
 		req.TtlSeconds = &secs
@@ -447,5 +461,46 @@ func runInviteManagement(ctx context.Context, a *app, action string, args []stri
 		return apiError(r.StatusCode(), r.Body)
 	}
 	a.emit(map[string]any{"server": srv, "id": r.JSON200.Id, "revoked": r.JSON200.Revoked, "changed": r.JSON200.Changed}, "Revoked invitation "+r.JSON200.Id+" on "+srv.URL+".\n")
+	return nil
+}
+
+func runInviteEdit(ctx context.Context, a *app, args []string) error {
+	fs := a.flags("invite")
+	server := fs.String("server", "", "the invitation issuer")
+	boardFlag := fs.String("board", "", "select this board seat")
+	as := fs.String("as", "", "select this agent")
+	handle := fs.String("handle", "", "suggested person handle; empty clears it")
+	pos, err := a.parse(fs, args, inviteUsage, 1, 1)
+	if err != nil {
+		return err
+	}
+	supplied := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "handle" {
+			supplied = true
+		}
+	})
+	if !supplied {
+		return usageError("invite edit requires --handle.", inviteUsage)
+	}
+	a.agentServerFlag = *server
+	srv, selectedBoard, c, err := a.admissionClient(ctx, *server, *boardFlag, *as)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := a.requestContext(ctx)
+	defer cancel()
+	r, err := c.api.EditServerInviteWithResponse(ctx, pos[0], nil, api.EditServerInvite{SuggestedHandle: handleArg(*handle)})
+	if err != nil {
+		return c.unreachable(err)
+	}
+	if r.JSON200 == nil {
+		return apiError(r.StatusCode(), r.Body)
+	}
+	out := map[string]any{"server": srv, "invite": r.JSON200}
+	if selectedBoard != "" {
+		out["board"] = selectedBoard
+	}
+	a.emit(out, "Updated suggested handle for invitation "+pos[0]+" on "+srv.URL+".\n")
 	return nil
 }

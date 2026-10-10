@@ -433,6 +433,9 @@ func (s *Service) CreateServerInvite(ctx context.Context, p Principal, ttl time.
 // CreateServerInviteWithInput freezes ordinary board admissions with the invite.
 func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, in InvitePeopleInput) (NewServerInvite, error) {
 	in = copyInviteInput(in)
+	if in.SuggestedHandle != "" && !validName(in.SuggestedHandle) {
+		return NewServerInvite{}, invalid("The suggested handle is invalid.", "Use lowercase letters, digits and single dashes, at most 40 characters.")
+	}
 
 	ttl := time.Duration(0)
 	if in.TTLSeconds != nil {
@@ -491,7 +494,7 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 		if err != nil {
 			return err
 		}
-		inv := ServerInvite{ParentKeyID: p.KeyID, Boards: in.Boards, Digest: ids.Digest(s.key, secret), CreatedBy: h.ID, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(ttl))}
+		inv := ServerInvite{SuggestedHandle: in.SuggestedHandle, ParentKeyID: p.KeyID, Boards: in.Boards, Digest: ids.Digest(s.key, secret), CreatedBy: h.ID, CreatedAt: stamp(now), ExpiresAt: stamp(now.Add(ttl))}
 		if s.adminAuthorization != nil {
 			authorization := *s.adminAuthorization
 			inv.Authorization = &authorization

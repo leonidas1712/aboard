@@ -136,7 +136,7 @@ func (t *tx) NameUnnamedKeys(name string) error {
 	return t.exec("UPDATE access_keys SET name = ? WHERE name = ''", name)
 }
 
-const serverInviteColumns = "id, digest, created_by, created_at, expires_at, used_at, used_by, boards, parent_key_id, issuing_agent_id, authorization, revoked_at"
+const serverInviteColumns = "id, digest, created_by, created_at, expires_at, used_at, used_by, boards, parent_key_id, issuing_agent_id, authorization, revoked_at, suggested_handle"
 
 // InsertServerInvite adds a server invite.
 func (t *tx) InsertServerInvite(i board.ServerInvite) error {
@@ -153,8 +153,8 @@ func (t *tx) InsertServerInvite(i board.ServerInvite) error {
 		value := string(raw)
 		authorization = &value
 	}
-	return t.exec("INSERT INTO server_invites ("+serverInviteColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?)",
-		i.ID, i.Digest, i.CreatedBy, i.CreatedAt, i.ExpiresAt, i.UsedAt, i.UsedBy, boards, i.ParentKeyID, i.IssuingAgentID, authorization, i.RevokedAt)
+	return t.exec("INSERT INTO server_invites ("+serverInviteColumns+") VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?)",
+		i.ID, i.Digest, i.CreatedBy, i.CreatedAt, i.ExpiresAt, i.UsedAt, i.UsedBy, boards, i.ParentKeyID, i.IssuingAgentID, authorization, i.RevokedAt, i.SuggestedHandle)
 }
 
 // ServerInviteByDigest finds a server invite by the digest of its secret.
@@ -733,7 +733,7 @@ func scanServerInvite(row interface{ Scan(...any) error }) (board.ServerInvite, 
 	var i board.ServerInvite
 	var boards string
 	var parent, agent, authorization *string
-	err := row.Scan(&i.ID, &i.Digest, &i.CreatedBy, &i.CreatedAt, &i.ExpiresAt, &i.UsedAt, &i.UsedBy, &boards, &parent, &agent, &authorization, &i.RevokedAt)
+	err := row.Scan(&i.ID, &i.Digest, &i.CreatedBy, &i.CreatedAt, &i.ExpiresAt, &i.UsedAt, &i.UsedBy, &boards, &parent, &agent, &authorization, &i.RevokedAt, &i.SuggestedHandle)
 	if err != nil {
 		return i, notFound(err)
 	}
@@ -751,4 +751,8 @@ func scanServerInvite(row interface{ Scan(...any) error }) (board.ServerInvite, 
 		err = json.Unmarshal([]byte(*authorization), &i.Authorization)
 	}
 	return i, err
+}
+
+func (t *tx) SetServerInviteHandle(id, handle string) error {
+	return t.exec("UPDATE server_invites SET suggested_handle = ? WHERE id = ?", handle, id)
 }
