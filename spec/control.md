@@ -192,6 +192,10 @@ hook (Codex 0.160 resuming a thread) reports in this way.
 
 ### `turn_start`: a turn started, and what it is given
 
+Durable nonsecret approval and arrival notices use existing nudge or adapter
+context. They introduce no new proof type or receipt wire fields. Existing message
+confirmation remains unchanged; a notice grants no secret-collection authority.
+
 Sent by a hook of op `prompt` (Claude Code's and Codex's `UserPromptSubmit`) and by a
 harness extension as a turn starts, before the model runs (omp: `before_agent_start`,
 on a one-shot connection of its own). It does what `prompt` does, `wake` included, and
@@ -783,6 +787,12 @@ back for `prompt`, `turn_end`, `received` or `goodbye`.
   server. The extension never adds a delivery twice: it remembers the ids it added for
   as long as the process runs, and answers `received` again for an id it has already
   added.
+- **Notice transport ids.** A durable nonsecret notice uses the same legacy
+  `deliver` and `received` exchange, with a stable negative `id` between
+  `-9007199254740991` and `-1`. Positive ids remain ordinary message delivery rows.
+  The notice id stays the same on retry, including reconnect; zero is never sent.
+  This reserves a JavaScript-safe transport namespace, not a board sequence, event,
+  manifest or new proof. Acceptance records only that the notice was handed.
 - **Busy.** After `prompt`, the daemon holds bundles until `turn_end`. For the owner's
   messages mid-turn, the extension sends `boundary` on a separate, one-shot connection
   at each tool boundary, exactly as a tool hook does, with `harness`, `session` and

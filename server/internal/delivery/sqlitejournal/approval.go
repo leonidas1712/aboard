@@ -62,3 +62,26 @@ func (j *Journal) ApprovalWatches(ctx context.Context, key delivery.SessionKey) 
 	}
 	return watches, rows.Err()
 }
+
+// ApprovalSeatWatches exposes retained origins only for an explicitly bound permanent seat.
+// Invalidated origins are metadata for notices, never endpoint or collection authority.
+func (j *Journal) ApprovalSeatWatches(ctx context.Context, agent delivery.AgentRef) ([]delivery.ApprovalWatch, error) {
+	rows, err := j.db.QueryContext(ctx, `SELECT state FROM approval_watches WHERE server=? AND member_id=? ORDER BY approval_id`, agent.Server, agent.MemberID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []delivery.ApprovalWatch
+	for rows.Next() {
+		var raw string
+		var w delivery.ApprovalWatch
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(raw), &w); err != nil {
+			return nil, err
+		}
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}

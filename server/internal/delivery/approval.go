@@ -71,6 +71,7 @@ func (s *session) watchApproval(ctx context.Context, req Request) Response {
 	if err != nil {
 		return errorResponse("pairing_changed", "The originating seat changed sessions.", "Use aboard approvals show with the requesting seat.")
 	}
+	s.armNotices(ctx)
 	return Response{V: ProtocolVersion}
 }
 
@@ -88,51 +89,13 @@ func (s *session) approvalWatch(ctx context.Context, id string, agent AgentRef) 
 }
 
 func (s *session) approvalNotices(ctx context.Context) string {
-	j, ok := s.d.cfg.Journal.(ApprovalJournal)
-	if !ok || s.d.cfg.ApprovalFor == nil || !s.open {
+	_, text := s.nextNotice(ctx)
+	if text == "" || !s.recheck(ctx) {
 		return ""
 	}
-	rows, err := j.ApprovalWatches(ctx, s.key)
-	if err != nil {
-		return ""
-	}
-	rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	var notices []string
-	for _, w := range rows {
-		a := s.agents[w.Agent.Key()]
-		if w.Notified || a == nil || a.adopting || a.gone() || w.Boot != s.boot {
-			continue
-		}
-		current, err := s.approvalWatch(ctx, w.ID, a.ref)
-		if err != nil || current.Generation != w.Generation {
-			continue
-		}
-		runtime := s.d.cfg.ApprovalFor(w.Agent.Server)
-		if runtime == nil {
-			continue
-		}
-		decision, err := runtime.Get(rctx, w.ID, a.ref)
-		if err != nil || decision.ID != w.ID || decision.AgentID != a.ref.MemberID {
-			continue
-		}
-		switch decision.State {
-		case "executed", "declined", "expired":
-		default:
-			continue
-		}
-		pairingComplete, pairingSelected := s.selectApprovalPairing(ctx, decision, w)
-		command := "aboard approvals show " + shellWord(w.ID) + " --server " + shellWord(w.Agent.Server) + " --board " + shellWord(w.Agent.Board)
-		notices = append(notices, fmt.Sprintf("Aboard approval %s on %s was %s. Run %s to read its outcome.", w.ID, w.Agent.Server, decision.State, command))
-		if pairingSelected {
-			notices = append(notices, "Your invite was approved. Collect its link with the command above.")
-		}
-		w.Notified = decision.PairingRequestID == "" || pairingComplete || decision.State != "executed"
-		if err := j.SaveApprovalWatch(ctx, w); err != nil {
-			s.d.log.Warn("save approval notice", "approval", w.ID)
-		}
-	}
-	return strings.Join(notices, "\n")
+	// A returned Nudge is not evidence that the hook wrote it successfully.
+	_, text = s.nextNotice(ctx)
+	return text
 }
 
 func (s *session) selectApprovalPairing(ctx context.Context, decision ApprovalDecision, w ApprovalWatch) (complete, selected bool) {
