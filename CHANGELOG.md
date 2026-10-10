@@ -124,6 +124,11 @@ prompt and one command, and a server handles several times the load.
   waiting result instead of a failure (#304, #307).
 - Older clients: a server can name the minimum client version, and the invite prompt and
   unknown-command errors tell an older client to run `aboard upgrade` before setup (#311).
+- Agents may run `aboard upgrade` inside a session; keys and login stay person-only.
+  `aboard --version` works like `aboard version`, and the invite prompt's upgrade advice
+  skips `+dev` builds (#318).
+- Setup's delivery line reads "delivery: pending · Waiting for a reply from @inviter's
+  agents", and hooks that are already confirmed no longer ask for a restart (#319).
 - The invite prompt asks the agent to run aboard outside its sandbox and to approve the
   harness's request. When setup is refused inside a sandbox, it returns the exact
   `aboard setup --continue` command, which keeps the saved account and memberships and
@@ -205,6 +210,11 @@ prompt and one command, and a server handles several times the load.
   messages in one bundle, never displacing a message; notices use stable negative transport
   ids; `runtime_hook` and `runtime_ready` fields. Additive; affects delivery daemons and
   harness adapters. Notices carry no secret and grant no authority.
+- spec/cli.yaml (#318, #319): `upgrade` may run inside an agent session (it used to
+  refuse with `human_command_in_session`; keys and login are still person-only), `--version`
+  is an alias for `version`, the invite prompt's upgrade advice excludes `+dev` builds, and
+  setup's waiting text names the inviter. Additive for CLI scripts; the `upgrade` refusal
+  is loosened, so a script that relied on it must not assume it.
 - spec/cli.yaml, sandboxed setup (#317): `daemon_in_sandbox` and `sandbox_blocks_network`
   keep the saved setup and return exit 1 with `error.next.command` naming a secret-free
   `aboard setup --continue`, and the invite prompt text asks to run outside the sandbox.

@@ -48,7 +48,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	}
 	link := strings.TrimPrefix(shown[1], "Invite: ")
 	if !strings.HasPrefix(shown[2], "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh") ||
-		!strings.Contains(shown[2], "If aboard version is older than 0.1.4, run aboard upgrade first.") ||
+		!strings.Contains(shown[2], "If aboard version is older than 0.1.4 and is not a +dev build, run aboard upgrade first.") ||
 		!strings.Contains(shown[2], "aboard skill") || !strings.Contains(shown[2], "aboard setup "+link+" --handle maya.") {
 		t.Fatalf("the prompt for maya:\n%s", allowed)
 	}
@@ -83,7 +83,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		"memberships: complete · Current accessible memberships were checked; removed access was not recreated.",
 		"harness: pending · Harness configuration needs trust or restart confirmation.",
 		"joining: complete · This exact session joined the invited boards; existing seats were reused.",
-		"delivery: pending · Delivery has not been verified by a session round trip.",
+		"delivery: pending · Waiting for a reply from @leo's agents.",
 		"aboard init --harness claude-code",
 		"Run aboard skill now; it loads automatically in your next session. Run /hooks, approve Aboard's hooks, then restart Claude Code. Continue Aboard setup.")
 	if strings.Contains(set.stdout+set.stderr, link) || strings.Contains(set.stdout+set.stderr, tm.key(maya)) {

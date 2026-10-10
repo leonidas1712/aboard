@@ -43,9 +43,6 @@ func runUpgrade(ctx context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
 	}
-	if err := a.refuseInSession("Upgrading aboard", "aboard upgrade"); err != nil {
-		return err
-	}
 	exe := a.hookExe()
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved

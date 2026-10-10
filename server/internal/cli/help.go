@@ -980,7 +980,7 @@ func helpText(templates string) []commandHelp {
 				"then runs the new aboard's init --yes for the harnesses set up for every project, so the skill and hooks match the new build. " +
 				"Every check comes before anything is replaced.\n\n" +
 				"It upgrades an aboard installed by the install script. For one installed with Homebrew or built from source it changes nothing and gives the command to run instead. " +
-				"It is a person's action, so it is refused inside an agent's session. " +
+				"Agents may run it too; upgrading does not grant access to keys or login. " +
 				"Running daemons and the local server switch to the new aboard at the next command.",
 			Flags: []helpFlag{
 				{"--version", "V", "Install this version, such as 0.2.0, instead of the latest."},
@@ -1005,7 +1005,7 @@ func helpText(templates string) []commandHelp {
 			Name: "version", Group: groupMaintain,
 			Summary:     "Print aboard's version",
 			Usage:       []string{"aboard version [--json]"},
-			Description: "Prints the version of this aboard. With --json it also gives the commit it was built from and that commit's time, for a build from a Git checkout.",
+			Description: "Prints the version of this aboard. aboard --version is an alias. With --json it also gives the commit it was built from and that commit's time, for a build from a Git checkout.",
 			Flags:       []helpFlag{flagJSON},
 			Examples:    []helpExample{{"aboard version --json", "The version and commit"}},
 			SeeAlso:     []string{"doctor"},

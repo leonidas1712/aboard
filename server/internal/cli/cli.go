@@ -192,6 +192,8 @@ func Run(ctx context.Context, args []string, env Env) int {
 		return exitUsage
 	}
 	switch args[0] {
+	case "--version":
+		args = append([]string{"version"}, args[1:]...)
 	case "-h", "-help", "--help":
 		args = append([]string{"help"}, args[1:]...)
 	}

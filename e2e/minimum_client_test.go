@@ -22,7 +22,7 @@ func TestInvitationsAdvertiseTheClientNeededForSetup(t *testing.T) {
 	if status != http.StatusOK || preview["min_client_version"] != info["min_client_version"] || preview["prompt"] != invite["prompt"] {
 		t.Fatalf("preview and issued prompt disagree: %d %v", status, preview)
 	}
-	if !strings.Contains(field(t, invite, "prompt").(string), "If aboard version is older than 0.1.4, run aboard upgrade first.") {
+	if !strings.Contains(field(t, invite, "prompt").(string), "If aboard version is older than 0.1.4 and is not a +dev build, run aboard upgrade first.") {
 		t.Fatalf("invitation omitted upgrade guidance: %v", invite["prompt"])
 	}
 }
@@ -51,6 +51,29 @@ func TestUnknownCommandsTellOlderClientsHowToUpgrade(t *testing.T) {
 			if !strings.Contains(hint, "this aboard may be older than the server; run aboard upgrade") || !strings.Contains(hint, "aboard help") {
 				t.Fatalf("unknown command lacks upgrade/help guidance: %s", r)
 			}
+		}
+	}
+}
+
+func TestVersionFlagMatchesVersionCommand(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	for _, suffix := range [][]string{nil, {"--json"}} {
+		want := e.run(append([]string{"version"}, suffix...)...)
+		got := e.runExit(append([]string{"--version"}, suffix...)...)
+		if got.code != 0 || got.stdout != want.stdout {
+			t.Fatalf("version alias differs: %s", got)
+		}
+	}
+}
+
+func TestAgentsCanUpgradeTheirIsolatedInstallation(t *testing.T) {
+	t.Parallel()
+	for _, extra := range [][]string{{"CLAUDECODE=1"}, {"ABOARD_AGENT=claude"}} {
+		u := newUpgradeEnv(t)
+		out := u.exec(extra, "", "upgrade", "--json")
+		if out.code != 0 || field(t, out.json(t), "upgraded") != true {
+			t.Fatalf("agent upgrade refused: %s", out)
 		}
 	}
 }

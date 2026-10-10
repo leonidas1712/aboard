@@ -187,14 +187,6 @@ func TestUpgradeRefusesBeforeChangingAnything(t *testing.T) {
 		downloads bool // whether the refusal comes after downloading
 	}{
 		{
-			name: "inside a harness session", code: "human_command_in_session", hint: "aboard upgrade",
-			setup: func(*upgradeEnv) []string { return []string{"CLAUDECODE=1"} },
-		},
-		{
-			name: "as an agent", code: "human_command_in_session", hint: "aboard upgrade",
-			setup: func(*upgradeEnv) []string { return []string{"ABOARD_AGENT=claude"} },
-		},
-		{
 			name: "a binary from Homebrew", code: "not_installed_by_script", hint: "brew upgrade aboard",
 			setup: func(u *upgradeEnv) []string {
 				u.moveTo(filepath.Join(u.home, "homebrew", "Cellar", "aboard", oldVersion, "bin", "aboard"))

@@ -128,6 +128,8 @@ the board.
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
 | Sandboxed invite setup returns an exact saved continuation and asks for harness approval | in review; text/JSON real-binary recovery passes | D224 |
+| Setup waiting text names the inviter and Codex global hooks without repeating confirmed restart steps | in review; wording regressions failed first | D224 |
+| Agent-operable upgrades, version flag alias and development-build invite guidance | in review; acceptance tests failed first | D224 |
 | Invitations name the minimum CLI version and how to upgrade; unknown commands explain that the installed CLI may be older than the server | in review (#311); unit/e2e and quick pass | D224 |
 | A backup of the database before every migration, keeping the last three, and every pending migration in one transaction | done (#118) | D148, D184, D199 |
 
@@ -458,3 +460,9 @@ Setup defaults and harness next precedence, readable CLI labels, consistent invi
 D224 own-person rename through an active agent and suggested invite-handle edits: building (GEN-56). Invitation edits change display metadata only, never frozen approval authority.
 
 D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prompts and invite-notice handle: in review (#310, GEN-57).
+
+### Developer flow evaluations
+
+| Feature | Status |
+| --- | --- |
+| Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | tool in review (#301, GEN-54); invite-from-scratch flow passed with Haiku and GPT-6-Luna after a greeting-scorer correction; other scenarios remain unproven |
