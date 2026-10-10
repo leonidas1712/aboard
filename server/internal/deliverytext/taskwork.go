@@ -80,7 +80,11 @@ func NoTaskPosts(w TaskWork, board string, contexts ...Context) *Nudge {
 	}
 	command := boardCommand(`aboard task new "…"`, board, contexts)
 	if w.OldestOpen != nil {
-		command = "aboard task start " + w.OldestOpen.Ref + ", or open one: " + command
+		start := "aboard task start " + w.OldestOpen.Ref
+		if contextOf(contexts).Server != "" {
+			start = boardCommand(start, board, contexts)
+		}
+		command = start + ", or open one: " + command
 	}
 	text := fmt.Sprintf("Tip: your last %d messages are about no task. Start one: %s", w.PostsWithoutTask, command)
 	if len(text) > 200 {
@@ -143,6 +147,9 @@ func ReorientTask(w TaskWork, now time.Time, board string, contexts ...Context) 
 	text := fmt.Sprintf("You're on %s (task title: %q; %s).", t.Ref, boundedText(plainLine(t.Title), 120), part)
 	if contextOf(contexts).BoardQualified {
 		text = "Board " + board + ": " + text
+		if issuer := contextOf(contexts).Server; issuer != "" {
+			text = "Server " + plainLine(issuer) + ", " + text
+		}
 	}
 	if t.Stands != nil {
 		minutes := int(max(time.Duration(0), now.Sub(t.Stands.At)) / time.Minute)

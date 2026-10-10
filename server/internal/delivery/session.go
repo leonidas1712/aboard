@@ -744,7 +744,7 @@ func (s *session) bind(ctx context.Context, agent AgentRef) (*AgentRef, error) {
 	}
 	var previous *AgentRef
 	for _, ref := range s.agentRefs() {
-		if ref.Key() != agent.Key() && (!multiSeatEnabled || ref.Board == agent.Board) {
+		if ref.Key() != agent.Key() && (!multiSeatEnabled || ref.Server == agent.Server && ref.Board == agent.Board) {
 			s.unbind(ctx, ref)
 			previous = &ref
 		}
@@ -1938,7 +1938,7 @@ func (s *session) modeNotes() (notes string, told map[AgentRef]Mode) {
 		}
 		if m := s.d.mode(ref); a.told != m {
 			if a.told != "" {
-				lines = append(lines, deliverytext.ModeChanged(ref.Board, string(a.told), string(m)))
+				lines = append(lines, deliverytext.ModeChanged(ref.Board, string(a.told), string(m), s.textContext(ref)))
 			}
 			told[ref] = m
 		}

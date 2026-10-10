@@ -69,6 +69,7 @@ type File struct {
 type Context struct {
 	Now            time.Time
 	Seat           string
+	Server         string
 	BoardQualified bool
 }
 
@@ -80,15 +81,24 @@ func contextOf(contexts []Context) Context {
 }
 
 func seatAttribute(contexts []Context) string {
-	if seat := contextOf(contexts).Seat; seat != "" {
-		return ` seat="` + attrEscaper.Replace(seat) + `"`
+	server := ""
+	if issuer := contextOf(contexts).Server; issuer != "" {
+		server = ` server="` + attrEscaper.Replace(issuer) + `"`
 	}
-	return ""
+
+	if seat := contextOf(contexts).Seat; seat != "" {
+		return ` seat="` + attrEscaper.Replace(seat) + `"` + server
+	}
+	return server
 }
 
 func boardCommand(command, board string, contexts []Context) string {
-	if contextOf(contexts).BoardQualified {
-		return command + " --board " + board
+	c := contextOf(contexts)
+	if c.Server != "" {
+		command += " --server " + shellWord(c.Server)
+	}
+	if c.BoardQualified || c.Server != "" {
+		command += " --board " + shellWord(board)
 	}
 	return command
 }
@@ -118,6 +128,9 @@ func EscapeBody(body string) string {
 // reply instruction when a reply is expected.
 func Format(m Message, contexts ...Context) string {
 	attrs := [][2]string{{"board", m.Board}}
+	if issuer := contextOf(contexts).Server; issuer != "" {
+		attrs = append(attrs, [2]string{"server", issuer})
+	}
 	if seat := contextOf(contexts).Seat; seat != "" {
 		attrs = append(attrs, [2]string{"seat", seat})
 	}
@@ -181,6 +194,9 @@ func Format(m Message, contexts ...Context) string {
 	for _, file := range m.Files {
 		quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
 		fmt.Fprintf(&b, "\nAttached file %q v%d. Read: aboard file get %s --version %d --board %s", file.Name, file.Version, quote(file.ID), file.Version, quote(m.Board))
+		if issuer := contextOf(contexts).Server; issuer != "" {
+			b.WriteString(" --server " + shellWord(issuer))
+		}
 	}
 	if m.Ask == nil && m.Answer == nil && m.ExpectsReply {
 		fmt.Fprintf(&b, "\nReply requested. Reply with: %s --reply %d \"…\"", boardCommand("aboard say", m.Board, contexts), m.Seq)
@@ -442,8 +458,13 @@ func ModeLine(mode string) string {
 
 // ModeChanged tells an agent, at its next turn or delivery, that its delivery mode on
 // board changed, and what the new one means.
-func ModeChanged(board, from, to string) string {
-	return fmt.Sprintf("Aboard: your delivery mode on %s changed from %s to %s. %s", board, from, to, ModeRule(to))
+func ModeChanged(board, from, to string, contexts ...Context) string {
+	label, rule := board, ModeRule(to)
+	if len(contexts) > 0 && contexts[0].Server != "" {
+		label = plainLine(contexts[0].Server) + " / " + board
+		rule = strings.ReplaceAll(rule, "aboard inbox", boardCommand("aboard inbox", board, contexts))
+	}
+	return fmt.Sprintf("Aboard: your delivery mode on %s changed from %s to %s. %s", label, from, to, rule)
 }
 
 // Reopened tells a session that started again with the same session id which agent it
@@ -494,4 +515,11 @@ func messageAge(at, now time.Time) string {
 	default:
 		return fmt.Sprintf("sent %d d ago", int(d/(24*time.Hour)))
 	}
+}
+
+func shellWord(value string) string {
+	if value != "" && !strings.ContainsAny(value, " \t\r\n'\"`$;&|<>*?(){}[]!\\") {
+		return value
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }

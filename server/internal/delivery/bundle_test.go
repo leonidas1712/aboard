@@ -165,3 +165,22 @@ func TestFramesOverTheLimitAreRefused(t *testing.T) {
 		t.Fatalf("a full bundle of \"<\" must fit in a frame: %v", err)
 	}
 }
+
+func TestMultiIssuerDefaultCompositionAndFrozenRenderAgree(t *testing.T) {
+	offers := []offer{
+		{agent: AgentRef{Server: "https://one.example", Board: "docs", Name: "reviewer", MemberID: "mem_same"}, msgs: []Message{msg("docs", 1, false, "first")}},
+		{agent: AgentRef{Server: "https://two.example", Board: "docs", Name: "reviewer", MemberID: "mem_same"}, msgs: []Message{msg("docs", 1, false, "second")}},
+	}
+	c := compose(offers, 32<<10)
+	if len(c.parts) != 2 {
+		t.Fatalf("issuer seats merged: %+v", c.parts)
+	}
+	for _, issuer := range []string{"https://one.example", "https://two.example"} {
+		if !strings.Contains(c.text, `server="`+issuer+`"`) || !strings.Contains(c.text, `seat="reviewer"`) {
+			t.Fatalf("default composition lacks issuer/seat: %s", c.text)
+		}
+	}
+	if frozen := renderComposition(c.parts, false, c.digests, c.renderedAt); frozen != c.text {
+		t.Fatalf("frozen render changed payload:\n%s\n%s", c.text, frozen)
+	}
+}
