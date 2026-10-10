@@ -8727,7 +8727,7 @@ components:
         board: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
         added: { $ref: "#/components/schemas/BoardAdded" }
         join_command: { type: string, description: Shell-quoted join command on the canonical issuer; no secrets. }
-        join_prompt: { type: string, description: Copy into a new or resumed own agent session. Guidance, never authority. }
+        join_prompt: { type: string, description: "Copy into a new or resumed own agent session. Guidance, never authority." }
     InviteArrivalNotice:
       type: object
       additionalProperties: false
