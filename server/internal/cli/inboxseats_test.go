@@ -333,3 +333,51 @@ func TestMultiIssuerInboxQualifiesWrappersAndCopiedCommands(t *testing.T) {
 		}
 	}
 }
+
+func TestExplicitIssuerInboxKeepsIssuerInCopiedReply(t *testing.T) {
+	firstURL, firstOwner := testServer(t)
+	secondURL, secondOwner := testServer(t)
+	first := seatOn(t, firstURL, firstOwner)
+	second := seatOn(t, secondURL, secondOwner)
+	postTo(t, firstURL, firstOwner, first.Board, 1)
+	postTo(t, secondURL, secondOwner, second.Board, 1)
+	a := inboxApp(t)
+	for _, cred := range []agentCredential{first, second} {
+		if err := a.saveCredential(cred); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var output bytes.Buffer
+	a.env.Stdout, a.env.Stderr = &output, io.Discard
+	if code := Run(context.Background(), []string{"inbox", "--server", secondURL, "--as", second.Name, "--board", second.Board, "--peek", "--json"}, a.env); code != 0 {
+		t.Fatalf("inbox failed: %s", output.String())
+	}
+	var inbox struct {
+		Bundle string `json:"bundle"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &inbox); err != nil {
+		t.Fatal(err)
+	}
+	command := "aboard say --server " + secondURL + " --board " + second.Board
+	if !strings.Contains(inbox.Bundle, command) || strings.Contains(inbox.Bundle, firstURL) {
+		t.Fatalf("selected issuer lost in copied reply: %s", inbox.Bundle)
+	}
+	output.Reset()
+	args := append(strings.Fields(strings.TrimPrefix(command, "aboard ")), "--as", second.Name, "--reply", "4", "B-only reply", "--json")
+	if code := Run(context.Background(), args, a.env); code != 0 {
+		t.Fatalf("copied reply failed: %s", output.String())
+	}
+	for _, target := range []struct {
+		url, token, board string
+		replies           int
+	}{{firstURL, firstOwner, first.Board, 0}, {secondURL, secondOwner, second.Board, 1}} {
+		status, messages := do(t, "GET", target.url+"/v1/boards/"+target.board+"/messages", target.token, nil)
+		if status != http.StatusOK {
+			t.Fatalf("read copied reply: %d", status)
+		}
+		raw, _ := json.Marshal(messages)
+		if strings.Count(string(raw), "B-only reply") != target.replies {
+			t.Fatalf("copied reply reached wrong issuer: %s", raw)
+		}
+	}
+}

@@ -337,14 +337,18 @@ func runInbox(ctx context.Context, a *app, args []string) error {
 		}
 	}
 
+	dc := deliverytext.Context{BoardQualified: *boardFlag != ""}
+	if a.agentServerFlag != "" || a.qualifyAgentOutput {
+		dc.Server = t.server.URL
+	}
 	wrapped := make([]string, 0, len(msgs))
 	for _, m := range msgs {
-		wrapped = append(wrapped, deliveryText(m))
+		wrapped = append(wrapped, deliveryText(m, dc))
 	}
 	var bundle *string
 	text := in.Board + " · no new messages\n"
 	if len(msgs) > 0 {
-		b := bundleText(in.Board, msgs)
+		b := bundleText(in.Board, msgs, dc)
 		bundle = &b
 		text = fmt.Sprintf("%s · %d new\n", in.Board, len(msgs)) + strings.Join(wrapped, "\n\n") + "\n"
 	}
