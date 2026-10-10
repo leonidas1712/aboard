@@ -921,3 +921,58 @@ remains compatible. The design and migration are in
 [server-selection.md](explorations/server-selection.md).
 Why: a directory must not silently redirect a command, and one conversation can
 work on several servers without changing identities or sharing credentials.
+
+**D224. Bringing someone aboard is one link, one prompt and one command (approved
+2026-10-10 for 0.1.4, after the maintainer's hand QA; simplifies D222's user-facing
+surface without weakening its authority rules).** What a person or agent sees and
+does:
+
+- **An approved request reaches the agent that asked.** When a person allows an
+  approval, the requesting agent is woken with a nonsecret notice and collects the
+  outcome itself, once, from its own seat (an invite's link and prompt). Nobody relays
+  it. The person who allowed it also sees the link and prompt once, with copy buttons,
+  in the board view or the CLI. The server holds an invite's secret only until it is
+  collected, redeemed, revoked or expired (24 hours at most for an agent's invite),
+  never in the record, and serves the link and the prompt text, so the CLI, the join
+  page and the board view never keep their own copies.
+- **An invite names the person.** `aboard invite --person --handle maya` puts the
+  suggested handle on the invite, the join page ("invited as @maya by @leo") and
+  setup. Before redeeming, the inviter or their agent can change it (`aboard invite
+  edit`), and the invitee can too, on the join page or with `aboard setup --handle`.
+  Afterwards, a person or their own agent renames them (`aboard people rename`, or
+  Rename in the board view); renaming someone else stays an admin's. The record keeps
+  the old handle.
+- **No pairing for people to understand.** An invite that carries boards joins them
+  in the session where the prompt was pasted; setup ends by saying hello on the board
+  and confirming a reply, so delivery is verified both ways without a pairing list,
+  a choice of session or an accept step. D222's pairing request and handshake remain
+  the mechanism underneath and in the API, not a concept in the CLI's everyday output,
+  the docs' main paths or the board view's cards.
+- **`aboard join <board>` is the one command** that puts any session on a board:
+  your own new session ("join qa"), a colleague's, or one in another harness or on
+  another machine of yours (after `aboard connect`). Join lines and pairing requests
+  remain only for handing a board to a session that isn't yours.
+- **Being added to a board reaches the person, not their agents.** `aboard board add
+  @maya` gives her an Inbox item, "leo added you to launch", with a prompt to copy
+  into any session ("run `aboard join launch`") and a choice to join with one of her
+  existing agents. No agent of hers is woken uninvited.
+- **Invites make standing members.** A redeemed invite makes a server member, who can
+  be added to later boards, and whom an admin can promote or remove (D222's
+  person-only rules). `--guest` stays the one-board option.
+- **Agents can read what their person can see** of the people list and the invite
+  list. Changing either stays as D222 says.
+- **No error without a next step.** In the invite, setup, join and approval paths,
+  every refusal either can't happen in a normal flow or carries a single `next` the
+  agent runs or hands over word for word. Hints use the server's name, not its URL.
+
+How we check it: flow evals (`make flow-eval`, GEN-54) run these flows from scratch
+in `make sandbox-team` with small, cheap models, a scripted person doing only what a
+person would (typing the request, Allow, pasting the prompt, `/hooks`, a restart),
+and a fresh machine without aboard installed. A developer agent reads both
+transcripts. An onboarding change is done when the evals pass with no friction the
+transcripts show: errors, retries, guesses or questions a person couldn't answer.
+
+Why: the hand QA of D222 lost the invite link after a browser approval, exposed ids
+and person-only refusals to agents, and asked both people to understand pairing.
+Every authority check, the record and the one-use, secret-never-shown properties stay
+as D222 says; only the steps and words people meet get fewer.
