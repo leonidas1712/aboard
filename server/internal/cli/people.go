@@ -116,6 +116,7 @@ func runPeopleRole(ctx context.Context, a *app, args []string) error {
 	}
 	if a.agentSelected("") {
 		a.boardServerFlag = *serverFlag
+		a.agentServerFlag = *serverFlag
 		return a.requestServerRole(ctx, *serverFlag, handle, role)
 	}
 	srv, _, c, err := a.peopleClient(ctx, *serverFlag, "Changing a person's role on the server", "aboard people role @"+handle+" "+role)

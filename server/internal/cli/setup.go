@@ -89,7 +89,7 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		if err != nil {
 			return err
 		}
-		out.skillInstalled = out.Next != nil && strings.Contains(out.Next.Resume, "Read the aboard skill now")
+		out.skillInstalled = out.Next != nil && strings.Contains(out.Next.Resume, "Run aboard skill now")
 		out.Steps[3].Message = "Harness configuration still needs runtime confirmation."
 		if err := a.continueSetupPairing(ctx, &out, pos[0]); err != nil {
 			return err
@@ -186,7 +186,7 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 	out.Steps[4].Message = "This invite has no accessible pairing request."
 	out.Steps[5].Message = "Delivery has not been verified by a session round trip."
 	out.Next = next
-	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Read the aboard skill now")
+	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Run aboard skill now")
 	if pending.Receipt.PairingRequestId != nil {
 		if err := a.continueSetupPairing(ctx, &out, *pending.Receipt.PairingRequestId); err != nil {
 			return err
@@ -200,9 +200,9 @@ func setupRecoveryNext(srv serverRef) *api.NextStep {
 }
 
 func emitSetup(a *app, out setupOutput) error {
-	if out.skillInstalled && out.Next != nil && !strings.Contains(out.Next.Resume, "Read the aboard skill now") {
+	if out.skillInstalled && out.Next != nil && !strings.Contains(out.Next.Resume, "Run aboard skill now") {
 		next := *out.Next
-		next.Resume = "Read the aboard skill now; it loads automatically in your next session. " + next.Resume
+		next.Resume = "Run aboard skill now; it loads automatically in your next session. " + next.Resume
 		out.Next = &next
 	}
 	var text strings.Builder
@@ -415,7 +415,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if key.Harness == "codex" {
 		trust = "Approve Aboard's project hooks in Codex, then restart Codex."
 	}
-	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: "Read the aboard skill now; it loads automatically in your next session. " + trust + " Continue Aboard setup."}, nil
+	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: "Run aboard skill now; it loads automatically in your next session. " + trust + " Continue Aboard setup."}, nil
 }
 
 func (a *app) setupInstalled(out *setupOutput) (exe string, installed bool, err error) {

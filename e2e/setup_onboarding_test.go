@@ -28,7 +28,7 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	invite := tm.admin.run("invite", "--person", "--server", tm.url(), "--board", name, "--json").json(t)
 	matchesCLISpec(t, "ServerInviteOutput", invite)
 	link := field(t, invite, "link").(string)
-	wantPrompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent."
+	wantPrompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>."
 	if field(t, invite, "prompt") != wantPrompt {
 		t.Fatalf("colleague JSON prompt: %v", invite)
 	}
@@ -37,7 +37,7 @@ func TestSetupBundledInviteKeepsOneAccountAndSavedKey(t *testing.T) {
 	first := session.run("connect", link, "--handle", "newcomer", "--json")
 	out := first.json(t)
 	matchesCLISpec(t, "SetupOutput", out)
-	if !strings.Contains(field(t, out, "next.resume").(string), "Read the aboard skill now") {
+	if !strings.Contains(field(t, out, "next.resume").(string), "Run aboard skill now") {
 		t.Fatalf("pairing next lost current skill instruction: %v", out)
 	}
 	if out["state"] == "complete" {
@@ -232,7 +232,7 @@ func TestSetupWaitsForThePersonsHandleWithoutSpendingInvite(t *testing.T) {
 		t.Fatal("waiting for a name created or attempted an account proof")
 	}
 	resumed := session.run("setup", "--continue", "--handle", "newcomer", "--json").json(t)
-	if !strings.Contains(field(t, resumed, "next.resume").(string), "Read the aboard skill now") {
+	if !strings.Contains(field(t, resumed, "next.resume").(string), "Run aboard skill now") {
 		t.Fatalf("current session was not told to load skill: %v", resumed)
 	}
 	if field(t, resumed, "person.handle") != "newcomer" {

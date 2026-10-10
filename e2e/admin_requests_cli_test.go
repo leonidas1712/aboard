@@ -53,3 +53,29 @@ func TestAgentRoleAndPolicyCommandsHoldExactApproval(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentRoleRequestSelectsExplicitIssuerAcrossSeats(t *testing.T) {
+	t.Parallel()
+	first, second := newTeam(t), newTeam(t)
+	first.person("maya")
+	second.person("maya")
+	first.admin.run("connect", second.invite(), "--handle", "alex2", "--json")
+	second.admin.run("people", "role", "@alex2", "admin", "--json")
+	a := first.newBoard(first.admin, "private")
+	b := second.newBoard(first.admin, "private")
+	session := first.admin.claudeSession("two-issuer-admin")
+	session.run("join", "--board", a, "--server", first.url(), "--name", "helper", "--json")
+	session.run("join", "--board", b, "--server", second.url(), "--name", "helper", "--json")
+	held := session.run("people", "role", "@maya", "admin", "--server", second.url(), "--json").json(t)
+	if field(t, held, "server.url") != second.url() || held["state"] != "pending" {
+		t.Fatalf("wrong issuer: %v", held)
+	}
+	firstApprovals := first.admin.run("approvals", "--server", first.url(), "--json").json(t)
+	if len(firstApprovals["approvals"].([]any)) != 0 {
+		t.Fatalf("foreign issuer got approval: %v", firstApprovals)
+	}
+	secondApprovals := first.admin.run("approvals", "--server", second.url(), "--json").json(t)
+	if field(t, secondApprovals, "approvals.0.id") != field(t, held, "approval.id") {
+		t.Fatalf("selected issuer lost request: %v", secondApprovals)
+	}
+}
