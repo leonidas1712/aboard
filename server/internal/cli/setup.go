@@ -172,7 +172,7 @@ func runSetup(ctx context.Context, a *app, args []string) error {
 		return errReportedFailure
 	}
 	out.Steps[1].State = "complete"
-	out.Steps[1].Message = "The original machine-held key authenticated its onboarding outcome."
+	out.Steps[1].Message = "Your account was created and its saved key was verified."
 	out.Steps[2].State = "complete"
 	out.Steps[2].Message = "Current accessible memberships were checked; removed access was not recreated."
 	if pending.Connected != nil {
@@ -353,18 +353,31 @@ func (a *app) promoteSetup(srv serverRef, pending *setupPending) error {
 	if err != nil {
 		return err
 	}
+	_, existingDefault, err := a.knownServers()
+	if err != nil {
+		return err
+	}
 	var saved serverLogins
 	if err := updateJSONFile(p.servers(), &saved, func() error {
 		if existing, ok := saved.find(srv.URL); ok {
 			if existing.Key != pending.Token || existing.PersonID != pending.Receipt.PersonId {
 				return newError("already_connected", "This issuer already has another saved account.", "Keep both records and ask your person which account to use.")
 			}
-			return nil
+		} else {
+			if err := a.saveServerName(&saved, srv); err != nil {
+				return err
+			}
+			saved.Servers = append(saved.Servers, serverLogin{URL: srv.URL, ServerID: pending.Receipt.ServerId, PersonID: pending.Receipt.PersonId, Handle: pending.Receipt.Handle, KeyID: pending.Receipt.KeyId, KeyName: pending.Name, Key: pending.Token})
 		}
-		if err := a.saveServerName(&saved, srv); err != nil {
-			return err
+		if saved.Default == "" {
+			saved.Default = srv.URL
+			if existingDefault != nil {
+				saved.Default = existingDefault.URL
+			}
+			if saved.Default == a.localServer().URL {
+				saved.Default = localServerName
+			}
 		}
-		saved.Servers = append(saved.Servers, serverLogin{URL: srv.URL, ServerID: pending.Receipt.ServerId, PersonID: pending.Receipt.PersonId, Handle: pending.Receipt.Handle, KeyID: pending.Receipt.KeyId, KeyName: pending.Name, Key: pending.Token})
 		return nil
 	}); err != nil {
 		return err
@@ -425,6 +438,12 @@ func (a *app) setupInstalled(out *setupOutput) (exe string, installed bool, err 
 }
 
 func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id string) error {
+	harnessNext := out.Next
+	defer func() {
+		if out.Steps[3].State != "complete" && harnessNext != nil {
+			out.Next = harnessNext
+		}
+	}()
 	command := "aboard pairing accept " + commandWord(id) + " --here --server " + commandWord(out.Server.URL)
 	out.Next = &api.NextStep{Command: command, Resume: "Accept in the session that should take part, then Continue Aboard setup."}
 	if _, ok := a.sessionKey(); !ok {
@@ -458,8 +477,10 @@ func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id str
 		return newError("internal", "The pairing result did not match the requested issuer and identity.", "Read the original pairing request; do not create a replacement.")
 	}
 	out.PairingRequest = &accepted.Request
-	out.Steps[1].State = "complete"
-	out.Steps[1].Message = "The current account was authorized for this pairing."
+	if out.Steps[1].State != "complete" {
+		out.Steps[1].State = "complete"
+		out.Steps[1].Message = "Your current account is authorized for this pairing."
+	}
 	out.Steps[2].State = "complete"
 	out.Steps[2].Message = "Pairing participation and current board access were checked."
 	out.Steps[4].State = "complete"
