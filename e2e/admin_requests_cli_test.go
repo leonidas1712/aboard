@@ -7,6 +7,26 @@ import (
 	"testing"
 )
 
+func assertHeldBoardPolicy(t *testing.T, e *env, held map[string]any, board string) {
+	t.Helper()
+	matchesCLISpec(t, "HeldAdminOutput", held)
+	current := e.getAsOwner("/v1/boards/" + board)
+	if held["state"] != "pending" || held["board"] != board ||
+		field(t, held, "approval.action.kind") != "set_board_policy" ||
+		field(t, held, "approval.action.board_id") != current["id"] ||
+		field(t, held, "approval.action.policy.preset") != "recommended" {
+		t.Fatalf("policy request lost its exact action: %v", held)
+	}
+	id := field(t, held, "approval.id").(string)
+	want := "aboard approvals allow " + id + " --server 'http://" + e.addr + "'"
+	if field(t, held, "next.command") != want {
+		t.Fatalf("policy approval next = %v, want %q", field(t, held, "next.command"), want)
+	}
+	if field(t, current, "policy.preset") != "starter" {
+		t.Fatalf("held request changed the board policy: %v", current)
+	}
+}
+
 func TestAgentRoleAndPolicyCommandsHoldExactApproval(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)

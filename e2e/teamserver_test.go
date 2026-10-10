@@ -257,7 +257,6 @@ func TestRefusedBoardCommandsKeepTheirFlags(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"board", "policy", "recommended", "--board", "pay", "--server", srv}, "aboard board policy recommended --board pay --server https://team.example.com"},
 		{[]string{"board", "agents-add-people", "off", "--board", "pay", "--server", srv}, "aboard board agents-add-people off --board pay --server https://team.example.com"},
 		{[]string{"board", "remove", "@maya", "--board", "pay", "--server", srv}, "aboard board remove @maya --board pay --server https://team.example.com"},
 		{[]string{"board", "leave", "--board", "pay", "--server", srv}, "aboard board leave --board pay --server https://team.example.com"},
@@ -274,6 +273,11 @@ func TestRefusedBoardCommandsKeepTheirFlags(t *testing.T) {
 			t.Errorf("aboard %v hands over:\n%s\nwant it to end with:\n%s", c.args, hint, c.want)
 		}
 	}
+
+	// Policy changes are exact approval requests, rather than person-command refusals.
+	s.run("pair", "--name", "writer", "--json")
+	held := s.run("board", "policy", "recommended", "--board", "general", "--server", "http://"+e.addr, "--json").json(t)
+	assertHeldBoardPolicy(t, e, held, "general")
 
 	// Outside a session, the command a confirmation asks for keeps --server too.
 	local := "http://" + e.addr

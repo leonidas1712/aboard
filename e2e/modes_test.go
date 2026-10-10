@@ -210,15 +210,17 @@ func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 	writer.run("pair", "writer-reviewer")
 	writer.run("audit", "verify")
 
-	codex := &session{e: e, harness: "codex", id: "019a", vars: []string{"CODEX_THREAD_ID=019a"}}
+	codex := e.codexSession("019a0000-0000-7000-8000-000000000049")
+	codex.run("join", "--board", "writer-reviewer", "--json")
 	for _, s := range []*session{writer, codex} {
+		held := s.run("board", "policy", "recommended", "--board", "writer-reviewer", "--json").json(t)
+		assertHeldBoardPolicy(t, e, held, "writer-reviewer")
 		// The hint is the exact command for the agent to hand to its person, naming the
 		// board explicitly, so the command works from another terminal.
 		for _, c := range []struct {
 			args    []string
 			command string
 		}{
-			{[]string{"board", "policy", "recommended", "--board", "writer-reviewer", "--json"}, "aboard board policy recommended --board writer-reviewer"},
 			{[]string{"watch", "--board", "writer-reviewer", "--json"}, "aboard watch --board writer-reviewer"},
 		} {
 			r := s.runExit(c.args...)
