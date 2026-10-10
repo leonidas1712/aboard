@@ -356,3 +356,8 @@ log (such as issuing an invite), through the caller-scoped approval API. Executi
 records cannot be changed or removed by replay or a later approval decision. They
 contain invite ids, never invitation/key secrets or their verifiers. This is not a
 second board log or a new server hash chain. Current access still governs retrieval.
+
+Administrative authorization adds optional `kind`: `invited`, `added`, or
+`role_changed`, derived from the exact action. It is display provenance, never
+client authority; older records and other action kinds omit it. Existing person
+admission and board-role events also expose this kind as `data.action_kind`.

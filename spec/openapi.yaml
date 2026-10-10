@@ -650,6 +650,39 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /v1/invites/preview:
+    post:
+      tags: [people]
+      operationId: previewServerInvite
+      summary: Preview an invitation without using it
+      security: []
+      description: |
+        The invitation secret is a bearer capability, sent only in the JSON body.
+        Returns the server, current inviter handle, bundled board names and titles,
+        proposed pairing work and expiry. Never redeems the invite, creates an account,
+        or changes any read cursor. Current issuing authority is checked as at redemption.
+        Invalid, used, revoked and expired invitations all return 404 invite_invalid.
+        Attempts share the join rate limit. Responses are not cached.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [invite]
+              properties:
+                invite: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: Invitation preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitePreview" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+
   /v1/invites/{invite}:
     delete:
       tags: [people]
@@ -4110,11 +4143,16 @@ paths:
       operationId: "listApprovals"
       summary: "List administrative approvals"
       description: |
-        Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. No private board or payload is shown after access ends.
+        Person key/browser lists only their requests; an agent lists only requests made by that immutable agent for its current owner. Guest/delegation credentials refuse. Pending first, then created_at/id. Undecided requests expire after 24 hours; expired is a terminal state. Decided requests remain listable for seven days after their decision, then leave this view without deleting their record. No private board or payload is shown after access ends.
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
         Contract-first: this server returns 501 not_implemented until the onboarding slice is provided.
+      parameters:
+        - name: state
+          in: query
+          schema: { type: string, enum: [pending, decided, all], default: all }
+          description: Pending requests, decisions from the last seven days, or both.
       responses:
         "200":
           description: "Success"
@@ -5349,6 +5387,41 @@ components:
             addition to invite authority. Hidden boards return only board_not_found;
             server admin alone grants no access to another private board.
         pairing: { $ref: "#/components/schemas/InvitePairing" }
+    OnboardingBoardDisplay:
+      type: object
+      additionalProperties: false
+      required: [id, name, title]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        title: { type: string }
+    OnboardingDisplay:
+      type: object
+      additionalProperties: false
+      required: [boards]
+      properties:
+        person_handle: { type: string, description: Current inviter or requester handle; never authority. }
+        agent_name: { type: string }
+        agent_harness: { type: string }
+        boards:
+          type: array
+          items: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
+      description: Current display labels for already authorized identities. Only currently visible boards and agents are included; ids still bind every action. Missing labels mean the resource is no longer visible, not a grant to resolve it.
+    InvitePreview:
+      type: object
+      additionalProperties: false
+      required: [server_id, server_url, server_name, inviter_handle, boards, expires_at]
+      properties:
+        server_id: { type: string }
+        server_url: { type: string }
+        server_name: { type: string }
+        inviter_handle: { type: string }
+        boards:
+          type: array
+          items: { $ref: "#/components/schemas/OnboardingBoardDisplay" }
+        work: { type: string }
+        expires_at: { $ref: "#/components/schemas/Timestamp" }
+      description: The invite holder may preview only the invitation's currently valid bundled boards and proposed work. No member list, credential, digest or secret is returned.
     ServerInvites:
       type: object
       additionalProperties: false
@@ -5362,6 +5435,7 @@ components:
       additionalProperties: false
       required: [id, created_at, expires_at, state, boards]
       properties:
+        display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
         expires_at: { $ref: "#/components/schemas/Timestamp" }
@@ -8388,6 +8462,7 @@ components:
       additionalProperties: false
       required: [id, issuing_agent_id, message, created_at, expires_at, state, next]
       properties:
+        display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         issuing_agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         message: { type: string, enum: ["Your agent invited someone"] }
@@ -8550,6 +8625,7 @@ components:
       additionalProperties: false
       required: ["id", "person_id", "agent_id", "parent_key_id", "action", "payload_hash", "state", "created_at"]
       properties:
+        display: { $ref: "#/components/schemas/OnboardingDisplay" }
         execution: { $ref: "#/components/schemas/AdminExecution" }
         id:
           type: "string"
@@ -8645,6 +8721,7 @@ components:
       additionalProperties: false
       required: ["id", "server_id", "board_id", "inviter_id", "initiating_agent_id", "work", "state", "generation", "created_at", "expires_at"]
       properties:
+        display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id:
           type: "string"
           pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$"
@@ -8807,6 +8884,7 @@ components:
       additionalProperties: false
       required: [person_id, agent_id, parent_key_id, via, payload_hash]
       properties:
+        kind: { type: string, enum: [invited, added, role_changed], description: Server-derived kind of the executed action, absent on older records and other action kinds. }
         person_id: { type: string, pattern: "^hum_[0-9A-HJKMNP-TV-Z]{26}$" }
         agent_id: { type: string, pattern: "^mem_[0-9A-HJKMNP-TV-Z]{26}$" }
         parent_key_id: { type: string, pattern: "^key_[0-9A-HJKMNP-TV-Z]{26}$" }
