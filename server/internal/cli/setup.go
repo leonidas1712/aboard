@@ -493,6 +493,9 @@ func (a *app) setupInstalled(out *setupOutput) (exe string, installed bool, err 
 }
 
 func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id string) error {
+	if out.Steps[3].State != "complete" {
+		return nil
+	}
 	harnessNext := out.Next
 	defer func() {
 		if out.Steps[3].State != "complete" && harnessNext != nil {

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -42,7 +41,7 @@ func (a *app) joinSetupBoards(ctx context.Context, out *setupOutput, boards []st
 		}
 	}
 	out.Steps[4].State = "complete"
-	out.Steps[4].Message = fmt.Sprintf("This exact session joined %d invited boards; existing seats were reused.", len(boards))
+	out.Steps[4].Message = "This exact session joined the invited boards; existing seats were reused."
 	return true, nil
 }
 

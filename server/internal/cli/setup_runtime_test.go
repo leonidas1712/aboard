@@ -98,13 +98,15 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 	}
 }
 
-func TestSetupDeliveryEvidenceDoesNotReplaceHarnessConfirmation(t *testing.T) {
+func TestSetupDefersDeliveryEndpointUntilHarnessConfirmation(t *testing.T) {
 	e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
 	e.env["ABOARD_SESSION"] = "claude-code:setup-current"
 	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
+	var accepts atomic.Int32
 	fakeDaemonAnswering(t, a, func(req delivery.Request) delivery.Response {
 		resp := delivery.Response{V: delivery.ProtocolVersion}
 		if req.Op == delivery.OpPairing {
+			accepts.Add(1)
 			resp.Server = "https://issuer.example"
 			resp.PairingBoard = "work"
 			resp.Pairing = &delivery.PairingRequest{
@@ -121,7 +123,14 @@ func TestSetupDeliveryEvidenceDoesNotReplaceHarnessConfirmation(t *testing.T) {
 	if err := a.continueSetupPairing(context.Background(), &out, "prq_original"); err != nil {
 		t.Fatal(err)
 	}
-	if out.Steps[5].State != "complete" || out.Steps[3].State != "pending" || out.State != "pending" || !strings.Contains(out.Next.Resume, "/hooks") {
-		t.Fatalf("a session exchange invented hook trust: %+v", out)
+	if accepts.Load() != 0 || out.Steps[5].State != "pending" || out.Steps[3].State != "pending" || out.State != "pending" || !strings.Contains(out.Next.Resume, "/hooks") {
+		t.Fatalf("setup selected an endpoint before the required restart: accepts=%d result=%+v", accepts.Load(), out)
+	}
+	out.confirmSetupHarness(out.continueCommand)
+	if err := a.continueSetupPairing(context.Background(), &out, "prq_original"); err != nil {
+		t.Fatal(err)
+	}
+	if accepts.Load() != 1 || out.Steps[5].State != "complete" || out.State != "complete" || out.Next != nil {
+		t.Fatalf("confirmed runtime did not check its exact endpoint: accepts=%d result=%+v", accepts.Load(), out)
 	}
 }
