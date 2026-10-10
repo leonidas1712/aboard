@@ -70,7 +70,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"account: pending · Your visible name needs your person's choice; the invite has not been used.",
 		"memberships: pending",
 		"harness: pending",
-		"pairing: pending",
+		"joining: pending",
 		"delivery: pending",
 		"aboard setup --continue --handle maya",
 		"Ask your person what name they'd like teammates to see. Suggested name: maya (availability is checked when you continue). Set --handle to their chosen name, then Continue Aboard setup.")
@@ -79,9 +79,9 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"Setup on "+url+": pending",
 		"installed: complete · Aboard is installed; its owner can update it.",
 		"account: complete · Your account was created and its saved key was verified.",
-		"memberships: complete · Pairing participation and current board access were checked.",
+		"memberships: complete · Current board access and delivery participation were checked.",
 		"harness: pending · Harness configuration needs trust or restart confirmation.",
-		"pairing: complete · This exact session accepted the pairing request.",
+		"joining: complete · This exact session joined the invited boards.",
 		"delivery: pending · Both current sessions' round trips are not yet verified.",
 		"aboard init --harness claude-code",
 		"Run aboard skill now; it loads automatically in your next session. Run /hooks, approve Aboard's hooks, then restart Claude Code. Continue Aboard setup.")
@@ -137,9 +137,9 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"Setup on "+url+": complete",
 		"installed: complete · Aboard is installed; its owner can update it.",
 		"account: complete · Your account was created and its saved key was verified.",
-		"memberships: complete · Pairing participation and current board access were checked.",
-		"harness: complete · The current harness participated in the verified round trip.",
-		"pairing: complete · This exact session accepted the pairing request.",
+		"memberships: complete · Current board access and delivery participation were checked.",
+		"harness: complete · The current session's hooks or extension were confirmed by the delivery daemon. Run aboard skill now; it loads automatically in your next session.",
+		"joining: complete · This exact session joined the invited boards.",
 		"delivery: complete · Both current-generation session round trips were verified.")
 
 	// 5. The agents talk; each labels the other other_agent.
