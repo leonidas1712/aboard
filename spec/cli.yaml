@@ -4265,6 +4265,22 @@ $defs:
       A pasted one-use invite is consent for setup in this session; an existing
       account is never selected by an invite or a handle. Existing-account/new-machine
       login uses D188 and still needs the person's approval. No human-client fallback.
+      D224: an invite carrying boards joins every currently accessible redeemed
+      board in the exact vouched harness session where setup runs. Use immutable
+      board ids from the authenticated onboarding receipt, never names from the
+      prompt. Seats on other boards or issuers remain; repeating setup reuses the
+      same seats. Removed memberships are omitted, never joined again.
+      No visible pairing list, selection or accept command is required. Existing
+      PAIRING_ID input, the six step ids (including pairing), and pairing_request
+      remain compatible for existing clients; everyday text calls the pairing
+      step joining and hides protocol ids. The returned next is a filled-in setup
+      continuation, except a still-pending harness action takes precedence.
+      Joining and a hello in the record are not delivery proof. The delivery step
+      completes only after linked replies both ways between the selected exact
+      endpoints under their current generation. An offline or absent inviting
+      runtime leaves that step pending with an honest next; never choose another
+      session from activity. An invite with no boards performs account/harness
+      setup without inventing a board or a verified exchange.
       --handle is the visible person name; --name names the machine's key.
       Before asking for a new account's missing handle, save the invite in durable
       mode-0600 local state bound to its canonical issuer and invite identity. No

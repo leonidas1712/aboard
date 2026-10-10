@@ -938,6 +938,16 @@ stdout emission, holds local delivery while reading when possible, and never sta
 or replaces a daemon to report. Failed emission records nothing; unseen gaps remain
 unread. An unsupported old daemon leaves the read successful without suppression.
 
+For hidden onboarding verification (D224), a committed `shown` observation may
+also supply exact-session receipt evidence. The trusted runtime assigns its
+nonsecret receipt id and binds it to the canonical issuer, immutable board, seat
+and message ids, seq, exact session, boot and current binding generation. The
+model supplies neither the receipt id nor verification authority. Only a current
+pairing endpoint credential can report a linked reply using that receipt; normal
+read acknowledgment does not erase it. A changed endpoint, boot or generation
+cannot inherit it. Preview text, a cursor and reads outside that exact session
+never provide evidence.
+
 `midturn-peer` on an extension's hello/welcome is a live negotiated capability. The
 same text on a profile alone cannot enable it. New combined peer context is delivered
 only on a connection that negotiated both handoff-v1 and midturn-peer, with additive

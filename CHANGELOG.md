@@ -26,6 +26,18 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Contract changes for paste-session setup (GEN-55)
+
+- Setup joins currently accessible redeemed boards in its vouched session and
+  uses a setup continuation instead of a manual pairing step. Existing six-step
+  JSON, pairing ids and legacy commands remain compatible; normal text hides
+  protocol details. CLI agents and scripts keep the existing output fields.
+- Pairing verification adds optional `receipt_kind: shown` for full messages
+  successfully emitted by a read in the exact selected session. The trusted
+  runtime supplies durable, issuer- and generation-bound receipt evidence;
+  cursors and previews never qualify. This additive API/control/delivery change
+  affects delivery daemons and leaves existing confirmed-handoff reports valid.
+
 ### Added
 
 - Find your own agents with `aboard agents`: last reported machine, harness, folder,

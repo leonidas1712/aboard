@@ -5490,6 +5490,8 @@ components:
     CreateInviteRequest:
       type: object
       additionalProperties: false
+      description: |
+        D224 keeps explicit pairing compatible but does not require it in the normal invite flow. An agent-issued bundled invite may create its hidden delivery-check request on the issuing seat's board when that immutable board is included. Its initiating agent is the authenticated issuing seat, never a seat chosen from recent activity. The check is created in the same authorized transaction and does not change the invite's memberships or authority. Without an eligible inviting endpoint, setup still joins the authorized boards and leaves delivery verification pending rather than guessing a session.
       properties:
         suggested_handle:
           type: string
@@ -8998,7 +9000,11 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: Nonsecret journal handoff confirmed by the selected runtime for this received reply; bound to endpoint credential, generation and message id/seq.
+          description: "Nonsecret durable receipt id for this received reply, bound to endpoint credential, generation and immutable message id/seq. With absent receipt_kind or delivery it names a confirmed journal handoff; with shown it names an exact-session emitted-message observation."
+        receipt_kind:
+          type: string
+          enum: [delivery, shown]
+          description: "Optional evidence source, default delivery. Shown names a committed exact-session observation made only after a full message was successfully emitted by a read command."
         generation:
           type: "integer"
           minimum: 1
@@ -9011,6 +9017,7 @@ components:
           $ref: "#/components/schemas/Seq"
       description: |
         Evidence names actual immutable messages on this board. The server verifies sender, exact direct recipient, reply linkage, per-generation correlation and authenticated reporting endpoint. The trusted runtime vouches for this ping being sent by its exact selected session and this reply having a confirmed delivery handoff there; merely finding both sequences in history is not evidence. Both directions must verify under one current generation; no caller-provided ready flag is accepted.
+        An additive receipt_kind of shown permits an explicit full-message read confirmed through the trusted runtime's shown protocol. The handoff_id then identifies that durable observation, fenced by canonical issuer, immutable board/member/message ids, exact session, boot and binding generation. A read cursor, preview, browser read, failed stdout emission or model-provided success claim is never evidence. Current endpoint credentials and all normal authority checks remain required; acknowledgement cannot erase valid evidence before verification.
     OnboardingReceipt:
       type: "object"
       additionalProperties: false
