@@ -16,6 +16,10 @@ export type DisplayBoard = { id: string; name: string; title: string };
 /** Display is the current labels for ids the person may already see; a missing label means it is no longer visible. */
 export type Display = {
   person_handle?: string;
+  recipient_handle?: string;
+  recipient_agent_name?: string;
+  recipient_agent_harness?: string;
+  key_name?: string;
   agent_name?: string;
   agent_harness?: string;
   requested_on?: DisplayBoard;
@@ -49,6 +53,7 @@ export type Approval = {
   created_at: string;
   expires_at?: string;
   decided_at?: string;
+  decision?: "once" | "always";
   execution?: { at: string; authorization: AdminAuthorization; invite_id?: string };
   next?: NextStep;
   display?: Display;

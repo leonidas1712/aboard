@@ -110,7 +110,7 @@ test("an approval allowed once runs the agent's request and shows its command", 
   await card.getByRole("button", { name: "Allow once" }).click();
   await expect(card.getByRole("status")).toContainText("Allowed once");
   expect((await approval(held.id)).state).toBe("executed");
-  // The invite it made shows as a notice; a browser can't revoke it, so the card gives the command.
+  // The owner can revoke the issued invite from its notice using the browser session.
   const allowance = (await api(ownerToken(), "GET", "/v1/me/allowance")).json;
   expect(allowance.categories).toEqual([]);
   const notices = (await api(ownerToken(), "GET", "/v1/me/invite-notices")).json.notices as Json[];
@@ -119,11 +119,14 @@ test("an approval allowed once runs the agent's request and shows its command", 
   const notice = page.locator(`[data-notice="${notices[0].id}"]`);
   await expect(notice.getByRole("heading", { name: /Your agent .*writer invited someone/ })).toBeVisible();
   await expect(notice).toContainText("Open");
+  const revoked = page.waitForResponse((r) => r.request().method() === "DELETE" && r.url().endsWith(`/v1/invites/${notices[0].id}`));
   await notice.getByRole("button", { name: "Revoke the invite" }).click();
-  await expect(notice.locator(".ob-command").first()).toContainText(`aboard invite revoke '${notices[0].id}'`);
-  // Revoked from the person's own key, the notice says so.
-  await api(ownerToken(), "DELETE", `/v1/invites/${notices[0].id}`);
-  await inbox(page, notices[0].id);
+  const response = await revoked;
+  expect(response.status()).toBe(200);
+  const headers = await response.request().allHeaders();
+  expect(headers["x-aboard-csrf"]).toBeTruthy();
+  expect(headers.origin).toBe(base());
+  expect(((await api(ownerToken(), "GET", "/v1/me/invite-notices")).json.notices as Json[])[0].state).toBe("revoked");
   await expect(page.locator(`[data-notice="${notices[0].id}"]`).getByRole("status")).toContainText("Revoked");
 });
 

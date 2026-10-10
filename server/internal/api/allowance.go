@@ -77,7 +77,16 @@ func (h *handlers) approvalOf(ctx context.Context, a board.Approval) map[string]
 	if a.Action.Invite != nil {
 		boards = append(boards, a.Action.Invite.Boards...)
 	}
-	out["display"] = h.onboardingDisplay(ctx, a.PersonID, a.AgentID, boards)
+	display := h.onboardingDisplay(ctx, a.PersonID, a.AgentID, boards)
+	if a.Action.Kind == "revoke_key" {
+		if name, err := h.svc.ApprovalKeyName(ctx, principal(ctx), a.ID); err == nil && name != "" {
+			display["key_name"] = name
+		}
+	}
+	out["display"] = display
+	if a.Execution != nil && a.Execution.Decision != "" {
+		out["decision"] = a.Execution.Decision
+	}
 	if a.ExpiresAt != nil {
 		out["expires_at"] = a.ExpiresAt
 	}
