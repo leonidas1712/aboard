@@ -580,8 +580,8 @@ $defs:
       (scripts/install.sh) does, then refreshes the skill and hooks with the new binary.
       In order, with every refusal and check before anything is written:
 
-      1. Refuses inside a harness session or with ABOARD_AGENT set, with
-         human_command_in_session: upgrading is a person's action.
+      1. May run inside a harness session or with ABOARD_AGENT set. It changes the
+         installed programs and recorded harness setup, never keys or login authority.
       2. Refuses with not_installed_by_script when the binary wasn't installed from a
          release: under Homebrew (hint: brew upgrade aboard), in Go's bin folder ($GOBIN,
          $GOPATH/bin or ~/go/bin) or a dev build (hint: in the checkout, git pull, then
@@ -639,7 +639,8 @@ $defs:
   # ---------- aboard version ----------
   VersionOutput:
     description: |
-      This binary's build. Commands compare builds to replace an older delivery daemon
+      This binary's build. `aboard --version` is an alias, including --json.
+      Commands compare builds to replace an older delivery daemon
       or local server (spec/delivery.md, Upgrades). commit and commit_time are present
       when the binary was built from a Git checkout. Text output: "aboard 0.1.0".
     type: object
@@ -992,7 +993,7 @@ $defs:
       ordinary invites are unchanged.
       Invites include prompt, identical to the invite page, ready to paste into the colleague's agent:
       "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard
-      version is older than 0.1.4, run aboard upgrade first. Run aboard skill, then
+      version is older than 0.1.4 and is not a +dev build, run aboard upgrade first. Run aboard skill, then
       run aboard setup <link> --handle <name you'd like teammates to see>."
       The server prompt adds: "Run Aboard outside your agent's sandbox; approve it when your harness asks."
       Setup handles the hello and reply; the prompt contains no separate verification step.
