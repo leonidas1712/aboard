@@ -49,7 +49,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	link := field(t, approved, "invite.link").(string)
 	request := field(t, approved, "invite.pairing_request_id").(string)
 	if field(t, approved, "approval.state") != "executed" || !strings.HasPrefix(link, url+"/join#abi_") || request == "" ||
-		field(t, approved, "invite.prompt") != "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent." {
+		field(t, approved, "invite.prompt") != "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than 0.1.4, run aboard upgrade first. Run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent." {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
 	if r := ls.run("pairing", "select", request, "--here"); !strings.HasPrefix(r.stdout, request+" · board pairing-test · awaiting_account") {

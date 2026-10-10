@@ -1,0 +1,20 @@
+package api
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestInvitationPromptTellsOlderClientsToUpgradeBeforeSetup(t *testing.T) {
+	t.Parallel()
+	for _, pairing := range []bool{false, true} {
+		prompt := invitationPrompt("https://team.example/join#invite", "maya", pairing)
+		upgrade := "If aboard version is older than 0.1.4, run aboard upgrade first."
+		if !strings.Contains(prompt, upgrade) || strings.Index(prompt, upgrade) > strings.Index(prompt, "run aboard setup") {
+			t.Fatalf("upgrade must precede setup: %s", prompt)
+		}
+		if !strings.Contains(prompt, "--handle maya.") || strings.Contains(prompt, "Verify you can exchange messages") != pairing {
+			t.Fatalf("prompt lost its recipient or delivery instruction: %s", prompt)
+		}
+	}
+}
