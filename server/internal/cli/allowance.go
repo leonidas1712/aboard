@@ -282,7 +282,7 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 func (a *app) watchRequestedApproval(ctx context.Context, srv serverRef, approval api.Approval) error {
 	key, ok := a.sessionKey()
 	if !ok {
-		return nil
+		return newError("agent_session_required", "There is no originating session for an approval notice.", "Check this approval using its exact requesting seat.")
 	}
 	creds, err := a.readCredentials()
 	if err != nil {

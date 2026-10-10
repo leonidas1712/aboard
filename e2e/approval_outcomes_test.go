@@ -14,12 +14,19 @@ func TestRequestingAgentCollectsBrowserApprovedInviteOnce(t *testing.T) {
 	board := tm.newBoard(tm.admin, "private")
 	requester := tm.admin.claudeSession("approved-invite-requester")
 	requester.run("join", "--board", board, "--server", tm.url(), "--json")
-	held := requester.run("invite", "--person", "--board", board, "--server", tm.url(), "--json").json(t)
+	held := requester.run("invite", "--person", "--board", board, "--server", tm.url(), "--pairing", "Review the proposed change", "--json").json(t)
 	id := field(t, held, "approval.id").(string)
+	if strings.Contains(field(t, held, "next.resume").(string), "pairing select") {
+		t.Fatal("a held invite asked its agent to select an endpoint manually")
+	}
 	page := mustSignIn(t, tm.url(), map[string]string{"key": tm.key(tm.admin)})
 	status, approved := page.do(http.MethodPost, "/v1/me/approvals/"+id+"/allow", map[string]any{})
 	if status != http.StatusOK || field(t, approved, "approval.state") != "executed" {
 		t.Fatalf("browser approval: %d %v", status, approved)
+	}
+	notice := requester.hook("prompt", `"prompt":"Continue the current task"`)
+	if notice.code != 0 || !strings.Contains(notice.stdout, "aboard approvals show") || !strings.Contains(notice.stdout, id) || !strings.Contains(notice.stdout, board) || strings.Contains(notice.stdout, "abi_") {
+		t.Fatalf("next-turn notice omitted collection or exposed a secret: %s", notice)
 	}
 	// The approving browser's secret is deliberately not handed to the requester.
 	metadata := tm.admin.run("approvals", "show", id, "--server", tm.url(), "--json").json(t)
@@ -33,6 +40,11 @@ func TestRequestingAgentCollectsBrowserApprovedInviteOnce(t *testing.T) {
 		t.Fatalf("requester could not collect its approved outcome: %v", collected)
 	}
 	secret := field(t, collected, "invite.invite").(string)
+	pairingID := field(t, collected, "pairing_request_id").(string)
+	status, pairing := tm.call(http.MethodGet, "/v1/pairing-requests/"+pairingID, tm.key(tm.admin), nil)
+	if status != http.StatusOK || pairing["initiator"] == nil {
+		t.Fatalf("the original requesting session was not selected: %d %v", status, pairing)
+	}
 	link := tm.url() + "/join#" + secret
 	if prompt, ok := collected["prompt"].(string); !ok || !strings.Contains(prompt, link) {
 		t.Fatalf("collected outcome lost its colleague prompt: %v", collected)
@@ -42,7 +54,11 @@ func TestRequestingAgentCollectsBrowserApprovedInviteOnce(t *testing.T) {
 		t.Fatalf("repeat exposed or reissued the invite: %s", repeat)
 	}
 	colleague := newPersonHome(t, "colleague")
-	colleague.run("connect", link, "--handle", "maya", "--json")
+	newcomer := colleague.claudeSession("approved-invite-colleague")
+	setup := newcomer.run("setup", link, "--handle", "maya", "--json").json(t)
+	if field(t, setup, "steps.1.state") != "complete" || field(t, setup, "steps.2.state") != "complete" {
+		t.Fatalf("colleague setup did not preserve its account and membership: %v", setup)
+	}
 	status, people := tm.call(http.MethodGet, "/v1/boards/"+board+"/people", tm.key(colleague), nil)
 	if status != http.StatusOK || len(people["people"].([]any)) != 2 {
 		t.Fatalf("collected invite did not admit its colleague: %d %v", status, people)
