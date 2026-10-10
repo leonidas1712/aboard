@@ -83,7 +83,7 @@ func idempotent(o Options, next http.Handler) http.Handler {
 			// transaction; invite secrets must never enter this response cache.
 			r.URL.Path == "/v1/me/admin-requests" ||
 			(r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/me/approvals/") &&
-				(strings.HasSuffix(r.URL.Path, "/allow") || strings.HasSuffix(r.URL.Path, "/decline"))) ||
+				(strings.HasSuffix(r.URL.Path, "/allow") || strings.HasSuffix(r.URL.Path, "/decline") || strings.HasSuffix(r.URL.Path, "/collect"))) ||
 			// A delegated join's answer holds a token and is never kept: a repeat is a new
 			// call, which the server answers by finding the same seat.
 			(r.URL.Path == "/v1/join" && principal(r.Context()).Delegation != nil)

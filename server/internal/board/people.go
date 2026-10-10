@@ -501,6 +501,13 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 		if inv.ID, err = s.gen.ID("inv", now); err != nil {
 			return err
 		}
+		if inv.Authorization != nil && inv.Authorization.Via == "approval" {
+			secret = s.approvedInviteSecret(inv.Authorization.ApprovalID, inv.ID)
+			inv.Digest = ids.Digest(s.key, secret)
+			if err := tx.InsertApprovalOutcome(ApprovalOutcomeRecord{ApprovalID: inv.Authorization.ApprovalID, InviteID: inv.ID, Version: 1}); err != nil {
+				return err
+			}
+		}
 		if err := tx.InsertServerInvite(inv); err != nil {
 			return fmt.Errorf("insert server invite: %w", err)
 		}
