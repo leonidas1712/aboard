@@ -96,3 +96,22 @@ func (r *shownRead) report(ctx context.Context, msgs []api.Message) {
 	var resp delivery.Response
 	_ = delivery.ReadFrame(bufio.NewReader(conn), &resp)
 }
+
+// inboxShown keeps the existing hold through stdout; old servers without board ids
+// keep their read behavior but cannot supply exact-message pairing evidence.
+func (a *app) inboxShown(ref delivery.AgentRef, in *api.Inbox, hold *inboxRead) *shownRead {
+	key, ok := a.sessionKey()
+	if !ok || in.BoardId == nil || *in.BoardId == "" || hold.boot == "" || hold.generation == 0 || hold.conn == nil {
+		return nil
+	}
+	if _, sub := a.registry().Subagent(a.henv()); sub {
+		return nil
+	}
+	if boot := a.env.Getenv("ABOARD_BOOT"); boot != "" && boot != hold.boot {
+		return nil
+	}
+	if in.MemberId == nil || *in.MemberId != ref.MemberID {
+		return nil
+	}
+	return &shownRead{app: a, boardID: *in.BoardId, hold: hold, request: delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpShown, Harness: key.Harness, Session: key.ID, Boot: hold.boot, Agent: &ref, Generation: hold.generation}}
+}

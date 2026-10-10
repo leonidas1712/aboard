@@ -23,9 +23,9 @@ func (failedReadOutput) Write([]byte) (int, error) { return 0, io.ErrClosedPipe 
 
 func TestReadReportsOnlySuccessfullyEmittedOwnSessionMessages(t *testing.T) {
 	for _, tc := range []struct {
-		name                 string
-		json, markdown, fail bool
-	}{{name: "text"}, {name: "json", json: true}, {name: "markdown", markdown: true}, {name: "failed-output", fail: true}} {
+		name                               string
+		json, markdown, fail, inbox, multi bool
+	}{{name: "text"}, {name: "json", json: true}, {name: "markdown", markdown: true}, {name: "failed-output", fail: true}, {name: "inbox-text", inbox: true}, {name: "inbox-json", inbox: true, json: true}, {name: "inbox-failed-output", inbox: true, fail: true}, {name: "multi-inbox-text", inbox: true, multi: true}, {name: "multi-inbox-json", inbox: true, multi: true, json: true}, {name: "multi-inbox-failed-output", inbox: true, multi: true, fail: true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			issuer, owner := testServer(t)
 			a := inboxApp(t)
@@ -108,11 +108,43 @@ func TestReadReportsOnlySuccessfullyEmittedOwnSessionMessages(t *testing.T) {
 			if status != 201 {
 				t.Fatal(status, msg)
 			}
+			firstID, ok := msg["id"].(string)
+			if !ok {
+				t.Fatal(msg)
+			}
+			expected := map[string]string{firstID: issuer}
+			if tc.multi {
+				secondIssuer, secondOwner := testServer(t)
+				second := seatOn(t, secondIssuer, secondOwner)
+				if err := a.saveCredential(second); err != nil {
+					t.Fatal(err)
+				}
+				original := ref
+				ref = delivery.AgentRef{Server: secondIssuer, Board: second.Board, Name: second.Name, MemberID: second.MemberID}
+				call(delivery.OpBind)
+				ref = original
+				status, message := do(t, "POST", secondIssuer+"/v1/boards/"+second.Board+"/messages", secondOwner, map[string]any{"to": []string{"@" + second.Name}, "body": "second issuer exact record"})
+				if status != 201 {
+					t.Fatal(status, message)
+				}
+				secondID, ok := message["id"].(string)
+				if !ok {
+					t.Fatal(message)
+				}
+				expected[secondID] = secondIssuer
+			}
 			args := []string{"--board", cred.Board, "--as", cred.Name}
+			if tc.multi {
+				args = nil
+			}
 			if tc.markdown {
 				args = append(args, "--markdown")
 			}
-			err = runRead(t.Context(), a, args)
+			if tc.inbox {
+				err = runInbox(t.Context(), a, args)
+			} else {
+				err = runRead(t.Context(), a, args)
+			}
 			if tc.fail && err == nil {
 				t.Fatal("failed stdout was ignored")
 			}
@@ -127,11 +159,18 @@ func TestReadReportsOnlySuccessfullyEmittedOwnSessionMessages(t *testing.T) {
 				if len(observed) != 0 {
 					t.Fatal("failed output recorded shown messages")
 				}
-			} else if len(observed) != 1 || observed[0].Message.MessageID != msg["id"] {
-				t.Fatalf("shown observations: %+v", observed)
+			} else {
+				if len(observed) != len(expected) {
+					t.Fatalf("shown observations:%+v", observed)
+				}
+				for _, row := range observed {
+					if expected[row.Message.MessageID] != row.Agent.Server {
+						t.Fatalf("wrong issuer observation:%+v", row)
+					}
+				}
 			}
 			_, in := do(t, "GET", issuer+"/v1/me/inbox", cred.Token, nil)
-			if in["cursor"] != before["cursor"] {
+			if !tc.inbox && in["cursor"] != before["cursor"] {
 				t.Fatalf("read moved cursor: %v", in)
 			}
 		})
