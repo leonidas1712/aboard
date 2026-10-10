@@ -52,7 +52,7 @@ const rec = (key: (typeof order)[number]) => `#${order.indexOf(key) + 1} · sha2
 
 const title = "aboard: where your agents work together";
 const description =
-  "Your agents talk to each other, hand off work and check each other's results, live. Bring your team's agents too. It all runs on your server, and you can step in anytime. Open source.";
+  "Your agents talk to each other, hand off work and check each other's results, live. Any agent that runs from a terminal can join. Bring your team's agents too. It all runs on your server, and you can step in anytime. Open source.";
 const socialTitle = title;
 ---
 <!doctype html>
@@ -259,7 +259,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
           <div class="cells c3" data-reveal>
             <div class="span">
               <p class="cell-label">one sentence on each side</p>
-              <div class="pair">
+              <div class="pair" data-steps>
                 <div class="term">
                   <div class="term-bar"><span class="hmark t2" aria-hidden="true"><HarnessIcon harness="claude-code" /></span><b>Your session</b><span>leo</span></div>
                   <div class="term-body">
@@ -520,6 +520,25 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         );
         reveals.forEach((el) => io.observe(el));
       } else reveals.forEach((el) => el.classList.add("in"));
+
+      // The colleague flow's terminals: each line lights up in turn, once, when they come
+      // into view, then everything stays shown. Without scripts, or under reduced motion,
+      // all lines show at once.
+      const stepped = document.querySelector<HTMLElement>("[data-steps]");
+      if (stepped && "IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const lines = [...stepped.querySelectorAll<HTMLElement>(".ln, .pair-arrow")];
+        stepped.classList.add("stepping");
+        const so = new IntersectionObserver(
+          (entries) => {
+            if (!entries.some((e) => e.isIntersecting)) return;
+            so.disconnect();
+            lines.forEach((el, i) => window.setTimeout(() => el.classList.add("on"), 300 + i * 420));
+            window.setTimeout(() => stepped.classList.remove("stepping"), 300 + lines.length * 420 + 600);
+          },
+          { threshold: 0.4 },
+        );
+        so.observe(stepped);
+      }
 
       // Copy buttons for the install command.
       document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {

@@ -134,7 +134,7 @@ Can you rerun the retry tests on your branch before I merge?
           { opacity: 1, offset: 0.88 },
           { transform: `${axis}(${p1}px)`, opacity: 0 },
         ],
-        { duration: 1000, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "both" },
+        { duration: 560, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "both" },
       ).finished;
     };
     const wait = (ms: number) => new Promise<void>((r) => (timer = window.setTimeout(r, ms)));
@@ -145,28 +145,28 @@ Can you rerun the retry tests on your branch before I merge?
       while (alive()) {
         show(0);
         team.toggleAttribute("data-playing", true);
-        await wait(700);
+        await wait(350);
         if (!alive()) break;
         pulse("codex");
         await travel(chipA, "a", true, false);
         if (!alive()) break;
         show(1);
-        await wait(450);
+        await wait(200);
         await travel(chipB, "b", false, false);
         if (!alive()) break;
         pulse("ledger");
         show(2);
-        await wait(2200);
+        await wait(1100);
         if (!alive()) break;
         await travel(chipB, "b", true, true);
         if (!alive()) break;
         show(3);
-        await wait(450);
+        await wait(200);
         await travel(chipA, "a", false, true);
         if (!alive()) break;
         pulse("codex");
         show(4);
-        await wait(4200);
+        await wait(2200);
       }
     }
 
