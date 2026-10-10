@@ -125,7 +125,7 @@ func (s *session) approvalNotices(ctx context.Context) string {
 		command := "aboard approvals show " + shellWord(w.ID) + " --server " + shellWord(w.Agent.Server) + " --board " + shellWord(w.Agent.Board)
 		notices = append(notices, fmt.Sprintf("Aboard approval %s on %s was %s. Run %s to read its outcome.", w.ID, w.Agent.Server, decision.State, command))
 		if pairingSelected {
-			notices = append(notices, "The requesting session is selected as the initiating pairing endpoint; ready still requires the delivery check.")
+			notices = append(notices, "Your invite was approved. Collect its link with the command above.")
 		}
 		w.Notified = decision.PairingRequestID == "" || pairingComplete || decision.State != "executed"
 		if err := j.SaveApprovalWatch(ctx, w); err != nil {

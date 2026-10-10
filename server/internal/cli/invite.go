@@ -292,13 +292,16 @@ func runBundledServerInvite(ctx context.Context, a *app, serverFlag string, ttl 
 	if started {
 		text = "Started local Aboard at " + srv.URL + "\n"
 	}
+	recipient := srv.Name
+	if r.JSON201.SuggestedHandle != nil {
+		recipient = "@" + *r.JSON201.SuggestedHandle + " on " + srv.Name
+	}
 	text += fmt.Sprintf("Invite for %s: one person, as a member, once, within %s. On their machine, run:\n  aboard connect %s\n",
-		srv.URL, durationText(time.Until(r.JSON201.ExpiresAt)), link)
+		recipient, durationText(time.Until(r.JSON201.ExpiresAt)), link)
 	text += "\n" + prompt + "\n"
 	out := map[string]any{"server": srv, "link": link, "expires_at": r.JSON201.ExpiresAt, "prompt": prompt}
 	if r.JSON201.SuggestedHandle != nil {
 		out["suggested_handle"] = *r.JSON201.SuggestedHandle
-		text = "Invite for @" + *r.JSON201.SuggestedHandle + "\n" + text
 	}
 	if r.JSON201.Boards != nil {
 		out["boards"] = r.JSON201.Boards
@@ -336,18 +339,15 @@ func (a *app) selectInvitedPairing(ctx context.Context, srv serverRef, result *a
 }
 
 func invitedPairingNext(srv serverRef) *api.NextStep {
-	return &api.NextStep{Command: "aboard doctor --server " + commandWord(srv.URL), Resume: "The invite was issued, but this original session's delivery check is pending. Restore this session's connection; do not create another invite or claim that messages got through."}
+	return &api.NextStep{Command: "aboard doctor --server " + commandWord(srv.Name), Resume: "The invite was issued, but this original session's delivery check is pending. Restore this session's connection; do not create another invite or claim that messages got through."}
 }
 
-func serverInvitePrompt(link string, pairing bool, suggested ...string) string {
+func serverInvitePrompt(link string, _ bool, suggested ...string) string {
 	handle := "<name you'd like teammates to see>"
 	if len(suggested) > 0 && suggested[0] != "" {
 		handle = suggested[0]
 	}
 	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle " + handle + "."
-	if pairing {
-		prompt += " Verify you can exchange messages with the inviting agent."
-	}
 	return prompt
 }
 

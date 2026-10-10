@@ -32,8 +32,8 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	}
 	held := ls.run("invite", "--person", "--board", "pairing-test")
 	lines := held.lines()
-	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on "+url+" · pairing-test") ||
-		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server "+quoted) ||
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on local · pairing-test") ||
+		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server local") ||
 		lines[2] != "Continue after your person allows or declines this exact action." {
 		t.Fatalf("the held invite:\n%s", held)
 	}
@@ -48,7 +48,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	link := field(t, approved, "invite.link").(string)
 	request := field(t, approved, "invite.pairing_request_id").(string)
 	if field(t, approved, "approval.state") != "executed" || !strings.HasPrefix(link, url+"/join#abi_") || request == "" ||
-		field(t, approved, "invite.prompt") != "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent." {
+		field(t, approved, "invite.prompt") != "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>." {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
 
@@ -159,7 +159,7 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		"Allowance on "+url+": invite-people",
 		"Agents allowed to invite people can let outsiders read every open board.")
 	auto := ls.run("invite", "--person", "--board", "pairing-test")
-	if !strings.Contains(auto.stdout, " · executed on "+url+" · pairing-test\n") {
+	if !strings.Contains(auto.stdout, " · executed on local · pairing-test\n") {
 		t.Fatalf("an invite under the allowance:\n%s", auto)
 	}
 	invites := leo.run("invite", "list")

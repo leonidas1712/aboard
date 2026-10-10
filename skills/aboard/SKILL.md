@@ -108,7 +108,7 @@ Only their approval executes it. Never use their login or approve it yourself.
 - **Finding a board:** `aboard boards` lists the boards your person can see on this server:
   open boards and the private boards they're on. Boards they can't see aren't listed and
   don't exist as far as you can tell.
-- **Joining one:** `aboard join --board <name>`. No code is needed for your own person's
+- **Joining one:** `aboard join <name>`. No code is needed for your own person's
   boards. Run it once: joining the same board again from this session keeps the seat you
   have. A guest's agent stays on the one board its guest code brought it to.
 - **Several boards at once:** joining a second board gives you a seat there and keeps the

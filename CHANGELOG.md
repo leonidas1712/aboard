@@ -26,6 +26,16 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### CLI onboarding polish (GEN-60)
+
+- `aboard join BOARD` uses the existing name-based join path; join codes retain
+  their meaning. This is additive for CLI users and scripts.
+- Invite and approval output uses known server labels, one recipient line and a
+  plain invite link. Setup prints its skill instruction once. A repeat collection
+  names the exact revoke and new-invite commands without returning the secret.
+- Invite prompts and approval notices leave delivery checking to setup's hello
+  and reply. Internal compatibility metadata remains unchanged.
+
 ### Contract changes for paste-session setup (GEN-55)
 
 - Setup joins currently accessible redeemed boards in its vouched session and

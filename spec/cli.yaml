@@ -964,7 +964,8 @@ $defs:
       active board or returns board selection choices, as other board commands do.
       The unreleased bundled person spelling changes to --person --board (D223).
       --handle NAME suggests the recipient’s handle without reserving it. Setup
-      defaults to it, while an explicit setup --handle wins. Text uses @NAME when set.
+      defaults to it, while an explicit setup --handle wins. Text uses one Invite for @NAME on SERVER line when set, and uses the local server label.
+      The colleague prompt ends with the setup command; setup itself checks hello and reply.
       Lifetime is --ttl (1m to 720h): person default 168h, agent default 24h.
       Agents use their issuer-bound seat and D222 allowance/approval checks, never
       the person's login. No selected seat returns agent_session_required with a

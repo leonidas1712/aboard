@@ -37,7 +37,7 @@ func TestASessionJoinsABoardByName(t *testing.T) {
 	board := tm.newBoard(tm.admin, "open")
 	s := maya.claudeSession("s-join-board")
 
-	out := s.run("join", "--board", board, "--json").json(t)
+	out := s.run("join", board, "--json").json(t)
 	matchesCLISpec(t, "JoinOutput", out)
 	agentID, _ := field(t, out, "agent.id").(string)
 	if out["via"] != "delegation" || out["reused"] != false || field(t, out, "agent.owner") != "maya" ||
@@ -111,7 +111,7 @@ func TestJoinByNameInATerminalAddsThePerson(t *testing.T) {
 	tm := newTeam(t)
 	maya := tm.person("maya")
 	board := tm.newBoard(tm.admin, "open")
-	out := maya.run("join", "--board", board, "--json").json(t)
+	out := maya.run("join", board, "--json").json(t)
 	matchesCLISpec(t, "JoinPersonOutput", out)
 	if out["added"] != true || field(t, out, "person.handle") != "maya" || out["board"] != board {
 		t.Fatalf("join --board in a terminal: %v", out)

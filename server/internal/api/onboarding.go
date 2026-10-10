@@ -42,13 +42,10 @@ func (h *handlers) serverInviteOf(inv board.NewServerInvite) map[string]any {
 	return out
 }
 
-func invitationPrompt(link, handle string, pairing bool) string {
+func invitationPrompt(link, handle string, _ bool) string {
 	if handle == "" {
 		handle = "<name you'd like teammates to see>"
 	}
 	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle " + handle + "."
-	if pairing {
-		prompt += " Verify you can exchange messages with the inviting agent."
-	}
 	return prompt
 }

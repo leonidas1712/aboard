@@ -25,7 +25,7 @@ func TestRequestingAgentCollectsBrowserApprovedInviteOnce(t *testing.T) {
 		t.Fatalf("browser approval: %d %v", status, approved)
 	}
 	notice := requester.hook("prompt", `"prompt":"Continue the current task"`)
-	if notice.code != 0 || !strings.Contains(notice.stdout, "aboard approvals show") || !strings.Contains(notice.stdout, id) || !strings.Contains(notice.stdout, board) || strings.Contains(notice.stdout, "abi_") {
+	if notice.code != 0 || !strings.Contains(notice.stdout, "aboard approvals show") || !strings.Contains(notice.stdout, id) || !strings.Contains(notice.stdout, board) || strings.Contains(notice.stdout, "abi_") || strings.Contains(notice.stdout, "pairing endpoint") {
 		t.Fatalf("next-turn notice omitted collection or exposed a secret: %s", notice)
 	}
 	// The approving browser's secret is deliberately not handed to the requester.
@@ -55,6 +55,12 @@ func TestRequestingAgentCollectsBrowserApprovedInviteOnce(t *testing.T) {
 	repeat := requester.run("approvals", "show", id, "--board", board, "--server", tm.url(), "--json")
 	if out := repeat.json(t); out["collected"] != false || out["invite"] != nil || strings.Contains(repeat.stdout, secret) {
 		t.Fatalf("repeat exposed or reissued the invite: %s", repeat)
+	}
+	if out := repeat.json(t); out["next"] == nil || !strings.Contains(field(t, out, "next.command").(string), "aboard invite revoke ") || !strings.Contains(field(t, out, "next.resume").(string), "Already collected") {
+		t.Fatalf("repeat has no recovery command: %s", repeat)
+	}
+	if strings.Contains(collected["prompt"].(string), "Verify you can exchange") {
+		t.Fatal("invite prompt repeats setup verification")
 	}
 	colleague := newPersonHome(t, "colleague")
 	newcomer := colleague.claudeSession("approved-invite-colleague")
