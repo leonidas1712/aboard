@@ -114,16 +114,21 @@ func ompArgv(args ...string) []string {
 	return append([]string{"omp", "--model", ompModel()}, args...)
 }
 
-// startOmp starts omp in dir and waits until it takes a prompt. Aboard's extension in
-// the project's .omp/extensions connects as omp starts. It then checks, from omp's own
-// list, that omp runs no extension but that one (checkOmpExtensions).
+// startOmp checks omp's extension list against Aboard installed in the lab's
+// project or isolated global config. Extensions outside the lab are refused.
 func (l *lab) startOmp(name, dir string) *pane {
 	l.t.Helper()
 	p := l.start(name, dir, l.ompEnv(), ompArgv())
 	p.waitOmpReady()
 	var want []string
-	if _, err := os.Stat(filepath.Join(dir, ".omp", "extensions", "aboard.ts")); err == nil {
-		want = []string{"aboard"}
+	for _, path := range []string{
+		filepath.Join(dir, ".omp", "extensions", "aboard.ts"),
+		filepath.Join(l.ompHome(), ".omp", "agent", "extensions", "aboard.ts"),
+	} {
+		if _, err := os.Stat(path); err == nil {
+			want = []string{"aboard"}
+			break
+		}
 	}
 	p.checkOmpExtensions(want)
 	return p

@@ -228,6 +228,10 @@ func codexDriver(p support.Profile) *driver {
 		startPlain: func(l *lab, name, dir string) *pane {
 			home := l.codexHome(requireCodex(l.t))
 			appendFile(l.t, filepath.Join(home, "config.toml"), fmt.Sprintf("[projects.%q]\ntrust_level = \"trusted\"\n", dir))
+			if _, err := os.Stat(filepath.Join(home, "hooks.json")); err == nil {
+				// Only the lab's isolated global hooks exist in this fresh home.
+				l.trustCodexHooks(dir, home, slices.Clone(l.vars), "user", "global")
+			}
 			p := l.start(name, dir, slices.Clone(l.vars), l.codexArgv())
 			p.waitCodexReady()
 			return p

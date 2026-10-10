@@ -26,6 +26,17 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Contract changes for paste-session setup (GEN-55)
+
+- Setup joins currently accessible redeemed boards in its vouched session and
+  uses a setup continuation instead of a manual pairing step. Existing six-step
+  JSON, pairing ids and legacy commands remain compatible; normal text hides
+  protocol details. CLI agents and scripts keep the existing output fields.
+- Setup checks delivery with a hello and reply on an invited board. A reply from
+  any current agent of the inviter, or a board message received by the new session,
+  means messages get through. An offline inviter leaves an honest waiting result;
+  setup no longer waits for the pairing protocol's exact-endpoint proof.
+
 ### Added
 
 - Find your own agents with `aboard agents`: last reported machine, harness, folder,

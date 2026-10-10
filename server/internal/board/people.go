@@ -489,6 +489,19 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 		if err := s.validateInvitePairing(tx, proposer, in); err != nil {
 			return err
 		}
+		pairing := in.Pairing
+		pairingBoard := ""
+		if pairing != nil {
+			pairingBoard = in.Boards[0]
+		} else if proposer.Agent != nil {
+			for _, id := range in.Boards {
+				if id == proposer.Agent.BoardID {
+					pairingBoard = id
+					pairing = &InvitePairingInput{InitiatingAgentID: proposer.Agent.ID, Work: "Verify that messages get through both ways."}
+					break
+				}
+			}
+		}
 		now := s.clk.Now()
 		secret, err := s.gen.Token(strings.TrimSuffix(invitePrefix, "_"))
 		if err != nil {
@@ -520,8 +533,8 @@ func (s *Service) CreateServerInviteWithInput(ctx context.Context, p Principal, 
 		if err := tx.InsertServerInvite(inv); err != nil {
 			return fmt.Errorf("insert server invite: %w", err)
 		}
-		if in.Pairing != nil {
-			r, err := s.CreateInvitedPairingTx(tx, proposer, inv.ID, in.Boards[0], in.Pairing.InitiatingAgentID, in.Pairing.Work, inv.ExpiresAt)
+		if pairing != nil {
+			r, err := s.CreateInvitedPairingTx(tx, proposer, inv.ID, pairingBoard, pairing.InitiatingAgentID, pairing.Work, inv.ExpiresAt)
 			if err != nil {
 				return err
 			}
