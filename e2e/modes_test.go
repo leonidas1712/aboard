@@ -213,13 +213,13 @@ func TestHumanCommandsRefuseInsideASession(t *testing.T) {
 	codex := &session{e: e, harness: "codex", id: "019a", vars: []string{"CODEX_THREAD_ID=019a"}}
 	for _, s := range []*session{writer, codex} {
 		// The hint is the exact command for the agent to hand to its person, naming the
-		// board even when the agent didn't.
+		// board explicitly, so the command works from another terminal.
 		for _, c := range []struct {
 			args    []string
 			command string
 		}{
-			{[]string{"board", "policy", "recommended", "--json"}, "aboard board policy recommended --board writer-reviewer"},
-			{[]string{"watch", "--json"}, "aboard watch --board writer-reviewer"},
+			{[]string{"board", "policy", "recommended", "--board", "writer-reviewer", "--json"}, "aboard board policy recommended --board writer-reviewer"},
+			{[]string{"watch", "--board", "writer-reviewer", "--json"}, "aboard watch --board writer-reviewer"},
 		} {
 			r := s.runExit(c.args...)
 			if r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {

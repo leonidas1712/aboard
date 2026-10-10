@@ -55,14 +55,14 @@ func TestInviteRefusesInsideASession(t *testing.T) {
 	e := newEnv(t)
 	e.run("pair")
 
-	r := e.exec([]string{"CLAUDECODE=1"}, "", "invite", "--json")
+	r := e.exec([]string{"CLAUDECODE=1"}, "", "invite", "--board", "general", "--json")
 	if r.code != 1 || field(t, r.json(t), "error.code") != "human_command_in_session" {
 		t.Fatalf("invite inside a session should refuse\n%s", r)
 	}
 	if hint := field(t, r.json(t), "error.hint").(string); !strings.HasSuffix(hint, ": aboard invite --board general") {
 		t.Fatalf("hint should end with the command to hand over: %s", hint)
 	}
-	r = e.exec([]string{"CLAUDECODE=1"}, "", "invite", "--role", "member", "--json")
+	r = e.exec([]string{"CLAUDECODE=1"}, "", "invite", "--role", "member", "--board", "general", "--json")
 	if hint := field(t, r.json(t), "error.hint").(string); !strings.HasSuffix(hint, ": aboard invite --role member --board general") {
 		t.Fatalf("hint should keep the role: %s", hint)
 	}

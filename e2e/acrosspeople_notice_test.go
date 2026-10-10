@@ -41,7 +41,7 @@ func TestAddedNoticeAndPeoplesAgents(t *testing.T) {
 	boards := maya.run("boards", "--json").json(t)
 	matchesCLISpec(t, "BoardsOutput", boards)
 	if field(t, boards, "boards.0.added.by") != "claude" || field(t, boards, "boards.0.added.by_owner") != "leo" ||
-		field(t, boards, "boards.0.added.join") != "aboard join --board retry-design" {
+		field(t, boards, "boards.0.added.join") != "aboard join --board retry-design --server "+tm.url() {
 		t.Fatalf("maya's boards --json: %v", boards)
 	}
 	if r := leo.run("boards"); strings.Contains(r.stdout, "new, added") {
@@ -85,7 +85,7 @@ func TestAddedNoticeAndPeoplesAgents(t *testing.T) {
 	}
 	expectLines(t, maya.run("boards"),
 		"Your boards on "+tm.url()+":",
-		`  retry-design "Retry design" · open · member · 2 people · 2 agents · default`,
+		`  retry-design "Retry design" · open · member · 2 people · 2 agents`,
 		`  retry-ops · open · member · 2 people · 0 agents · new, added by leo`)
 	expectLines(t, ms.run("inbox"),
 		"retry-design · no new messages",

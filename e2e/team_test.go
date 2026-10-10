@@ -316,7 +316,7 @@ func TestOnlyAnAdminInvitesPeople(t *testing.T) {
 		t.Fatalf("an admin's browser calling the API: %d %v", status, v)
 	}
 	s := tm.admin.claudeSession("s-invite")
-	if r := s.e.exec(s.vars, "", "invite", "--server", "--json"); r.code != 1 || errorCode(t, r.json(t)) != "agent_session_required" || field(t, r.json(t), "error.next.command") != "aboard boards --server '"+tm.url()+"'" || strings.Contains(r.stdout, "abi_") {
+	if r := s.e.exec(s.vars, "", "invite", "--person", "--server", tm.url(), "--json"); r.code != 1 || errorCode(t, r.json(t)) != "agent_session_required" || field(t, r.json(t), "error.next.command") != "aboard boards --server '"+tm.url()+"'" || strings.Contains(r.stdout, "abi_") {
 		t.Fatalf("invite --server in an agent's session:\n%s", r)
 	}
 }

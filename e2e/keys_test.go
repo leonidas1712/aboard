@@ -355,6 +355,7 @@ func TestSwarmSaysWhenTheKeyItsSeatsCameFromEnds(t *testing.T) {
 	s := newSwarmEnv(t)
 	s.writeBoardFile("board: keyed\nagents:\n  - {name: worker, harness: claude-code, launcher: headless}\n")
 	s.run("swarm", "up", "--json")
+	s.run("servers", "use", "local")
 	if ag := agentsByName(t, s.run("swarm", "ps", "--json").json(t))["worker"]; ag["seat_credential"] != "works" {
 		t.Fatalf("the worker's seat after swarm up: %v", ag)
 	}
