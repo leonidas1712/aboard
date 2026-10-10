@@ -325,7 +325,7 @@ func invitedPairingNext(srv serverRef, id string) *api.NextStep {
 }
 
 func serverInvitePrompt(link string) string {
-	return "Set up Aboard and join using " + link + ". Verify you can exchange messages with the inviting agent."
+	return "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard skill, then run aboard setup " + link + " --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent."
 }
 
 func (a *app) bundleInvite(ctx context.Context, c *client, req *api.CreateInviteRequest, selectors []string, work string) error {

@@ -986,8 +986,9 @@ $defs:
       bundled immutable board ids and pairing_request_id when supplied. Existing
       ordinary invites are unchanged.
       Bundled invites also include prompt, ready to paste into the colleague's agent:
-      "Set up Aboard and join using <link>. Verify you can exchange messages with the
-      inviting agent." This secret-bearing prompt is shown once with the invite,
+      "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, read aboard
+      skill, then run aboard setup <link> --handle <name you'd like teammates to see>.
+      Verify you can exchange messages with the inviting agent." This secret-bearing prompt is shown once with the invite,
       never in listings, approval replays, hooks or setup progress.
       The existing person-command text output:
         Invite for http://127.0.0.1:7400: one person, as a member, once, within 168 hours. On their machine, run:
@@ -4182,6 +4183,14 @@ $defs:
     description: |
       aboard setup INVITE_LINK|PAIRING_ID [--handle HANDLE] [--name MACHINE]
       [--server SERVER] [--json] resumes the first incomplete setup step.
+      aboard setup --continue [SETUP_ID] [--handle HANDLE] [--name MACHINE]
+      [--server SERVER] [--json] resumes the locally saved issuer-bound invite,
+      without repeating its secret. Without SETUP_ID, exactly one saved setup
+      matching --server must exist; no implicit default or most-recent selection.
+      Several matches return setup_ambiguous with nonsecret local setup ids,
+      issuer URLs and runnable continuation commands. None returns
+      setup_not_found. SETUP_ID is the opaque local state identifier, not a token.
+      --continue cannot be combined with an invite link or pairing request id.
       Inside an agent session, connect with an invite link uses this same safe
       setup path and SetupOutput, including uncertain recovery. Existing person
       connect output and D188 no-invite approval behavior are unchanged.
@@ -4189,6 +4198,20 @@ $defs:
       account is never selected by an invite or a handle. Existing-account/new-machine
       login uses D188 and still needs the person's approval. No human-client fallback.
       --handle is the visible person name; --name names the machine's key.
+      Before asking for a new account's missing handle, save the invite in durable
+      mode-0600 local state bound to its canonical issuer and invite identity. No
+      token is generated and no redemption is attempted at this stage; save failure
+      stops setup. An omitted handle exits 0 and asks the person to choose their
+      visible name. Next is aboard setup --continue --handle NAME, qualified by
+      the nonsecret SETUP_ID when needed; never repeat the invite secret.
+      A suggested handle is advisory; availability is checked at redemption.
+      A definite handle_taken response leaves the invite unspent, clears only the
+      uncommitted candidate proof, and returns the same continuation next with exit 1.
+      An uncertain attempted proof never changes its handle, token or account.
+      A saved pending account retains its original handle when omitted on recovery.
+      Setup never prompts interactively in an agent session or without a terminal.
+      Installed harness skills apply automatically to the next session; next asks
+      the current session to read the aboard skill now.
       With an invite, generate 256 random bits as a client token and save pending
       state durably mode 0600, bound to issuer and invite, before /v1/connect.
       Save failure stops before redemption. Never show the token or invite secret
