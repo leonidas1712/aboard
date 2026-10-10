@@ -4346,3 +4346,10 @@ $defs:
                   location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
                   reopen_command: { type: string }
                   resume_command: { type: string }
+
+# GEN-52 additive invite hints and read-only agent access:
+# invite --person --handle NAME carries an unreserved suggested_handle through the
+# invitation, approval payload and preview. setup defaults to it; an explicit
+# setup --handle wins. Prompts name the hint, and text displays @NAME when present.
+# people and invite list accept the exact current active non-guest seat, on its issuer,
+# never a person credential fallback. Invite revoke and other mutations retain their gates.

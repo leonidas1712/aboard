@@ -585,9 +585,9 @@ paths:
       operationId: listServerInvites
       summary: List your outstanding invitations
       description: |
-        Person access key only. Lists invitations issued by this person or their
+        Person access key or current non-guest agent seat. Lists invitations issued by this person or their
         agents, including expired and revoked ones, without any invite secret.
-        Agents and browsers get human_token_required with next.command. Losing
+        Browsers get human_token_required with next.command. Agents list only their current person’s invitations after current credential and non-guest checks in the read transaction. Losing
         admin authority does not prevent inspecting or revoking your own invites.
         Board ids are included only while currently visible; private names never
         appear. Issuing agent and parent key are immutable provenance, not authority.
@@ -1233,6 +1233,7 @@ paths:
           in: query
           description: Exact current handle; enables the minimal identity lookup.
           schema: { $ref: "#/components/schemas/Handle" }
+      x-agent-read-scope: Current active non-guest seat only; recheck its person’s current list authority and return non-guest people only.
       responses:
         "200":
           description: The people
@@ -5484,6 +5485,11 @@ components:
       type: object
       additionalProperties: false
       properties:
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         ttl_seconds:
           type: integer
           minimum: 60
@@ -5530,6 +5536,11 @@ components:
       additionalProperties: false
       required: [server_id, server_url, server_name, inviter_handle, boards, expires_at]
       properties:
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         server_id: { type: string }
         server_url: { type: string }
         server_name: { type: string }
@@ -5553,6 +5564,11 @@ components:
       additionalProperties: false
       required: [id, created_at, expires_at, state, boards]
       properties:
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         display: { $ref: "#/components/schemas/OnboardingDisplay" }
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         created_at: { $ref: "#/components/schemas/Timestamp" }
@@ -5577,6 +5593,11 @@ components:
       type: object
       required: [id, invite, server_role, expires_at]
       properties:
+        suggested_handle:
+          type: string
+          pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
+          maxLength: 40
+          description: Suggested recipient handle only; does not reserve a name, bind a person or grant permission. The recipient may choose another handle.
         id: { type: string, pattern: "^inv_[0-9A-HJKMNP-TV-Z]{26}$" }
         invite:
           type: string
