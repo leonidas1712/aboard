@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -17,6 +18,16 @@ type approvalNoticeOrigins interface {
 func noticeID(kind, issuer, source string) string {
 	hash := sha256.Sum256([]byte(kind + "\x00" + issuer + "\x00" + source))
 	return "ntc_" + hex.EncodeToString(hash[:])
+}
+
+// noticeTransportID reserves negative JavaScript-safe ids for existing legacy delivery.
+func noticeTransportID(id string) int64 {
+	hash := sha256.Sum256([]byte(id))
+	value := binary.BigEndian.Uint64(hash[:8]) & ((1 << 53) - 1)
+	if value == 0 {
+		value = 1
+	}
+	return -int64(value)
 }
 
 func (s *session) collectApprovalNotices(ctx context.Context) {
@@ -161,7 +172,7 @@ func (s *session) tryNotice(ctx context.Context) {
 	if a == nil || a.adopting || a.problem != "" || s.d.mode(a.ref) == ModeOff || s.beingRead(a.ref) || s.d.owner(a.ref) != s || s.d.generation(a.ref) != a.generation {
 		return
 	}
-	_, err := s.hand(ctx, Handover{SessionID: s.key.ID, Class: ClassMixed, Bundle: text, Waiter: s.waiter})
+	_, err := s.hand(ctx, Handover{SessionID: s.key.ID, ID: noticeTransportID(n.ID), Class: ClassMixed, Bundle: text, Waiter: s.waiter})
 	if s.adapter.WaitsForIdle() || s.waiter != nil {
 		s.waiter = nil
 	}

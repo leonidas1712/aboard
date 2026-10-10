@@ -2,6 +2,7 @@ package delivery_test
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -181,5 +182,59 @@ func TestCodexNoticeQueueAdmissionIsHandedNotAProof(t *testing.T) {
 	manifests, err := r.journal.Handoffs(context.Background())
 	if err != nil || len(manifests) != 0 {
 		t.Fatal("queue admission became proof", manifests, err)
+	}
+}
+
+func TestNoticeUsesStableNonzeroLegacyIDAcrossExtensionReconnect(t *testing.T) {
+	reader := &approvalReader{decision: delivery.ApprovalDecision{ID: "apr_own", AgentID: "mem_own", State: "pending"}}
+	r, _ := seatsRigWith(t, func(c *delivery.Config) { c.ApprovalFor = func(string) delivery.ApprovalRuntime { return reader } })
+	hello := delivery.Request{Harness: "omp", Session: "notice-wire", Boot: "b1", Source: "startup", Process: &delivery.Process{PID: 51234}}
+	e, welcome := r.connect(hello)
+	if welcome.Event != delivery.EventWelcome {
+		t.Fatal(welcome)
+	}
+	agent := delivery.AgentRef{Server: serverURL, Board: "docs", Name: "omp", MemberID: "mem_own"}
+	r.bind("omp", hello.Session, agent)
+	r.ok(delivery.Request{Op: delivery.OpApprovalWatch, Harness: "omp", Session: hello.Session, Server: serverURL, ApprovalID: "apr_own", Agent: &agent})
+	reader.set("executed", "", nil)
+	first := e.next()
+	if first.Event != delivery.EventDeliver || first.ID >= 0 || first.ID < -9007199254740991 || first.HandoffID != "" {
+		t.Fatal("notice has no safe existing transport id", first)
+	}
+	raw, err := json.Marshal(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := wire["id"]; !ok {
+		t.Fatal("wire omitted transport id")
+	}
+	// Losing this connection before receipt must leave the notice pending.
+	if err := e.conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	e, welcome = r.connect(hello)
+	if welcome.Event != delivery.EventWelcome {
+		t.Fatal(welcome)
+	}
+	next := e.next()
+	if next.ID != first.ID || next.Bundle != first.Bundle {
+		t.Fatal("retry changed transport identity", first, next)
+	}
+	rows, _ := r.journal.Notices(context.Background(), agent)
+	if len(rows) != 1 || rows[0].Handed {
+		t.Fatal("disconnect counted as acceptance", rows)
+	}
+	e.send(delivery.Request{Op: delivery.OpReceived, ID: next.ID})
+	r.eventually("existing legacy receipt", 0, func() bool {
+		rows, _ := r.journal.Notices(context.Background(), agent)
+		return len(rows) == 1 && rows[0].Handed
+	})
+	manifests, err := r.journal.Handoffs(context.Background())
+	if err != nil || len(manifests) != 0 {
+		t.Fatal("notice created proof manifest", manifests, err)
 	}
 }
