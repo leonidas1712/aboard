@@ -698,7 +698,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .footer ul { display: flex; flex-wrap: wrap; gap: 0 4px; margin-left: auto; }
 .footer a { color: var(--ink); text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 8px; }
 .footer a:hover { background: var(--side); }
-.footer .made { flex-basis: 100%; }
 
 /* ---------- Small parts shared by sections ---------- */
 
