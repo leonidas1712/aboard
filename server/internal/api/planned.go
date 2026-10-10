@@ -15,6 +15,14 @@ func notProvided(what string) error {
 		"Use a server whose GET /v1/info lists the feature.")
 }
 
+func (h *handlers) GetApproval(context.Context, GetApprovalRequestObject) (GetApprovalResponseObject, error) {
+	return nil, notProvided("approval outcomes")
+}
+
+func (h *handlers) CollectApproval(context.Context, CollectApprovalRequestObject) (CollectApprovalResponseObject, error) {
+	return nil, notProvided("approval outcomes")
+}
+
 func (h *handlers) SetLine(context.Context, SetLineRequestObject) (SetLineResponseObject, error) {
 	return nil, notProvided("agent lines")
 }

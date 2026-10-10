@@ -1,5 +1,11 @@
 # Roadmap
 
+### Onboarding approval outcomes (GEN-52)
+
+Building: requesting agents collect approved invite outcomes once; browser approval
+shows the link; original-session pairing selection, suggested handles and scoped
+read-only people/invite listing follow in the same QA slice.
+
 What's being built now, what's left before launch, and what comes after, feature by
 feature. Each stage separates **features** (something new) from **enhancements** (a
 change to something that already exists). This is a living list: reorder it, add to it

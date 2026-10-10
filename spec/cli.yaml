@@ -4106,6 +4106,27 @@ $defs:
         type: array
         items: { $ref: "openapi.yaml#/components/schemas/Approval" }
 
+  ApprovalOutcomeOutput:
+    description: |
+      aboard approvals show ID [--server SERVER] [--board BOARD] [--json] reads
+      one own approval. In an agent session it uses only the exact requesting
+      seat token and collects the issued invite outcome once. The first collection
+      includes the invite link and ready-to-send prompt; repeats are nonsecret.
+      A person reads nonsecret metadata only, without consuming the agent's result.
+      Missing, foreign and inaccessible approvals use approval_not_found. Lists,
+      decision notifications and next steps never contain invite secrets.
+      Exit 0 for a visible pending or terminal result, 1 for a refusal.
+    type: object
+    required: [server, approval, collected]
+    properties:
+      server: { $ref: "#/$defs/ServerRef" }
+      board: { $ref: "openapi.yaml#/components/schemas/BoardName" }
+      approval: { $ref: "openapi.yaml#/components/schemas/Approval" }
+      collected: { type: boolean }
+      invite: { $ref: "openapi.yaml#/components/schemas/ServerInvite" }
+      prompt: { type: string }
+      next: { $ref: "openapi.yaml#/components/schemas/NextStep" }
+
   ApprovalDecisionOutput:
     description: |
       aboard approvals allow ID [--always] [--server SERVER] [--json] executes the

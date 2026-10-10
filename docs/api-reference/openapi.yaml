@@ -4221,6 +4221,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HeldAdminActionResult"
+  /v1/me/approvals/{approval}:
+    get:
+      tags: [onboarding]
+      operationId: getApproval
+      summary: Read one own approval without collecting its outcome
+      description: |
+        Person key/browser reads only its own approval. An active agent seat reads
+        only the exact request it made, bound to its current owner and parent key.
+        Recheck current credential, ownership, resource access and lifecycle.
+        Missing, foreign and inaccessible approvals use approval_not_found.
+        No invite secret, link or prompt is returned. Reading never collects an
+        outcome or advances message read positions.
+      parameters:
+        - name: approval
+          in: path
+          required: true
+          schema: { type: string, pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$" }
+      responses:
+        "200":
+          description: Own nonsecret outcome
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalOutcome" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /v1/me/approvals/{approval}/collect:
+    post:
+      tags: [onboarding]
+      operationId: collectApproval
+      summary: Collect the requesting agent's outcome once
+      description: |
+        Only the active immutable requesting agent's seat token may collect;
+        person, browser, delegation and other agent credentials cannot collect.
+        Recheck its owner, parent key, seat membership, lifecycle and current
+        access in the consuming transaction. Foreign or hidden requests use the
+        same approval_not_found. Collection never grants administrative authority.
+
+        After a person allows an invite request, its execution response still
+        shows the approver the link once. Independently, the requesting seat may
+        collect the same issued invite once. Consumption is durable and atomic:
+        concurrent collectors have one secret-bearing winner. Pending, declined,
+        expired, already collected and older non-collectable requests return only
+        nonsecret metadata. Revoked, redeemed or expired invites are never revealed.
+        Do not retain secrets in approvals, events, logs, lists, next steps or the
+        idempotency response cache. Repeated collection cannot reissue an invite
+        or reveal its secret, even with the same Idempotency-Key. A lost collection
+        response remains consumed; the person can revoke and issue a new invite.
+
+        The requesting agent's next turn receives a nonsecret decision notice
+        naming this approval and the issuer-qualified approvals show command.
+        Collection never acknowledges unseen messages. When the invite has a
+        pairing, the daemon selects its initiating endpoint only in the original
+        requesting session; no activity-based session guessing or secrets on the
+        control socket. A gone/replaced session requires explicit selection.
+      parameters:
+        - name: approval
+          in: path
+          required: true
+          schema: { type: string, pattern: "^apr_[0-9A-HJKMNP-TV-Z]{26}$" }
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Outcome; invite included only on the first authorized collection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApprovalOutcome" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
   /v1/me/approvals/{approval}/allow:
     post:
       tags: ["onboarding"]
@@ -8716,6 +8789,17 @@ components:
           type: "array"
           items:
             $ref: "#/components/schemas/Approval"
+    ApprovalOutcome:
+      type: object
+      additionalProperties: false
+      required: [approval, collected]
+      properties:
+        approval: { $ref: "#/components/schemas/Approval" }
+        collected:
+          type: boolean
+          description: Whether this call consumed the requesting seat's secret outcome. False for nonsecret reads and repeats.
+        invite: { $ref: "#/components/schemas/ServerInvite" }
+        next: { $ref: "#/components/schemas/NextStep" }
     AllowApprovalRequest:
       type: "object"
       additionalProperties: false
@@ -8743,7 +8827,7 @@ components:
         invite:
           $ref: "#/components/schemas/ServerInvite"
       description: |
-        202 is pending with no side effect; 200/201 is executed. Invite secrets appear only on the authenticated execution response, never in stored approval, listings, next or idempotent responses. A repeated executed approval cannot issue another invite or retrieve the old secret.
+        202 is pending with no side effect; 200/201 is executed. Invite secrets appear on the authenticated execution response and, independently, once to the requesting seat through collectApproval. They never appear in stored approvals, listings, next or idempotent responses. A repeated execution cannot issue another invite or retrieve the old secret.
     PairingState:
       type: "string"
       enum: ["awaiting_account", "awaiting_session", "awaiting_endpoint", "verifying", "ready", "declined", "cancelled", "expired"]
