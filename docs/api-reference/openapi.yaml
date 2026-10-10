@@ -6386,6 +6386,9 @@ components:
         immutable board id, with identical current membership, lifecycle and role
         checks. This lets setup use authenticated onboarding receipt ids without
         resolving mutable names. A board id is never a join code or new authority.
+        An immutable-id delegated join additionally requires an already-active
+        person membership in that same transaction. It never auto-adds a removed
+        person to an open board; ordinary board-name self-join remains unchanged.
       properties:
         code:
           type: string
