@@ -368,7 +368,7 @@ func helpText(templates string) []commandHelp {
 			Description: "Lists the servers this machine knows: its local server, once it has run, and every server it connected or logged in to, with the person it signs in as there. " +
 				"A * marks the default server.\n\n" +
 				"Person commands act on --server when given, otherwise the saved default. Folder links are ignored and left untouched. With known servers but no default, choose before credentials or writes. " +
-				"A fresh local bootstrap saves the local server as its default. With any known servers but no saved default, choose one; the command returns runnable choices instead of guessing.\n\n" +
+				"A fresh local bootstrap saves the local server as its default. A machine that knows only its initialized local server keeps that bootstrap default, including older installs. Otherwise, known servers without a saved default return runnable choices.\n\n" +
 				"Servers have local names; use a name wherever a server URL is accepted. servers name and rename change only this machine's label. Agents may list and rename known servers; use stays person-only. local always selects this machine's local server. " +
 				"It never moves an agent: sessions keep their issuer-bound seats, including seats on several servers.",
 			Flags: []helpFlag{flagJSON},

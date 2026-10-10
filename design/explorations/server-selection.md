@@ -16,17 +16,19 @@ them. `aboard doctor` reports a legacy regular link file and says it can be
 deleted. It never parses a directory as a link: the state directory in a person's
 home is not a legacy link. It does not follow symlinks to inspect link contents.
 
-With known servers but no default, a command returns `server_not_selected` before
+With known servers but no default, except the sole initialized local server's
+bootstrap default, a command returns `server_not_selected` before
 sending credentials or writing anything. Text lists names, URLs and commands the
 caller can run. JSON carries the same choices and retains the existing URL-only
 `details.choices` field. `aboard open` offers `aboard open local`,
 `aboard open work`, and so on. It does not prompt or silently pick the first.
 
 Fresh solo use remains simple: with no known servers, `up`, `pair` or `board new`
-can bootstrap the local server and save `local` as the initial default. An explicit
+or `open` can bootstrap the local server and save `local` as the initial default. An explicit
 connect or setup can set the first default when none exists. Adding another server
-never changes an existing default. Legacy machines with known servers but no saved
-default receive choices instead of an inferred local default.
+never changes an existing default. Older installs with only an initialized local
+server retain that bootstrap default. Other machines with known servers but no
+saved default receive choices.
 
 A person's board command uses `--board NAME|ID`. Without it, the selected server's
 only accessible active board can be used; several boards return `board_ambiguous`

@@ -147,7 +147,7 @@ test("an agent's say --attach shows as file cards that open the file panel at th
   await openBoard(page, board);
 
   // One file: a card with its name, version, type, size and who wrote that version.
-  aboard("say", "--as", "writer", "--to", "all", "--attach", local("report.md", "# Report\n\nFirst draft.\n"), "The first draft is up.");
+  aboard("say", "--as", "writer", "--board", board, "--to", "all", "--attach", local("report.md", "# Report\n\nFirst draft.\n"), "The first draft is up.");
   const single = message(page, "The first draft is up.");
   const card = single.locator('[data-attachment="report.md"]');
   await expect(single.getByRole("list", { name: "Attached file" })).toBeVisible();
@@ -161,7 +161,7 @@ test("an agent's say --attach shows as file cards that open the file panel at th
 
   // Several files in one message, each its own card; an image shows its exact version as a thumbnail.
   aboard(
-    "say", "--as", "writer", "--to", "all",
+    "say", "--as", "writer", "--board", board, "--to", "all",
     "--attach", local("chart.png", png),
     "--attach", local("data.csv", "id,value\n1,10\n"),
     "--attach", local("report.md", "# Report\n\nSecond draft, with the chart.\n"),
@@ -340,13 +340,13 @@ test("screenshots of attachments in the conversation and the message box", async
   await put(board, "notes/retry-policy.md", 0, "# Retry policy\n\nBack off exponentially.\n");
   await put(board, "notes/retry-policy.md", 1, "# Retry policy\n\nBack off exponentially, up to ten minutes.\n");
   aboard(
-    "say", "--as", "writer", "--to", "all",
+    "say", "--as", "writer", "--board", board, "--to", "all",
     "--attach", local("checkout-flow.png", png),
     "--attach", local("load-test.csv", "run,p95_ms,errors\n1,410,0\n2,398,0\n3,405,0\n"),
     "--attach", local("webhooks-v2.md", "# Webhooks v2\n\nSigned, retried, logged.\n"),
     "Ready for review: the new checkout flow, last night's load test and the webhook spec. The retry rules are in notes/retry-policy.md v1, now superseded.",
   );
-  aboard("say", "--as", "writer", "--to", "all", "@alex start with webhooks-v2.md; notes/retry-policy.md is the current policy.");
+  aboard("say", "--as", "writer", "--board", board, "--to", "all", "@alex start with webhooks-v2.md; notes/retry-policy.md is the current policy.");
   await expect(message(page, "Ready for review").locator("[data-attachment]")).toHaveCount(3);
   for (const [theme, width, height] of [["light", 1440, 900], ["dark", 1440, 900], ["light", 390, 844], ["dark", 390, 844]] as const) {
     await page.emulateMedia({ colorScheme: theme });
