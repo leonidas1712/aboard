@@ -80,6 +80,7 @@ type Delegation struct {
 // ServerInvite lets one new person onto the server, as a member, once, before it
 // expires. It is kept by the keyed digest of its secret.
 type ServerInvite struct {
+	SuggestedHandle             string
 	PairingRequestID            string
 	ParentKeyID, IssuingAgentID string
 	Authorization               *AdminAuthorization

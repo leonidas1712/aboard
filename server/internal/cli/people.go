@@ -56,7 +56,7 @@ func runPeopleList(ctx context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, peopleUsage, 0, 0); err != nil {
 		return err
 	}
-	srv, started, c, err := a.peopleClient(ctx, *serverFlag, "Listing the server's people", "aboard people")
+	srv, started, c, err := a.peopleReadClient(ctx, *serverFlag)
 	if err != nil {
 		return err
 	}

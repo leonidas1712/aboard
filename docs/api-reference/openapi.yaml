@@ -1222,7 +1222,7 @@ paths:
       description: |
         Every person on the server, oldest first, each with their server role: `admin`,
         `member` or `guest`. People removed from the server aren't listed. A person's
-        access key or browser may list them; an agent gets 403 `human_token_required`.
+        access key or browser may list them. A current active non-guest agent may list non-guest people with its own seat, after rechecking its person’s authority inside the read transaction.
         With `handle`, return only that person's id, current handle and display name,
         instead of the directory. A current non-guest agent whose person may list
         people may use this exact lookup with its own seat token. Unknown and guest
@@ -1233,7 +1233,6 @@ paths:
           in: query
           description: Exact current handle; enables the minimal identity lookup.
           schema: { $ref: "#/components/schemas/Handle" }
-      x-agent-read-scope: Current active non-guest seat only; recheck its person’s current list authority and return non-guest people only.
       responses:
         "200":
           description: The people

@@ -45,6 +45,9 @@ func (h *handlers) PreviewServerInvite(ctx context.Context, req PreviewServerInv
 	}
 	cfg := h.svc.Config()
 	out := map[string]any{"server_id": cfg.ServerID, "server_url": cfg.IssuerURL, "server_name": "aboard", "inviter_handle": preview.InviterHandle, "boards": displayBoards(preview.Boards), "expires_at": preview.ExpiresAt}
+	if preview.SuggestedHandle != "" {
+		out["suggested_handle"] = preview.SuggestedHandle
+	}
 	if preview.Work != "" {
 		out["work"] = preview.Work
 	}

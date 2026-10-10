@@ -24,6 +24,9 @@ func (h *handlers) GetOnboardingReceipt(ctx context.Context, _ GetOnboardingRece
 
 func serverInviteOf(inv board.NewServerInvite) map[string]any {
 	out := map[string]any{"id": inv.Invite.ID, "invite": inv.Secret, "server_role": board.ServerMember, "expires_at": inv.Invite.ExpiresAt}
+	if inv.Invite.SuggestedHandle != "" {
+		out["suggested_handle"] = inv.Invite.SuggestedHandle
+	}
 	if inv.Invite.Boards != nil {
 		out["boards"] = inv.Invite.Boards
 	}

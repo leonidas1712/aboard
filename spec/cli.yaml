@@ -962,6 +962,8 @@ $defs:
       person invite without --person: without --board it selects the only readable
       active board or returns board selection choices, as other board commands do.
       The unreleased bundled person spelling changes to --person --board (D223).
+      --handle NAME suggests the recipient’s handle without reserving it. Setup
+      defaults to it, while an explicit setup --handle wins. Text uses @NAME when set.
       Lifetime is --ttl (1m to 720h): person default 168h, agent default 24h.
       Agents use their issuer-bound seat and D222 allowance/approval checks, never
       the person's login. No selected seat returns agent_session_required with a
@@ -1011,6 +1013,7 @@ $defs:
         type: array
         items: { type: string, pattern: "^brd_[0-9A-HJKMNP-TV-Z]{26}$" }
       pairing_request_id: { type: string, pattern: "^prq_[0-9A-HJKMNP-TV-Z]{26}$" }
+      suggested_handle: { type: string, maxLength: 40 }
       prompt: { type: string, description: Ready-to-send colleague setup prompt, shown only on issuance. }
 
   ServerInvitesOutput:
@@ -1018,8 +1021,8 @@ $defs:
       aboard invite list --server SERVER [--json] lists only your invitations and
       your agents' invitations, with immutable issuer agent id and state; text marks
       agent-issued invitations explicitly with the issuing agent display handle. Never returns
-      an invite secret or hidden board name. Person-only; agents get
-      human_token_required with next.command. Losing admin authority does not
+      an invite secret or hidden board name. Current non-guest agents use their
+      selected seat issuer and person scope, never a person key. Losing admin authority does not
       prevent inspecting or revoking your own invitations. Exit 0 or 1.
     type: object
     required: [server, invites]
@@ -3210,8 +3213,9 @@ $defs:
       The people on the server (GET /v1/people), oldest first, each with their server
       role: admin, member or guest. The server is --server (one this machine holds a key
       for), otherwise the persisted default (D223); a fresh local bootstrap
-      establishes the local default if needed. A person command: inside a harness session, or with ABOARD_AGENT
-      set, it refuses with human_command_in_session before it sends anything. Text
+      establishes the local default if needed. Agents use their current active non-guest
+      seat and its issuer, returning only non-guest people; no person login fallback.
+      An unbound agent refuses before authenticated HTTP. Text
       output:
         People on https://team.example.com:
           HANDLE  SERVER ROLE  NAME

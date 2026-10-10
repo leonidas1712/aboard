@@ -338,7 +338,11 @@ func TestAgentCannotListOrRevokeInvitesThroughPersonKey(t *testing.T) {
 		code := Run(context.Background(), args, e.environment(&out, &out))
 		var result wireError
 		_ = json.Unmarshal(out.Bytes(), &result)
-		if code != 1 || result.Error.Code != "human_command_in_session" || calls != 0 {
+		want := "human_command_in_session"
+		if args[1] == "list" {
+			want = "agent_not_selected"
+		}
+		if code != 1 || result.Error.Code != want || calls != 0 {
 			t.Fatalf("code=%d calls=%d output=%s", code, calls, out.String())
 		}
 	}
