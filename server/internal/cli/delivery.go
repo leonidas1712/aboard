@@ -13,15 +13,17 @@ import (
 func textMessage(m api.Message) deliverytext.Message { return apiserver.TextMessage(m) }
 
 // deliveryText formats one message the way it is put into a session.
-func deliveryText(m api.Message) string { return deliverytext.Format(textMessage(m)) }
+func deliveryText(m api.Message, contexts ...deliverytext.Context) string {
+	return deliverytext.Format(textMessage(m), contexts...)
+}
 
 // bundleText formats several messages of one board delivered together, oldest first.
-func bundleText(board string, ms []api.Message) string {
+func bundleText(board string, ms []api.Message, contexts ...deliverytext.Context) string {
 	tms := make([]deliverytext.Message, 0, len(ms))
 	for _, m := range ms {
 		tms = append(tms, textMessage(m))
 	}
-	return deliverytext.Bundle(board, tms)
+	return deliverytext.Bundle(board, tms, contexts...)
 }
 
 // transcriptText formats messages as a Markdown transcript to paste into a session.

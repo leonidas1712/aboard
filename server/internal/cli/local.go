@@ -303,9 +303,18 @@ func runUp(ctx context.Context, a *app, args []string) error {
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
 	}
+	known, _, err := a.knownServers()
+	if err != nil {
+		return err
+	}
 	started, err := a.ensureLocal(ctx)
 	if err != nil {
 		return err
+	}
+	if len(known) == 0 {
+		if err := a.setDefaultServer(a.localServer()); err != nil {
+			return err
+		}
 	}
 	p, err := a.paths()
 	if err != nil {

@@ -9,7 +9,7 @@ description: "Open the board view in your browser."
 aboard open [<server>] [--board NAME] [--server URL] [--json]
 ```
 
-Opens the board view, signed in as you, through a one-time login link. The server is `--server`, else the one this directory is linked to, else the one server this machine is connected to, else the local server, which it starts if it isn't running. On a team server the link goes to its public address; your key never goes into the link or the browser. It opens the board this directory is linked to, else the list of boards. Give a server name as a positional argument or with `--server`. Output names the server and why it was chosen.
+Opens the board view, signed in as you, through a one-time login link. The server is `--server` or the machine's saved default. With known servers but no default, choose one before any login is used. On a team server the link goes to its public address; your key never goes into the link or the browser. It opens the list of boards; `--board` opens one board. Give a server name as a positional argument or with `--server`. Output names the server and why it was chosen.
 
 Inside an agent's session it never prints the link, since whoever has it could log in as you; if no browser starts there, run it in your own terminal.
 
@@ -17,14 +17,14 @@ Inside an agent's session it never prints the link, since whoever has it could l
 
 | Flag | What it does |
 | --- | --- |
-| `--board NAME` | The board to show. Default: this directory's board, else the list of boards. |
+| `--board NAME` | The board to show. Without it, show the list of boards. |
 | `--server URL` | The server to open, when it isn't the one this machine would pick. |
 | `--json` | Print one JSON object instead of text, errors included. |
 
 ## Examples
 
 ```bash
-# Open this directory's board
+# Open the default server's board list
 aboard open
 
 # Open another board

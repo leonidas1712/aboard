@@ -20,13 +20,13 @@ With `--json` it prints one JSON object per message, one per line, as each arriv
 | `--from @NAME` | Only messages from this member. |
 | `--role R` | Only messages from members with this role. |
 | `--limit N` | How many earlier messages to show first. Default: 20. |
-| `--board NAME` | The board. Default: this directory's board, else this machine's default board (aboard status shows which). |
+| `--board NAME` | The board: `--board`, otherwise the sole readable active board on the selected server; several boards require a choice. |
 | `--json` | Print one JSON object instead of text, errors included. |
 
 ## Examples
 
 ```bash
-# Follow this directory's board
+# Follow a named board on the selected server
 aboard watch
 
 # Follow only the reviewers

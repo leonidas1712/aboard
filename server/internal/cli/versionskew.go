@@ -12,8 +12,14 @@ import (
 // doctorServerChecks probes the selected server without starting it or reading a key.
 func (a *app) doctorServerChecks(ctx context.Context) []doctorCheck {
 	srv, err := a.resolveServer("")
+	if err != nil && asError(err).Code == "server_not_selected" {
+		known, _, knownErr := a.knownServers()
+		if knownErr == nil && len(known) == 0 {
+			srv, err = a.localServer(), nil
+		}
+	}
 	if err != nil {
-		return []doctorCheck{problem("server", levelWarning, "server_not_selected", err.Error(), "choose a server with aboard servers use, or run doctor in a linked folder")}
+		return []doctorCheck{problem("server", levelWarning, "server_not_selected", err.Error(), "choose a server with aboard servers use NAME")}
 	}
 	local := srv.URL == a.localServer().URL
 	name, label := "server", "server"

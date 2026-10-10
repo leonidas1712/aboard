@@ -49,6 +49,16 @@ func TestDoctorShowsSelectedServerVersionWithoutSendingCredentials(t *testing.T)
 			if err := os.WriteFile(filepath.Join(e.dir, ".aboard"), project, 0o600); err != nil {
 				t.Fatal(err)
 			}
+			selection, err := json.Marshal(map[string]any{"default": peer.URL, "names": map[string]string{peer.URL: "peer"}, "servers": []map[string]string{{"url": peer.URL}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(e.configDir(), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(e.configDir(), "servers.json"), selection, 0o600); err != nil {
+				t.Fatal(err)
+			}
 			r := e.runExit("doctor", "--json")
 			matchesCLISpec(t, "DoctorOutput", r.json(t))
 			var check map[string]any

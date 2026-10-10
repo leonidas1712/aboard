@@ -53,7 +53,7 @@ async function api(token: string, method: string, path: string, body?: unknown):
 }
 async function openBoard(page: Page, board: string) {
   aboard("pair", "general", "--board", board, "--name", "writer", "--new");
-  const link = JSON.parse(aboard("open", "--json"));
+  const link = JSON.parse(aboard("open", "--board", board, "--json"));
   await page.goto(link.url);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
@@ -77,7 +77,7 @@ async function theme(page: Page, which: "Light" | "Dark") {
 test("a phone shows the board in one column, its panel as a sheet, and each agent's status", async ({ page }) => {
   const board = "mobile-board";
   await openBoard(page, board);
-  aboard("say", "--as", "writer", "--to", "all", "The draft is in notes.md; reviewing the API section next.");
+  aboard("say", "--as", "writer", "--board", board, "--to", "all", "The draft is in notes.md; reviewing the API section next.");
   await expect(page.getByRole("log", { name: "Timeline" })).toContainText("The draft is in notes.md");
   // The panels are not on the page until their sheet opens; the message box is.
   await expect(page.getByRole("complementary")).toHaveCount(0);

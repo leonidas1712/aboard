@@ -99,7 +99,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	var selectedCred *agentCredential
 	switch {
 	case name != "":
-		if err := a.oneSeat(ctx, *boardFlag); err != nil {
+		if err := a.oneSeat(ctx, *boardFlag, name); err != nil {
 			return err
 		}
 		t, cred, err := a.agentByName(creds, name, *boardFlag)
@@ -109,21 +109,27 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		agentBoard, selectedCred = &t, &cred
 	default:
 		if key, ok := a.sessionKey(); ok {
-			if agents, err := a.sessionAgents(ctx, key); err == nil && len(agents) > 1 && *boardFlag == "" {
-				// A session with several seats selects none: status lists them all.
-				out.AgentSource = agentFromSession
-				out.Seats = a.sessionSeats(ctx, agents, creds)
-				var text strings.Builder
-				a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, a.serverRefFor(agents[0].Server))
-				out.Server = a.serverRefFor(agents[0].Server)
-				text.WriteString(setupLine)
-				seats, usage := seatsText(agents[0].Server, out.Seats)
-				out.SeatsUsage = usage
-				text.WriteString(seats)
-				out.Queued = a.statusQueued(ctx, "", "")
-				text.WriteString(queuedText(out.Queued))
-				a.emit(out, styleStatus(text.String(), a.out()))
-				return nil
+			if agents, err := a.sessionAgents(ctx, key); err == nil {
+				agents, err = a.filterAgentSeats(agents, *boardFlag)
+				if err != nil {
+					return err
+				}
+				if len(agents) > 1 && *boardFlag == "" {
+					// A session with several seats selects none: status lists them all.
+					out.AgentSource = agentFromSession
+					out.Seats = a.sessionSeats(ctx, agents, creds)
+					var text strings.Builder
+					a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, a.serverRefFor(agents[0].Server))
+					out.Server = a.serverRefFor(agents[0].Server)
+					text.WriteString(setupLine)
+					seats, usage := seatsText(agents[0].Server, out.Seats)
+					out.SeatsUsage = usage
+					text.WriteString(seats)
+					out.Queued = a.statusQueued(ctx, "", "")
+					text.WriteString(queuedText(out.Queued))
+					a.emit(out, styleStatus(text.String(), a.out()))
+					return nil
+				}
 			}
 			t, cred, found, err := a.sessionAgent(ctx, creds, key, *boardFlag)
 			if err != nil && asError(err).Code != "sandbox_blocks_network" {
@@ -143,12 +149,23 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 
 	t, err := a.selectBoard(*boardFlag)
 	if agentBoard == nil && !a.agentSelected(*as) {
-		srv, resolveErr := a.resolveServer("")
+		srv, resolveErr := a.resolveServer(a.selectedServerFlag())
 		if resolveErr != nil {
-			return resolveErr
+			known, _, knownErr := a.knownServers()
+			if knownErr != nil {
+				return knownErr
+			}
+			if asError(resolveErr).Code != "server_not_selected" || len(known) != 0 {
+				return resolveErr
+			}
+			srv = a.localServer()
 		}
 		out.Server = srv
-		t, err = a.humanBoard(*boardFlag)
+		if a.serverAnswers(ctx, srv) {
+			t, err = a.humanBoard(ctx, *boardFlag)
+		} else {
+			err = newError("board_not_selected", "The server is not running.", "Run aboard up.")
+		}
 	}
 	switch {
 	case agentBoard != nil && (err != nil || t.board != agentBoard.board || t.server.URL != agentBoard.server.URL):

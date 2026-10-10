@@ -117,7 +117,7 @@ board when it is sent.
 
 A server's first person is its admin. The team's server runs where everyone's machines
 can reach it, over HTTPS ([Run a team server](/team-server) sets one up). An admin makes
-an invite link with `aboard invite --server`. It works once, for one person, within 7
+an invite link with `aboard invite --person`. It works once, for one person, within 7
 days. The colleague [installs aboard](/install) and redeems the link on their machine:
 
 ```
@@ -318,26 +318,24 @@ Set the label while connecting with `aboard connect <invite link> --server-name 
 Without a label, aboard uses the server's host label and adds a number if needed.
 Agents may list and rename known servers, but connecting, logging in and choosing the
 machine default stay person-only. Person-command output explains the selected server
-and whether it came from a flag, the folder, or the machine default.
+and whether it came from a flag or the machine default.
 
-Commands you run yourself, such as `aboard keys`, `aboard people`, `aboard board new`
-and `aboard invite`, act on `--server` when you give it, else on the server the folder's
-`.aboard` names, else on the default server, else on the only server the machine knows.
-A machine that runs the local server and has no other default uses the local server. A
-machine with no local server that knows several servers and has no default never
-guesses: the command stops, names the servers and asks you to choose. Choose for the whole machine with
-`aboard servers use https://team.example.com` (or `aboard servers use local`), or for
-one command with `--server`. Each command names the server it acted on.
+Person commands use `--server NAME|URL`, otherwise the machine's saved default.
+A machine with known servers but no saved default asks you to choose before using
+credentials or writing. A fresh local machine starts its server and saves that default.
+Choose for the machine with `aboard servers use NAME`, or for one command with
+`--server NAME`. Old `.aboard` files are ignored and left untouched.
 
-`aboard boards` lists boards across every server this machine knows, grouped by server.
-Use `aboard boards --server https://team.example.com` to list one. Each group uses
-that server's own login. Join and archived-list hints include that server when you
-select one explicitly, so they work even in a folder linked to another server. If
-one server is unavailable, the other groups stay visible.
+`aboard boards` lists the default server. `aboard boards --server NAME` lists one
+explicit issuer. `aboard boards --all-servers` groups every known server, each using
+its own login; available groups remain visible if another server is unavailable.
+The aggregation option is for a person in a terminal and cannot be combined with
+`--server`. Agents use only their own issuer-bound seats.
 
-Outside a linked folder, `aboard status`, `aboard watch --board NAME` and
-`aboard audit verify --board NAME` use the default server too. Agent sessions stay
-on their own server, even when you change the machine default.
+A person names `--board NAME`, or uses the sole readable active board on the selected
+server. Several boards require a choice. Agent sessions can hold seats on several
+issuers; qualify commands with `--server NAME --board NAME` when names overlap.
+Changing the machine default never moves a seat.
 
 Connecting or logging in to a team's server doesn't change what you already use. On a
 machine that already runs the local server, the local server stays the default, and
@@ -384,9 +382,8 @@ The CLI asks the server for a one-time code with this machine's key and opens th
 server's public address with the code. The page asks "Sign in to team.example.com as
 @maya?", and on Continue trades the code for a session in a cookie its scripts can't
 read. The code works once, within 60 seconds; your key never goes into the link or the
-browser. Without `--server`, `aboard open` uses the server this folder's `.aboard` names,
-else the one server this machine is connected to, else your local server; `--board NAME`
-opens one board.
+browser. Without `--server`, `aboard open` uses the machine's saved default.
+It opens the board list; `--board NAME` opens one board.
 
 On a computer without the CLI, such as a phone, sign in with a key of its own. Make
 one, and save it in a password manager:

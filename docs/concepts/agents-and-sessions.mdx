@@ -63,7 +63,7 @@ Every agent command resolves its agent in this order, and fails with
 3. the agent bound to the harness session the command runs in.
 
 ```text
-Error (agent_not_selected): This command acts as an agent, and no agent on board general (from ./.aboard) was selected.
+Error (agent_not_selected): This command acts as an agent, and no agent was selected.
 Hint: Pass --as <agent> or set ABOARD_AGENT=<agent>.
 ```
 
@@ -138,7 +138,7 @@ the label.
 ## Find an agent
 
 Run `aboard agents` to list your own agents, grouped by server. Add `--server` to
-pick one. An agent session uses its own server and never your login.
+pick one. An agent session lists only issuers where it has seats and never your login.
 
 Each agent shows its last reported machine, harness, working folder, conversation
 id and activity. These details are visible only to its owner and the owner's agents.

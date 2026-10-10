@@ -162,7 +162,7 @@ func TestCommandWithoutAgentListsChoices(t *testing.T) {
 	pair := e.run("pair", "writer-reviewer", "--json")
 	e.run("join", field(t, pair.json(t), "join.line").(string))
 
-	r := e.runExit("say", "hello", "--json")
+	r := e.runExit("say", "hello", "--board", "writer-reviewer", "--json")
 	if r.code != 1 {
 		t.Fatalf("want exit 1\n%s", r)
 	}
@@ -211,9 +211,7 @@ func TestAuditVerifyFailsWhenHistoryIsEdited(t *testing.T) {
 	}
 }
 
-// TestOwnerLoginIsNeverSentToAnotherServer points the project's .aboard file at a server
-// other than the local one, as a cloned repository could, and checks that commands
-// refuse instead of sending the local owner's login there.
+// A legacy folder link cannot select a foreign issuer or expose the owner key.
 func TestOwnerLoginIsNeverSentToAnotherServer(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -234,21 +232,18 @@ func TestOwnerLoginIsNeverSentToAnotherServer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, args := range [][]string{
-		{"audit", "verify", "--json"},
-		{"board", "policy", "recommended", "--json"},
-		{"join", "7Q4-K2M", "--json"},
-	} {
-		r := e.runExit(args...)
-		if r.code != 1 {
-			t.Fatalf("want exit 1\n%s", r)
-		}
-		if code := field(t, r.json(t), "error.code"); code != "login_required" {
-			t.Fatalf("%v: code %v\n%s", args, code, r)
-		}
+	e.run("pair", "general")
+	e.run("audit", "verify", "--board", "general", "--json")
+	e.run("board", "policy", "recommended", "--board", "general", "--json")
+	if after, err := os.ReadFile(filepath.Join(e.dir, ".aboard")); err != nil || string(after) != project {
+		t.Fatalf("legacy link changed: %v", err)
 	}
+
 	mu.Lock()
 	defer mu.Unlock()
+	if len(seen) != 0 {
+		t.Fatalf("legacy link selected a foreign server: %d requests", len(seen))
+	}
 	for _, auth := range seen {
 		if strings.Contains(auth, "abh_") {
 			t.Fatalf("the owner's login was sent to another server: %q", auth)
@@ -256,51 +251,24 @@ func TestOwnerLoginIsNeverSentToAnotherServer(t *testing.T) {
 	}
 }
 
-// TestPairInALinkedDirectoryNamesTheBoard runs pair twice in one directory. The second
-// run must not quietly create another board and re-point the directory; it says which
-// board the directory uses and names both ways on: invite adds an agent to that board,
-// and --new creates another one on purpose.
-func TestPairInALinkedDirectoryNamesTheBoard(t *testing.T) {
+// Pairing and explicit new boards keep selection in machine state, never the folder.
+func TestPairCreatesBoardsWithoutWritingFolderLinks(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.run("pair", "writer-reviewer")
-
-	r := e.runExit("pair", "writer-reviewer", "--json")
-	if r.code != 1 {
-		t.Fatalf("want exit 1\n%s", r)
-	}
-	v := r.json(t)
-	if code := field(t, v, "error.code"); code != "board_already_linked" {
-		t.Fatalf("code %v\n%s", code, r)
-	}
-	if b := field(t, v, "error.details.board"); b != "writer-reviewer" {
-		t.Fatalf("details.board %v", b)
-	}
-	if a, n := field(t, v, "error.details.add_agent"), field(t, v, "error.details.new_board"); a != "aboard invite --board writer-reviewer" || n != "aboard pair --new" {
-		t.Fatalf("details name %v and %v as the ways on", a, n)
-	}
-	text := e.runExit("pair", "writer-reviewer")
-	for _, want := range []string{
-		"already linked to board writer-reviewer",
-		"To add an agent to writer-reviewer, a person runs aboard invite --board writer-reviewer in a terminal",
-		"To start another board, run aboard pair --new.",
-	} {
-		if !strings.Contains(text.stderr, want) {
-			t.Fatalf("error doesn't say %q\n%s", want, text)
-		}
-	}
-
 	fresh := e.run("pair", "writer-reviewer", "--new")
-	if !strings.Contains(fresh.stdout, "Linked this directory to board writer-reviewer-2 (it was linked to writer-reviewer).") {
-		t.Fatalf("pair --new doesn't say it re-linked the directory\n%s", fresh)
+	if strings.Contains(fresh.stdout, "Linked") {
+		t.Fatalf("pair linked the folder: %s", fresh)
 	}
-	if b := field(t, e.run("read", "--as", "writer", "--json").json(t), "board"); b != "writer-reviewer-2" {
-		t.Fatalf("directory uses %v after pair --new", b)
+	if _, err := os.Stat(filepath.Join(e.dir, ".aboard")); !os.IsNotExist(err) {
+		t.Fatalf("pair wrote a folder link: %v", err)
+	}
+	if b := field(t, e.run("read", "--as", "writer", "--board", "writer-reviewer-2", "--json").json(t), "board"); b != "writer-reviewer-2" {
+		t.Fatalf("explicit seat board: %v", b)
 	}
 }
 
-// TestJoinIntoAnotherBoardSaysSo joins a directory linked to one board into another, and
-// checks that the switch is announced.
+// Joining another board leaves the folder untouched.
 func TestJoinIntoAnotherBoardSaysSo(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -311,9 +279,11 @@ func TestJoinIntoAnotherBoardSaysSo(t *testing.T) {
 	expectLines(t, j,
 		"Joined board writer-reviewer as reviewer (owner alex)",
 		"Act as this agent with --as reviewer, or set ABOARD_AGENT=reviewer.",
-		"Linked this directory to board writer-reviewer (it was linked to writer-reviewer-2).",
 		"Delivery mode: focused. "+focusedRule,
 	)
+	if _, err := os.Stat(filepath.Join(e.dir, ".aboard")); !os.IsNotExist(err) {
+		t.Fatalf("join wrote a folder link: %v", err)
+	}
 }
 
 // TestStatusShowsWhereSelectionsCameFrom checks that plain aboard status says which board
@@ -328,7 +298,7 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 		"Server: "+url+" running",
 		"Daemon: not running; it starts when a session or command needs it",
 		"Setup:  none; aboard init adds the skill and hooks",
-		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
+		"Board:  writer-reviewer on "+url+" (the only readable active board)",
 		"Agent:  none selected; pass --as or set ABOARD_AGENT (yours here: writer)",
 		"Policy: starter (a starting point; tighten with aboard board policy recommended)",
 	)
@@ -336,19 +306,19 @@ func TestStatusShowsWhereSelectionsCameFrom(t *testing.T) {
 		"Server: "+url+" running",
 		"Daemon: not running; it starts when a session or command needs it",
 		"Setup:  none; aboard init adds the skill and hooks",
-		"Board:  writer-reviewer on "+url+" (from ./.aboard)",
+		"Board:  writer-reviewer on "+url+" (from the agent)",
 		"Agent:  writer (from --as); delivery focused; disconnected",
 		"        "+focusedRule,
 		"Policy: starter (a starting point; tighten with aboard board policy recommended)",
 	)
 	v := e.run("status", "--json").json(t)
-	if src := field(t, v, "board_source"); src != "project_file" {
+	if src := field(t, v, "board_source"); src != "only" {
 		t.Fatalf("board_source %v", src)
 	}
 
-	r := e.runExit("say", "hi", "--json")
-	if src := field(t, r.json(t), "error.details.board_source"); src != "project_file" {
-		t.Fatalf("agent_not_selected doesn't say where the board came from\n%s", r)
+	r := e.runExit("say", "hi", "--board", "writer-reviewer", "--json")
+	if errorCode(t, r.json(t)) != "agent_not_selected" {
+		t.Fatalf("no selected agent: %s", r)
 	}
 }
 

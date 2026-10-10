@@ -73,7 +73,10 @@ type app struct {
 	// boardServerFlag is the --server of a person's board command (policy, add, remove,
 	// leave, owner, visibility): the server of the board --board names, in place of the
 	// one this directory's .aboard names. Empty when not given.
-	boardServerFlag string
+	boardServerFlag     string
+	agentServerFlag     string
+	selectedAgentServer *serverRef
+	qualifyAgentOutput  bool
 	// started is when the command started.
 	started time.Time
 	// daemonChecked and localChecked are set once this command has checked the running
@@ -299,6 +302,19 @@ func (a *app) emit(v any, text string) {
 }
 
 func (a *app) emitChecked(v any, text string) error {
+	if a.selectedAgentServer != nil {
+		raw, err := json.Marshal(v)
+		if err == nil {
+			var object map[string]json.RawMessage
+			if json.Unmarshal(raw, &object) == nil && object != nil {
+				object["server"], _ = json.Marshal(a.selectedAgentServer)
+				v = object
+			}
+		}
+		if a.agentServerFlag != "" || a.qualifyAgentOutput {
+			text = a.selectedAgentServer.URL + " · " + text
+		}
+	}
 	if selection := a.serverSelection; selection != nil {
 		boardNamed := false
 		if raw, err := json.Marshal(v); err == nil {

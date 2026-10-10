@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -21,11 +22,12 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 		d.setUp(inviter)
 		board := inviter.pairCLI()
 		inviter.run("allowance", "on")
+		inviter.run("allowance", "set", "invite-people", "on")
 		writerDir := inviter.project("setup-inviter", d.p.Harness)
 		writer := d.start(inviter, "writer", writerDir)
 		writer.bind("writer")
 		invitePath := filepath.Join(writerDir, "invite.json")
-		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
+		writer.submit(fmt.Sprintf("Run umask 077; aboard invite --person --server http://%s --board %s --pairing %q --json > %q, then end your turn. Keep the invitation only in that private file, never in board messages. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Do no other work.", inviter.addr, board, "Verify newcomer setup", invitePath))
 		var invitation struct {
 			Invite struct {
 				Secret string `json:"invite"`
@@ -43,7 +45,24 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 		reviewerDir := newcomer.project("setup-newcomer", d.p.Harness)
 		reviewer := d.start(newcomer, "reviewer", reviewerDir)
 		resultPath := filepath.Join(reviewerDir, "setup.json")
-		prompt := fmt.Sprintf("Run aboard setup %q --handle newcomer --json > %q, then end your turn. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Keep the invitation out of board messages. Do no other work.", link, resultPath)
+		waitingPath := filepath.Join(reviewerDir, "waiting.json")
+		reviewer.submit(fmt.Sprintf("Run aboard setup %q --json > %q, then end your turn without choosing a handle or continuing setup. Keep the invitation out of board messages.", link, waitingPath))
+		var waiting struct {
+			State  string          `json:"state"`
+			Person json.RawMessage `json:"person"`
+			Next   struct {
+				Command string `json:"command"`
+			} `json:"next"`
+		}
+		newcomer.waitFor(2*time.Minute, "a secret-free saved setup continuation", func() bool {
+			data, err := os.ReadFile(filepath.Clean(waitingPath))
+			return err == nil && json.Unmarshal(data, &waiting) == nil && waiting.State == "pending"
+		})
+		if len(waiting.Person) != 0 && string(waiting.Person) != "null" || !strings.HasPrefix(waiting.Next.Command, "aboard setup --continue --handle ") || strings.Contains(waiting.Next.Command, invitation.Invite.Secret) {
+			t.Fatal("setup spent the invite or omitted its secret-free continuation")
+		}
+		reviewer.waitIdle(2 * time.Minute)
+		prompt := fmt.Sprintf("Your person chose newcomer as the visible handle. Run aboard setup --continue --handle newcomer --json > %q, then end your turn. When an ABOARD-PAIRING ping arrives, reply to that exact message with aboard say --reply and its specified canonical reply marker, then end your turn. Keep the invitation out of board messages. Do no other work.", resultPath)
 		reviewer.submit(prompt)
 		var paired struct {
 			State string `json:"state"`
@@ -54,7 +73,7 @@ func TestInvitedSetupVerifiesTwoPeopleExactSessions(t *testing.T) {
 		})
 		writer.waitIdle(2 * time.Minute)
 		reviewer.waitIdle(2 * time.Minute)
-		reviewer.submit(fmt.Sprintf("Run aboard setup %q --handle newcomer --json > %q once more to read the verified result, then end your turn. Do not create another account or invitation.", link, resultPath))
+		reviewer.submit(fmt.Sprintf("Run aboard setup --continue --handle newcomer --json > %q once more to read the verified result, then end your turn. Do not create another account or invitation.", resultPath))
 		var output struct {
 			State string `json:"state"`
 			Steps []struct {

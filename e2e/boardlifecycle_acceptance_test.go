@@ -169,7 +169,7 @@ func TestPublicBoardLifecycleRestoreDoesNotReviveRemovedSeat(t *testing.T) {
 	seat := delegatedSeat(t, tm, d, b, 201)
 	token := seat["token"].(string)
 	lifecycleReceipt(t, tm, b, "archive", key, "", "archived", true)
-	tm.admin.run("board", "remove", "@maya")
+	tm.admin.run("board", "remove", "@maya", "--board", b)
 	lifecycleReceipt(t, tm, b, "restore", key, "", "active", true)
 	tm.admin.run("board", "add", "@maya")
 	before := lifecycleRead(t, tm, b, key)["head_seq"]

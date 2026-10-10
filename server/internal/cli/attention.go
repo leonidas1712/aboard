@@ -23,7 +23,7 @@ func runReadMarked(ctx context.Context, a *app, boardFlag string, limit int) err
 	if err := a.refuseInSession("Marking messages read as yourself", "aboard read --mark-read"+boardArg(a.namedBoard(boardFlag))); err != nil {
 		return err
 	}
-	t, err := a.selectBoard(boardFlag)
+	t, err := a.humanBoard(ctx, boardFlag)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func runReadReceipts(ctx context.Context, a *app, ref, boardFlag, asFlag string)
 		agent = cred.Name
 		c, err = a.client(ctx, t.server, cred.Token, requestTimeout)
 	} else {
-		if t, err = a.selectBoard(boardFlag); err != nil {
+		if t, err = a.humanBoard(ctx, boardFlag); err != nil {
 			return err
 		}
 		if r.Board != "" {

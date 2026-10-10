@@ -155,7 +155,7 @@ func (a *app) deliveryTarget(ctx context.Context, boardFlag, as string) (t targe
 	if name == "" || asError(err).Code != "agent_not_selected" || a.actsForAgent() {
 		return target{}, agentCredential{}, false, err
 	}
-	if t, err = a.selectBoard(boardFlag); err != nil {
+	if t, err = a.humanBoard(ctx, boardFlag); err != nil {
 		return target{}, agentCredential{}, false, err
 	}
 	return t, agentCredential{Server: t.server.URL, Board: t.board, Name: name}, false, nil

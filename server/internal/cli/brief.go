@@ -158,7 +158,7 @@ func runBrief(ctx context.Context, a *app, args []string) error {
 	}
 	statePath := filepath.Join(p.state, "files.json")
 	var entries []fetchedFile
-	if _, err := readJSONFile(statePath, &entries); err != nil {
+	if err := readJSONFile(statePath, &entries); err != nil {
 		return err
 	}
 	var previous *fetchedFile
