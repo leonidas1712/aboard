@@ -5,6 +5,7 @@ Reports preserve failed flows instead of teaching the agents missing commands.
 Subscription credentials and invitation handovers stay in the private run folder.
 """
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -38,6 +39,19 @@ def clean_env():
             or k == 'CLAUDE_CODE_OAUTH_TOKEN'}
 
 
+def install_shell_environment(home, env):
+    """Keep the private tool path after a harness starts a login shell."""
+    home = Path(home)
+    exports = '\n'.join('export ' + key + '=' + shlex.quote(env[key])
+                        for key in ISOLATION if key in env) + '\n'
+    for name in ('.zshenv', '.zprofile', '.zlogin', '.bash_profile', '.bashrc'):
+        path = home / name
+        if path.is_symlink():
+            raise RuntimeError('Refuse a symlinked private shell profile.')
+        path.write_text(exports)
+        path.chmod(0o600)
+
+
 def checksum(path):
     if not path.exists():
         return 'absent'
@@ -48,6 +62,12 @@ def checksum(path):
                 for p in sorted(path.rglob('*')) if not p.is_dir()]
         return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def check_installed_build(home, binary):
+    installed = Path(home) / '.local/bin/aboard'
+    if installed.exists() and checksum(installed) != checksum(Path(binary)):
+        raise RuntimeError('Fixture installed a different build; this is not a valid flow result.')
 
 
 def protected():
@@ -86,6 +106,13 @@ def texts(value):
         if payload.get('type') == 'message' and payload.get('role') == 'assistant':
             messages.extend(c.get('text', '') for c in payload.get('content', [])
                             if isinstance(c, dict))
+        if payload.get('type') == 'custom_tool_call' and payload.get('name') == 'exec':
+            source = payload.get('input', '')
+            for literal in re.findall(r'''\bcmd\s*:\s*("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')''', source):
+                try:
+                    commands.append(ast.literal_eval(literal))
+                except (ValueError, SyntaxError):
+                    pass
         if payload.get('type') == 'function_call':
             try:
                 args = json.loads(payload.get('arguments', '{}'))
@@ -184,6 +211,7 @@ class Eval:
             self.sandbox(side, 'python3 -c ' + shlex.quote(code), fresh=side == 'maya')
             env = dict(self.env, **json.loads(path.read_text()))
             self.sides[side] = {'folder': folder, 'env': env, 'project': folder / 'project'}
+            install_shell_environment(Path(env['HOME']), env)
         self.person('leo', 'board', 'new', 'qa', '--title', 'Flow QA', '--server', 'qa')
         if self.args.approval == 'auto':
             self.person('leo', 'allowance', 'on', '--server', 'qa')
@@ -379,6 +407,7 @@ class Eval:
         handed = False
         interrupted = False
         while time.monotonic() < deadline:
+            check_installed_build(self.sides['maya']['env']['HOME'], self.binary)
             self.collect()
             screens = {side: self.screen(side) for side in self.sides}
             self.trust_hooks()
@@ -441,6 +470,7 @@ class Eval:
             result = self.observe()
             if all(result.values()):
                 if self.args.scenario != 'interrupted' or interrupted:
+                    check_installed_build(self.sides['maya']['env']['HOME'], self.binary)
                     return result
             time.sleep(1)
         raise RuntimeError('The flow did not reach the required end state before the deadline.')

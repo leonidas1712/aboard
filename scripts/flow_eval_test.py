@@ -1,6 +1,10 @@
 """Protect the evaluator from scoring human output or terminal redraws as success."""
 import unittest
-from flow_eval import friction, hello_from
+import tempfile
+import os
+import subprocess
+from pathlib import Path
+from flow_eval import friction, hello_from, texts
 
 
 class ReportTests(unittest.TestCase):
@@ -26,6 +30,42 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(report['uncertainty_phrases'], 1)
         self.assertEqual(report['repeated_commands'], 1)
         self.assertEqual(report['error_records'], 1)
+
+    def test_codex_custom_exec_records_command_calls(self):
+        row = {'payload': {'type': 'custom_tool_call', 'name': 'exec',
+               'input': 'const r = await tools.exec_command({cmd:"aboard status",yield_time_ms:1000}); text(r.output);'}}
+        self.assertEqual(texts(row)[1], ['aboard status'])
+
+    def test_login_shell_keeps_private_install_path(self):
+        from flow_eval import install_shell_environment
+        with tempfile.TemporaryDirectory() as root:
+            home = Path(root)
+            tools = home / 'tools'
+            tools.mkdir()
+            (tools / 'curl').write_text('#!/bin/sh\nprintf private-install\n')
+            (tools / 'curl').chmod(0o700)
+            env = dict(os.environ, HOME=str(home), PATH=str(tools)+':/usr/bin:/bin',
+                       ABOARD_INSTALL_FROM=str(home/'dev-build'))
+            install_shell_environment(home, env)
+            result = subprocess.run(['/bin/zsh','-lc','command -v curl; printf "%s" "$ABOARD_INSTALL_FROM"'],
+                                    env=env, capture_output=True, text=True, check=True)
+            self.assertEqual(result.stdout.splitlines()[0], str(tools/'curl'))
+            self.assertEqual(result.stdout.splitlines()[1], str(home/'dev-build'))
+
+    def test_wrong_installed_build_refuses_a_flow_result(self):
+        from flow_eval import check_installed_build
+        with tempfile.TemporaryDirectory() as root:
+            home = Path(root)
+            binary = home / 'dev-build'
+            binary.write_bytes(b'dev')
+            check_installed_build(home, binary)
+            installed = home / '.local/bin/aboard'
+            installed.parent.mkdir(parents=True)
+            installed.write_bytes(b'release')
+            with self.assertRaisesRegex(RuntimeError, 'different build'):
+                check_installed_build(home, binary)
+            installed.write_bytes(b'dev')
+            check_installed_build(home, binary)
 
 
 if __name__ == '__main__':
