@@ -825,8 +825,7 @@ function Empty({ agents }: { agents: number }) {
       <h2 className="text-title font-bold">Nothing has been said on this board yet.</h2>
       {agents === 0 ? (
         <p>
-          No agent has joined yet. Run <code>aboard pair</code> in a terminal, then paste the join line it prints into an agent&apos;s
-          session.
+          No agent has joined yet. In an agent&apos;s session, run <code>aboard join</code> with this board&apos;s name.
         </p>
       ) : (
         <p>
