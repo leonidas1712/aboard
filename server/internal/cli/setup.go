@@ -503,18 +503,18 @@ func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id str
 		Request api.PairingRequest `json:"request"`
 	}
 	if err := json.Unmarshal(captured.Bytes(), &accepted); err != nil {
-		return newError("internal", "The pairing result could not be read.", "Read the original pairing request before trying again.")
+		return newError("internal", "The delivery check result could not be read.", "Continue Aboard setup before trying again.")
 	}
 	if accepted.Server.URL != out.Server.URL || accepted.Request.Id != id || accepted.Request.ServerId == "" {
-		return newError("internal", "The pairing result did not match the requested issuer and identity.", "Read the original pairing request; do not create a replacement.")
+		return newError("internal", "The delivery check result did not match the requested server and identity.", "Continue Aboard setup; do not create a replacement.")
 	}
 	out.PairingRequest = &accepted.Request
 	if out.Steps[1].State != "complete" {
 		out.Steps[1].State = "complete"
-		out.Steps[1].Message = "Your current account is authorized for this pairing."
+		out.Steps[1].Message = "Your current account is authorized for this setup."
 	}
 	out.Steps[2].State = "complete"
-	out.Steps[2].Message = "Pairing participation and current board access were checked."
+	out.Steps[2].Message = "Current board access and delivery participation were checked."
 	out.Steps[4].State = "complete"
 	out.Steps[4].Message = "This exact session joined the invited boards."
 	out.Steps[5].Message = "Both current sessions' round trips are not yet verified."
@@ -522,7 +522,7 @@ func (a *app) continueSetupPairing(ctx context.Context, out *setupOutput, id str
 	if accepted.Request.State == api.PairingStateReady {
 		first, second := accepted.Request.Initiator, accepted.Request.Recipient
 		if first == nil || second == nil || first.AgentId == "" || second.AgentId == "" || first.SessionBinding == "" || second.SessionBinding == "" || first.Generation <= 0 || second.Generation <= 0 {
-			return newError("internal", "The ready pairing response omitted its current endpoint evidence.", "Read the original pairing request and ask the admin to check the server.")
+			return newError("internal", "The completed delivery check omitted its current session evidence.", "Continue Aboard setup and ask the admin to check the server.")
 		}
 		out.Steps[3].State = "complete"
 		out.Steps[3].Message = "The current harness participated in the verified round trip."
