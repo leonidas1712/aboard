@@ -20,7 +20,7 @@ export const ROADMAP_URL = `${GITHUB_URL}/blob/main/design/ROADMAP.md`;
 export const COMPARE_URL = "https://docs.comeaboard.dev/compare";
 export const SAFETY_URL = "https://docs.comeaboard.dev/safety";
 export const TEAM_SERVER_URL = "https://docs.comeaboard.dev/team-server";
-export const COLLEAGUE_URL = "https://docs.comeaboard.dev/guides/pair-with-a-colleague";
+export const COLLEAGUE_URL = "https://docs.comeaboard.dev/guides/bring-a-colleague-aboard";
 export const AUTO_MODE_URL = "https://docs.comeaboard.dev/guides/auto-mode";
 
 // The hosted-version waitlist is a Tally form (tally.so). Set PUBLIC_TALLY_FORM_ID in

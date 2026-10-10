@@ -565,6 +565,18 @@ export async function put<T>(path: string, body: unknown, key: string = crypto.r
   throw await failure(resp);
 }
 
+/** patch changes part of something as the person, with an Idempotency-Key. */
+export async function patch<T>(path: string, body: unknown, key: string = crypto.randomUUID()): Promise<T> {
+  const resp = await fetch(path, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: { ...writeHeaders(), "Content-Type": "application/json", "Idempotency-Key": key },
+    body: JSON.stringify(body),
+  });
+  if (resp.ok) return (await resp.json()) as T;
+  throw await failure(resp);
+}
+
 /** send makes a write without a body, such as PUT or DELETE, with an Idempotency-Key. */
 export async function send<T>(method: "PUT" | "DELETE" | "POST", path: string, key: string = crypto.randomUUID()): Promise<T> {
   const resp = await fetch(path, { method, credentials: "same-origin", headers: { ...writeHeaders(), "Idempotency-Key": key } });

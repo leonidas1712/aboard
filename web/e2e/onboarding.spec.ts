@@ -133,6 +133,29 @@ test("an approval allowed once runs the agent's request and shows its command", 
   const notice = page.locator(`[data-notice="${notices[0].id}"]`);
   await expect(notice.getByRole("heading", { name: /Your agent .*writer invited someone/ })).toBeVisible();
   await expect(notice).toContainText("Open");
+  // Edit handle changes only the suggested handle, from the browser session.
+  await notice.getByRole("button", { name: "Edit handle" }).click();
+  await notice.getByLabel(/Suggested handle/).fill("Not Valid");
+  await notice.getByRole("button", { name: "Save" }).click();
+  await expect(notice.getByRole("alert")).toContainText("lowercase letters, digits and hyphens");
+  await notice.getByLabel(/Suggested handle/).fill("river");
+  const edited = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().endsWith(`/v1/invites/${notices[0].id}`));
+  await notice.getByRole("button", { name: "Save" }).click();
+  const patched = await edited;
+  expect(patched.status()).toBe(200);
+  expect((await patched.request().allHeaders())["x-aboard-csrf"]).toBeTruthy();
+  await expect(notice).toContainText("Invited as @river");
+  // The server's refusal shows in its own words and leaves the shown handle alone.
+  await page.route(`**/v1/invites/${notices[0].id}`, (route) => route.request().method() === "PATCH"
+    ? route.fulfill({ status: 409, json: { error: { code: "invite_unavailable", message: "This invitation can no longer be edited.", hint: "Make a new invitation." } } })
+    : route.continue());
+  await notice.getByRole("button", { name: "Edit handle" }).click();
+  await notice.getByLabel(/Suggested handle/).fill("lake");
+  await notice.getByRole("button", { name: "Save" }).click();
+  await expect(notice.getByRole("alert")).toContainText("This invitation can no longer be edited.");
+  await notice.getByRole("button", { name: "Cancel" }).click();
+  await expect(notice).toContainText("Invited as @river");
+  await page.unroute(`**/v1/invites/${notices[0].id}`);
   const revoked = page.waitForResponse((r) => r.request().method() === "DELETE" && r.url().endsWith(`/v1/invites/${notices[0].id}`));
   await notice.getByRole("button", { name: "Revoke the invite" }).click();
   const response = await revoked;
@@ -279,6 +302,9 @@ test("the invite page previews a real invite link without using it", async ({ pa
   expect(String(preview.prompt)).toContain(invite);
   await expect(page.getByLabel("Prompt for your agent")).toHaveText(String(preview.prompt));
   if (preview.suggested_handle) await expect(page.getByText(`Invited as @${preview.suggested_handle}`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Or set it up in a terminal" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy prompt" })).toBeVisible();
+  await expect(page.getByRole("main")).not.toContainText(/pair/i);
   // Previewing never spends the invite: it still makes an account.
   const connected = await api(null, "POST", "/v1/connect", { invite, handle: "dana", key_name: "laptop" });
   expect(connected.status).toBe(201);

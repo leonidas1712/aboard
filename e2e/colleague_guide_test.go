@@ -8,15 +8,14 @@ import (
 	"time"
 )
 
-// The guide "Pair with a colleague's agent" (docs/guides/pair-with-a-colleague.mdx),
+// The guide "Bring a colleague aboard" (docs/guides/bring-a-colleague-aboard.mdx),
 // command by command, with stand-in Claude Code sessions: leo's agent makes a board and
-// a bundled invite that waits for leo's approval; leo allows it; maya's agent sets her up
-// from the one link and joins its boards in that session; a hello and reply check
-// messages get through, then the two agents talk. Then pairing again with maya, and
-// with leo's own next session, and the invite and allowance commands the guide shows.
-// The verified ready state needs real harness sessions: e2e/live
-// TestInvitedSetupVerifiesTwoPeopleExactSessions.
-func TestGuidePairWithAColleague(t *testing.T) {
+// an invite for maya that waits for leo's approval; leo allows it; the agent collects
+// the link and prompt itself; maya's agent sets her up from the one link and joins the
+// board in that session; a hello and reply check messages get through, then the two
+// agents talk. Then the names, a teammate already on the server, leo's own next
+// session, and the invite commands the guide shows.
+func TestGuideBringAColleagueAboard(t *testing.T) {
 	t.Parallel()
 	leo := newPersonHome(t, "leo")
 	leo.run("up")
@@ -24,53 +23,57 @@ func TestGuidePairWithAColleague(t *testing.T) {
 	url := tm.url()
 	quoted := "'" + url + "'"
 
-	// 1. leo asks his agent to make the board and invite his colleague to it.
+	// 1. leo asks his agent to make the board and invite maya to it.
 	ls := leo.claudeSession("s-leo")
-	created := ls.run("board", "new", "pairing-test", "--title", "Pairing test")
-	if !strings.HasPrefix(created.stdout, "Created board pairing-test on "+url+" and joined as claude (member, owner leo).\n") {
+	created := ls.run("board", "new", "qa", "--title", "QA")
+	if !strings.HasPrefix(created.stdout, "Created board qa on "+url+" and joined as claude (member, owner leo).\n") {
 		t.Fatalf("board new:\n%s", created)
 	}
-	held := ls.run("invite", "--person", "--board", "pairing-test")
+	held := ls.run("invite", "--person", "--handle", "maya", "--board", "qa")
 	lines := held.lines()
-	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on "+url+" · pairing-test") ||
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on "+url+" · qa") ||
 		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server "+quoted) ||
 		lines[2] != "Continue after your person allows or declines this exact action." {
 		t.Fatalf("the held invite:\n%s", held)
 	}
 	approval := strings.Fields(lines[0])[2]
 
-	// 2. leo allows it from his terminal, and his agent takes the pairing in its session.
-	if list := leo.run("approvals"); !strings.Contains(list.stdout, approval+" · invite people · @claude · board pairing-test · pending") {
+	// 2. leo approves it once from his terminal, which shows the link and prompt.
+	if list := leo.run("approvals"); !strings.Contains(list.stdout, approval+" · invite people · @claude · board qa · pending") {
 		t.Fatalf("approvals:\n%s", list)
 	}
-	allowed := leo.run("approvals", "allow", approval, "--json")
-	approved := allowed.json(t)
-	link := field(t, approved, "invite.link").(string)
-	request := field(t, approved, "invite.pairing_request_id").(string)
-	if field(t, approved, "approval.state") != "executed" || !strings.HasPrefix(link, url+"/join#abi_") || request == "" ||
-		field(t, approved, "invite.prompt") != "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup "+link+" --handle <name you'd like teammates to see>. Verify you can exchange messages with the inviting agent." {
+	allowed := leo.run("approvals", "allow", approval, "--server", url)
+	shown := allowed.lines()
+	if len(shown) != 3 || shown[0] != approval+" · executed on "+url || !strings.HasPrefix(shown[1], "Invite: aboard connect '"+url+"/join#abi_") {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
+	link := strings.TrimSuffix(strings.TrimPrefix(shown[1], "Invite: aboard connect '"), "'")
+	if !strings.HasPrefix(shown[2], "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh") ||
+		!strings.Contains(shown[2], "aboard skill") || !strings.Contains(shown[2], "aboard setup "+link+" --handle maya.") {
+		t.Fatalf("the prompt for maya:\n%s", allowed)
+	}
 
-	// 3. maya's agent reads the skill and sets her up from the one link. It asks for her
-	// name before it uses the invite.
+	// 3. The agent is told, and collects the link and prompt itself, once.
+	notice := ls.hook("prompt", `"prompt":"continue"`)
+	if !strings.Contains(notice.stdout, "aboard approvals show '"+approval+"'") || strings.Contains(notice.stdout, "abi_") {
+		t.Fatalf("the agent's notice:\n%s", notice)
+	}
+	collected := ls.run("approvals", "show", approval).lines()
+	if len(collected) != 3 || !strings.HasPrefix(collected[0], approval+" · executed on ") || !strings.HasSuffix(collected[0], " · qa") ||
+		collected[1] != "Invite: "+link || collected[2] != shown[2] {
+		t.Fatalf("approvals show:\n%s", strings.Join(collected, "\n"))
+	}
+	if again := ls.run("approvals", "show", approval); again.stdout != collected[0]+"\n" {
+		t.Fatalf("a second approvals show:\n%s", again)
+	}
+
+	// 4. maya's agent installs the skill and sets her up from the one link.
 	maya := newPersonHome(t, "maya")
 	ms := maya.claudeSession("s-maya")
 	if r := ms.run("skill"); !strings.Contains(r.stdout, "# Aboard") {
 		t.Fatalf("skill:\n%s", r)
 	}
-	waiting := ms.run("setup", link)
-	expectLines(t, waiting,
-		"Setup on "+url+": pending",
-		"installed: complete · Aboard is installed; its owner can update it.",
-		"account: pending · Your visible name needs your person's choice; the invite has not been used.",
-		"memberships: pending",
-		"harness: pending",
-		"joining: pending",
-		"delivery: pending",
-		"aboard setup --continue --handle maya",
-		"Ask your person what name they'd like teammates to see. Suggested name: maya (availability is checked when you continue). Set --handle to their chosen name, then Continue Aboard setup.")
-	set := ms.run("setup", "--continue", "--handle", "maya")
+	set := ms.run("setup", link, "--handle", "maya")
 	expectLines(t, set,
 		"Setup on "+url+": pending",
 		"installed: complete · Aboard is installed; its owner can update it.",
@@ -85,99 +88,123 @@ func TestGuidePairWithAColleague(t *testing.T) {
 		t.Fatal("setup printed the invite or the key")
 	}
 
-	// Loading the installed hooks requires the documented harness restart. The
-	// resumed conversation keeps its seat, while setup binds the new exact boot.
+	// After the hooks are trusted and Claude Code restarted, setup confirms them and
+	// waits for a reply to its hello.
 	ms = maya.claudeSessionFrom("s-maya", "resume")
-	continued := ms.run("setup", "--continue")
-	if !strings.Contains(continued.stdout, "harness: complete") || !strings.Contains(continued.stdout, "delivery: pending") {
-		t.Fatalf("setup after loading hooks in the resumed harness:\n%s", continued)
+	waiting := ms.run("setup", "--continue")
+	if !strings.Contains(waiting.stdout, "harness: complete") || !strings.Contains(waiting.stdout, "delivery: pending · Waiting for a reply from @leo's agents.\n") {
+		t.Fatalf("setup after the restart:\n%s", waiting)
 	}
 
-	// 4. The setup hello and an ordinary reply check messages get through.
-	leoStop := ls.startHook("stop")
-	hello := leoStop.wait(10 * time.Second)
-	if hello.code != 2 || !strings.Contains(hello.stderr, "Hello, I joined using your invitation.") {
-		t.Fatalf("setup hello did not reach the inviting agent:\n%s", hello)
+	// 5. The hello reaches leo's agent, which replies; setup then reports complete.
+	hello := ls.startHook("stop").wait(10 * time.Second)
+	if hello.code != 2 || !strings.Contains(hello.stderr, `from="@claude-2" owner="maya" role="member" harness="claude-code" sender="other_agent"`) ||
+		!strings.Contains(hello.stderr, "Hello, I joined using your invitation. Please reply so I can check that messages get through.") {
+		t.Fatalf("setup's hello did not reach the inviting agent:\n%s", hello)
 	}
 	seq := strings.TrimSuffix(strings.Fields(hello.stderr[strings.Index(hello.stderr, ` seq="`):])[0][len(`seq="`):], `"`)
-	ls.run("say", "--reply", seq, "Hello, messages get through.")
-	if got := ms.startHook("stop").wait(10 * time.Second); got.code != 2 || !strings.Contains(got.stderr, "Hello, messages get through.") {
+	ls.run("say", "--reply", seq, "Hi maya, welcome.")
+	if got := ms.startHook("stop").wait(10 * time.Second); got.code != 2 || !strings.Contains(got.stderr, "Hi maya, welcome.") {
 		t.Fatalf("the reply did not reach the newcomer:\n%s", got)
 	}
 	verified := ms.run("setup", "--continue")
-	if !strings.Contains(verified.stdout, "Setup on "+url+": complete") || !strings.Contains(verified.stdout, "delivery: complete · Messages get through on the invited board.") {
-		t.Fatalf("setup did not report the ordinary reply:\n%s", verified)
+	if !strings.HasPrefix(verified.stdout, "Setup on "+url+": complete\n") || !strings.Contains(verified.stdout, "delivery: complete · Messages get through on the invited board.\n") {
+		t.Fatalf("setup did not report the reply:\n%s", verified)
 	}
 
-	// 5. The agents talk; each labels the other other_agent.
+	// 6. The agents talk; each labels the other other_agent.
 	people := ms.run("board", "people").lines()
-	if len(people) != 5 || !strings.HasSuffix(people[0], "pairing-test · open · 2 people") || people[1] != "  leo (owner)" ||
+	if len(people) != 5 || !strings.HasSuffix(people[0], "qa · open · 2 people") || people[1] != "  leo (owner)" ||
 		!strings.HasPrefix(people[2], "    @claude · claude-code · ") || people[3] != "  maya" || !strings.HasPrefix(people[4], "    @claude-2 · claude-code · ") {
 		t.Fatalf("board people from maya's agent:\n%s", strings.Join(people, "\n"))
 	}
-	leoStop = ls.startHook("stop")
+	leoStop := ls.startHook("stop")
 	if !leoStop.running(300 * time.Millisecond) {
 		t.Fatalf("leo's stop hook returned with nothing to deliver\n%s", leoStop.wait(time.Second))
 	}
 	ms.run("say", "--to", "@claude", "--expect-reply", "Ready when you are. What should I review first?")
-	if woke := leoStop.wait(10 * time.Second); woke.code != 2 || !strings.Contains(woke.stderr, `from="@claude-2" owner="maya" role="member" harness="claude-code" sender="other_agent"`) {
+	if woke := leoStop.wait(10 * time.Second); woke.code != 2 || !strings.Contains(woke.stderr, `sender="other_agent"`) {
 		t.Fatalf("leo's agent should wake with maya's agent's message\n%s", woke)
 	}
 
-	// Pair again with maya, who is already on the server: a pairing request, accepted
-	// in the session she chooses.
-	again := ls.run("pairing", "request", "@maya", "--board", "pairing-test", "Review the retry change")
-	expectLines(t, again, strings.Fields(again.stdout)[0]+" · board pairing-test · awaiting_endpoint", "aboard pairing list --server "+quoted)
-	second := strings.Fields(again.stdout)[0]
-	ms2 := maya.claudeSession("s-maya-2")
-	if r := ms2.run("pairing", "list"); !strings.Contains(r.stdout, second+" · board pairing-test · awaiting_endpoint\n") || strings.Contains(r.stdout, "brd_") {
-		t.Fatalf("maya's pairing list:\n%s", r)
-	}
-	if r := ms2.run("pairing", "accept", second, "--here"); !strings.HasPrefix(r.stdout, second+" · board pairing-test · ") {
-		t.Fatalf("pairing accept:\n%s", r)
+	// Names: maya's agent renames its own person.
+	expectLines(t, ms.run("people", "rename", "@maya", "maya-k"),
+		"@maya is now @maya-k on "+url+". Their identity, boards and agents stay.")
+
+	// Someone already on the server: added to the board, then their agent joins it.
+	sam := tm.person("sam")
+	expectLines(t, ls.run("board", "add", "@sam", "--board", "qa"), "Added sam to qa (by claude, for leo).")
+	if r := sam.claudeSession("s-sam").run("join", "--board", "qa"); !strings.HasPrefix(r.stdout, "Joined board qa as claude-") || !strings.Contains(r.stdout, " (member, owner sam)\n") {
+		t.Fatalf("sam's agent joining qa:\n%s", r)
 	}
 
-	third := strings.Fields(ls.run("pairing", "request", "@maya", "--board", "pairing-test", "Another review").stdout)[0]
-	if r := ms2.run("pairing", "decline", third); !strings.HasPrefix(r.stdout, third+" · board pairing-test · declined") {
-		t.Fatalf("pairing decline:\n%s", r)
+	// leo's own next session joins by name.
+	if r := leo.claudeSession("s-leo-2").run("join", "--board", "qa"); !strings.HasPrefix(r.stdout, "Joined board qa as claude-") {
+		t.Fatalf("leo's next session joining qa:\n%s", r)
 	}
 
-	// Pair with leo's own next session.
-	own := ls.run("pairing", "request", "me", "--board", "pairing-test", "Pick up the auth review")
-	ownID := strings.Fields(own.stdout)[0]
-	expectLines(t, own, ownID+" · board pairing-test · awaiting_endpoint", "aboard pairing accept "+ownID+" --here --server "+quoted)
-	ls2 := leo.claudeSession("s-leo-2")
-	if r := ls2.run("pairing", "list"); !strings.Contains(r.stdout, ownID+" · ") {
-		t.Fatalf("leo's next session's pairing list:\n%s", r)
-	}
-	if r := ls2.run("pairing", "accept", ownID, "--here"); !strings.HasPrefix(r.stdout, ownID+" · board pairing-test · ") {
-		t.Fatalf("own pairing accept:\n%s", r)
-	}
-
-	// Auto mode for inviting, the invite notice, and revoking it.
+	// Auto mode for inviting, editing the suggested name, the agent's reads, and
+	// revoking an invite.
 	expectLines(t, leo.run("allowance", "set", "invite-people", "on"),
 		"Allowance on "+url+": invite-people",
 		"Agents allowed to invite people can let outsiders read every open board.")
-	auto := ls.run("invite", "--person", "--board", "pairing-test")
-	if !strings.Contains(auto.stdout, " · executed on "+url+" · pairing-test\n") {
+	auto := ls.run("invite", "--person", "--handle", "sam-2", "--board", "qa")
+	if !strings.Contains(auto.stdout, " · executed on "+url+" · qa\n") {
 		t.Fatalf("an invite under the allowance:\n%s", auto)
 	}
-	invites := leo.run("invite", "list")
+	invites := ls.run("invite", "list")
 	var active string
 	for _, line := range invites.lines() {
-		if strings.Contains(line, " · active · issued by agent ") {
+		if strings.Contains(line, " · active · for @sam-2 · issued by agent @claude · ") {
 			active = strings.Fields(line)[0]
 		}
 	}
-	if !strings.Contains(invites.stdout, " · issued by agent @claude · ") || strings.Contains(invites.stdout, "mem_") {
-		t.Fatalf("invite list shows ids instead of names:\n%s", invites)
+	if active == "" || !strings.Contains(invites.stdout, " · redeemed · for @maya · issued by agent @claude · ") || strings.Contains(invites.stdout, "abi_") {
+		t.Fatalf("invite list from the agent:\n%s", invites)
 	}
-	if active == "" {
-		t.Fatalf("invite list:\n%s", invites)
+	expectLines(t, ls.run("invite", "edit", active, "--handle", "sam-k"),
+		"Updated suggested handle for invitation "+active+" on "+url+".")
+	if r := ls.run("people"); !strings.Contains(r.stdout, "@maya-k") || !strings.Contains(r.stdout, "@sam") {
+		t.Fatalf("people from the agent:\n%s", r)
 	}
-	leo.run("invite", "revoke", active)
+	expectLines(t, leo.run("invite", "revoke", active), "Revoked invitation "+active+" on "+url+".")
 	if r := leo.run("invite", "list"); !strings.Contains(r.stdout, active+" · revoked") {
 		t.Fatalf("invite list after revoke:\n%s", r)
 	}
 	expectLines(t, leo.run("allowance", "off"), "Allowance on "+url+": off")
+}
+
+// The "Hand work to someone else's session" section of docs/guides/pairing.mdx: a
+// pairing request to a teammate on the board, listed and accepted in the session she
+// chooses, then another declined and one cancelled.
+func TestGuidePairingRequestToSomeoneElsesSession(t *testing.T) {
+	t.Parallel()
+	leo := newPersonHome(t, "leo")
+	leo.run("up")
+	tm := &team{t: t, admin: leo}
+	quoted := "'" + tm.url() + "'"
+	maya := tm.person("maya")
+	ls := leo.claudeSession("s-leo")
+	ls.run("board", "new", "writer-reviewer")
+	ls.run("board", "add", "@maya", "--board", "writer-reviewer")
+
+	request := ls.run("pairing", "request", "@maya", "--board", "writer-reviewer", "Review the retry change")
+	id := strings.Fields(request.stdout)[0]
+	expectLines(t, request, id+" · board writer-reviewer · awaiting_endpoint", "aboard pairing list --server "+quoted)
+	ms := maya.claudeSession("s-maya")
+	if r := ms.run("pairing", "list"); !strings.Contains(r.stdout, id+" · board writer-reviewer · awaiting_endpoint\n") || strings.Contains(r.stdout, "brd_") {
+		t.Fatalf("maya's pairing list:\n%s", r)
+	}
+	if r := ms.run("pairing", "accept", id, "--here"); !strings.HasPrefix(r.stdout, id+" · board writer-reviewer · ") {
+		t.Fatalf("pairing accept:\n%s", r)
+	}
+
+	declined := strings.Fields(ls.run("pairing", "request", "@maya", "--board", "writer-reviewer", "Another review").stdout)[0]
+	if r := ms.run("pairing", "decline", declined); !strings.HasPrefix(r.stdout, declined+" · board writer-reviewer · declined") {
+		t.Fatalf("pairing decline:\n%s", r)
+	}
+	cancelled := strings.Fields(ls.run("pairing", "request", "@maya", "--board", "writer-reviewer", "One more").stdout)[0]
+	if r := ls.run("pairing", "cancel", cancelled); !strings.HasPrefix(r.stdout, cancelled+" · board writer-reviewer · cancelled") {
+		t.Fatalf("pairing cancel:\n%s", r)
+	}
 }
