@@ -782,3 +782,7 @@ func scanServerInvite(row interface{ Scan(...any) error }) (board.ServerInvite, 
 	}
 	return i, err
 }
+
+func (t *tx) SetServerInviteHandle(id, handle string) error {
+	return t.exec("UPDATE server_invites SET suggested_handle = ? WHERE id = ?", handle, id)
+}

@@ -130,6 +130,10 @@ func (s *Service) validServerInvite(tx ReadTx, secret string) (ServerInvite, Hum
 	if err != nil {
 		return inv, Human{}, err
 	}
+	return s.validServerInviteRecord(tx, inv)
+}
+
+func (s *Service) validServerInviteRecord(tx ReadTx, inv ServerInvite) (ServerInvite, Human, error) {
 	now := stamp(s.clk.Now())
 	if inv.UsedAt != nil || inv.RevokedAt != nil || inv.ExpiresAt <= now {
 		return inv, Human{}, inviteInvalid()

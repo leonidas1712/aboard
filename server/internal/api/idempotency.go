@@ -294,6 +294,14 @@ func checkBoardReplay(ctx context.Context, svc *board.Service, method, path stri
 			member = *body.MemberId
 		}
 		return svc.CheckMidturnReplay(ctx, principal(ctx), member)
+	case method == http.MethodPatch && strings.HasPrefix(path, "/v1/invites/"):
+		var result struct {
+			Boards []string `json:"boards"`
+		}
+		if err := json.Unmarshal(saved.Body, &result); err != nil {
+			return err
+		}
+		return svc.CheckInviteEditReplay(ctx, principal(ctx), strings.TrimPrefix(path, "/v1/invites/"), result.Boards)
 	case method == http.MethodPost && strings.HasPrefix(path, "/v1/people/") && strings.HasSuffix(path, "/rename"):
 		var result struct {
 			Person struct {
