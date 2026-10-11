@@ -801,6 +801,32 @@ export function versionUrl(board: string, file: string, version: number): string
   return `${filePath(board, file)}/versions/${version}`;
 }
 
+export type ExportFormat = "md" | "zip";
+
+/** exportFilename reads the name the server gave the download, or builds <board>-<yyyy-mm-dd>.<ext> when it gave none. */
+export function exportFilename(disposition: string | null, board: string, format: ExportFormat, now: Date = new Date()): string {
+  const star = disposition?.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim());
+    } catch {
+      // Fall through to the plain name.
+    }
+  }
+  const plain = disposition?.match(/filename\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;]+))/i);
+  const name = (plain?.[1]?.replace(/\\(.)/g, "$1") ?? plain?.[2])?.trim();
+  if (name) return name;
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return `${board}-${day}.${format}`;
+}
+
+/** exportBoard fetches the board as Markdown or a zip, as the person, with the filename the server chose. */
+export async function exportBoard(board: string, format: ExportFormat): Promise<{ blob: Blob; filename: string }> {
+  const resp = await fetch(`/v1/boards/${encodeURIComponent(board)}/export?format=${format}`, { credentials: "same-origin" });
+  if (!resp.ok) throw await failure(resp);
+  return { blob: await resp.blob(), filename: exportFilename(resp.headers.get("Content-Disposition"), board, format) };
+}
+
 /** fileText reads a version's bytes as text, for a preview. */
 export async function fileText(board: string, file: string, version: number): Promise<string> {
   const resp = await fetch(versionUrl(board, file, version), { credentials: "same-origin" });
