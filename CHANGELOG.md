@@ -2,6 +2,7 @@
 
 ## Unreleased contract additions
 
+- Finishing or dropping a task no longer immediately prints a nudge; completion notes end the taskless-message streak.
 - Invitation-linked setup requests no longer appear as pairing cards; joining their board closes the internal request.
 
 - Add person-only onboarding Inbox reads and optional invite-notice suggested handles.

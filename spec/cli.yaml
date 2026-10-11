@@ -3677,6 +3677,7 @@ $defs:
   # ---------- aboard task new|start|join|note|done|drop ----------
   TaskOutput:
     description: |
+      Task done and task drop return an empty nudges array; finishing work does not immediately prompt more work.
       The task after the command, the acting agent's line after it, and, for done, the
       next task not picked up. The first line of text output names the task and the board.
         aboard task start CHK-17
