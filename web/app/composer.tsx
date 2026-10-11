@@ -61,6 +61,10 @@ function writeDraft(board: string, replyId: string | null, text: string) {
     else sessionStorage.removeItem(draftKey(board, replyId));
   } catch { /* The text stays on the page only. */ }
 }
+/** startDraft puts text in a board's composer for its next visit, unless a draft is already there. */
+export function startDraft(board: string, text: string) {
+  if (!readDraft(board, null)) writeDraft(board, null, text);
+}
 const nothing = () => {};
 
 export function Composer({ board, members, roles, me, replyTo, replyDefault, identity, onCancelReply, onPosted, onError, files = null, onFilesChanged = nothing }: Props) {
@@ -116,7 +120,8 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
     setBodyState(kept);
     setCaret(kept.length);
     if (kept) placeCaret.current = kept.length;
-    if (replyId) field.current?.focus();
+    // A link that ends in &compose (the Inbox's Say hello) opens the board ready to write.
+    if (replyId || new URLSearchParams(window.location.search).has("compose")) field.current?.focus();
   }, [board, replyId]);
 
   // The field grows with its text, up to about eight lines.

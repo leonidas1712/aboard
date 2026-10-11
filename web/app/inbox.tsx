@@ -19,7 +19,7 @@ import { BoardNav, useSidebarKeys } from "./sidebars";
 import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
 import { useOnboarding } from "./onboarding-data";
-import { type OnboardingItem, OnboardingDetail, OnboardingRow, onboardingGroups } from "./inbox-onboarding";
+import { type OnboardingItem, OnboardingDetail, OnboardingRow, inviteItem, onboardingGroups } from "./inbox-onboarding";
 
 export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const [boards, setBoards] = useState<Board[] | null>(null);
@@ -245,7 +245,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       <section aria-label="The selected ask" className={cn("quiet-scroll px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:overflow-y-auto lg:px-10 lg:py-8", !wide && !phoneReading && "hidden")}>
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
-        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={readOb} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
+        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={(id) => readOb(inviteItem(obGroups, id))} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
           <p className="text-meta text-muted"><a href={boardHref} onClick={leave} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);

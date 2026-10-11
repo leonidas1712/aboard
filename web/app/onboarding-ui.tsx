@@ -29,7 +29,7 @@ import {
   handlePattern,
   revokeInvite,
 } from "./onboarding-api";
-import { type Names, acceptPrompt, agentLabel, alwaysAsks, allowable, byline, live, pairingLine, serverWide, until, wantsRest } from "./onboarding-words";
+import { type Names, acceptPrompt, agentLabel, alwaysAsks, allowable, byline, handleOf, live, pairingLine, serverWide, until, wantsRest } from "./onboarding-words";
 import { harnessName, identityOf, relativeTime } from "./words";
 
 // ---------- the parts ----------
@@ -210,7 +210,9 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
       setBusy(false);
     }
   };
-  const rows: [string, ReactNode][] = [agentRow(agent, a.display?.agent_harness, "your agent"), boardRow(a.display?.requested_on?.name, serverWide(act))];
+  const made = a.execution?.invite_id;
+  const joined = names.invitee(made);
+  const rows: [string, ReactNode][] = [agentRow(agent, a.display?.agent_harness, "your agent"), boardRow(a.display?.requested_on?.name, serverWide(act) && a.state === "pending")];
   const person = (id: string) => names.person(id) ?? "someone no longer on the server";
   if (act.kind === "invite_people") {
     rows.push(["Invite", `One new person, as a member. The invite works once, for ${Math.round((act.invite.ttl_seconds ?? 86_400) / 3600)} hours.`]);
@@ -238,7 +240,7 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
       <p className="text-meta text-muted">
         {a.state === "pending" ? "Asks you to approve" : "Asked you to approve"} · {ago(a.created_at, now)}
       </p>
-      <AgentTitle whose="Your agent" agent={agent} harness={a.display?.agent_harness} rest={wantsRest(act, names, boards)} />
+      <AgentTitle whose="Your agent" agent={agent} harness={a.display?.agent_harness} rest={wantsRest(act, names, boards, made)} />
       <Fields rows={rows} />
       {a.state === "pending" && (
         <div className="flex flex-col gap-3">
@@ -294,11 +296,11 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
           <Done>
             {always === undefined ? "Allowed" : always ? "Allowed always" : "Allowed once"}
             {a.decided_at && <span className="text-muted"> · {ago(a.decided_at, now)}</span>}.
-            {a.execution?.invite_id && onShowInvite && (
+            {made && onShowInvite && (
               <>
                 {" "}
-                <button type="button" className="text-link underline underline-offset-[3px] hover:no-underline" onClick={() => onShowInvite(a.execution!.invite_id!)}>
-                  See the invite
+                <button type="button" className="text-link underline underline-offset-[3px] hover:no-underline" onClick={() => onShowInvite(made)}>
+                  {joined?.joined ? `See @${joined.handle} join` : "See the invite"}
                 </button>
               </>
             )}
@@ -314,8 +316,7 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
           {result?.invite && inviteShown && <InviteIssued invite={result.invite} onDismiss={() => setInviteShown(false)} />}
           {always && invite && <Warning>{result?.warning ?? inviteWarningText}</Warning>}
           <p className="text-meta text-muted">
-            In the record: {invite ? `an invite made by ${agent}, approved by you` : `${byline(act.kind === "add_people" ? "added" : "role_changed", agent, "you", "approval")}`}.<br />
-            Approval <span className="font-mono text-[12px]">{a.id}</span>
+            In the record: {invite ? `an invite made by ${agent}, approved by you` : `${byline(act.kind === "add_people" ? "added" : "role_changed", agent, "you", "approval")}`}.
           </p>
         </div>
       )}
@@ -367,6 +368,8 @@ export function InviteHandle({ id, initial }: { id: string; initial?: string }) 
       const r = await editInviteHandle(id, value);
       setHandle(r.suggested_handle ?? "");
       setDraft(null);
+      // The Inbox's titles name the handle too.
+      changed();
     } catch (e) {
       setError(e);
     } finally {
@@ -397,22 +400,31 @@ export function InviteHandle({ id, initial }: { id: string; initial?: string }) 
 }
 
 /** approvalTitle is a row's first line for an approval. */
-export const approvalTitle = (a: Approval, names: Names) => `Your agent ${agentLabel(a)} ${wantsRest(a.action, names, (id) => a.display?.boards.find((b) => b.id === id)?.name ?? null)}`;
+export const approvalTitle = (a: Approval, names: Names) => `Your agent ${agentLabel(a)} ${wantsRest(a.action, names, (id) => a.display?.boards.find((b) => b.id === id)?.name ?? null, a.execution?.invite_id)}`;
 
 // ---------- invite notices ----------
 
 export const noticeState: Record<InviteNotice["state"], string> = { active: "Open", redeemed: "Used", revoked: "Revoked", expired: "Expired" };
 
+/** noticeTitle is a notice's first line: "Your agent claude invited @sam". */
+export const noticeTitle = (n: InviteNotice, names: Names) => `Your agent ${agentLabel(n)} invited ${handleOf(names.invitee(n.id)?.handle)}`;
+
 /** noticeLine is a notice's state and time in a few words, for its row. */
-export function noticeLine(n: InviteNotice, now: number): string {
+export function noticeLine(n: InviteNotice, names: Names, now: number): string {
   if (n.state === "active") return `Open · works until ${until(n.expires_at)}`;
-  if (n.state === "redeemed") return "Used: someone joined with it";
+  if (n.state === "redeemed") {
+    const who = names.invitee(n.id);
+    return who?.joined ? `Used: @${who.handle} joined with it` : "Used: someone joined with it";
+  }
   if (n.state === "revoked") return `Revoked · made ${ago(n.created_at, now)}`;
   return `Expired ${ago(n.expires_at, now)}, unused`;
 }
 
-export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
+export function NoticeDetail({ n, names, now }: { n: InviteNotice; names: Names; now: number }) {
   const agent = agentLabel(n);
+  // Once used, revoked or expired, the invite's expiry and link no longer matter.
+  const open = n.state === "active";
+  const who = names.invitee(n.id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const revoke = async () => {
@@ -430,15 +442,14 @@ export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
   return (
     <article className="ob-notice flex max-w-[640px] flex-col gap-5" data-notice={n.id}>
       <p className="text-meta text-muted">Invite notice · {ago(n.created_at, now)}</p>
-      <AgentTitle whose="Your agent" agent={agent} harness={n.display?.agent_harness} rest="invited someone" />
+      <AgentTitle whose="Your agent" agent={agent} harness={n.display?.agent_harness} rest={`invited ${handleOf(who?.handle)}`} />
       <Fields
         rows={[
           agentRow(agent, n.display?.agent_harness, "your agent"),
-          boardRow(n.display?.requested_on?.name, true),
+          boardRow(n.display?.requested_on?.name, open),
           ["State", noticeState[n.state]],
           ["Made", `${ago(n.created_at, now)} by ${agent}`],
-          [n.state === "expired" ? "Ended" : "Works until", until(n.expires_at)],
-          ["Invite", <span key="i" className="font-mono text-[13px]">{n.id}</span>],
+          ...(open ? [["Works until", until(n.expires_at)] as [string, ReactNode]] : []),
         ]}
       />
       {n.state === "active" && (
@@ -454,10 +465,10 @@ export function NoticeDetail({ n, now }: { n: InviteNotice; now: number }) {
           {error === null && <Command label="Or from your terminal" command={n.next.command} />}
         </div>
       )}
-      {n.state === "redeemed" && <Done>Someone joined the server with this invite. It can&apos;t be used again.</Done>}
+      {n.state === "redeemed" && <Done>{who?.joined ? `@${who.handle}` : "Someone"} joined the server with this invite. It can&apos;t be used again.</Done>}
       {n.state === "revoked" && <Done muted>Revoked. Nobody can join with it.</Done>}
       {n.state === "expired" && <Done muted>Expired before anyone used it. Nobody can join with it.</Done>}
-      <p className="text-meta text-muted">The invite&apos;s link is shown once, to the person who approves it. {agent} can collect it from its session; this page can&apos;t show it again.</p>
+      {open && <p className="text-meta text-muted">The invite&apos;s link is shown once, to the person who approves it. {agent} can collect it from its session; this page can&apos;t show it again.</p>}
     </article>
   );
 }

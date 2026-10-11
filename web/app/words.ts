@@ -74,11 +74,12 @@ export function identitiesOf(ids: string[], taken: Set<number> = new Set()): Map
 }
 
 /**
- * personIdentity is a person's identity colour, the same on every board and page: from
- * their id when it is you (GET /v1/me), else from their name, which is unique on a server.
+ * personIdentity is a person's identity colour, the same on every board and page and for
+ * every viewer: from their handle, which is unique on a server. A board's member list
+ * doesn't carry a person's id, so the handle is the one key every viewer shares.
  */
-export function personIdentity(name: string, me: { id: string; name: string } | null): number {
-  return identityOf(me && me.name === name ? me.id : `human:${name}`);
+export function personIdentity(name: string): number {
+  return identityOf(`human:${name}`);
 }
 
 // Names agents get from their harness, and the two letters their marks show.

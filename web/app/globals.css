@@ -116,9 +116,6 @@
   .animate-arrive {
     animation-name: fade-in;
   }
-  .jump-newest {
-    transform: none !important;
-  }
 }
 
 /* Frosted glass (D217), only where content scrolls under a layer that stays put: a

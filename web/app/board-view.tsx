@@ -157,7 +157,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const colours = useMemo(() => {
     const members = s.members ?? [];
     const out = new Map<string, number>();
-    for (const p of members.filter((m) => m.kind === "human")) out.set(`human:${p.name}`, personIdentity(p.name, s.me));
+    for (const p of members.filter((m) => m.kind === "human")) out.set(`human:${p.name}`, personIdentity(p.name));
     const agentIds = members.filter((m) => m.kind === "agent");
     const byId = identitiesOf(
       agentIds.map((a) => a.id),
@@ -165,7 +165,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     );
     for (const a of agentIds) out.set(`agent:${a.name}`, byId.get(a.id) ?? 1);
     return out;
-  }, [s.members, s.me]);
+  }, [s.members]);
   const identity = useCallback(
     (from: MemberRef) => colours.get(`${from.kind}:${from.name}`) ?? identityOf(`${from.kind}:${from.name}`),
     [colours],

@@ -25,7 +25,7 @@ import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { AgentLocation } from "./location";
-import { changeMidturn, effectiveMidturn, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
+import { changeMidturn, effectiveMidturn, midturnCopy, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 import { Kbd } from "./keys-sheet";
 import { keyLabel, leaveFieldOnEscape, pressed, typing } from "./keys";
 import { usePref } from "./prefs";
@@ -734,7 +734,7 @@ function MidturnMenu({ agent, view, mid }: { agent: Member; view: MidturnPolicy;
         <DropdownMenuContent align="start" className="midturn-options w-[22rem] max-w-[calc(100vw-2rem)]">
           <DropdownMenuLabel>Mid-turn messages for {agent.name}</DropdownMenuLabel>
           <p className="px-3 pb-1 text-meta text-muted">
-            Urgent messages from your own agents arrive at its next step instead of waiting for the turn to end.
+            {midturnCopy}
           </p>
           <DropdownMenuRadioGroup value={mid.overridden ? mid.policy : "default"} onValueChange={pick}>
             <DropdownMenuRadioItem value="default">Default (follows your setting: {midturnLabels[view]})</DropdownMenuRadioItem>

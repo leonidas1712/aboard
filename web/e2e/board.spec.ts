@@ -1304,21 +1304,21 @@ test("each agent shows its delivery mode and its mid-turn setting, and its perso
     await page.getByRole("menuitemradio", { name: theme }).click();
     await page.getByRole("button", { name: /^You are alex/ }).click();
     const menu = page.locator(".account-menu");
-    await expect(menu).toContainText("Urgent messages from your own agents arrive at their next step instead of waiting for the turn to end.");
-    await expect(menu.getByRole("menuitemradio", { name: "My agents" })).toHaveAttribute("aria-checked", "true");
+    await expect(menu).toContainText("An urgent message from you reaches your agent at its next step, without waiting for its turn to end.");
+    await expect(menu.getByRole("menuitemradio", { name: "You and your agents", exact: true })).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("Escape");
   }
   await page.getByRole("button", { name: /^You are alex/ }).click();
-  await page.getByRole("menuitemradio", { name: "Owner only" }).click();
+  await page.getByRole("menuitemradio", { name: "Only you", exact: true }).click();
   await expect.poll(async () => (await policy()).policy).toBe("owner-only");
 
   await details(writer);
-  const follows = /^Mid-turn messages for writer: owner only, from your setting/;
+  const follows = /^Mid-turn messages for writer: only you, from your setting/;
   await expect(writer.getByRole("button", { name: follows })).toBeVisible();
   await writer.getByRole("button", { name: /^Mid-turn messages for writer/ }).click();
   await expect(page.locator(".midturn-options").getByRole("menuitemradio", { name: /^Default/ })).toHaveAttribute("aria-checked", "true");
-  await page.locator(".midturn-options").getByRole("menuitemradio", { name: "My agents" }).click();
-  await expect(writer.getByRole("button", { name: "Mid-turn messages for writer: my agents. Change it" })).toBeVisible();
+  await page.locator(".midturn-options").getByRole("menuitemradio", { name: "You and your agents", exact: true }).click();
+  await expect(writer.getByRole("button", { name: "Mid-turn messages for writer: you and your agents. Change it" })).toBeVisible();
   await expect.poll(async () => (await policy()).overrides?.map((o) => o.policy)).toEqual(["my-agents"]);
   expect((await policy()).policy).toBe("owner-only");
   await expect(page.locator(".midturn-options")).toHaveCount(0);
