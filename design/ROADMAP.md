@@ -127,6 +127,7 @@ the board.
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
+| QA setup checks actual sandbox access and guides the newcomer to reply to the welcome | in review; marker/greeting regressions failed first and pass | D224 |
 | Sandboxed invite setup returns an exact saved continuation and asks for harness approval | in review; text/JSON real-binary recovery passes | D224 |
 | Sandbox-blocked onboarding hands off terminal commands; pasted-invite setup allows only Aboard commands in Codex/Claude | in review; installer/setup/permission regressions failed first and pass | D224 |
 | Setup waiting text names the inviter and Codex global hooks without repeating confirmed restart steps | in review; wording regressions failed first | D224 |

@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestSetupSandboxRefusalResumesTheSavedAccount(t *testing.T) {
+func TestSetupInheritedSandboxMarkersReuseTheSavedAccount(t *testing.T) {
 	t.Parallel()
 	tm := newTeam(t)
 	board := tm.newBoard(tm.admin, "private")
@@ -31,29 +31,19 @@ func TestSetupSandboxRefusalResumesTheSavedAccount(t *testing.T) {
 			args = append(args, "--json")
 		}
 		const sessionID = "019a0000-0000-7000-8000-000000000061"
-		refused := person.exec([]string{"CODEX_THREAD_ID=" + sessionID, "CODEX_SANDBOX=seatbelt"}, "", args...)
-		if refused.code != 1 {
-			t.Fatalf("setup should refuse sandboxed daemon startup: %s", refused)
+		markers := []string{"CODEX_SANDBOX=seatbelt", "CODEX_SANDBOX_NETWORK_DISABLED=1"}
+		started := person.exec(markers, "", "daemon", "start", "--json")
+		if started.code != 0 {
+			t.Fatalf("inherited markers blocked reachable daemon startup: %s", started)
 		}
-		command := "aboard setup --continue --handle " + handle
-		if jsonOutput {
-			value := refused.json(t)
-			if errorCode(t, value) != "daemon_in_sandbox" || field(t, value, "error.next.command") != command || !strings.Contains(field(t, value, "error.next.resume").(string), "escalated permissions") {
-				t.Fatalf("sandbox refusal lost continuation: %s", refused)
-			}
-		} else if !strings.Contains(refused.stderr, command) || !strings.Contains(refused.stderr, "escalated permissions") {
-			t.Fatalf("text refusal lost continuation: %s", refused)
-		}
-		for _, guidance := range []string{"do not retry", "do not use sudo", "aboard init --harness codex --allow-commands", "restart Codex", "continue Aboard setup"} {
-			if !strings.Contains(refused.stdout+refused.stderr, guidance) {
-				t.Fatalf("missing person fallback %q: %s", guidance, refused)
-			}
-		}
-		if strings.Contains(refused.stdout+refused.stderr, link) {
-			t.Fatal("refusal repeated invitation secret")
+		session := person.codexSession(sessionID)
+		session.vars = append(session.vars, markers...)
+		configured := session.run(args...)
+		if !strings.Contains(configured.stdout, "reply to it on the board") {
+			t.Fatalf("setup omitted welcome reply guidance: %s", configured)
 		}
 		key := tm.key(person)
-		session := person.codexSession(sessionID)
+		command := "aboard setup --continue --handle " + handle
 		resumed := session.run(append(strings.Fields(command)[1:], "--json")...).json(t)
 		if field(t, resumed, "steps.1.state") != "complete" || field(t, resumed, "steps.2.state") != "complete" || field(t, resumed, "steps.4.state") != "complete" || tm.key(person) != key {
 			t.Fatalf("continuation lost account or membership: %v", resumed)

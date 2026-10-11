@@ -1,5 +1,11 @@
 package cli
 
+import (
+	"context"
+	"net"
+	"time"
+)
+
 // sandboxed reports the harness whose sandbox this command runs in, if any, from the
 // variables its profile lists. A daemon started there would inherit the sandbox and
 // couldn't reach the harness.
@@ -45,12 +51,33 @@ func daemonInSandbox(harness, fix string) *Error {
 // sandboxDaemonError is the error for a sandboxed command that found no daemon, or nil
 // outside a sandbox: the sandbox may hide a running daemon, or none runs and it mustn't
 // start there.
-func (a *app) sandboxDaemonError() *Error {
+func (a *app) sandboxDaemonError(ctx context.Context) *Error {
+	harness, fix, sandboxed := a.sandboxed()
+	if !sandboxed {
+		return nil
+	}
+	// Escalated commands can retain sandbox markers. Check the current process's
+	// ability to listen and connect before preventing daemon startup.
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	if err == nil {
+		var conn net.Conn
+		dialer := net.Dialer{Timeout: time.Second}
+		conn, err = dialer.DialContext(ctx, "tcp", ln.Addr().String())
+		if conn != nil {
+			_ = conn.Close()
+		}
+		_ = ln.Close()
+	}
+	if err == nil {
+		return nil
+	}
 	if harness, ok := a.networkBlocked(); ok {
-		return sandboxBlocksNetwork(harness, "the Aboard delivery daemon")
+		cause := sandboxBlocksNetwork(harness, "the Aboard delivery daemon")
+		cause.Err = err
+		return cause
 	}
-	if harness, fix, ok := a.sandboxed(); ok {
-		return daemonInSandbox(harness, fix)
-	}
-	return nil
+	cause := daemonInSandbox(harness, fix)
+	cause.Err = err
+	return cause
 }

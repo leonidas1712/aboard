@@ -30,6 +30,10 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+- Check actual loopback access before refusing daemon startup for inherited sandbox
+  markers. Setup and the skill tell newcomers to answer the welcome; continuing
+  setup names an existing welcome and supplies its scoped reply command.
+
 - Sandbox-blocked install and setup explain the person's terminal fallback and
   explicitly prohibit retry loops and sudo. Invite prompts carry the same fallback.
   Error guidance is additive. Pasted-invite setup allows Aboard-only commands in
