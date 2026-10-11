@@ -158,7 +158,7 @@ func (a *app) daemonStart(ctx context.Context) error {
 		already = true
 	}
 	if !already {
-		if e := a.sandboxDaemonError(); e != nil {
+		if e := a.sandboxDaemonError(ctx); e != nil {
 			return e
 		}
 	}
@@ -312,7 +312,7 @@ func (a *app) dialDaemon(ctx context.Context) (net.Conn, error) {
 	if c, err := control.Dial(ctx, p.socket()); err == nil {
 		return c, nil
 	}
-	if e := a.sandboxDaemonError(); e != nil {
+	if e := a.sandboxDaemonError(ctx); e != nil {
 		return nil, e
 	}
 	if err := a.startDaemon(p); err != nil {

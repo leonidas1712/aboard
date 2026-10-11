@@ -27,7 +27,7 @@ import { modeRules, type SettableMode, settableModes } from "./delivery-modes.ge
 import { AgentLocation } from "./location";
 import { changeMidturn, effectiveMidturn, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 import { Kbd } from "./keys-sheet";
-import { keyLabel } from "./keys";
+import { keyLabel, leaveFieldOnEscape, pressed, typing } from "./keys";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
 import { LineText, StatusDot } from "./status";
@@ -37,11 +37,8 @@ import { VisibilityControl } from "./visibility";
 import { useOnboardingCount } from "./onboarding-data";
 import { newerFirst } from "./time";
 
-/** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
-export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
-  // Approvals and pairing requests that wait on the person count toward the Inbox too.
-  const onboarding = useOnboardingCount();
-  if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
+/** sidebarOrder groups the boards the way the sidebar lists them: those with a question waiting, the rest, then the archived. */
+function sidebarOrder(boards: Board[]) {
   const recent = [...boards].sort((a, b) => {
     const activity = newerFirst(a.last_message_at ?? a.created_at, b.last_message_at ?? b.created_at);
     return activity || a.id.localeCompare(b.id);
@@ -50,10 +47,44 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   const active = recent.filter((b) => !isArchived(b));
   const needs = active.filter((b) => attentionCount(b) > 0);
   const others = active.filter((b) => attentionCount(b) === 0);
+  return { archived, needs, others };
+}
+
+/**
+ * useSidebarKeys moves through the sidebar with [ and ]: the Inbox, then the boards in the
+ * order listed (archived ones are skipped). Escape leaves a text field. Keys do nothing
+ * while a field, menu or dialog has the focus.
+ */
+export function useSidebarKeys(current: string, boards: Board[] | null) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      leaveFieldOnEscape(e);
+      if (typing(e) || e.defaultPrevented || boards === null) return;
+      const step = pressed("nextBoard", e) ? 1 : pressed("previousBoard", e) ? -1 : 0;
+      if (step === 0) return;
+      const { needs, others } = sidebarOrder(boards);
+      const stops = ["", ...[...needs, ...others].map((b) => b.name)];
+      const here = stops.indexOf(current);
+      const to = stops[(here < 0 ? (step > 0 ? -1 : stops.length) : here) + step];
+      e.preventDefault();
+      if (to === undefined) return;
+      window.location.href = to === "" ? "/?inbox" : `/?board=${encodeURIComponent(to)}`;
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [current, boards]);
+}
+
+/** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
+export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
+  // Approvals and pairing requests that wait on the person count toward the Inbox too.
+  const onboarding = useOnboardingCount();
+  if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
+  const { archived, needs, others } = sidebarOrder(boards);
   return (
     <div className="flex flex-col gap-6">
       <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("-mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
-        <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd>{keyLabel("inbox")}</Kbd>}</span>
+        <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd className="font-normal" title={`Shortcut: ${keyLabel("inbox")}`} aria-label={`Shortcut: ${keyLabel("inbox")}`}>{keyLabel("inbox")}</Kbd>}</span>
         {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding)}</span>}
       </a>
       {needs.length > 0 && (

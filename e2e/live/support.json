@@ -242,8 +242,8 @@
           "test": "TestBrowserApprovedInviteReachesItsOriginalSession/codex"
         },
         "InvitedSetupVerifiesTwoPeopleExactSessions": {
-          "result": "pass",
-          "date": "2026-10-10",
+          "result": "fail",
+          "date": "2026-10-11",
           "version": "codex-cli 0.160.0",
           "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/codex"
         },

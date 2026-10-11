@@ -39,6 +39,9 @@ func TestSetupReadsInviterWithoutSelectingEndpoint(t *testing.T) {
 	if selects.Load() != 0 || out.Steps[5].State != "pending" || !strings.Contains(out.Steps[5].Message, "Waiting for a reply") {
 		t.Fatalf("setup selected an endpoint instead of greeting: selects=%d result=%+v", selects.Load(), out)
 	}
+	if !strings.Contains(out.Steps[5].Message, "reply to it on the board") {
+		t.Fatalf("setup did not tell the newcomer to answer the welcome: %+v", out)
+	}
 }
 
 func TestSetupDisplayLookupCannotBlockOrAdvanceDelivery(t *testing.T) {
@@ -76,7 +79,7 @@ func TestSetupDisplayLookupCannotBlockOrAdvanceDelivery(t *testing.T) {
 				if err := a.continueSetupGreeting(context.Background(), &out, "prq_original", pending); err != nil {
 					t.Fatal(err)
 				}
-				if out.Steps[5].State != "pending" || out.Next.Command != "aboard init" || out.Steps[5].Message != "Waiting for a reply from the inviting person's agents." {
+				if out.Steps[5].State != "pending" || out.Next.Command != "aboard init" || out.Steps[5].Message != setupWelcomeGuidance("the inviting person") {
 					t.Fatalf("display failure changed setup: %+v", out)
 				}
 			})

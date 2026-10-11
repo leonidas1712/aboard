@@ -149,6 +149,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 		{name: "unknown flag", args: []string{"--as", "missing"}},
 		{name: "unknown environment", vars: []string{"ABOARD_AGENT=missing"}},
 		{name: "unbound session", vars: unbound.vars},
+		{name: "unbound session with inherited sandbox markers", vars: append(append([]string{}, unbound.vars...), "CODEX_SANDBOX=seatbelt", "CODEX_SANDBOX_NETWORK_DISABLED=1")},
 	} {
 		for _, command := range [][]string{{"status"}, {"audit", "verify"}} {
 			t.Run(selection.name+"/"+command[0], func(t *testing.T) {
@@ -157,7 +158,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 				mu.Unlock()
 				args := append(append(append([]string{}, command...), selection.args...), "--json")
 				result := e.exec(selection.vars, "", args...)
-				if selection.name == "unbound session" && command[0] == "status" {
+				if strings.HasPrefix(selection.name, "unbound session") && command[0] == "status" {
 					if result.code != 0 {
 						t.Fatalf("unbound status lost diagnostics: %s", result)
 					}
@@ -229,7 +230,7 @@ func TestAgentStatusAndAuditNeverUseThePersonsLogin(t *testing.T) {
 		mu.Lock()
 		ownerRequests, seatRequests = 0, 0
 		mu.Unlock()
-		r := e.exec(codexNoNetwork, "", "status", "--json")
+		r := e.exec(append(append([]string{}, codexNoNetwork...), "ABOARD_E2E_DENY_LOOPBACK=1"), "", "status", "--json")
 		if r.code != 0 {
 			t.Fatalf("sandbox status lost diagnostics: %s", r)
 		}

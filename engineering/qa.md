@@ -81,9 +81,10 @@ If you must work without approvals, do the setup yourself in the person's shell 
 install line, then `aboard init --harness codex --allow-commands`), restart Codex and
 say "continue Aboard setup". The
 [colleague guide](../docs/guides/bring-a-colleague-aboard.mdx) describes this flow.
-`aboard init --allow-commands` writes the rule that lets Codex run `aboard`, and
-nothing else, outside its sandbox. On `main` today `aboard setup` does not add that rule
-itself, so expect Codex to ask for each aboard command unless you ran `init` that way.
+`aboard setup` adds the aboard-only allow rule itself when it sets up Codex (and
+`Bash(aboard *)` for Claude Code), and says so; plain `aboard init` still leaves it to
+`--allow-commands`. The manual backup when the agent can't run aboard is in
+[If your colleague's agent can't run aboard](../docs/guides/bring-a-colleague-aboard.mdx#if-your-colleagues-agent-cant-run-aboard).
 
 ## 4. Invite a colleague
 

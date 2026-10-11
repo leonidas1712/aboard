@@ -2206,6 +2206,7 @@ test("tasks connect the Work panel, task view and conversation", async ({ page }
   await openLink(page, JSON.parse(aboard("open", "--board", board.name, "--json")).url);
   await expect(page.getByRole("button", { name: `Open task ${task.ref}`, exact: true }).first()).toBeVisible();
   await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await page.getByRole("button", { name: "By status", exact: true }).click();
   await expect(page.getByRole("region", { name: "Not picked up", exact: true })).toContainText("Review the quickstart");
   await page.getByRole("button", { name: `Open task ${task.ref}`, exact: true }).first().click();
   const detail = page.getByRole("region", { name: `Task ${task.ref}`, exact: true });
@@ -2258,6 +2259,7 @@ test("task cards and the task panel show who is on each task, and Tell the team 
 
   await openLink(page, JSON.parse(aboard("open", "--board", board, "--json")).url);
   await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await page.getByRole("button", { name: "By status", exact: true }).click();
   const progress = page.getByRole("region", { name: "In progress", exact: true });
   await expect(progress).toContainText("Move payment intents to the v2 API");
   const shots = process.env.TASK_UI_SHOTS;
@@ -2379,6 +2381,45 @@ test("task cards and the task panel show who is on each task, and Tell the team 
   await expect(progress.locator(`[data-task="${doing.ref}"]`)).toBeVisible();
   await expect(page.getByRole("region", { name: "Needs you", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: `Task ${doing.ref}`, exact: true }).getByRole("region", { name: "Open question" })).toHaveCount(0);
+});
+
+test("the Tasks tab lists tasks by recent activity, and By status groups them again", async ({ page }) => {
+  const board = await newBoard("Recent tasks");
+  const tasks = `/v1/boards/${board.name}/tasks`;
+  const first = await api(ownerKey(), "POST", tasks, { title: "First task, picked up" });
+  const second = await api(ownerKey(), "POST", tasks, { title: "Second task, finished" });
+  const third = await api(ownerKey(), "POST", tasks, { title: "Third task, untouched" });
+  await api(ownerKey(), "POST", `${tasks}/${first.ref}/start`, {});
+  await api(ownerKey(), "POST", `${tasks}/${second.ref}/done`, { note: "Done." });
+  await openLink(page, JSON.parse(aboard("open", "--board", board.name, "--json")).url);
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+
+  // The default is one list, newest activity first, whatever the state; each row says its state.
+  const list = page.getByRole("list", { name: "Tasks, newest activity first" });
+  const row = (ref: unknown) => list.locator(`[data-task="${ref}"]`);
+  await expect(list.locator("[data-task]")).toHaveText([/Second task, finished/, /First task, picked up/, /Third task, untouched/]);
+  await expect(page.getByRole("button", { name: "Recent", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(row(second.ref).locator(".task-state")).toHaveText("Done");
+  await expect(row(first.ref).locator(".task-state")).toHaveText("In progress");
+  await expect(row(first.ref)).toContainText("alex");
+  await expect(row(third.ref).locator(".task-state")).toHaveText("Not picked up");
+  await expect(row(third.ref)).toContainText("No owner");
+
+  // A new update moves a task to the top.
+  await api(ownerKey(), "PATCH", `${tasks}/${first.ref}`, { stands: "Moving along.", stands_base: 0 });
+  await expect(list.locator("[data-task]").first()).toContainText("First task, picked up");
+
+  // By status shows the grouped layout, and the choice survives a reload.
+  await page.getByRole("button", { name: "By status", exact: true }).click();
+  await expect(list).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "In progress", exact: true })).toContainText("First task, picked up");
+  await expect(page.getByRole("region", { name: "Not picked up", exact: true })).toContainText("Third task, untouched");
+  await page.reload();
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  await expect(page.getByRole("button", { name: "By status", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "In progress", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Recent", exact: true }).click();
+  await expect(list.locator("[data-task]")).toHaveCount(3);
 });
 
 test("messages in a hidden conversation stay unread while the person looks at tasks", async ({ page }) => {
