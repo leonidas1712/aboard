@@ -145,7 +145,7 @@ prompt and one command, and a server handles several times the load.
   Inbox, by handle with no raw ids, and an arrival card has Open and Say hello. A person
   has the same colour for every viewer, the account menu says "Urgent messages while an
   agent works", and on a phone task rows wrap, message actions show on tap and "Jump to
-  newest" has its own strip. (#339 was still in review when this was written.)
+  newest" has its own strip.
 - Setup checks the network for real instead of trusting an inherited sandbox marker, so
   commands an agent runs outside its sandbox now proceed. The new agent is told to answer
   the inviter's welcome on the board, and `aboard setup --continue` names the welcome and
