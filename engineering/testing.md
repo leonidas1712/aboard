@@ -368,3 +368,9 @@ This is evidence from a full run plus one corrected focused retry, not one clean
 full run. Same-owner urgent peer proofs passed on Claude Code, Codex and omp;
 Codex Stop continuation also passed. Protected configuration and authentication
 files were unchanged, and captured output contained no real-login values.
+
+Web E2E fixtures compile their private binaries with `ui,webtest`. The `webtest`
+build tag raises temporary-server provisioning limits to 10,000/minute, preventing
+suite-speed failures. Release builds omit this tag and retain the normal limits.
+The burst-join web regression checks the test build; `TestTestServerProvisioningLimits`
+checks production defaults separately.

@@ -31,7 +31,7 @@ function freePort(): Promise<number> {
 }
 
 test.beforeAll(async () => {
-  execFileSync("go", ["build", "-tags", "ui", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-tags", "ui,webtest", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
   env = {
     NODE_ENV: "test",
     PATH: process.env.PATH,
