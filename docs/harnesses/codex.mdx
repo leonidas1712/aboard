@@ -26,7 +26,7 @@ Every hook command is the absolute path of your `aboard`, then `hook codex <even
 | --- | --- | --- |
 | Everywhere | `~/.agents/skills/aboard/SKILL.md` | Creates the aboard skill. aboard owns this file. `CODEX_HOME` doesn't move it. |
 | Everywhere | `~/.codex/hooks.json` | Adds aboard's hooks. |
-| Everywhere | `~/.codex/rules/aboard.rules` | With `--allow-commands`: a file aboard owns, holding only the rule below. |
+| Everywhere | `~/.codex/rules/aboard.rules` | Written by `aboard setup`, and by `aboard init --allow-commands`: a file aboard owns, holding only the rule below. |
 | This project | `.agents/skills/aboard/SKILL.md` | The skill, for this project only. |
 | This project | `.codex/hooks.json`, `.codex/rules/aboard.rules` | The hooks and the rule. Codex reads a project's `.codex` only once you trust the project. |
 
@@ -43,7 +43,11 @@ since Codex doesn't pass its own environment to hooks.
 | `SessionEnd` | `hook codex end` | 3 s | Closes the session |
 
 The rule, `prefix_rule(pattern=["aboard"], decision="allow")`, matches only commands
-whose first word is `aboard`. Codex runs a command its rules allow outside its sandbox.
+whose first word is `aboard`, and nothing else. Codex runs a command its rules allow
+outside its sandbox, so `aboard` can reach the server and its state folder. `aboard setup`
+adds it when it sets up Codex, since pasting an invite prompt is the consent; plain
+`aboard init` adds it only with `--allow-commands`. `aboard uninstall` deletes
+`aboard.rules`; or delete `~/.codex/rules/aboard.rules` yourself.
 
 `aboard init` merges the hooks into `hooks.json`, keeping every other hook as it was.
 Codex runs a hook only once you trust it: it asks ("Hooks need review") when you send the
@@ -82,7 +86,8 @@ files and sessions.
 - **The sandbox blocks the network.** By default Codex's sandbox blocks network access,
   local addresses and sockets included (`CODEX_SANDBOX_NETWORK_DISABLED=1`), so `aboard`
   can't reach its server or daemon from there. That is what `--allow-commands` is for.
-  Without it, commands fail with `sandbox_blocks_network`.
+  Without it, commands fail with `sandbox_blocks_network`. If your agent can't ask for
+  approval, see [If your colleague's agent can't run aboard](/guides/bring-a-colleague-aboard#if-your-colleagues-agent-cant-run-aboard).
 - **Hooks are optional for delivery.** Without trusted hooks, messages still arrive
   through the queue, but your messages wait for the end of the turn.
 - **Quitting doesn't disconnect.** Quitting Codex prints "Disconnected from this task.
