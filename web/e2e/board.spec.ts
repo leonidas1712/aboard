@@ -31,7 +31,7 @@ function freePort(): Promise<number> {
 }
 
 test.beforeAll(async () => {
-  execFileSync("go", ["build", "-tags", "ui", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-tags", "ui,webtest", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
   env = {
     PATH: process.env.PATH,
     HOME: home,
@@ -91,6 +91,25 @@ function agentToken(name: string): string {
   if (!agent) throw new Error(`no saved token for ${name}`);
   return agent.token;
 }
+
+test("temporary web servers can provision more than thirty agents without throttling", async ({ request }) => {
+  const probeHome = mkdtempSync(join(tmpdir(), "aboard-web-joins-"));
+  const probeEnv: NodeJS.ProcessEnv = { ...env, NODE_ENV: "test", HOME: probeHome, ABOARD_HOME: join(probeHome, "aboard"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}` };
+  const run = (...args: string[]) => execFileSync(bin, args, { cwd: probeHome, env: probeEnv, encoding: "utf8" });
+  try {
+    run("board", "new", "join-limit", "--json");
+    const key = readFileSync(join(probeHome, "aboard/config/local-owner-token"), "utf8").trim();
+    for (let i = 0; i < 35; i++) {
+      const response = await request.post(`http://${probeEnv.ABOARD_LOCAL_ADDR}/v1/join`, {
+        headers: { Authorization: `Bearer ${key}` },
+        data: { board: "join-limit", role: "member", name: `join-${i}`, harness: "codex", session: `codex:join-${i}` },
+      });
+      expect(response.status(), `join ${i}: ${await response.text()}`).toBe(201);
+    }
+  } finally {
+    try { run("down"); } finally { rmSync(probeHome, { recursive: true, force: true }); }
+  }
+});
 
 test("the board view shows the room live, posts as the person and verifies the record", async ({ page }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--title", "Docs review", "--json"));
