@@ -165,6 +165,12 @@ func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 		}
 		current = pending[0]
 	}
+	if current.ID == "" && req.PairingID != "" {
+		current, err = runtime.Get(ctx, req.PairingID)
+		if err != nil {
+			return seatsError(req.Server, err)
+		}
+	}
 	if current.ID == "" {
 		return errorResponse("pairing_not_found", "That pairing request is not available.", "Run aboard pairing list.")
 	}
