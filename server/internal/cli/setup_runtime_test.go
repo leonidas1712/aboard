@@ -95,10 +95,18 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 }
 
 func TestSetupAllowsOnlyAboardCommands(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
 	for _, h := range []string{"codex", "claude-code"} {
 		t.Run(h, func(t *testing.T) {
 			e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
 			e.env["ABOARD_SESSION"] = h + ":setup-current"
+			configDir := ".codex"
+			if h == "claude-code" {
+				configDir = ".claude"
+			}
+			if err := os.MkdirAll(filepath.Join(e.home, configDir), 0o700); err != nil {
+				t.Fatal(err)
+			}
 			a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
 			if _, err := a.setupHarness(context.Background(), filepath.Join(e.home, "aboard")); err != nil {
 				t.Fatal(err)
