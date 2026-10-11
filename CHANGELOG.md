@@ -169,6 +169,8 @@ prompt and one command, and a server handles several times the load.
   waiting for turn end (#244).
 - A pairing request made by an invite no longer shows as "Waiting for ... to choose an
   agent": it is hidden from lists and cancelled when the invitee joins (#333).
+- The board view's timeline no longer loses its place at the newest message when content
+  loads right after opening a board (#341).
 - No "no task" nudge right after `aboard task done` or `task drop` (#337).
 - Onboarding rough edges (#291): invite pages and CLI prompts show the same text,
   names and handles come from the server, an invite without pairing no longer mentions
