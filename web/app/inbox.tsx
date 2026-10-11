@@ -15,7 +15,7 @@ import { Header, Problem } from "./chrome";
 import { keyLabel, pressed, rememberInbox, takeInbox, typing } from "./keys";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { usePref } from "./prefs";
-import { BoardNav } from "./sidebars";
+import { BoardNav, useSidebarKeys } from "./sidebars";
 import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
 import { useOnboarding } from "./onboarding-data";
@@ -208,6 +208,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   </>;
   const rest = current ? askDetail(current.body) : "";
   const sentLine = sent && <p role="status" key={sent.at} className={cn("max-w-[640px] truncate text-meta text-muted", wide ? "mb-5" : "px-2.5 pb-1", fading ? "animate-fade-out" : "animate-fade-in")}>Sent to @{sent.to}: &ldquo;{sent.body}&rdquo;</p>;
+  useSidebarKeys("", boards);
   const nav = <BoardNav current="" boards={boards} onMarkRead={markRead} />;
   const boardsWaiting = (boards ?? []).some((b) => attentionCount(b) > 0);
   return <TooltipProvider delayDuration={250}><div className="inbox-page flex min-h-dvh flex-col lg:h-dvh lg:overflow-clip">

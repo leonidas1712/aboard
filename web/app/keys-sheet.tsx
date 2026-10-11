@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { type ReactNode, useEffect, useRef } from "react";
+import { type HTMLAttributes, type ReactNode, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { type Place, keyLabel, keysAt } from "./keys";
 
@@ -9,8 +9,8 @@ import { type Place, keyLabel, keysAt } from "./keys";
  * Kbd prints a key the way the keys sheet lists it. On a touch screen, where there is
  * usually no keyboard, a hint is hidden unless always is set (the keys sheet itself).
  */
-export function Kbd({ children, className, always = false }: { children: ReactNode; className?: string; always?: boolean }) {
-  return <kbd className={cn("inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-[5px] border border-rule bg-surface px-1.5 font-sans text-meta text-muted tabular-nums", !always && "pointer-coarse:hidden", className)}>{children}</kbd>;
+export function Kbd({ children, className, always = false, ...rest }: { children: ReactNode; className?: string; always?: boolean } & Omit<HTMLAttributes<HTMLElement>, "children" | "className">) {
+  return <kbd {...rest} className={cn("inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-[5px] border border-rule bg-surface px-1.5 font-sans text-meta text-muted tabular-nums", !always && "pointer-coarse:hidden", className)}>{children}</kbd>;
 }
 
 /** KeysSheet lists the keys of the Inbox or of a board as sentences, from the same table the handlers read. */
