@@ -346,6 +346,23 @@ test("the board view shows the room live, posts as the person and verifies the r
   await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
 });
 
+test("a Help button beside the account menu opens the keys sheet, which lists [ and ] and links the docs", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Help check", "--json"));
+  await openLink(page, JSON.parse(aboard("open", "--board", pair.board.name, "--json")).url);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const help = page.getByRole("button", { name: "Help and keyboard shortcuts" });
+  await expect(help).toBeVisible();
+  await help.hover();
+  await expect(page.getByRole("tooltip").getByText("Help")).toBeVisible();
+  await help.click();
+  const sheet = page.getByRole("dialog", { name: "Keys on a board" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText("Previous / next: Inbox and boards");
+  await expect(sheet.locator("kbd", { hasText: /^\[$/ }).first()).toBeVisible();
+  await expect(sheet.locator("kbd", { hasText: /^\]$/ }).first()).toBeVisible();
+  await expect(sheet.getByRole("link", { name: "docs" })).toHaveAttribute("href", "https://docs.comeaboard.dev");
+});
+
 test("the board panel's sections start closed, keep what the person opens across a reload and toggle by keyboard", { tag: "@panel-default" }, async ({ page }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Collapsed check", "--json"));
   const board: string = pair.board.name;

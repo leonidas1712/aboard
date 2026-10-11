@@ -37,12 +37,18 @@ export function KeysSheet({ open, onClose, place = "inbox" }: { open: boolean; o
           <X className="size-4" strokeWidth={1.5} aria-hidden />
         </button>
       </div>
+      <p className="flex items-center gap-2 rounded-control bg-selected px-3 py-2 font-bold">
+        <Kbd always className="text-ink">[</Kbd>
+        <Kbd always className="text-ink">]</Kbd>
+        Previous / next: Inbox and boards
+      </p>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2.5">
         {keysAt(place).map((k) => <div key={k.id} className="contents">
           <dt className="flex justify-end"><Kbd always className="text-ink">{keyLabel(k.id)}</Kbd></dt>
           <dd>{k.what}</dd>
         </div>)}
       </dl>
+      <p className="text-meta text-muted">More in the <a className="text-link underline" href="https://docs.comeaboard.dev" target="_blank" rel="noreferrer">docs</a>.</p>
       <p className="text-meta text-muted">Keys work while no field has focus.{place === "inbox" && " Snoozing is kept by this browser only."}</p>
     </div>
   </dialog>;
