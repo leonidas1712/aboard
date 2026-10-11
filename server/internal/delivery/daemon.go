@@ -199,6 +199,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 			continue
 		}
 		s.folder, s.locationBoot = r.Folder, r.LocationBoot
+		s.codexHome = r.CodexHome
 		s.boot, s.open, s.proc, s.lost, s.started, s.turned = r.Boot, r.Open, r.Process, r.Lost, true, r.Turned
 		s.inTurn, s.seenTurns = r.InTurn, r.SeenTurns
 		s.peerTurnActive, s.peerTurn, s.busyAt = r.PeerTurnActive, r.PeerTurn, r.BusyAt
@@ -887,7 +888,7 @@ func (d *Daemon) callBindingLocked(ctx context.Context, req Request) Response {
 		// the session; one that needs hooks must have registered first.
 		create = req.Op == OpRegister || !ad.WaitsForIdle()
 		vctx, cancel := context.WithTimeout(ctx, harnessCallTimeout)
-		err := ad.Validate(vctx, req.Session)
+		err := d.validateSession(vctx, ad, req)
 		cancel()
 		if r, failed := validationResponse(key, err); failed {
 			return r
@@ -941,7 +942,7 @@ func (d *Daemon) bindLaunch(ctx context.Context, req Request, ticket string, res
 	if !ok {
 		return resp
 	}
-	b := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent})
+	b := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, CodexHome: req.CodexHome, Agent: &agent})
 	if b.Error != nil {
 		return b
 	}

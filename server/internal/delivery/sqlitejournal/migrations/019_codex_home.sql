@@ -1,0 +1,1 @@
+ALTER TABLE sessions ADD COLUMN codex_home TEXT NOT NULL DEFAULT '';

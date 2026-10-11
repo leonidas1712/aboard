@@ -97,7 +97,7 @@ func (d *Daemon) seatsCheck(ctx context.Context, req Request) (Response, bool) {
 			"Use "+d.harnessNames()+"."), false
 	}
 	vctx, cancel := context.WithTimeout(ctx, harnessCallTimeout)
-	err := ad.Validate(vctx, req.Session)
+	err := d.validateSession(vctx, ad, req)
 	cancel()
 	if r, failed := validationResponse(req.Key(), err); failed {
 		return r, false
@@ -251,7 +251,7 @@ func (d *Daemon) bindGrantedSeat(ctx context.Context, req Request, grant SeatGra
 			"Check that this machine's aboard config folder is writable, then run the join again.")
 	}
 	agent := grantAgent(grant)
-	bound := d.callBindingLocked(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, Agent: &agent, Process: req.Process})
+	bound := d.callBindingLocked(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, CodexHome: req.CodexHome, Agent: &agent, Process: req.Process})
 	if bound.Error != nil {
 		return bound
 	}

@@ -71,6 +71,10 @@ queued delivery. An older client omitting it keeps a recorded home, or defaults
 to `~/.codex` when none is recorded. The daemon never uses its own inherited
 `CODEX_HOME` to find a session. This optional field is additive in protocol 1.
 
+```json
+{"v":1,"op":"register","harness":"codex","session":"019a0000-0000-7000-8000-000000000001","codex_home":"/home/alex/custom-codex"}
+```
+
 A **request** goes from a client to the daemon. Every field but `v` and `op` is
 optional; each operation says which it reads.
 

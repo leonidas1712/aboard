@@ -92,6 +92,7 @@ const (
 
 // Request is one message from a hook or the CLI to the daemon.
 type Request struct {
+	CodexHome         string         `json:"codex_home,omitempty"`
 	RuntimeHook       bool           `json:"runtime_hook,omitempty"`
 	ApprovalID        string         `json:"approval_id,omitempty"`
 	PairingAction     string         `json:"pairing_action,omitempty"`
