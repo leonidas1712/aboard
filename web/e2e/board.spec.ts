@@ -2084,6 +2084,46 @@ test("an agent's reply to the person opens its thread, so the person reads it an
   expect(aboard("read", "--receipts", String(reply.seq), "--as", "writer", "--board", board)).toMatch(/alex\s+read/);
 });
 
+test("a message to a person is never pending, and a mixed one is pending for its agents only", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Receipts to people", "--json"));
+  const board: string = pair.board.name;
+  aboard("join", pair.join.line);
+  const open = JSON.parse(aboard("open", "--board", board, "--json"));
+  await openLink(page, open.url);
+  const mark = (text: string) => page.locator(".message", { hasText: text }).locator(".receipt-mark");
+
+  // Agent to agent: pending until the recipient's inbox takes it, then received.
+  aboard("say", "--as", "writer", "--board", board, "--to", "@reviewer", "Agent to agent note.");
+  await expect(mark("Agent to agent note.")).toHaveText("Pending");
+  aboard("inbox", "--as", "reviewer", "--board", board);
+  await expect(mark("Agent to agent note.")).toHaveText("Received");
+
+  // Agent to person: never pending. It reads "Unread" while the person's read position is
+  // before it, and "Read" once it has passed.
+  aboard("read", "--mark-read", "--board", board);
+  for (let i = 1; i <= 30; i++) aboard("say", "--as", "writer", "--board", board, `Filler ${i}, written out so the timeline scrolls.`);
+  aboard("say", "--as", "writer", "--board", board, "--to", "@alex", "Brief is up for you.");
+  aboard("say", "--as", "writer", "--board", board, "--to", "@alex,@reviewer", "Mixed note for you both.");
+  await expect(page.getByText("Mixed note for you both.")).toBeVisible();
+  await expect(mark("Brief is up for you.")).toHaveText(/^(Unread|Read)$/);
+
+  // Mixed: the mark speaks for the agent. The person never makes it pending, and the
+  // hover lists them as unread or read.
+  await expect(mark("Mixed note for you both.")).toHaveText("Pending");
+  await mark("Mixed note for you both.").hover();
+  await expect(page.locator(".receipt-list")).toContainText(/alex: (unread|read)/);
+  await expect(page.locator(".receipt-list")).toContainText("reviewer: pending");
+  await page.mouse.move(0, 0);
+  aboard("inbox", "--as", "reviewer", "--board", board);
+  await expect(mark("Mixed note for you both.")).toHaveText("Received");
+
+  // Once the person reads the board, the message to them reads "Read".
+  const markAll = page.getByRole("button", { name: "Mark all as read", exact: true });
+  if (await markAll.count()) await markAll.click();
+  await expect.poll(() => unreadOn(board)).toBe(0);
+  await expect(mark("Brief is up for you.")).toHaveText("Read");
+});
+
 test("Mark all as read moves the person's read position to the newest message, and what arrives after stays unread", async ({ page }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Catch up", "--json"));
   const board: string = pair.board.name;
@@ -2102,7 +2142,7 @@ test("Mark all as read moves the person's read position to the newest message, a
   const newest = page.locator(".message", { hasText: "Last new one, also for you." });
   await expect(newest).toBeVisible();
   await expect(page.locator(".new-divider + .message")).toContainText("First new one, for you.");
-  await expect(newest.locator(".receipt-mark")).toHaveText("Pending");
+  await expect(newest.locator(".receipt-mark")).toHaveText("Unread");
   const nav = page.getByRole("navigation", { name: "Boards" });
   const link = nav.locator(`a[href="/?board=${board}"]`);
   await expect(link.locator(".unread-count [aria-hidden]")).toHaveText(/\d+/);
