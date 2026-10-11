@@ -39,6 +39,11 @@ func main() {
 }
 
 func run(args []string) int {
+	if want := os.Getenv("FAKE_CODEX_EXPECT_HOME"); want != "" && len(args) > 0 &&
+		(args[0] == "app-server" || args[0] == "queue") && os.Getenv("CODEX_HOME") != want {
+		fmt.Fprintln(os.Stderr, "Error: thread not found in CODEX_HOME")
+		return 1
+	}
 	switch {
 	case len(args) == 1 && args[0] == "--version":
 		fmt.Println(version)

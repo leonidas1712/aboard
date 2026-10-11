@@ -24,12 +24,19 @@ import (
 // the environment it was started with to its hooks.
 func (a *app) withHome(specs []harness.Hook) []harness.Hook {
 	p, err := a.paths()
-	if err != nil || p.home == "" {
+	if err != nil {
 		return specs
 	}
 	out := slices.Clone(specs)
 	for i := range out {
-		out[i].Handler.Command = "ABOARD_HOME=" + shellWord(p.home) + " " + out[i].Handler.Command
+		if p.home != "" {
+			out[i].Handler.Command = "ABOARD_HOME=" + shellWord(p.home) + " " + out[i].Handler.Command
+		}
+		if home := a.env.Getenv("CODEX_HOME"); home != "" && strings.Contains(out[i].Handler.Command, " hook codex ") {
+			if absolute, err := filepath.Abs(home); err == nil {
+				out[i].Handler.Command = "CODEX_HOME=" + shellWord(absolute) + " " + out[i].Handler.Command
+			}
+		}
 	}
 	return out
 }

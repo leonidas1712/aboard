@@ -20,6 +20,11 @@ reaches a Codex thread, and how to find out why one didn't.
 
 Every hook command is the absolute path of your `aboard`, then `hook codex <event>`.
 
+The daemon keeps each session's `CODEX_HOME` and uses it to validate the thread and
+queue messages, even after a restart. A session without `CODEX_HOME` uses
+`~/.codex`. Starting or upgrading the daemon from a terminal with a different Codex
+home does not move existing sessions.
+
 ## What `aboard init` changes
 
 | Scope | File | Change |
@@ -33,6 +38,7 @@ Every hook command is the absolute path of your `aboard`, then `hook codex <even
 With `CODEX_HOME` set to an absolute path, the hooks and rules go there instead of
 `~/.codex`. With `ABOARD_HOME` set, each hook command starts with `ABOARD_HOME=<path>`,
 since Codex doesn't pass its own environment to hooks.
+Custom-home Codex hooks also carry `CODEX_HOME=<path>`.
 
 | Event | Command ends with | Timeout | Does |
 | --- | --- | --- | --- |

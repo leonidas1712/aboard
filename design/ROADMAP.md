@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Review:** keep each Codex session's home across delivery daemon restarts;
+  validate and queue threads in that home instead of the daemon's environment.
+
 - **Merged:** focused delivery, replies to the asker, reactions, the backlog digest,
   mentions, delivery modes held by the server, receipts, and team mode's people, keys,
   machine approval, guests and open and private boards (#51–#98).

@@ -42,6 +42,7 @@ var ErrExtensionOutdated = errors.New("the extension does not support combined h
 
 // Handover is one bundle for one session.
 type Handover struct {
+	CodexHome string
 	SessionID string
 	HandoffID string
 	Class     Class
@@ -52,6 +53,11 @@ type Handover struct {
 	// Waiter is the hook or extension connection waiting for this session to be given a
 	// bundle, or nil.
 	Waiter Waiter
+}
+
+// SessionHomeAdapter validates threads in the home reported by their session.
+type SessionHomeAdapter interface {
+	ValidateSession(ctx context.Context, sessionID, home string) error
 }
 
 // Waiter is a connection waiting while its session is idle: a stop hook's, or a harness
