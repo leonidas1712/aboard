@@ -82,7 +82,9 @@ trust store is modified. This exercises setup, not release checksums or signatur
 
 Reopening that person keeps the installed copy. To install a newer local build, run
 the same install command inside its shell. FRESH refuses to turn an already populated
-ordinary sandbox into a fresh one; choose a new NAME instead.
+ordinary sandbox into a fresh one; choose a new NAME instead. FRESH never
+preinstalls project hooks, including when reopening after installation; the invite
+flow installs the harness hooks globally inside the private sandbox.
 
 ## Developing with a sandbox
 
