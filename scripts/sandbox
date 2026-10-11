@@ -15,7 +15,7 @@
 #                   omp/, ...): the profile's config_dir.env points at it, and the files
 #                   its login_files name are linked from the person's own folder
 #   project/        a git project set up with aboard init --yes --scope project,
-#                   where the shell starts
+#                   where the shell starts (FRESH leaves it unconfigured)
 #   shell/          the shell start-up files that put the sandbox's name in the prompt
 #
 # Everything about a harness comes from its profile, so a new harness needs only
@@ -455,7 +455,7 @@ open_sandbox() {
 	if [ "$fresh" != 1 ] && [ ! -d .git ] && command -v git >/dev/null 2>&1; then
 		git init -q .
 	fi
-	if [ "$fresh" != 1 ] || command -v aboard >/dev/null 2>&1; then
+	if [ "$fresh" != 1 ]; then
 		aboard init --yes --scope project
 	fi
 	if [ -n "$team" ]; then
