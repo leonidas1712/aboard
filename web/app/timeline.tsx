@@ -138,6 +138,10 @@ export function Timeline({
   const scroller = useRef<HTMLDivElement>(null);
   const jumpStrip = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
+  // pinned is the position the timeline last set itself to at the bottom. The scroll event
+  // for it arrives a frame later, by when the content may have grown; that event is not
+  // the person scrolling away.
+  const pinned = useRef<number | null>(null);
   const [showJump, setShowJump] = useState(false);
   const [unseen, setUnseen] = useState(0);
   const lastCount = useRef({ first: 0, last: 0, height: 0, messages: 0 });
@@ -177,6 +181,7 @@ export function Timeline({
       el.scrollTop += el.scrollHeight - prev.height;
     } else if (atBottom.current) {
       el.scrollTop = el.scrollHeight;
+      pinned.current = el.scrollTop;
     } else if (messageCount > prev.messages && newestSeq > prev.last) {
       setUnseen((n) => n + entries.filter((e) => e.kind === "message" && e.seq > prev.last).length);
     }
@@ -195,7 +200,9 @@ export function Timeline({
     const el = scroller.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
-      if (atBottom.current) el.scrollTop = el.scrollHeight;
+      if (!atBottom.current) return;
+      el.scrollTop = el.scrollHeight;
+      pinned.current = el.scrollTop;
     });
     observer.observe(el);
     if (el.firstElementChild) observer.observe(el.firstElementChild);
@@ -238,6 +245,11 @@ export function Timeline({
     el.dataset.scrolling = "";
     if (scrolling.current) clearTimeout(scrolling.current);
     scrolling.current = setTimeout(() => delete el.dataset.scrolling, 900);
+    if (pinned.current !== null && Math.abs(el.scrollTop - pinned.current) < 1) {
+      pinned.current = null;
+      if (atBottom.current) return;
+    }
+    pinned.current = null;
     // Measured as if the Jump strip weren't there, so showing or hiding it never flips the
     // answer, and hiding it while there is room below moves nothing on screen.
     const strip = jumpStrip.current?.offsetHeight ?? 0;
