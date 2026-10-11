@@ -11,6 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
+import { ExportMenu } from "./export-menu";
 import { Header, Problem } from "./chrome";
 import { TaskBoard, TaskContext, TaskDetail, type WorkBy, WorkTasks, WorkTitle, useTasks } from "./task-ui";
 import { FilePanel, FilesView, useFiles } from "./files";
@@ -585,12 +586,13 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               {boardsWaiting && waitingDot}
             </button>
           )}
-          tools={!wide && (
-            <button type="button" className={sheetButton} aria-label={agentsWaiting ? "Board panel: agents, tasks and rules, an agent waits on a person" : "Board panel: agents, tasks and rules"} aria-haspopup="dialog" onClick={() => { setReveal(null); setSheet("right"); }}>
+          tools={<>
+            {s.board && <ExportMenu board={name} />}
+            {!wide && <button type="button" className={sheetButton} aria-label={agentsWaiting ? "Board panel: agents, tasks and rules, an agent waits on a person" : "Board panel: agents, tasks and rules"} aria-haspopup="dialog" onClick={() => { setReveal(null); setSheet("right"); }}>
               <PanelRight className="size-5" strokeWidth={1.75} aria-hidden />
               {agentsWaiting && waitingDot}
-            </button>
-          )}
+            </button>}
+          </>}
           account={<Account person={s.me} admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
         />
         <div
