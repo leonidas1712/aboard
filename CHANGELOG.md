@@ -2,6 +2,10 @@
 
 ## Unreleased contract additions
 
+- Add read-only `GET /v1/boards/{board}/export?format=md|zip` and `aboard export`
+  with the additive `ExportOutput` shape for API clients, browser clients and CLI
+  scripts. Exports contain only caller-visible content; zip file bytes are unchanged.
+
 - Add person-only onboarding Inbox reads and optional invite-notice suggested handles.
 
 ## Approved D223 contract changes (implementation in review)

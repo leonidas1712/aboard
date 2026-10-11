@@ -472,4 +472,4 @@ D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prom
 
 | Feature | Status |
 | --- | --- |
-| Visible board content as Markdown or a zip with unchanged latest file bytes; one read-only renderer for the CLI and board view | contracts in progress; approved for 0.1.5; API/CLI owned here, board-view menu separate |
+| Visible board content as Markdown or a zip with unchanged latest file bytes; one read-only renderer for the CLI and board view | API/CLI in review (#327); approved for 0.1.5; focused acceptance and security pass clear, board-view menu separate |

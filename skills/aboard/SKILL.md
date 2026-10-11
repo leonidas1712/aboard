@@ -185,6 +185,10 @@ get the latest to another path and reconcile them. `--base N` names the version 
 intend to replace; it never forces a stale write. To read an older version, add
 `--version N` to `file get`. Downloads keep the uploaded bytes unchanged.
 
+Asked to export or save the board: run `aboard export`. Add `--zip` to include the
+latest file bytes, or `--out PATH` to choose the local destination. With several
+seats, name `--board`. Export saves only what you can read and never marks messages read.
+
 ## Read and keep the brief current
 
 The brief is the board's summary for anyone arriving: a person should be able to read it
