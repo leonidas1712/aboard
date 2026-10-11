@@ -11,7 +11,7 @@ import { Attachments, FileLinks } from "./attachments";
 
 import { ArrowDown, ArrowRight, ChevronRight, CircleQuestionMark, MessageSquare, Reply, Zap } from "lucide-react";
 import { SenderMark } from "./agent-mark";
-import { Fragment, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type MouseEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BoardEvent, Message, MemberRef } from "./api";
@@ -233,11 +233,11 @@ export function Timeline({
   };
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scroller}
         onScroll={onScroll}
-        className="timeline quiet-scroll h-full overflow-y-auto [overflow-anchor:none]"
+        className="timeline quiet-scroll min-h-0 flex-1 overflow-y-auto [overflow-anchor:none]"
         role="log"
         aria-label="Timeline"
         aria-live="polite"
@@ -309,23 +309,17 @@ export function Timeline({
           {messageCount === 0 && empty}
         </div>
       </div>
-      <div
-        className={cn(
-          "jump-newest pointer-events-none absolute inset-x-0 bottom-3 flex justify-center transition-[opacity,transform] duration-200 ease-out",
-          showJump ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
-        )}
-      >
-        <Button
-          variant="secondary"
-          className={cn("bg-surface", showJump && "pointer-events-auto")}
-          tabIndex={showJump ? 0 : -1}
-          aria-hidden={!showJump}
-          onClick={() => toBottom(true)}
-        >
-          <ArrowDown strokeWidth={1.5} aria-hidden />
-          Jump to newest{unseen > 0 && ` · ${unseen} new`}
-        </Button>
-      </div>
+      {/* The button takes its own strip under the timeline, never a place over a message:
+          the timeline gets shorter while it shows, and nothing above moves. */}
+      {showJump && (
+        <div className="jump-newest flex shrink-0 justify-center border-t border-rule py-2 animate-fade-in">
+          <Button variant="secondary" className="h-9 bg-surface pointer-coarse:h-11" onClick={() => toBottom(true)}>
+            <ArrowDown strokeWidth={1.5} aria-hidden />
+            Jump to newest{unseen > 0 && ` · ${unseen} new`}
+          </Button>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -478,8 +472,18 @@ function MessageEntry({
       {replyButton}
     </span>
   );
+  // On a touch screen there is no hover: a tap on the message shows its actions in a row
+  // of their own under it, so they never sit on the sender, recipients or time.
+  const [touched, setTouched] = useState(false);
+  const tap = (e: MouseEvent<HTMLLIElement>) => {
+    if (!actions || !window.matchMedia("(pointer: coarse)").matches) return;
+    if ((e.target as HTMLElement).closest("a, button, input, textarea, select, summary, [role=button], [role=menuitem]")) return;
+    if (window.getSelection()?.toString()) return;
+    setTouched((t) => !t);
+  };
   return (
     <li
+      onClick={tap}
       className={cn(
         "message group relative grid px-3 transition-colors duration-200 ease-out",
         nested ? "reply grid-cols-[24px_minmax(0,1fr)] gap-x-2.5" : "grid-cols-[32px_minmax(0,1fr)] gap-x-3",
@@ -543,7 +547,7 @@ function MessageEntry({
                 ))}
               {lab?.MessageMeta && receipts && <lab.MessageMeta board={receipts.board} message={m} grouped={false} />}
             </p>
-            {actions}
+            {actions && <span className="contents pointer-coarse:hidden">{actions}</span>}
             <Time at={m.at} now={now} />
           </div>
         )}
@@ -563,7 +567,9 @@ function MessageEntry({
         {m.ask && receipts && <AskAnswers message={m} board={receipts.board} readOnly={!onReply} />}
         <Reactions m={m} me={me} onReact={onReact} />
         {receipts && wantsReceipts(m) && <ReceiptMark board={receipts.board} seq={m.seq} activity={receipts.activity} />}
-        {grouped && actions && <div className="absolute top-0 right-2.5 pointer-coarse:static pointer-coarse:mt-1 pointer-coarse:flex pointer-coarse:justify-end">{actions}</div>}
+        {grouped && actions && <div className="absolute top-0 right-2.5 pointer-coarse:hidden">{actions}</div>}
+        {touched && actions && <div className="message-actions mt-1 hidden justify-end pointer-coarse:flex">{actions}</div>}
+
         {waiting && (
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-box bg-attention px-3.5 py-2.5 text-on-accent">
             <p>{m.from.name} is waiting for your reply.</p>

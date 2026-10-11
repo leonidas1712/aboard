@@ -305,13 +305,13 @@ function RecentTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) => vo
             <span className="shrink-0 text-meta tabular-nums text-muted">{t.ref}</span>
             <span className={cn("min-w-0 truncate leading-snug", done ? "font-normal text-muted" : "font-bold", t.state === "cancelled" && "line-through decoration-field-border")}>{t.title}</span>
           </button>
-          <span className="flex min-w-0 items-center gap-3 text-meta">
+          <span className="task-meta flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-meta">
             <span className="task-state inline-flex shrink-0 items-center gap-1.5 rounded-[4px] border border-rule px-1.5 text-ink" data-state={t.state}>
               <span aria-hidden className={cn("size-2 shrink-0 rounded-full", t.state === "in_progress" ? "bg-status-working" : t.state === "open" ? "border border-dashed border-muted" : "bg-muted")} />
               {taskState(t)}
             </span>
             {!done && t.blocked && <span className="task-blocked shrink-0 rounded-[4px] bg-attention-soft px-1.5 font-bold text-ink">{waiting ? "Needs you" : "Blocked"}</span>}
-            {t.owner && w ? <span className="flex min-w-0 items-center gap-1.5 text-muted" data-on-task={t.owner.name}>
+            {t.owner && w ? <span className="flex max-w-full min-w-0 items-center gap-1.5 text-muted" data-on-task={t.owner.name}>
               <AgentMark member={{ ...t.owner, harness: w.harness }} identity={w.identity} status={done ? undefined : w.status?.tone} />
               <span className="min-w-0 truncate">{t.owner.name}</span>
               {!done && w.status && <StatusWord status={w.status} className="shrink-0" />}

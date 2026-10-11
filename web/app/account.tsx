@@ -139,7 +139,7 @@ export function Account({ admin, onSignOut, person }: Props) {
         className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected"
         aria-label={`You are ${me.name}. Account and settings`}
       >
-        <SenderMark name={me.name} kind="human" identity={personIdentity(me.name, me)} className="size-7" />
+        <SenderMark name={me.name} kind="human" identity={personIdentity(me.name)} className="size-7" />
         <span className="max-w-[12rem] truncate max-sm:hidden">{me.name}</span>
         <ChevronDown className="size-3.5 text-muted" strokeWidth={1.5} aria-hidden />
       </DropdownMenuTrigger>
@@ -153,9 +153,10 @@ export function Account({ admin, onSignOut, person }: Props) {
           <dd className="break-all">{server}</dd>
           {signedIn && (
             <>
-              <dt className="text-muted">Key</dt>
-              <dd className="session-key break-all">{signedIn.key.name}</dd>
+              <dt className="text-muted">Signed in with</dt>
+              <dd className="break-all">the access key &ldquo;<span className="session-key">{signedIn.key.name}</span>&rdquo;</dd>
               <dt className="text-muted">Until</dt>
+
               <dd>{new Date(signedIn.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</dd>
             </>
           )}
@@ -166,7 +167,7 @@ export function Account({ admin, onSignOut, person }: Props) {
         {allowance && <><DropdownMenuItem asChild><a href="/?view=settings" className="settings-item flex items-center gap-2"><Settings2 className="size-4 text-muted" strokeWidth={1.5} aria-hidden /><span className="flex-1">Settings</span><span className="text-meta text-muted">{allowance.categories.length > 0 ? "Auto mode on" : "Agents ask you"}</span></a></DropdownMenuItem><DropdownMenuSeparator /></>}
         {midturn.view && (
           <>
-            <DropdownMenuLabel>Mid-turn messages from my agents</DropdownMenuLabel>
+            <DropdownMenuLabel>Urgent messages while an agent works</DropdownMenuLabel>
             <p className="px-3 pb-1 text-meta text-muted">{midturnCopy}</p>
             <DropdownMenuRadioGroup
               className="midturn-setting"

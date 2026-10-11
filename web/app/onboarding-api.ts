@@ -27,7 +27,7 @@ export type Display = {
 };
 
 export type AdminAction =
-  | { kind: "invite_people"; invite: { ttl_seconds?: number; boards?: string[]; pairing?: { initiating_agent_id: string; work: string } } }
+  | { kind: "invite_people"; invite: { suggested_handle?: string; ttl_seconds?: number; boards?: string[]; pairing?: { initiating_agent_id: string; work: string } } }
   | { kind: "add_people"; board_id: string; person_id: string }
   | { kind: "set_server_role"; person_id: string; role: "admin" | "member" }
   | { kind: "set_board_role"; board_id: string; person_id: string; role: string }

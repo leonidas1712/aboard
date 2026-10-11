@@ -7,9 +7,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { type MidturnPolicy, type MidturnView, getMidturn, setMidturn } from "./api";
 
-export const midturnLabels: Record<MidturnPolicy, string> = { "owner-only": "Owner only", "my-agents": "My agents" };
+export const midturnLabels: Record<MidturnPolicy, string> = { "owner-only": "Only you", "my-agents": "You and your agents" };
 export const midturnPolicies: MidturnPolicy[] = ["owner-only", "my-agents"];
-export const midturnCopy = "Urgent messages from your own agents arrive at their next step instead of waiting for the turn to end.";
+export const midturnCopy = "An urgent message from you reaches your agent at its next step, without waiting for its turn to end. Your agents can do the same for each other if you let them.";
+
 
 type State = { view: MidturnView | null; unavailable: boolean };
 

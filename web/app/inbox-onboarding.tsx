@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 import type { Onboarding } from "./onboarding-data";
 import type { Approval, BoardAddNotice, InviteArrivalNotice, InviteNotice, PairingRequest } from "./onboarding-api";
 import { ArrivalDetail, BoardAddDetail, addedKey, addedTitle, arrivalKey, arrivalTitle } from "./inbox-added";
-import { AgentMark, ApprovalDetail, NoticeDetail, PairingDetail, approvalTitle, noticeLine, pairingRowLine, pairingTitle, pairingView, waitsOnMe } from "./onboarding-ui";
+import { AgentMark, ApprovalDetail, NoticeDetail, PairingDetail, approvalTitle, noticeLine, noticeTitle, pairingRowLine, pairingTitle, pairingView, waitsOnMe } from "./onboarding-ui";
 import { agentLabel, allowable, live } from "./onboarding-words";
-import { relativeTime } from "./words";
+import { SenderMark } from "./agent-mark";
+import { personIdentity, relativeTime } from "./words";
 import { newerFirst } from "./time";
 
 export type OnboardingItem =
@@ -30,21 +31,42 @@ export function onboardingGroups(ob: Onboarding, dismissed: Record<string, true>
   const approval = (a: Approval): OnboardingItem => ({ kind: "approval", id: a.id, a, t: a.decided_at ?? a.created_at });
   const pairing = (p: PairingRequest): OnboardingItem => ({ kind: "pairing", id: p.id, p, t: p.created_at });
   const asked = ob.pairing.filter((p) => waitsOnMe(p, pairingView(p, ob.names, ob.agents)));
+  const news = [
+    ...ob.inbox.board_adds.map((a): OnboardingItem => ({ kind: "added", id: addedKey(a), a, t: a.added.at })),
+    ...ob.inbox.arrivals.map((r): OnboardingItem => ({ kind: "arrival", id: arrivalKey(r), r, t: r.at })),
+  ]
+    .filter((i) => !dismissed[i.id])
+    .sort(newest);
+  // A used invite whose arrival shows tells the same story twice: the arrival keeps it.
+  const arrived = new Set(news.flatMap((i) => (i.kind === "arrival" ? [i.r.invite_id] : [])));
   return {
     needs: [...asked.map(pairing), ...ob.approvals.filter((a) => a.state === "pending").map(approval)].sort(newest),
-    news: [
-      ...ob.inbox.board_adds.map((a): OnboardingItem => ({ kind: "added", id: addedKey(a), a, t: a.added.at })),
-      ...ob.inbox.arrivals.map((r): OnboardingItem => ({ kind: "arrival", id: arrivalKey(r), r, t: r.at })),
-    ]
-      .filter((i) => !dismissed[i.id])
-      .sort(newest),
+    news,
     pairing: ob.pairing
       .filter((p) => !asked.includes(p))
       .map(pairing)
       .sort((x, y) => Number(live((y as { p: PairingRequest }).p.state)) - Number(live((x as { p: PairingRequest }).p.state)) || newest(x, y)),
-    invites: ob.notices.map((n): OnboardingItem => ({ kind: "notice", id: n.id, n, t: n.created_at })).sort(newest),
+    invites: ob.notices
+      .filter((n) => !(n.state === "redeemed" && arrived.has(n.id)))
+      .map((n): OnboardingItem => ({ kind: "notice", id: n.id, n, t: n.created_at }))
+      .sort(newest),
     decided: ob.approvals.filter((a) => a.state !== "pending").map(approval).sort(newest),
   };
+}
+
+/** inviteItem is the item that tells an invite's story: its notice, or its arrival once someone joined with it. */
+export function inviteItem(groups: OnboardingGroups, inviteId: string): string {
+  const arrival = groups.news.find((i) => i.kind === "arrival" && i.r.invite_id === inviteId);
+  return groups.invites.some((i) => i.id === inviteId) || !arrival ? inviteId : arrival.id;
+}
+
+/** arrivalBy is who made the invite someone arrived with ("your agent claude", or "you"), and how, for the arrival's Invite field. */
+export function arrivalBy(r: InviteArrivalNotice, ob: Onboarding): { by: string; made: string } {
+  const notice = ob.notices.find((n) => n.id === r.invite_id);
+  if (!notice) return { by: "you", made: "Made by you" };
+  const by = `your agent ${agentLabel(notice)}`;
+  const approved = ob.approvals.some((a) => a.execution?.invite_id === r.invite_id);
+  return { by, made: `Made by ${by}, ${approved ? "approved by you" : "on your allowance"}` };
 }
 
 /** age is how long ago, short enough for a row: "4 min", "now". */
@@ -54,7 +76,7 @@ function age(at: string, now: number): string {
 }
 
 export function OnboardingRow({ item, ob, now, selected, onRead }: { item: OnboardingItem; ob: Onboarding; now: number; selected: boolean; onRead: () => void }) {
-  let who: { name: string; harness?: string };
+  let who: { name: string; harness?: string; person?: true };
   let title: string;
   let meta: string;
   if (item.kind === "approval") {
@@ -64,18 +86,20 @@ export function OnboardingRow({ item, ob, now, selected, onRead }: { item: Onboa
     const state = a.state === "pending" ? (allowable(a.action) ? "asks you to approve" : "always asks you") : a.state === "executed" ? "allowed" : a.state;
     meta = [a.display?.requested_on?.name, agentLabel(a), state].filter(Boolean).join(" · ");
   } else if (item.kind === "added") {
-    who = { name: item.a.added.by.name ?? "someone" };
+    const by = item.a.added.by;
+    // A person has no harness mark: only an agent's add shows one.
+    who = by.kind === "agent" ? { name: by.name ?? "someone" } : { name: by.name ?? "someone", person: true };
     title = addedTitle(item.a);
     meta = `${item.a.board.title || item.a.board.name} · paste the join prompt into a session`;
   } else if (item.kind === "arrival") {
-    const first = item.r.boards[0]?.agents[0];
-    who = { name: first?.name ?? item.r.handle, harness: first?.harness };
+    who = { name: item.r.handle, person: true };
     title = arrivalTitle(item.r);
-    meta = `${item.r.boards.map((b) => b.board.title || b.board.name).join(", ")} · you invited them`;
+    const { by } = arrivalBy(item.r, ob);
+    meta = `${item.r.boards.map((b) => b.board.title || b.board.name).join(", ")} · ${by === "you" ? "you invited them" : `invited by ${by}`}`;
   } else if (item.kind === "notice") {
     who = { name: agentLabel(item.n), harness: item.n.display?.agent_harness };
-    title = `Your agent ${agentLabel(item.n)} invited someone`;
-    meta = noticeLine(item.n, now);
+    title = noticeTitle(item.n, ob.names);
+    meta = noticeLine(item.n, ob.names, now);
   } else {
     const v = pairingView(item.p, ob.names, ob.agents);
     who = { name: v.agent, harness: item.p.display?.agent_harness };
@@ -92,7 +116,7 @@ export function OnboardingRow({ item, ob, now, selected, onRead }: { item: Onboa
         className={cn("grid min-h-14 w-full grid-cols-[28px_minmax(0,1fr)] items-start gap-x-3 rounded-control px-2.5 py-3 text-left transition-colors duration-[140ms] ease-out hover:bg-hover active:bg-selected", selected && "bg-selected hover:bg-selected")}
       >
         <span className="mt-0.5">
-          <AgentMark name={who.name} harness={who.harness} />
+          {who.person ? <SenderMark name={who.name} kind="human" identity={personIdentity(who.name)} className="size-7" /> : <AgentMark name={who.name} harness={who.harness} />}
         </span>
         <span className="flex min-w-0 flex-col">
           <span className="flex min-w-0 items-baseline gap-3">
@@ -108,9 +132,10 @@ export function OnboardingRow({ item, ob, now, selected, onRead }: { item: Onboa
 
 export function OnboardingDetail({ item, ob, now, onShowInvite, onDismiss }: { item: OnboardingItem; ob: Onboarding; now: number; onShowInvite: (id: string) => void; onDismiss: (id: string) => void }) {
   if (item.kind === "added") return <BoardAddDetail n={item.a} agents={ob.agents} now={now} onDismiss={() => onDismiss(item.id)} />;
-  if (item.kind === "arrival") return <ArrivalDetail n={item.r} now={now} onDismiss={() => onDismiss(item.id)} />;
+  if (item.kind === "arrival") return <ArrivalDetail n={item.r} made={arrivalBy(item.r, ob).made} now={now} onDismiss={() => onDismiss(item.id)} />;
   if (item.kind === "approval") return <ApprovalDetail a={item.a} names={ob.names} now={now} settingsHref="/?view=settings" onShowInvite={onShowInvite} />;
-  if (item.kind === "notice") return <NoticeDetail n={item.n} now={now} />;
+  if (item.kind === "notice") return <NoticeDetail n={item.n} names={ob.names} now={now} />;
+
   const v = pairingView(item.p, ob.names, ob.agents);
   return <PairingDetail p={item.p} names={ob.names} agents={ob.agents} now={now} boardHref={`/?board=${encodeURIComponent(v.board)}`} />;
 }
