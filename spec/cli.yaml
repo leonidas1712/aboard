@@ -996,6 +996,7 @@ $defs:
       version is older than 0.1.4 and is not a +dev build, run aboard upgrade first. Run aboard skill, then
       run aboard setup <link> --handle <name you'd like teammates to see>."
       The server prompt adds: "Run Aboard outside your agent's sandbox; approve it when your harness asks."
+      It also says: "If your agent cannot run commands outside its sandbox, ask your person to run the install and setup commands in their terminal."
       Setup handles the hello and reply; the prompt contains no separate verification step.
       Automatic selection of the
       inviting session does not also ask it to run pairing select. This secret-bearing prompt is shown once with the invite,
@@ -4327,6 +4328,12 @@ $defs:
       return exit 1 with error.next.command naming its exact secret-free continuation.
       The hint and next.resume ask the agent to rerun that command outside its sandbox
       with escalated permissions and ask its person to approve the harness request.
+      If the agent cannot escalate, next.resume hands off to its person: do not retry
+      and do not use sudo. In the person's own terminal, install if missing with
+      curl -fsSL https://comeaboard.dev/install | sh, then run
+      aboard init --harness codex --allow-commands, restart Codex and say
+      "continue Aboard setup". Sandboxed setup write-permission errors carry the
+      same handover without changing their code or the allow-commands default.
       Already verified account and memberships resume without a new redemption.
       Installed harness skills apply automatically to the next session; next asks
       the current session to run aboard skill now.
