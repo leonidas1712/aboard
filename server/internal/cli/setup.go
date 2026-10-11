@@ -32,6 +32,7 @@ type setupOutput struct {
 	Next            *api.NextStep       `json:"next,omitempty"`
 	PairingRequest  *api.PairingRequest `json:"pairing_request,omitempty"`
 	skillInstalled  bool
+	commandsAllowed bool
 	continueCommand string
 }
 
@@ -44,6 +45,7 @@ func newSetupOutput(srv serverRef) setupOutput {
 }
 
 func runSetup(ctx context.Context, a *app, args []string) (result error) {
+	defer func() { result = a.setupWriteHandover(result) }()
 	use := usageOf("setup")
 	flags := a.flags("setup")
 	handle := flags.String("handle", "", "your visible name on this server")
@@ -88,6 +90,7 @@ func runSetup(ctx context.Context, a *app, args []string) (result error) {
 			return err
 		}
 		out.skillInstalled = out.Next != nil && strings.Contains(out.Next.Resume, "Run aboard skill now")
+		out.commandsAllowed = a.setupAllowsCommands()
 		out.Steps[3].Message = "Harness configuration still needs runtime confirmation."
 		if out.Next == nil {
 			out.confirmSetupHarness("aboard setup " + commandWord(pos[0]) + " --server " + commandWord(srv.URL))
@@ -124,7 +127,7 @@ func runSetup(ctx context.Context, a *app, args []string) (result error) {
 		if *name != "" {
 			command += " --name " + commandWord(*name)
 		}
-		return &api.NextStep{Command: command, Resume: "Rerun this command outside your agent's sandbox with escalated permissions. Ask your person to approve the harness request; the saved setup resumes without pasting the invite again."}
+		return &api.NextStep{Command: command, Resume: "Rerun this command outside your agent's sandbox with escalated permissions. Ask your person to approve the harness request; the saved setup resumes without pasting the invite again. " + codexSetupHandover}
 	}
 	defer func() {
 		if result == nil {
@@ -202,6 +205,11 @@ func runSetup(ctx context.Context, a *app, args []string) (result error) {
 		if cause := asError(err); cause.Code == "daemon_in_sandbox" || cause.Code == "sandbox_blocks_network" {
 			out.Next = sandboxNext()
 		}
+		if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EACCES) {
+			if handover := asError(a.setupWriteHandover(err)); handover.Next != nil {
+				out.Next = handover.Next
+			}
+		}
 		_ = emitSetup(a, out)
 		return errReportedFailure
 	}
@@ -217,6 +225,7 @@ func runSetup(ctx context.Context, a *app, args []string) (result error) {
 		return err
 	}
 	out.Steps[3].Message = "Harness configuration needs trust or restart confirmation."
+	out.commandsAllowed = a.setupAllowsCommands()
 	out.Steps[4].Message = "This invite has no boards to join."
 	out.Steps[5].Message = "Waiting for a reply from the inviting person's agents."
 	out.Next = next
@@ -259,6 +268,11 @@ func setupRecoveryNext(srv serverRef) *api.NextStep {
 }
 
 func emitSetup(a *app, out setupOutput) error {
+	if out.commandsAllowed {
+		key, _ := a.sessionKey()
+		h, _ := a.registry().Get(key.Harness)
+		out.Steps[3].Message += " " + h.Profile().Name + ": allowed aboard commands to run outside its sandbox, so they can reach the server (only commands starting with aboard)."
+	}
 	if out.skillInstalled && out.Next == nil {
 		out.Steps[3].Message += " Run aboard skill now; it loads automatically in your next session."
 	}
@@ -463,7 +477,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 	if !ok {
 		return &api.NextStep{Command: "aboard init", Resume: "Set up this harness and restart it, then Continue Aboard setup."}, nil
 	}
-	c := initChoices{scope: scopeGlobal, harnesses: []string{key.Harness}}
+	c := initChoices{scope: scopeGlobal, harnesses: []string{key.Harness}, allow: a.setupAllowsCommands()}
 	setups, err := a.planInit(ctx, c, []harnessSetup{{Name: key.Harness, Detected: h.Detected(a.henv())}}, exe)
 	if err != nil {
 		return nil, err
@@ -486,6 +500,11 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 		trust = "Approve Aboard's global hooks in Codex, then restart Codex."
 	}
 	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: "Run aboard skill now; it loads automatically in your next session. " + trust + " Continue Aboard setup."}, nil
+}
+
+func (a *app) setupAllowsCommands() bool {
+	key, ok := a.sessionKey()
+	return ok && (key.Harness == "codex" || key.Harness == "claude-code")
 }
 
 func (a *app) setupInstalled(out *setupOutput) (exe string, installed bool, err error) {

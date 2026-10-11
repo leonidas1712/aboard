@@ -4,10 +4,13 @@ package e2e
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestFlowEvalPreparesFreshPeopleWithoutChangingTheSourceHome(t *testing.T) {
@@ -35,6 +38,7 @@ func TestFlowEvalPreparesFreshPeopleWithoutChangingTheSourceHome(t *testing.T) {
 		t.Fatalf("prepare: %v %s", err, out)
 	}
 	var report struct {
+		Team            string `json:"team"`
 		Fresh           bool   `json:"fresh"`
 		Project         string `json:"project"`
 		SourceUnchanged bool   `json:"source_unchanged"`
@@ -45,6 +49,17 @@ func TestFlowEvalPreparesFreshPeopleWithoutChangingTheSourceHome(t *testing.T) {
 	}
 	if err := json.Unmarshal(raw, &report); err != nil {
 		t.Fatal(err)
+	}
+	if !strings.HasPrefix(report.Team, "flow-eval-") || report.Team == "qa" {
+		t.Fatalf("eval must own a distinct team: %+v", report)
+	}
+	control := filepath.Join(outDir, "sandboxes", "teams", report.Team, "control.sock")
+	if conn, err := net.DialTimeout("unix", control, time.Second); err == nil {
+		_ = conn.Close()
+		t.Fatal("the eval's team server is still running after cleanup")
+	}
+	if !strings.Contains(report.Project, string(filepath.Separator)+report.Team+string(filepath.Separator)) {
+		t.Fatalf("project outside the owned team: %s", report.Project)
 	}
 	if !report.Fresh || !report.SourceUnchanged {
 		t.Fatalf("isolation: %+v", report)

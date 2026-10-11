@@ -503,3 +503,23 @@ func TestReleaseNotes(t *testing.T) {
 		}
 	}
 }
+
+func TestSandboxedInstallerHandsOffBlockedWritesToThePerson(t *testing.T) {
+	t.Parallel()
+	r := newInstallRelease(t)
+	if err := os.WriteFile(filepath.Join(r.home, ".local"), []byte("blocked directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, code := r.run("CODEX_SANDBOX=seatbelt")
+	if code != 1 {
+		t.Fatalf("blocked install succeeded: %s", out)
+	}
+	for _, want := range []string{"outside your agent's sandbox", "own terminal", "do not retry", "do not use sudo", "curl -fsSL https://comeaboard.dev/install | sh", "aboard init --harness codex --allow-commands", "restart Codex", "continue Aboard setup"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing handover %q: %s", want, out)
+		}
+	}
+	if strings.Contains(out, "Set ABOARD_INSTALL_DIR") {
+		t.Fatalf("sandbox failure suggested another install path first: %s", out)
+	}
+}

@@ -25,6 +25,8 @@ section is the daily loop.
 
 ## Testing team flows on one machine
 
+To QA a release by hand, follow [QA a release by hand](engineering/qa.md); the rest of this section is the reference.
+
 One team server can serve several isolated people on your laptop. Start it from the
 checkout:
 
@@ -238,7 +240,8 @@ public issue.
 ### Evaluate team flows with small models
 
 `make flow-eval SCENARIO=invite` starts a private team and two interactive tmux
-sessions. The admin uses Claude Haiku; the newcomer uses Codex `gpt-6-luna`,
+sessions under a unique `flow-eval-<random>` team name. Cleanup stops only that team,
+so a hand-QA team named `qa` is left alone. The admin uses Claude Haiku; the newcomer uses Codex `gpt-6-luna`,
 with no aboard installed and an empty project. Ask for the shared live-run slot
 before running it. Export the same subscription credentials used by `make live`.
 
