@@ -576,6 +576,8 @@ class Eval:
             if shutil.which('tmux'):
                 self.run(['tmux', '-S', self.socket, 'kill-server'], check=False)
             for side in self.sides:
+                self.run(['python3', str(REPO / 'scripts/stop-sandbox-codex.py'),
+                          str(self.sides[side]['env']['CODEX_HOME'])], check=False)
                 self.run([str(self.binary), 'down'], env=self.sides[side]['env'], check=False)
             self.run(['sh', str(REPO / 'scripts/sandbox'), 'team-stop', self.team_name], check=False)
         changed = [path for path, before in self.before.items() if checksum(Path(path)) != before]

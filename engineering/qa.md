@@ -154,7 +154,8 @@ restarts with stop, then `make sandbox-team TEAM=qa`; its address and all data a
    make sandbox-team-clean TEAM=qa
    ```
 
-This stops the team server and each person's server and daemon, then deletes
+This stops the team server, each person's server and daemon, and Codex processes
+from their private package directories, then deletes
 `~/.aboard-sandboxes/teams/qa`: the server data, the certificate, and every person's
 home, boards, harness folders and project. Your real `~/.aboard`, `~/.claude` and
 `~/.codex` are not touched.
