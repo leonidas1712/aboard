@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Page, type Response, type Route, expect, test } from "@playwright/test";
+import { type Locator, type Page, type Response, type Route, expect, test } from "@playwright/test";
 import type { Board } from "../app/api";
 import { modeRules, settableModes } from "../app/delivery-modes.gen";
 import { ReadProgress } from "../app/read-progress";
@@ -68,6 +68,17 @@ test.afterEach(async ({ page }) => {
   // A test that holds requests may leave one in flight as it ends; it isn't answered.
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
+
+// hoverUntil hovers a target and runs check, moving the pointer away and hovering again
+// until check passes. The timeline re-pins as it loads and can move a target from under
+// the pointer, so a single hover may never open its tooltip.
+async function hoverUntil(page: Page, target: Locator, check: () => Promise<void>) {
+  await expect(async () => {
+    await page.mouse.move(0, 0);
+    await target.hover();
+    await check();
+  }).toPass();
+}
 
 // base is the local server's address, as aboard open links to it.
 function base(): string {
@@ -202,8 +213,9 @@ test("the board view shows the room live, posts as the person and verifies the r
   // charter and the enforced rules explain themselves.
   const charter = page.locator(".charter");
   await expect(charter.locator("p").first()).toContainText("one document together. The writer drafts");
-  await page.getByRole("button", { name: "About Charter" }).hover();
-  await expect(page.locator(".help-text").first()).toContainText("Every agent reads it when it joins");
+  await hoverUntil(page, page.getByRole("button", { name: "About Charter" }), async () => {
+    await expect(page.locator(".help-text").first()).toContainText("Every agent reads it when it joins", { timeout: 2000 });
+  });
   await page.mouse.move(0, 0);
   await page.getByRole("button", { name: "About Rules Aboard enforces" }).focus();
   await expect(page.locator(".help-text").first()).toContainText("checked by the server on every message");
@@ -314,8 +326,9 @@ test("the board view shows the room live, posts as the person and verifies the r
   await crew.getByRole("button", { name: "Details", exact: true }).click();
   await expect(crew.locator(".board-facts")).toBeHidden();
   await page.getByRole("button", { name: "Hide board panel" }).click();
-  await page.getByRole("button", { name: /Docs review.*board details/ }).hover();
-  await expect(page.getByRole("tooltip")).toHaveText("Board details");
+  await hoverUntil(page, page.getByRole("button", { name: /Docs review.*board details/ }), async () => {
+    await expect(page.getByRole("tooltip")).toHaveText("Board details", { timeout: 2000 });
+  });
   await page.getByRole("button", { name: /Docs review.*board details/ }).click();
   await expect(crew.locator(".board-facts")).toBeInViewport();
   await expect(crew.getByRole("button", { name: "Details", exact: true })).toBeFocused();
@@ -352,8 +365,9 @@ test("a Help button beside the account menu opens the keys sheet, which lists [ 
   await page.setViewportSize({ width: 1280, height: 800 });
   const help = page.getByRole("button", { name: "Help and keyboard shortcuts" });
   await expect(help).toBeVisible();
-  await help.hover();
-  await expect(page.getByRole("tooltip").getByText("Help")).toBeVisible();
+  await hoverUntil(page, help, async () => {
+    await expect(page.getByRole("tooltip").getByText("Help")).toBeVisible({ timeout: 2000 });
+  });
   await help.click();
   const sheet = page.getByRole("dialog", { name: "Keys on a board" });
   await expect(sheet).toBeVisible();
@@ -603,12 +617,9 @@ test("reactions show under messages, toggle as the person and follow the board l
   const thumbs = msg.locator('[data-reaction="thumbsup"]');
   await expect(thumbs).toHaveText("👍1");
   await expect(thumbs).toHaveAttribute("aria-pressed", "false");
-  // The timeline may re-pin as it loads, moving the chip from under the pointer, so hover again until the tooltip opens.
-  await expect(async () => {
-    await page.mouse.move(0, 0);
-    await thumbs.hover();
+  await hoverUntil(page, thumbs, async () => {
     await expect(page.getByRole("tooltip")).toHaveText("reviewer reacted with 👍", { timeout: 2000 });
-  }).toPass();
+  });
 
   // Clicking it adds the person's own, which the CLI then reads, and clicking again takes it back.
   await thumbs.click();
@@ -1252,8 +1263,9 @@ test("the person's read position moves only with what they saw, and receipts say
   await expect(toReviewer).toHaveText("Pending");
   aboard("inbox", "--as", "reviewer", "--board", board);
   await expect(toReviewer).toHaveText("Received");
-  await toReviewer.hover();
-  await expect(page.locator(".receipt-list")).toHaveText("reviewer: received");
+  await hoverUntil(page, toReviewer, async () => {
+    await expect(page.locator(".receipt-list")).toHaveText("reviewer: received", { timeout: 2000 });
+  });
   await page.mouse.move(0, 0);
 
   // A message to the person is read once the page has shown it; one to everyone has no mark.
@@ -2187,9 +2199,10 @@ test("a message to a person is never pending, and a mixed one is pending for its
   // Mixed: the mark speaks for the agent. The person never makes it pending, and the
   // hover lists them as unread or read.
   await expect(mark("Mixed note for you both.")).toHaveText("Pending");
-  await mark("Mixed note for you both.").hover();
-  await expect(page.locator(".receipt-list")).toContainText(/alex: (unread|read)/);
-  await expect(page.locator(".receipt-list")).toContainText("reviewer: pending");
+  await hoverUntil(page, mark("Mixed note for you both."), async () => {
+    await expect(page.locator(".receipt-list")).toContainText(/alex: (unread|read)/, { timeout: 2000 });
+    await expect(page.locator(".receipt-list")).toContainText("reviewer: pending", { timeout: 2000 });
+  });
   await page.mouse.move(0, 0);
   aboard("inbox", "--as", "reviewer", "--board", board);
   await expect(mark("Mixed note for you both.")).toHaveText("Received");
