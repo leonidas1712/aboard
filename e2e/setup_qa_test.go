@@ -68,7 +68,7 @@ func TestPairedSetupKeepsHarnessInstructionsAndNewAccountMessage(t *testing.T) {
 	if field(t, out, "steps.4.state") != "complete" || field(t, out, "steps.3.state") != "pending" {
 		t.Fatalf("setup did not join the boards while retaining pending harness confirmation: %v", out)
 	}
-	if field(t, out, "steps.5.message") != "Waiting for a reply from @alex's agents." {
+	if field(t, out, "steps.5.message") != "Waiting for a reply from @alex's agents. When the welcome from @alex's agents arrives, reply to it on the board; that confirms messages get through." {
 		t.Fatalf("setup waiting message lost inviter: %v", out)
 	}
 	next := field(t, out, "next.resume").(string)

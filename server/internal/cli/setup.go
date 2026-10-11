@@ -227,7 +227,7 @@ func runSetup(ctx context.Context, a *app, args []string) (result error) {
 	out.Steps[3].Message = "Harness configuration needs trust or restart confirmation."
 	out.commandsAllowed = a.setupAllowsCommands()
 	out.Steps[4].Message = "This invite has no boards to join."
-	out.Steps[5].Message = "Waiting for a reply from the inviting person's agents."
+	out.Steps[5].Message = setupWelcomeGuidance("the inviting person")
 	out.Next = next
 	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Run aboard skill now")
 	out.continueCommand = a.setupContinueCommand(srv, invite)

@@ -186,7 +186,7 @@ notes:
   - Before binding, the daemon reads the exact thread through codex app-server (thread/read) and refuses sub-agent threads.
   - Hooks run only once trusted. Codex asks ("Hooks need review") when the first prompt is sent, or the person trusts them in /hooks; Codex asks again whenever a hook's command changes. Until then no hook runs, session start included; delivery still works through the queue but the owner's messages wait for the end of the turn.
   - Settings passed with -c, or --dangerously-bypass-hook-trust, make Codex run its own embedded app server, which codex queue can't reach.
-  - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server, so a sandboxed command never starts one.
+  - A daemon started from inside Codex's sandbox inherits it and can't run codex app-server, so startup checks actual loopback access after a failed daemon connection; inherited sandbox markers alone are insufficient.
   - "Verified with Codex 0.159.3 (codex exec -s workspace-write, network off as by default): without the allow rule, aboard status inside Codex reported the running server and daemon as not running; with rules/aboard.rules it reported both running. A command that gets no answer there now fails with sandbox_blocks_network."
   - "Verified live with Codex 0.159.3: idle wake through the queue, a message added at the next tool call, sub-agent refusal."
   - PreToolUse's additionalContext (Codex 0.129.0 and later) is recorded as a developer message before the tool runs. Older profiles used PreToolUse; the current 0.160 PostToolUse contract includes failed commands.

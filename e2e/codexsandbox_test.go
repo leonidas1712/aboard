@@ -26,7 +26,7 @@ func TestCodexSandboxWithoutNetworkNamesTheCause(t *testing.T) {
 	e := newEnv(t)
 	e.run("pair", "writer-reviewer")
 	e.run("down")
-	sandboxed := &session{e: e, harness: "codex", id: "019a0000-0000-7000-8000-000000000005", vars: codexNoNetwork}
+	sandboxed := &session{e: e, harness: "codex", id: "019a0000-0000-7000-8000-000000000005", vars: append(append([]string{}, codexNoNetwork...), "ABOARD_E2E_DENY_LOOPBACK=1")}
 
 	for _, args := range [][]string{
 		{"say", "--as", "writer", "hello", "--json"}, // reaches for the server

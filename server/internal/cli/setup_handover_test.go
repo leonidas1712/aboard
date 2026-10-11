@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"strings"
@@ -19,5 +20,15 @@ func TestSandboxedSetupWriteFailureHandsOffWithoutRetry(t *testing.T) {
 	cause := asError(got)
 	if !errors.Is(got, syscall.EPERM) || cause.Next == nil || cause.Next.Command != "aboard init --harness codex --allow-commands" || !strings.Contains(cause.Next.Resume, "do not use sudo") {
 		t.Fatalf("write failure lost handover: %+v", cause)
+	}
+}
+
+func TestInheritedSandboxMarkersDoNotRefuseReachableNetwork(t *testing.T) {
+	e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
+	e.env["CODEX_SANDBOX"] = "seatbelt"
+	e.env["CODEX_SANDBOX_NETWORK_DISABLED"] = "1"
+	a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
+	if err := a.sandboxDaemonError(context.Background()); err != nil {
+		t.Fatalf("inherited markers refused accessible loopback: %v", err)
 	}
 }

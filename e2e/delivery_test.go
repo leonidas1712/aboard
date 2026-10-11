@@ -463,7 +463,7 @@ func TestCommandInsideASandboxDoesNotStartTheDaemon(t *testing.T) {
 	}
 	sandboxed := &session{
 		e: e, harness: "codex", id: "019a0000-0000-7000-8000-000000000004",
-		vars: []string{"CODEX_THREAD_ID=019a0000-0000-7000-8000-000000000004", "CODEX_SANDBOX=seatbelt"},
+		vars: []string{"CODEX_THREAD_ID=019a0000-0000-7000-8000-000000000004", "CODEX_SANDBOX=seatbelt", "ABOARD_E2E_DENY_LOOPBACK=1"},
 	}
 
 	r := sandboxed.runExit("join", line, "--json")
