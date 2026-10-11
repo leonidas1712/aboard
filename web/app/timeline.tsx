@@ -136,6 +136,7 @@ export function Timeline({
   column,
 }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
+  const jumpStrip = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const [showJump, setShowJump] = useState(false);
   const [unseen, setUnseen] = useState(0);
@@ -187,6 +188,20 @@ export function Timeline({
     };
   }, [entries, newestSeq, messageCount]);
 
+  // At the bottom, stay there when the content grows after it was drawn (a receipt or a
+  // reaction filling in) or the timeline changes height (the Jump strip, a resized window),
+  // so the newest message never slips out from under the reader.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (atBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (stick > 0) {
       atBottom.current = true;
@@ -223,7 +238,10 @@ export function Timeline({
     el.dataset.scrolling = "";
     if (scrolling.current) clearTimeout(scrolling.current);
     scrolling.current = setTimeout(() => delete el.dataset.scrolling, 900);
-    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < nearBottom;
+    // Measured as if the Jump strip weren't there, so showing or hiding it never flips the
+    // answer, and hiding it while there is room below moves nothing on screen.
+    const strip = jumpStrip.current?.offsetHeight ?? 0;
+    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight - strip < nearBottom;
     atBottom.current = bottom;
     setShowJump(!bottom);
     if (bottom) {
@@ -312,7 +330,7 @@ export function Timeline({
       {/* The button takes its own strip under the timeline, never a place over a message:
           the timeline gets shorter while it shows, and nothing above moves. */}
       {showJump && (
-        <div className="jump-newest flex shrink-0 justify-center border-t border-rule py-2 animate-fade-in">
+        <div ref={jumpStrip} className="jump-newest flex shrink-0 justify-center border-t border-rule py-2 animate-fade-in">
           <Button variant="secondary" className="h-9 bg-surface pointer-coarse:h-11" onClick={() => toBottom(true)}>
             <ArrowDown strokeWidth={1.5} aria-hidden />
             Jump to newest{unseen > 0 && ` · ${unseen} new`}
