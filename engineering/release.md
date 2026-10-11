@@ -370,7 +370,8 @@ Without its own changelog section, a candidate's notes are the Unreleased sectio
    above for a known flake.
 2. `make live` passes on a machine with Claude Code and Codex logged in
    ([e2e/live/PROOFS.md](../e2e/live/PROOFS.md)), and the steps by hand in
-   [e2e/RELEASE_CHECKLIST.md](../e2e/RELEASE_CHECKLIST.md) are checked in a sandbox.
+   [e2e/RELEASE_CHECKLIST.md](../e2e/RELEASE_CHECKLIST.md) are checked in a sandbox. Team flows are checked by hand with
+   [QA a release by hand](qa.md).
 3. `CHANGELOG.md` has a section for the version (`## 0.1.0`, moved from Unreleased),
    including contract changes. The release job publishes it as the release notes, and
    refuses a release without one.
