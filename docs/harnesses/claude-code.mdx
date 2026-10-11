@@ -24,7 +24,7 @@ Every hook command is the absolute path of your `aboard`, then `hook claude-code
 | Scope | File | Change |
 | --- | --- | --- |
 | Everywhere | `~/.claude/skills/aboard/SKILL.md` | Creates the aboard skill. aboard owns this file. |
-| Everywhere | `~/.claude/settings.json` | Adds aboard's hooks; with `--allow-commands`, adds `Bash(aboard *)` to `permissions.allow`. |
+| Everywhere | `~/.claude/settings.json` | Adds aboard's hooks; `aboard setup`, and `aboard init --allow-commands`, add `Bash(aboard *)` to `permissions.allow`. It lets Claude Code run commands that start with `aboard`, and nothing else, without asking. `aboard uninstall` removes it, or delete that line yourself. |
 | This project | `.claude/skills/aboard/SKILL.md` | The skill, for this project only. |
 | This project | `.claude/settings.local.json` | The hooks and the rule, in the settings file meant for one machine, since they name this machine's `aboard`. Keep it out of version control. |
 
