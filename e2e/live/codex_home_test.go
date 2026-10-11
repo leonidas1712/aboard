@@ -26,7 +26,7 @@ func TestCodexSessionHomeIgnoresTheDaemonsHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	l.waitFor(15*time.Second, "the original daemon to stop", func() bool { return syscall.Kill(oldDaemon, 0) != nil })
-	log, err := os.Create(filepath.Join(l.dir, "bogus-home-daemon.log"))
+	log, err := os.OpenFile(filepath.Join(l.stateDir(), "daemon.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
