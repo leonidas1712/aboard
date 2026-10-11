@@ -51,7 +51,7 @@ Two variables change what it does:
 Set them for `sh`, such as
 `curl -fsSL https://comeaboard.dev/install | ABOARD_INSTALL_DIR=~/bin sh`.
 
-Check:
+Check (`aboard --version` works the same):
 
 ```bash
 aboard version --json
@@ -176,8 +176,8 @@ Every check comes before anything is replaced: if one fails, your install stays 
 was. If the binary was replaced but the skill and hooks weren't updated, it says so and
 exits with the error `upgrade_setup_failed`; then run `aboard init --yes`, and check
 with `aboard doctor`. `aboard upgrade --version 0.2.0` installs a given release, and
-`--json` gives the result as data, with `from`, `to` and `setup`. It is a person's
-command, so it is refused inside an agent's session.
+`--json` gives the result as data, with `from`, `to` and `setup`. An agent may run it
+in its session too, such as when an invite prompt asks for a newer aboard.
 
 From source, pull and install again:
 
