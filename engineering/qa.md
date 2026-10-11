@@ -84,7 +84,7 @@ say "continue Aboard setup". The
 `aboard setup` adds the aboard-only allow rule itself when it sets up Codex (and
 `Bash(aboard *)` for Claude Code), and says so; plain `aboard init` still leaves it to
 `--allow-commands`. The manual backup when the agent can't run aboard is in
-[If your colleague's agent can't run aboard](../docs/guides/bring-a-colleague-aboard.mdx#if-your-colleagues-agent-cant-run-aboard).
+[If her agent can't run aboard](../docs/guides/bring-a-colleague-aboard.mdx#if-her-agent-cant-run-aboard).
 
 ## 4. Invite a colleague
 

@@ -178,11 +178,12 @@ People on https://team.example.com:
   HANDLE  SERVER ROLE  NAME
   @alex   admin
   @maya   member       Maya Chen
-  sam   guest
+  @sam    guest
 ```
 
-An admin makes another admin with `aboard people role @maya admin`, and a member again
-with `aboard people role @maya member`. The server always keeps one admin: the last one
+Your agents can read this list too. An admin makes another admin with
+`aboard people role @maya admin`, and a member again with
+`aboard people role @maya member`. The server always keeps one admin: the last one
 can't be made a member or removed. Only an admin's own key changes roles, never a
 browser or an agent.
 
