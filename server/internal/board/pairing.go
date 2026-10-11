@@ -301,6 +301,9 @@ func (s *Service) ListPairings(ctx context.Context, p Principal) ([]PairingReque
 			return err
 		}
 		for _, r := range rs {
+			if r.InviteID != "" {
+				continue
+			}
 			v, e := s.pairingView(tx, p, r.ID, false)
 			if e != nil {
 				var a *apierr.Error
@@ -770,4 +773,26 @@ func (s *Service) RedeemInvitedPairingTx(tx Tx, inviteID, recipientID string) (s
 	r.RecipientID = recipientID
 	r.State = "awaiting_session"
 	return r.ID, tx.SavePairing(r)
+}
+
+// closeInvitedPairingsTx retires setup bookkeeping when its recipient joins the board.
+// It does not claim the endpoint evidence required by standalone pairing.
+func closeInvitedPairingsTx(tx Tx, boardID, personID string) error {
+	requests, err := tx.PairingsOf(personID)
+	if err != nil {
+		return err
+	}
+	for _, r := range requests {
+		if r.InviteID == "" || r.BoardID != boardID || r.RecipientID != personID || pairingTerminal(r) {
+			continue
+		}
+		r.State = "cancelled"
+		if err := tx.SavePairing(r); err != nil {
+			return err
+		}
+		if err := tx.DeletePairingCredentials(r.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }

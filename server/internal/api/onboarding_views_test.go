@@ -126,9 +126,17 @@ func TestInvitePreviewShowsOnlyTheValidBundleAndSharesJoinLimit(t *testing.T) {
 	if preview.HTTPResponse.Header.Get("Cache-Control") != "no-store" {
 		t.Fatal("preview can be cached")
 	}
-	pairing, err := s.client(s.owner).ListPairingRequestsWithResponse(ctx)
+	listed, err := s.client(s.owner).ListPairingRequestsWithResponse(ctx)
+	mustStatus(t, listed, err, 200)
+	if len(listed.JSON200.Requests) != 0 {
+		t.Fatalf("hidden invitation was listed: %s", listed.Body)
+	}
+	if issued.JSON201.PairingRequestId == nil {
+		t.Fatal("invite lost internal setup id")
+	}
+	pairing, err := s.client(s.owner).GetPairingRequestWithResponse(ctx, *issued.JSON201.PairingRequestId)
 	mustStatus(t, pairing, err, 200)
-	if len(pairing.JSON200.Requests) != 1 || pairing.JSON200.Requests[0].Display == nil || pairing.JSON200.Requests[0].Display.AgentName == nil || *pairing.JSON200.Requests[0].Display.AgentName != "codex" {
+	if pairing.JSON200.Display == nil || pairing.JSON200.Display.AgentName == nil || *pairing.JSON200.Display.AgentName != "codex" {
 		t.Fatalf("pairing labels: %s", pairing.Body)
 	}
 	revoked, err := s.client(s.owner).RevokeServerInviteWithResponse(ctx, issued.JSON201.Id, nil)

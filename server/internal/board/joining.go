@@ -429,6 +429,9 @@ func (s *Service) seat(tx Tx, b *Board, owner Member, ownerName string, in JoinI
 	if err := s.addMember(tx, b, agent, actorOf(owner), codeID, now, extra); err != nil {
 		return Joined{}, err
 	}
+	if err := closeInvitedPairingsTx(tx, b.ID, owner.HumanID); err != nil {
+		return Joined{}, err
+	}
 	view, err := viewOf(tx, *b)
 	if err != nil {
 		return Joined{}, err

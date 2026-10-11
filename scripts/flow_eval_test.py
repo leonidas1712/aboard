@@ -4,10 +4,26 @@ import tempfile
 import os
 import subprocess
 from pathlib import Path
-from flow_eval import friction, hello_from, texts
+from flow_eval import friction, hello_from, texts, Eval, round3_observed
+from types import SimpleNamespace
 
 
 class ReportTests(unittest.TestCase):
+    def test_keep_does_not_bind_server_to_driver_exit(self):
+        with tempfile.TemporaryDirectory() as root:
+            run = Eval(SimpleNamespace(output=str(Path(root)/'result'), codex='codex', keep=True))
+            self.assertFalse('ABOARD_EXIT_WITH_PID' in run.env)
+
+    def test_round3_requires_agent_to_person_and_a_finished_task(self):
+        tasks = [{'title': 'Round 3 leo', 'state': 'done'}]
+        message = {'from': {'kind': 'person', 'name': 'claude'}, 'to': ['@leo']}
+        self.assertFalse(round3_observed([message], tasks, {'claude'}, {'leo','maya'})['agent_addressed_person'])
+        message['from']['kind'] = 'agent'
+        self.assertTrue(all(round3_observed([message], tasks, {'claude'}, {'leo','maya'}).values()))
+        self.assertFalse(round3_observed([message], tasks, {'claude'}, {'leo'})['messages_sent_while_working'])
+        tasks[0]['state'] = 'cancelled'
+        self.assertFalse(round3_observed([message], tasks, {'claude'}, {'leo','maya'})['task_finished'])
+
     def test_person_or_other_agent_cannot_satisfy_hello(self):
         messages = [{'from': {'kind': 'person', 'name': 'leo'}, 'body': 'hello'},
                     {'from': {'kind': 'agent', 'name': 'other'}, 'body': 'hello'}]

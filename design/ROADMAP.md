@@ -128,6 +128,7 @@ the board.
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
 | The version-skew policy: clients and server check each other's version; `doctor` reports `version_skew` outside one minor version | done (#157) | D148 |
 | Task completion and drop suppress immediate nudges and end taskless-post streaks | in review; completion count and real-binary advice cases failed first | D224 |
+| Invite-linked setup requests stay out of pairing cards and close when the recipient joins | in review; API lifecycle/list regression failed first | D224 |
 | QA setup checks actual sandbox access and guides the newcomer to reply to the welcome | in review; marker/greeting regressions failed first and pass | D224 |
 | Sandboxed invite setup returns an exact saved continuation and asks for harness approval | in review; text/JSON real-binary recovery passes | D224 |
 | Sandbox-blocked onboarding hands off terminal commands; pasted-invite setup allows only Aboard commands in Codex/Claude | in review; installer/setup/permission regressions failed first and pass | D224 |
@@ -469,3 +470,4 @@ D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prom
 | Feature | Status |
 | --- | --- |
 | Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | tool in review (#301, GEN-54); invite-from-scratch flow passed with Haiku and GPT-6-Luna after a greeting-scorer correction; other scenarios remain unproven |
+| Agent UX review before every tag: `scripts/ux-review` walks the board view as each person of a kept flow-eval or sandbox team, at desktop and phone sizes, with keyboard checks; an agent reviews the screenshots with the checklist in engineering/qa.md (GEN-62) | in review |
