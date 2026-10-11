@@ -244,7 +244,7 @@ func TestInvitePairingAndReceiptCommitTogether(t *testing.T) {
 	}
 	list, err := s.client(token).ListPairingRequestsWithResponse(ctx)
 	mustStatus(t, list, err, 200)
-	if !strings.Contains(string(list.Body), *inv.JSON201.PairingRequestId) || !strings.Contains(string(list.Body), "awaiting_session") {
+	if strings.Contains(string(list.Body), *inv.JSON201.PairingRequestId) {
 		t.Fatalf("pairing recipient: %s", list.Body)
 	}
 }

@@ -88,6 +88,13 @@ func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 	if runtime == nil {
 		return errorResponse("internal", "Pairing is unavailable in this daemon.", "Restart an up-to-date daemon.")
 	}
+	if req.PairingAction == "get" && req.PairingID != "" {
+		got, err := runtime.Get(ctx, req.PairingID)
+		if err != nil {
+			return seatsError(req.Server, err)
+		}
+		return Response{V: 1, Server: req.Server, PairingBoard: d.pairingBoard(ctx, req.Server, got.BoardID), Pairing: &got}
+	}
 	rows, err := runtime.List(ctx)
 	if err != nil {
 		return seatsError(req.Server, err)
@@ -157,6 +164,12 @@ func (d *Daemon) servePairing(ctx context.Context, req Request) Response {
 			return r
 		}
 		current = pending[0]
+	}
+	if current.ID == "" && req.PairingID != "" {
+		current, err = runtime.Get(ctx, req.PairingID)
+		if err != nil {
+			return seatsError(req.Server, err)
+		}
 	}
 	if current.ID == "" {
 		return errorResponse("pairing_not_found", "That pairing request is not available.", "Run aboard pairing list.")

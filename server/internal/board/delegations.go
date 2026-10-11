@@ -315,6 +315,9 @@ func (s *Service) joinDelegated(ctx context.Context, p Principal, in JoinInput) 
 			if err != nil {
 				return err
 			}
+			if err := closeInvitedPairingsTx(tx, b.ID, person.ID); err != nil {
+				return err
+			}
 			out = Joined{Agent: seat, Token: token, View: view, Reused: true}
 			return nil
 		case err != nil && !errors.Is(err, ErrNotFound):

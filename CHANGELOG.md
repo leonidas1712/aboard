@@ -2,6 +2,8 @@
 
 ## Unreleased contract additions
 
+- Invitation-linked setup requests no longer appear as pairing cards; joining their board closes the internal request.
+
 - Add person-only onboarding Inbox reads and optional invite-notice suggested handles.
 
 ## Approved D223 contract changes (implementation in review)

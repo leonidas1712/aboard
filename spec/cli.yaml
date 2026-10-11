@@ -4296,6 +4296,9 @@ $defs:
       board ids from the authenticated onboarding receipt, never names from the
       prompt. Seats on other boards or issuers remain; repeating setup reuses the
       same seats. Removed memberships are omitted, never joined again.
+      Invitation-linked pairing requests are omitted from pairing lists and cards.
+      Joining their board cancels these internal requests in the seat transaction;
+      this closes bookkeeping, never claims delivery verification.
       No visible pairing list, selection or accept command is required. Existing
       PAIRING_ID input, the six step ids (including pairing), and pairing_request
       remain compatible for existing clients; everyday text calls the pairing
