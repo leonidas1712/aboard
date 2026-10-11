@@ -4337,6 +4337,10 @@ $defs:
       Already verified account and memberships resume without a new redemption.
       Installed harness skills apply automatically to the next session; next asks
       the current session to run aboard skill now.
+      Pasting an invite also consents to setup adding the existing command-only
+      permission rule for Codex or Claude Code: prefix_rule(pattern=["aboard"],
+      decision="allow") or Bash(aboard *). Setup states that only Aboard commands
+      are allowed outside the sandbox. Plain aboard init keeps its opt-in default.
       With an invite, generate 256 random bits as a client token and save pending
       state durably mode 0600, bound to issuer and invite, before /v1/connect.
       Save failure stops before redemption. Never show the token or invite secret
