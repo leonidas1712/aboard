@@ -177,6 +177,20 @@ Options: `SCENARIO=invite|existing-member|own-session|interrupted` (default `inv
 `MODELS=<admin model>,<newcomer model>`, `APPROVAL=manual|auto`. Set `FLOW_CODEX` to use
 a newer Codex than the one on your path.
 
+Use `KEEP=1` to leave the private team and harness sessions running for a browser
+review, including after a failed flow. The output names each person's board URL and
+private `leo-browser.json` / `maya-browser.json` sign-in file. These files contain
+one-time login links, not person keys; keep them private. Links expire after 60 seconds.
+Run the printed `--browser-signin` command immediately before the browser review to
+refresh them. A person whose account was never created has no sign-in file.
+Run the printed `--cleanup` command afterwards; it stops only this eval's sessions
+and team. Without `KEEP=1`, cleanup remains automatic.
+
+The invite scenario continues after hello: each person sends a message to the other
+person's agent while it is working, the inviter's agent writes to its person, and an
+agent creates and finishes a task. `round3.json` records these observed checks;
+`tasks.json` keeps the task list for the UI review.
+
 It spends model turns, so ask for the shared live-run slot first, and export
 `CLAUDE_CODE_OAUTH_TOKEN` with a Codex login in place. Each run writes to
 `/tmp/aboard-flow-*`: transcripts, the board record, end-state checks, `report.json`
