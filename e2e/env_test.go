@@ -140,14 +140,14 @@ func exitWithParent(owned string) {
 // buildPrograms builds aboard, its older and unstamped builds and the fake harnesses
 // into dir, or exits.
 func buildPrograms(dir string) {
-	build := exec.Command("go", "build", "-race", "-o", filepath.Join(dir, "aboard"), "./server/cmd/aboard")
+	build := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-o", filepath.Join(dir, "aboard"), "./server/cmd/aboard")
 	build.Dir = ".."
 	build.Stdout, build.Stderr = os.Stderr, os.Stderr
 	if err := build.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard:", err)
 		os.Exit(1)
 	}
-	old := exec.Command("go", "build", "-race", "-o", filepath.Join(dir, "old", "aboard"),
+	old := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-o", filepath.Join(dir, "old", "aboard"),
 		"-ldflags", "-X github.com/leonidas1712/aboard/server/internal/cli.version="+oldVersion, "./server/cmd/aboard")
 	old.Dir = ".."
 	old.Stdout, old.Stderr = os.Stderr, os.Stderr
@@ -155,14 +155,14 @@ func buildPrograms(dir string) {
 		fmt.Fprintln(os.Stderr, "build the older aboard:", err)
 		os.Exit(1)
 	}
-	unstamped := exec.Command("go", "build", "-race", "-buildvcs=false", "-o", filepath.Join(dir, "unstamped", "aboard"), "./server/cmd/aboard")
+	unstamped := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-buildvcs=false", "-o", filepath.Join(dir, "unstamped", "aboard"), "./server/cmd/aboard")
 	unstamped.Dir = ".."
 	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
 	if err := unstamped.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard without Git information:", err)
 		os.Exit(1)
 	}
-	plain := exec.Command("go", "build", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard")
+	plain := exec.Command("go", "build", "-tags", "aboard_e2e", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard")
 	plain.Dir = ".."
 	plain.Stdout, plain.Stderr = os.Stderr, os.Stderr
 	if err := plain.Run(); err != nil {

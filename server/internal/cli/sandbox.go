@@ -1,10 +1,6 @@
 package cli
 
-import (
-	"context"
-	"net"
-	"time"
-)
+import "context"
 
 // sandboxed reports the harness whose sandbox this command runs in, if any, from the
 // variables its profile lists. A daemon started there would inherit the sandbox and
@@ -58,17 +54,7 @@ func (a *app) sandboxDaemonError(ctx context.Context) *Error {
 	}
 	// Escalated commands can retain sandbox markers. Check the current process's
 	// ability to listen and connect before preventing daemon startup.
-	var lc net.ListenConfig
-	ln, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
-	if err == nil {
-		var conn net.Conn
-		dialer := net.Dialer{Timeout: time.Second}
-		conn, err = dialer.DialContext(ctx, "tcp", ln.Addr().String())
-		if conn != nil {
-			_ = conn.Close()
-		}
-		_ = ln.Close()
-	}
+	err := sandboxNetworkProbe(ctx, a.env.Getenv)
 	if err == nil {
 		return nil
 	}
