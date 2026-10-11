@@ -6,7 +6,7 @@
 // passes it; a person has read it once theirs does. They are read when the message comes
 // into view and again as the board moves, never kept by the page.
 
-import { Check, Clock3 } from "lucide-react";
+import { Check, Circle, Clock3 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Presence, type Receipt, type Receipts, get } from "./api";
@@ -26,19 +26,31 @@ const presenceNow: Record<Presence, string> = {
 /** stateOf says one recipient's state in words: "received", "read", "pending, busy now". */
 function stateOf(r: Receipt): string {
   if (r.state !== "pending") return r.state;
+  // A person is not delivered to: their message waits to be read, it is not pending.
+  if (r.member.kind === "human") return "unread";
   if (r.queued) return "queued, arrives at the end of its turn";
   return r.presence ? `pending, ${presenceNow[r.presence]}` : "pending";
 }
 
-/** summaryOf is the mark's own words: "Pending", "Received", "1 of 3", "Read by all 2". */
-function summaryOf(rs: Receipt[]): { text: string; done: boolean } {
-  const done = rs.filter((r) => r.state !== "pending").length;
-  if (done === 0) return { text: rs.some((r) => r.queued) ? "Queued" : "Pending", done: false };
-  if (done < rs.length) return { text: `${done} of ${rs.length}`, done: false };
-  if (rs.length === 1) return { text: rs[0].state === "read" ? "Read" : "Received", done: true };
-  const people = rs.every((r) => r.member.kind === "human");
-  const agents = rs.every((r) => r.member.kind === "agent");
-  return { text: `${people ? "Read by" : agents ? "Received by" : "Reached"} all ${rs.length}`, done: true };
+type Summary = { text: string; done: boolean; icon: "clock" | "circle" | "check" };
+
+/**
+ * summaryOf is the mark's own words: "Pending", "Received", "1 of 3", "Read by all 2",
+ * "Unread". Delivery covers the agent recipients; people are not delivered to, so they
+ * never make a message pending. With agents among the recipients the mark speaks for
+ * them alone and the hover lists the people. With only people it says "Read" once they
+ * all have, and "Unread" until then.
+ */
+function summaryOf(rs: Receipt[]): Summary {
+  const agents = rs.filter((r) => r.member.kind === "agent");
+  if (agents.length === 0) {
+    if (rs.some((r) => r.state === "pending")) return { text: "Unread", done: false, icon: "circle" };
+    return { text: rs.length === 1 ? "Read" : `Read by all ${rs.length}`, done: true, icon: "check" };
+  }
+  const done = agents.filter((r) => r.state !== "pending").length;
+  if (done === 0) return { text: agents.some((r) => r.queued) ? "Queued" : "Pending", done: false, icon: "clock" };
+  if (done < agents.length) return { text: `${done} of ${agents.length}`, done: false, icon: "check" };
+  return { text: agents.length === 1 ? "Received" : `Received by all ${agents.length}`, done: true, icon: "check" };
 }
 
 export function ReceiptMark({ board, seq, activity }: { board: string; seq: number; activity: number }) {
@@ -82,10 +94,12 @@ export function ReceiptMark({ board, seq, activity }: { board: string; seq: numb
             data-done={summary.done || undefined}
             aria-label={`${summary.text}. ${details.join("; ")}`}
           >
-            {summary.done || (summary.text !== "Pending" && summary.text !== "Queued") ? (
-              <Check className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-            ) : (
+            {summary.icon === "clock" ? (
               <Clock3 className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+            ) : summary.icon === "circle" ? (
+              <Circle className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+            ) : (
+              <Check className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
             )}
             <span aria-hidden>{summary.text}</span>
           </button>
