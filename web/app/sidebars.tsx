@@ -83,8 +83,8 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   const { archived, needs, others } = sidebarOrder(boards);
   return (
     <div className="flex flex-col gap-6">
-      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("-mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
-        <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd className="font-normal" title={`Shortcut: ${keyLabel("inbox")}`} aria-label={`Shortcut: ${keyLabel("inbox")}`}>{keyLabel("inbox")}</Kbd>}</span>
+      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("group -mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
+        <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd className="font-normal opacity-0 transition-opacity duration-[140ms] ease-out group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none" title={`Shortcut: ${keyLabel("inbox")}`} aria-label={`Shortcut: ${keyLabel("inbox")}`}>{keyLabel("inbox")}</Kbd>}</span>
         {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding)}</span>}
       </a>
       {needs.length > 0 && (

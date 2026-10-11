@@ -324,4 +324,4 @@ sandbox-team-stop:
 .PHONY: flow-eval
 flow-eval: web/out/.built dev
 	@$(REQUIRE_GO); go build -o $(BIN)/sandbox-team ./scripts/sandboxteam
-	@python3 scripts/flow_eval.py --scenario '$(or $(SCENARIO),invite)' --models '$(or $(MODELS),haiku,gpt-6-luna)' --approval '$(or $(APPROVAL),manual)'
+	@python3 scripts/flow_eval.py --scenario '$(or $(SCENARIO),invite)' --models '$(or $(MODELS),haiku,gpt-6-luna)' --approval '$(or $(APPROVAL),manual)' $(if $(filter 1,$(KEEP)),--keep,)

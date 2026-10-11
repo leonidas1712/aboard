@@ -154,7 +154,8 @@ restarts with stop, then `make sandbox-team TEAM=qa`; its address and all data a
    make sandbox-team-clean TEAM=qa
    ```
 
-This stops the team server and each person's server and daemon, then deletes
+This stops the team server, each person's server and daemon, and Codex processes
+from their private package directories, then deletes
 `~/.aboard-sandboxes/teams/qa`: the server data, the certificate, and every person's
 home, boards, harness folders and project. Your real `~/.aboard`, `~/.claude` and
 `~/.codex` are not touched.
@@ -177,6 +178,20 @@ Options: `SCENARIO=invite|existing-member|own-session|interrupted` (default `inv
 `MODELS=<admin model>,<newcomer model>`, `APPROVAL=manual|auto`. Set `FLOW_CODEX` to use
 a newer Codex than the one on your path.
 
+Use `KEEP=1` to leave the private team and harness sessions running for a browser
+review, including after a failed flow. The output names each person's board URL and
+private `leo-browser.json` / `maya-browser.json` sign-in file. These files contain
+one-time login links, not person keys; keep them private. Links expire after 60 seconds.
+Run the printed `--browser-signin` command immediately before the browser review to
+refresh them. A person whose account was never created has no sign-in file.
+Run the printed `--cleanup` command afterwards; it stops only this eval's sessions
+and team. Without `KEEP=1`, cleanup remains automatic.
+
+The invite scenario continues after hello: each person sends a message to the other
+person's agent while it is working, the inviter's agent writes to its person, and an
+agent creates and finishes a task. `round3.json` records these observed checks;
+`tasks.json` keeps the task list for the UI review.
+
 It spends model turns, so ask for the shared live-run slot first, and export
 `CLAUDE_CODE_OAUTH_TOKEN` with a Codex login in place. Each run writes to
 `/tmp/aboard-flow-*`: transcripts, the board record, end-state checks, `report.json`
@@ -184,7 +199,102 @@ with friction counters (errors, repeated commands, questions), and the prompts t
 scripted person answered. Read the transcripts: the counters are heuristics. A failed
 run keeps its evidence. It checks that your real harness and aboard files are unchanged.
 
-## 9. Troubleshooting
+## 9. Agent UX review
+
+Before every tag, an agent looks at the board view the way a person would. Tests check
+what they assert. A person also notices a card that is out of date, a "Pending" on a
+message they read, or an id where a name should be. `scripts/ux-review` signs in as each
+person of a running team. It walks the board view at desktop (1440×900) and phone
+(390×844) sizes and saves a screenshot and the visible text of every screen. A
+reviewing agent then reads them with the checklist below.
+
+**Run it** after `make flow-eval KEEP=1`, on the folder it printed:
+
+```sh
+scripts/ux-review --eval /tmp/aboard-flow-…
+```
+
+It reads each person's `<person>-browser.json` (a one-time sign-in link, private to
+you). It refreshes an expired link with the `--browser-signin` command that the flow
+eval prints. Stop the team afterwards with the flow eval's `--cleanup`.
+
+Or run it on a team you made by hand (section 2), with each person set up through
+their sandbox shell:
+
+```sh
+scripts/ux-review --sandbox-team qa --people leo,maya --out /tmp/ux-qa
+```
+
+Each sign-in uses `aboard open --json` in that person's sandbox. With an isolated
+`HOME`, set `PLAYWRIGHT_BROWSERS_PATH` to your Playwright browser folder. It needs
+`web/node_modules` (`make web`).
+
+For each person and size it visits:
+
+- the Inbox, and every card in it (approvals, invites, arrivals, board adds, pairing
+  requests);
+- each board: the conversation, the first thread, Tasks as Recent and as By status,
+  Files and the full brief;
+- the account menu and People.
+
+On the desktop it also tries the keys:
+
+- hovering the Inbox shows the I hint;
+- I opens the Inbox;
+- [ and ] move through the sidebar;
+- Esc leaves the message box and keeps the text;
+- a draft survives switching boards and back;
+- ? opens the keys sheet.
+
+It writes the following under `<out>/ux/`:
+
+- `<person>/<desktop|phone>/<step>.png` and `.txt`: a screenshot and the visible text
+  of each step.
+- `summary.json`: every step with its file paths, any element wider than the screen,
+  the keyboard results (pass or fail) and errors.
+
+`node --test scripts/uxreview/lib.test.cjs` tests its plumbing.
+
+**Review it.** Open every screenshot and read its text. Ask these questions of each
+screen as the person it belongs to, who knows only what the docs say:
+
+- **Stale or contradictory cards.** Does a card say it waits for something that already
+  happened, such as "Waiting for maya to choose an agent" after maya joined? Do two
+  cards tell different stories about the same event?
+- **Wrong statuses.** Is there a "Pending" or "Received" on a message the other side has
+  read or answered? Is there a task state that disagrees with the conversation?
+- **Ids and jargon.** Does anything show `mem_`, `brd_`, `apr_`, `inv_` or `prq_`, a
+  pairing, an endpoint or a seat, other than inside a command to copy?
+- **Waiting with no next step.** Does the screen say what happens next, or what to do?
+- **Seen but unread.** Is something still counted as new after the person has seen it?
+- **Shortcut hints.** Could a key hint be taken for a count or a badge?
+- **Lost drafts.** Did the keyboard checks keep the text?
+- **Phone layout.** Does anything overflow, overlap or get cut off at 390px? Is
+  there room left for the content itself?
+- **Odd text or timestamps.** Look for a time in the past for something in the
+  future, "someone" where a name is known, or a present tense on something decided.
+- **Against the guide.** Does anything contradict
+  [Bring a colleague aboard](../docs/guides/bring-a-colleague-aboard.mdx)? For example, a
+  server address where the guide uses the server's name.
+
+Write `ux-findings.md` in the output folder. List each finding with:
+
+- its severity: **blocker** (wrong or misleading in the main flow), **should fix**
+  (confusing, or broken in a corner) or **nit**;
+- the screenshot path, relative to the output folder;
+- what a person would expect there;
+- a suggested fix.
+
+Put the most severe first. Mark findings already fixed in an open PR as known.
+
+```markdown
+1. **Blocker (known, #333).** Leo's Inbox still says "Waiting for maya to choose an
+   agent" after maya joined and confirmed delivery.
+   Screen: `ux/leo/desktop/04-inbox-pairing-3.png`.
+   Fix: close the pairing request when setup joins the board.
+```
+
+## 10. Troubleshooting
 
 - **Claude can't find the keychain or asks you to log in:** set
   `CLAUDE_CODE_OAUTH_TOKEN` (step 1), then open the sandbox shell again.

@@ -280,6 +280,35 @@ test("the board's pairing line follows the request, and says verified only when 
   await expect(line).not.toContainText("Verifying");
 });
 
+test("a pairing request that belongs to an invite is not shown", async ({ page }) => {
+  const board = "onboarding-invite-linked";
+  const b = await openBoard(page, board);
+  const p = await pairFromSam(board, b.id, "Check delivery.");
+  await page.goto(`${base()}/?board=${board}`);
+  const line = page.locator(".pairing-line");
+  await expect(line).toContainText("Choose an agent to take part");
+  // The server hides these; if one is still listed, the page does not render it.
+  let served = 0;
+  await page.route("**/v1/pairing-requests", async (route) => {
+    // A request cut off by a navigation has nothing left to answer.
+    try {
+      const resp = await route.fetch();
+      const body = (await resp.json()) as { requests: Json[] };
+      await route.fulfill({ response: resp, json: { requests: body.requests.map((r) => (r.id === p.id ? { ...r, invite_id: "inv_00000000000000000000000000" } : r)) } });
+      served++;
+    } catch {
+      await route.abort().catch(() => {});
+    }
+  });
+  await page.reload();
+  await expect(page.getByRole("log", { name: "Timeline" })).toBeVisible();
+  await expect.poll(() => served).toBeGreaterThan(0);
+  await expect(line).toHaveCount(0);
+  await inbox(page);
+  await expect(page.locator(`[data-pairing="${p.id}"]`)).toHaveCount(0);
+  await expect(page.getByText("Pairing request")).toHaveCount(0);
+});
+
 test("an agent's join on its person's approval reads so in the timeline", async ({ page }) => {
   const board = "onboarding-record";
   const b = await openBoard(page, board);

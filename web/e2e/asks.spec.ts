@@ -393,12 +393,24 @@ test("a phone gets a Back to Inbox link on the board, and the board's keys list 
   await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
 });
 
-test("the Inbox hint on a board is a keyboard key labelled as a shortcut", async ({ page }) => {
+test("the Inbox hint on a board is a keyboard key that shows on hover or focus", async ({ page }) => {
   await openBoard(page, "hint-board");
-  const key = page.getByRole("link", { name: /^Inbox/ }).locator("kbd");
+  const row = page.getByRole("link", { name: /^Inbox/ });
+  const key = row.locator("kbd");
   await expect(key).toHaveText("I");
   await expect(key).toHaveAttribute("aria-label", "Shortcut: I");
   await expect(key).toHaveAttribute("title", "Shortcut: I");
+  await expect(key).toHaveCSS("opacity", "0");
+  await row.hover();
+  await expect(key).toHaveCSS("opacity", "1");
+  await page.mouse.move(600, 400);
+  await expect(key).toHaveCSS("opacity", "0");
+  await row.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(key).toHaveCSS("opacity", "1");
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog").getByText("Go to the Inbox.")).toBeVisible();
 });
 
 test("Escape leaves a text field and keeps its text, so the keys work again", async ({ page }) => {

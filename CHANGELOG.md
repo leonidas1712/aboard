@@ -139,6 +139,13 @@ prompt and one command, and a server handles several times the load.
   `sudo`) and hands its person the exact terminal commands. The installer's hint points
   outside the sandbox, and the invite prompt tells the agent to ask its person if it
   can't run commands outside the sandbox (#322).
+- Board view Inbox and messages (#332, #334, #339): the Inbox shortcut hint shows on hover
+  or focus only; a message to a person reads Unread, then Read, never Pending, and the
+  receipt hover lists people and agents separately; each invite is one story in the
+  Inbox, by handle with no raw ids, and an arrival card has Open and Say hello. A person
+  has the same colour for every viewer, the account menu says "Urgent messages while an
+  agent works", and on a phone task rows wrap, message actions show on tap and "Jump to
+  newest" has its own strip. (#339 was still in review when this was written.)
 - Setup checks the network for real instead of trusting an inherited sandbox marker, so
   commands an agent runs outside its sandbox now proceed. The new agent is told to answer
   the inviter's welcome on the board, and `aboard setup --continue` names the welcome and
@@ -160,6 +167,9 @@ prompt and one command, and a server handles several times the load.
   and os (#244).
 - `aboard inbox --queued` could list a just-sent urgent message from your own agent as
   waiting for turn end (#244).
+- A pairing request made by an invite no longer shows as "Waiting for ... to choose an
+  agent": it is hidden from lists and cancelled when the invitee joins (#333).
+- No "no task" nudge right after `aboard task done` or `task drop` (#337).
 - Onboarding rough edges (#291): invite pages and CLI prompts show the same text,
   names and handles come from the server, an invite without pairing no longer mentions
   verification, and setup describes a newly created account accurately.
@@ -228,6 +238,13 @@ prompt and one command, and a server handles several times the load.
   messages in one bundle, never displacing a message; notices use stable negative transport
   ids; `runtime_hook` and `runtime_ready` fields. Additive; affects delivery daemons and
   harness adapters. Notices carry no secret and grant no authority.
+- spec/openapi.yaml (#333, #337): invitation-linked pairing requests are omitted from
+  the pairing list in every state and cancelled in the transaction that seats the
+  invitee; their id-based read stays for setup. NOT strictly additive: a client that
+  listed them (the old board view's "Waiting for ... to choose an agent" card) now sees
+  fewer items. They were internal setup bookkeeping, and no field, endpoint or code is
+  removed. Also, `task done` and `task drop` return an empty `nudges` array and end the
+  "no task" run (additive; clients already accept an empty array).
 - spec/cli.yaml (#328): setup tells the new agent to reply to the inviter's welcome;
   `setup --continue` names the welcome's sequence and a board-qualified reply command
   without posting for the agent; inherited sandbox markers no longer refuse daemon startup
