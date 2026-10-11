@@ -38,3 +38,7 @@ func (h *handlers) ApproveFile(context.Context, ApproveFileRequestObject) (Appro
 func (h *handlers) RemoveFileApproval(context.Context, RemoveFileApprovalRequestObject) (RemoveFileApprovalResponseObject, error) {
 	return nil, notProvided("file approvals")
 }
+
+func (h *handlers) ExportBoard(context.Context, ExportBoardRequestObject) (ExportBoardResponseObject, error) {
+	return nil, notProvided("board exports")
+}

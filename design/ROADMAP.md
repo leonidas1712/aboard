@@ -467,3 +467,9 @@ D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prom
 | Feature | Status |
 | --- | --- |
 | Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | tool in review (#301, GEN-54); invite-from-scratch flow passed with Haiku and GPT-6-Luna after a greeting-scorer correction; other scenarios remain unproven |
+
+### Board export (GEN-61)
+
+| Feature | Status |
+| --- | --- |
+| Visible board content as Markdown or a zip with unchanged latest file bytes; one read-only renderer for the CLI and board view | contracts in progress; approved for 0.1.5; API/CLI owned here, board-view menu separate |
