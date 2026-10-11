@@ -51,6 +51,16 @@ fail() {
 	exit 1
 }
 
+sandbox_install_failure() {
+	if [ -n "${CODEX_SANDBOX:-}${CODEX_THREAD_ID:-}${CODEX_SANDBOX_NETWORK_DISABLED:-}" ]; then
+		fail "$1 Run the installer outside your agent's sandbox or in your own terminal. If your agent cannot escalate, do not retry and do not use sudo. Ask your person to run in their own terminal, in order:
+  curl -fsSL https://comeaboard.dev/install | sh
+  aboard init --harness codex --allow-commands
+Then restart Codex and say \"continue Aboard setup\"."
+	fi
+	fail "$1 Run the installer outside your agent's sandbox or in your own terminal. Check what blocked the install before running it again."
+}
+
 tmp="" part=""
 cleanup() {
 	if [ -n "$tmp" ]; then rm -rf "$tmp"; fi
@@ -103,7 +113,7 @@ else
 	command -v curl >/dev/null 2>&1 || fail "downloading needs curl; install it and run this again."
 	download() { curl -fsSL --proto "=$proto" --proto-redir "=$proto" --retry 2 -o "$2" "$1"; }
 	fetch() {
-		download "$1" "$2" || fail "couldn't download $1. Check your connection and run this again."
+		download "$1" "$2" || sandbox_install_failure "couldn't download $1."
 	}
 
 	if command -v sha256sum >/dev/null 2>&1; then
@@ -213,7 +223,7 @@ fi
 
 # Install: each program goes in under a temporary name, then is renamed into place.
 dir=${ABOARD_INSTALL_DIR:-$HOME/.local/bin}
-mkdir -p "$dir" || fail "couldn't create $dir. Set ABOARD_INSTALL_DIR to a folder you can write to."
+mkdir -p "$dir" || sandbox_install_failure "couldn't create $dir."
 for f in "$tmp"/unpacked/aboard "$tmp"/unpacked/aboard-launcher-*; do
 	[ -f "$f" ] || continue
 	name=$(basename "$f")
@@ -222,10 +232,10 @@ for f in "$tmp"/unpacked/aboard "$tmp"/unpacked/aboard-launcher-*; do
 	# A new file with a random name that mktemp creates, and no other process has opened;
 	# never a name someone could have planted a link at.
 	part=$(mktemp "$dir/.$name.install.XXXXXXXX") ||
-		fail "couldn't write in $dir. Set ABOARD_INSTALL_DIR to a folder you can write to."
+		sandbox_install_failure "couldn't write in $dir."
 	if [ ! -f "$part" ] || [ -L "$part" ] || ! cat "$f" >"$part" || ! chmod 755 "$part" || ! mv -f "$part" "$dir/$name"; then
 		rm -f "$part"
-		fail "couldn't write $dir/$name. Set ABOARD_INSTALL_DIR to a folder you can write to."
+		sandbox_install_failure "couldn't write $dir/$name."
 	fi
 	part=""
 	say "Installed $dir/$name"

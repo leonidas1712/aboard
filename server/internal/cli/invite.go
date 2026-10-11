@@ -348,7 +348,7 @@ func serverInvitePrompt(link string, _ bool, suggested ...string) string {
 		handle = suggested[0]
 	}
 	prompt := "Install Aboard with curl -fsSL https://comeaboard.dev/install | sh, run aboard skill, then run aboard setup " + link + " --handle " + handle + "."
-	return prompt + " Run Aboard outside your agent's sandbox; approve it when your harness asks."
+	return prompt + " Run Aboard outside your agent's sandbox; approve it when your harness asks. If your agent cannot run commands outside its sandbox, ask your person to run the install and setup commands in their terminal."
 }
 
 func (a *app) bundleInvite(ctx context.Context, c *client, req *api.CreateInviteRequest, selectors []string, work string) error {
