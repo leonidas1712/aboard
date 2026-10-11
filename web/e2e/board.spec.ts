@@ -603,8 +603,12 @@ test("reactions show under messages, toggle as the person and follow the board l
   const thumbs = msg.locator('[data-reaction="thumbsup"]');
   await expect(thumbs).toHaveText("👍1");
   await expect(thumbs).toHaveAttribute("aria-pressed", "false");
-  await thumbs.hover();
-  await expect(page.getByRole("tooltip")).toHaveText("reviewer reacted with 👍");
+  // The timeline may re-pin as it loads, moving the chip from under the pointer, so hover again until the tooltip opens.
+  await expect(async () => {
+    await page.mouse.move(0, 0);
+    await thumbs.hover();
+    await expect(page.getByRole("tooltip")).toHaveText("reviewer reacted with 👍", { timeout: 2000 });
+  }).toPass();
 
   // Clicking it adds the person's own, which the CLI then reads, and clicking again takes it back.
   await thumbs.click();
