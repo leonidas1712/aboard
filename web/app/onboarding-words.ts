@@ -10,16 +10,21 @@ export type Names = {
   me: { id: string; name: string } | null;
   person: (id: string | undefined) => string | null;
   board: (id: string | undefined) => string | null;
+  /** invitee is who an invite is for: the handle of the person who joined with it, else the handle it suggests. */
+  invitee: (inviteId: string | undefined) => { handle: string; joined: boolean } | null;
 };
 
 const someone = (n: string | null) => n ?? "someone";
 
-/** wantsRest is what an agent asks to do, after its name: "wants to invite someone…". */
-export function wantsRest(a: AdminAction, names: Names, boards: (id: string) => string | null): string {
+/** handleOf is "@sam", or "someone" when an invite names nobody. */
+export const handleOf = (handle: string | null | undefined) => (handle ? `@${handle}` : "someone");
+
+/** wantsRest is what an agent asks to do, after its name: "wants to invite @sam…". inviteId is the invite an allowed request made. */
+export function wantsRest(a: AdminAction, names: Names, boards: (id: string) => string | null, inviteId?: string): string {
   const board = (id: string | undefined) => (id ? (boards(id) ?? names.board(id) ?? "a board") : "a board");
   switch (a.kind) {
     case "invite_people":
-      return "wants to invite someone to the server as a member";
+      return `wants to invite ${handleOf(names.invitee(inviteId)?.handle ?? a.invite.suggested_handle)} to the server as a member`;
     case "add_people":
       return `wants to add ${someone(names.person(a.person_id))} to ${board(a.board_id)} as a member`;
     case "set_server_role":
