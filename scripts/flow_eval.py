@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import selectors
 import shlex
 import shutil
@@ -170,7 +171,8 @@ class Eval:
             self.env['PATH'] = str(Path(codex_path).parent) + os.pathsep + self.env['PATH']
         self.env.update(HOME=str(self.home), ABOARD_SANDBOXES=str(self.root / 'sandboxes'),
                         ABOARD_EXIT_WITH_PID=str(os.getpid()))
-        self.team = self.root / 'sandboxes/teams/qa'
+        self.team_name = 'flow-eval-' + secrets.token_hex(4)
+        self.team = self.root / 'sandboxes/teams' / self.team_name
         self.binary = Path(os.environ.get('SANDBOX_ABOARD', str(REPO / '.bin/aboard'))).resolve()
         self.helper = os.environ.get('SANDBOX_TEAM_HELPER', str(REPO / '.bin/sandbox-team'))
         self.env.update(SANDBOX_ABOARD=str(self.binary), SANDBOX_TEAM_HELPER=self.helper)
@@ -191,7 +193,7 @@ class Eval:
                               capture_output=True, text=True, timeout=60, check=check)
 
     def sandbox(self, person, command=':', fresh=False):
-        env = dict(self.env, TEAM='qa', FRESH='1' if fresh else '0', SANDBOX_CMD=command)
+        env = dict(self.env, TEAM=self.team_name, FRESH='1' if fresh else '0', SANDBOX_CMD=command)
         return self.run(['sh', str(REPO / 'scripts/sandbox'), 'open', person], env=env)
 
     def prepare(self):
@@ -203,7 +205,7 @@ class Eval:
             shutil.copyfile(source, target)
             target.chmod(0o600)
         self.started = True
-        self.run(['sh', str(REPO / 'scripts/sandbox'), 'team-start', 'qa'])
+        self.run(['sh', str(REPO / 'scripts/sandbox'), 'team-start', self.team_name])
         for side in ('leo', 'maya'):
             folder = self.team / 'people' / side
             path = folder / 'environment.json'
@@ -213,14 +215,14 @@ class Eval:
             env = dict(self.env, **json.loads(path.read_text()))
             self.sides[side] = {'folder': folder, 'env': env, 'project': folder / 'project'}
             install_shell_environment(Path(env['HOME']), env)
-        self.person('leo', 'board', 'new', 'qa', '--title', 'Flow QA', '--server', 'qa')
+        self.person('leo', 'board', 'new', 'qa', '--title', 'Flow QA', '--server', self.team_name)
         if self.args.approval == 'auto':
-            self.person('leo', 'allowance', 'on', '--server', 'qa')
-            self.person('leo', 'allowance', 'set', 'invite-people', 'on', '--server', 'qa')
+            self.person('leo', 'allowance', 'on', '--server', self.team_name)
+            self.person('leo', 'allowance', 'set', 'invite-people', 'on', '--server', self.team_name)
         if self.args.scenario == 'existing-member':
-            invite = self.person('leo', 'invite', '--person', '--server', 'qa')
+            invite = self.person('leo', 'invite', '--person', '--server', self.team_name)
             self.sandbox('maya', 'curl -fsSL https://comeaboard.dev/install | sh; aboard connect ' +
-                         shlex.quote(invite['link']) + ' --handle maya --server-name qa --json', fresh=True)
+                         shlex.quote(invite['link']) + ' --handle maya --server-name ' + shlex.quote(self.team_name) + ' --json', fresh=True)
         elif self.args.scenario == 'own-session':
             source = self.sides['leo']['folder'] / 'aboard-home/config'
             dest = self.sides['maya']['folder'] / 'aboard-home/config'
@@ -231,7 +233,7 @@ class Eval:
                     shutil.copyfile(entry, dest / entry.name)
                     (dest / entry.name).chmod(0o600)
         fresh = not (self.sides['maya']['folder'] / 'home/.local/bin/aboard').exists()
-        write_json(self.root / 'prepare.json', {'fresh': fresh,
+        write_json(self.root / 'prepare.json', {'team': self.team_name, 'fresh': fresh,
                    'project': str(self.sides['maya']['project']),
                    'source_unchanged': protected() == self.before})
 
@@ -306,15 +308,15 @@ class Eval:
             self.records[side] = rows
 
     def observe(self):
-        people = self.person('leo', 'people', '--server', 'qa', check=False)
-        members = self.person('leo', 'board', 'people', '--board', 'qa', '--server', 'qa', check=False)
-        board = self.person('leo', 'read', '--as', 'claude', '--board', 'qa', '--server', 'qa', '--limit', '200', check=False)
+        people = self.person('leo', 'people', '--server', self.team_name, check=False)
+        members = self.person('leo', 'board', 'people', '--board', 'qa', '--server', self.team_name, check=False)
+        board = self.person('leo', 'read', '--as', 'claude', '--board', 'qa', '--server', self.team_name, '--limit', '200', check=False)
         write_json(self.root / 'board.json', board)
         write_json(self.root / 'people.json', people)
         write_json(self.root / 'members.json', members)
         if self.last_members != members:
             self.last_members = members
-            write_json(self.root / 'audit.json', self.person('leo', 'audit', 'verify', '--board', 'qa', '--server', 'qa', check=False))
+            write_json(self.root / 'audit.json', self.person('leo', 'audit', 'verify', '--board', 'qa', '--server', self.team_name, check=False))
         expected = 'leo' if self.args.scenario == 'own-session' else 'maya'
         person_rows = (people or {}).get('people', [])
         found = any(p.get('handle') == expected for p in person_rows)
@@ -434,11 +436,11 @@ class Eval:
             if not initial:
                 time.sleep(0.5)
                 continue
-            approvals = self.person('leo', 'approvals', '--server', 'qa', check=False) or {}
+            approvals = self.person('leo', 'approvals', '--server', self.team_name, check=False) or {}
             for approval in approvals.get('approvals', []):
                 aid = approval.get('id')
                 if approval.get('state') == 'pending' and aid not in self.responded:
-                    decision = self.person('leo', 'approvals', 'allow', aid, '--server', 'qa')
+                    decision = self.person('leo', 'approvals', 'allow', aid, '--server', self.team_name)
                     self.prompt('leo', 'I allowed that request in my terminal. Here is the result; give me the handover for Maya:\n' + json.dumps(decision))
                     self.responded.add(aid)
             if not handed:
@@ -514,12 +516,12 @@ class Eval:
                 self.run(['tmux', '-S', self.socket, 'kill-server'], check=False)
             for side in self.sides:
                 self.run([str(self.binary), 'down'], env=self.sides[side]['env'], check=False)
-            self.run(['sh', str(REPO / 'scripts/sandbox'), 'team-stop', 'qa'], check=False)
+            self.run(['sh', str(REPO / 'scripts/sandbox'), 'team-stop', self.team_name], check=False)
         changed = [path for path, before in self.before.items() if checksum(Path(path)) != before]
         if changed:
             failure = 'Protected source files changed.'
         write_json(self.root / 'human-prompts.json', self.prompts)
-        write_json(self.root / 'report.json', {'scenario': self.args.scenario,
+        write_json(self.root / 'report.json', {'team': self.team_name, 'scenario': self.args.scenario,
                    'models': self.args.models, 'approval': self.args.approval,
                    'pass': failure is None, 'failure': failure,
                    'wall_seconds': round(time.monotonic() - self.start, 2),
