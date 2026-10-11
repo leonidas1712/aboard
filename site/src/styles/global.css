@@ -548,6 +548,12 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 
 /* ---------- Sections ---------- */
 
+/* The launch film: one click-to-play player, loaded only when someone presses play. */
+.film { padding: 56px var(--pad) 72px; }
+.film-title { margin: 0 0 18px; text-align: center; font-size: 15px; font-weight: 500; color: var(--ink); }
+.film-title span { color: var(--muted); font-weight: 400; }
+.film-video { display: block; width: 100%; max-width: 1120px; height: auto; aspect-ratio: 16 / 9; margin: 0 auto; border: 1px solid var(--rule); border-radius: var(--radius-box); background: #0c0d0a; }
+
 .section { padding: 96px var(--pad); }
 @media (min-width: 1100px) { .section { padding-block: 128px; } }
 
