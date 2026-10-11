@@ -129,6 +129,16 @@ prompt and one command, and a server handles several times the load.
   skips `+dev` builds (#318).
 - Setup's delivery line reads "delivery: pending · Waiting for a reply from @inviter's
   agents", and hooks that are already confirmed no longer ask for a restart (#319).
+- Permissions default (D224, #322, #320): `aboard setup` now adds the aboard-only allow
+  rule when it sets up Codex (`prefix_rule(pattern=["aboard"], decision="allow")`) or
+  Claude Code (`Bash(aboard *)`), says so, and pasting the invite is the consent. The
+  rule matches only `aboard` commands. Plain `aboard init` still asks you first. The
+  docs explain the rule and the manual backup, "If your colleague's agent can't run
+  aboard".
+- When install or setup can't leave the agent's sandbox, the agent stops (no retries, no
+  `sudo`) and hands its person the exact terminal commands. The installer's hint points
+  outside the sandbox, and the invite prompt tells the agent to ask its person if it
+  can't run commands outside the sandbox (#322).
 - The invite prompt asks the agent to run aboard outside its sandbox and to approve the
   harness's request. When setup is refused inside a sandbox, it returns the exact
   `aboard setup --continue` command, which keeps the saved account and memberships and
@@ -210,6 +220,12 @@ prompt and one command, and a server handles several times the load.
   messages in one bundle, never displacing a message; notices use stable negative transport
   ids; `runtime_hook` and `runtime_ready` fields. Additive; affects delivery daemons and
   harness adapters. Notices carry no secret and grant no authority.
+- spec/cli.yaml (#322): setup adds the existing command-only allow rule for Codex and
+  Claude Code and states it, plain `init` keeps its opt-in default; a sandbox refusal hands
+  off to the person with `next.resume` (install, then `aboard init --harness codex
+  --allow-commands`); the invite prompt gains the ask-your-person sentence. Additive CLI
+  text and behaviour. Changed default: `setup` now writes the allow rule where it did
+  not before, which affects anyone who pastes an invite; plain `init` is unchanged.
 - spec/cli.yaml (#318, #319): `upgrade` may run inside an agent session (it used to
   refuse with `human_command_in_session`; keys and login are still person-only), `--version`
   is an alias for `version`, the invite prompt's upgrade advice excludes `+dev` builds, and
