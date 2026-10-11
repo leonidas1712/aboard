@@ -109,7 +109,7 @@ func TestSetupAllowsOnlyAboardCommands(t *testing.T) {
 				path = filepath.Join(e.home, ".claude", "settings.json")
 				want = "Bash(aboard *)"
 			}
-			data, err := os.ReadFile(path)
+			data, err := os.ReadFile(path) //nolint:gosec // Fixed harness path under the disposable test home.
 			if err != nil || !strings.Contains(string(data), want) {
 				t.Fatalf("setup did not install Aboard-only permission: %s: %v", data, err)
 			}
