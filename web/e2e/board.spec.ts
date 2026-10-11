@@ -7,6 +7,7 @@ import { type Page, type Response, type Route, expect, test } from "@playwright/
 import type { Board } from "../app/api";
 import { modeRules, settableModes } from "../app/delivery-modes.gen";
 import { ReadProgress } from "../app/read-progress";
+import { openPanelSections } from "./panel-open";
 
 // One isolated machine: its own home directory, local server port and aboard binary
 // built with the UI embedded. Nothing touches the real home directory.
@@ -55,8 +56,9 @@ test.afterAll(() => {
 // The board view runs under a strict Content-Security-Policy; every test fails if the
 // browser reports breaking it, which would mean a script the policy doesn't allow.
 let violations: string[] = [];
-test.beforeEach(({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
   violations = [];
+  if (!testInfo.tags.includes("@panel-default")) await openPanelSections(page);
   page.on("console", (m) => {
     if (m.text().includes("Content Security Policy")) violations.push(m.text());
   });
@@ -342,6 +344,40 @@ test("the board view shows the room live, posts as the person and verifies the r
   aboard("logout", "--browsers");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
+});
+
+test("the board panel's sections start closed, keep what the person opens across a reload and toggle by keyboard", { tag: "@panel-default" }, async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Collapsed check", "--json"));
+  const board: string = pair.board.name;
+  await openLink(page, JSON.parse(aboard("open", "--board", board, "--json")).url);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const panel = page.getByRole("complementary", { name: "Collapsed check" });
+  const names = ["Agents", "Charter", "Rules Aboard enforces", "Details"];
+  const head = (name: string) => panel.getByRole("button", { name, exact: true });
+
+  // Every header shows with its chevron and help button, and every section is closed.
+  for (const name of names) await expect(head(name)).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.getByRole("button", { name: "About Rules Aboard enforces" })).toBeVisible();
+  await expect(panel.locator('[data-agent="writer"]')).toBeHidden();
+  await expect(panel.locator(".board-facts")).toBeHidden();
+
+  // Opening one persists across a reload; the others stay closed.
+  await head("Details").click();
+  await expect(panel.locator(".board-facts")).toBeVisible();
+  await page.reload();
+  await expect(head("Details")).toHaveAttribute("aria-expanded", "true");
+  await expect(panel.locator(".board-facts")).toBeVisible();
+  for (const name of ["Agents", "Rules Aboard enforces"]) await expect(head(name)).toHaveAttribute("aria-expanded", "false");
+
+  // Enter and Space toggle a header from the keyboard.
+  await head("Rules Aboard enforces").focus();
+  await page.keyboard.press("Enter");
+  await expect(head("Rules Aboard enforces")).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Space");
+  await expect(head("Rules Aboard enforces")).toHaveAttribute("aria-expanded", "false");
+  await head("Agents").focus();
+  await page.keyboard.press("Space");
+  await expect(panel.locator('[data-agent="writer"]')).toBeVisible();
 });
 
 test("the board panel shows the board's details and adds an agent with a prompt the CLI can join with", async ({ page, context }) => {
@@ -1522,6 +1558,7 @@ test("an archived board is read-only, groups under Archived, restores and delete
   // the group closed, and she reads the notice with no Restore, Archive or Delete.
   const raeContext = await browser.newContext();
   const raePage = await raeContext.newPage();
+  await openPanelSections(raePage);
   await raePage.goto(`${base()}/`);
   await raePage.getByLabel("Access key").fill(raeKey);
   await raePage.getByRole("button", { name: "Sign in" }).click();

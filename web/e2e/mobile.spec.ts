@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { devices, expect, test, type Page } from "@playwright/test";
+import { openPanelSections } from "./panel-open";
 
 // The board view on a phone (D219) and each agent's status (D218), at a phone's size with
 // touch. ABOARD_MOBILE_SHOTS=<dir> also saves the screenshots the maintainer reviews.
@@ -73,6 +74,10 @@ async function theme(page: Page, which: "Light" | "Dark") {
   await page.getByRole("menuitemradio", { name: which, exact: true }).click();
   await page.keyboard.press("Escape");
 }
+
+test.beforeEach(async ({ page }) => {
+  await openPanelSections(page);
+});
 
 test("a phone shows the board in one column, its panel as a sheet, and each agent's status", async ({ page }) => {
   const board = "mobile-board";
