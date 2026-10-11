@@ -2,6 +2,8 @@
 
 ## Unreleased contract additions
 
+- Finishing or dropping a task no longer immediately prints a nudge; completion notes end the taskless-message streak.
+
 - Add person-only onboarding Inbox reads and optional invite-notice suggested handles.
 
 ## Approved D223 contract changes (implementation in review)

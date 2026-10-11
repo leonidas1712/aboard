@@ -281,6 +281,31 @@ func TestTaskWorkReadsFreshSelectionAndPolicy(t *testing.T) {
 	}
 }
 
+func TestOwnTaskDoneNoteEndsTasklessPosts(t *testing.T) {
+	w := newTeamWorld(t)
+	ctx := t.Context()
+	noTask := []string{}
+	for range 3 {
+		if _, err := w.svc.PostMessage(ctx, w.samAgent, w.board, board.NewMessage{Body: "status", About: &noTask}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	task, err := w.svc.CreateTask(ctx, w.samAgent, w.board, board.NewTask{Title: "finish work", Start: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.svc.FinishTask(ctx, w.samAgent, w.board, task.Ref, board.TaskFinish{Note: "Finished the work"}); err != nil {
+		t.Fatal(err)
+	}
+	work, err := w.svc.TaskWork(ctx, w.samAgent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if work.PostsWithoutTask != 0 {
+		t.Fatalf("done note left %d taskless posts", work.PostsWithoutTask)
+	}
+}
+
 func TestTasklessPostRunUsesCurrentTaskAtPost(t *testing.T) {
 	w := newTeamWorld(t)
 	ctx := context.Background()
@@ -326,9 +351,9 @@ func TestTasklessPostRunUsesCurrentTaskAtPost(t *testing.T) {
 	if _, e = w.svc.DropTask(ctx, w.samAgent, w.board, b.Ref, board.TaskDrop{}); e != nil {
 		t.Fatal(e)
 	}
-	count(2)
+	count(0)
 	post()
-	count(3)
+	count(1)
 }
 
 func TestTasklessPostRunClearsOnAnotherActorDoneAndDrop(t *testing.T) {

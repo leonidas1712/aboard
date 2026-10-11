@@ -98,3 +98,25 @@ func TestTaskCLIShowsSharedWorkAndReturnsDroppedParts(t *testing.T) {
 	verified := owner.run("audit", "verify", "--json").json(t)
 	matchesCLISpec(t, "AuditVerifyOutput", verified)
 }
+
+func TestTaskDoneAndDropDoNotImmediatelyNudge(t *testing.T) {
+	t.Parallel()
+	for _, op := range []string{"done", "drop"} {
+		t.Run(op, func(t *testing.T) {
+			tm := newTeam(t)
+			board := tm.newBoard(tm.admin, "open")
+			s := tm.admin.claudeSession("s-task-finish")
+			s.run("join", "--board", board, "--server", tm.url())
+			s.run("task", "new", "waiting work", "--no-start")
+			s.run("task", "new", "finish this work")
+			args := []string{"task", op, "--json"}
+			if op == "done" {
+				args = append(args, "Finished the work")
+			}
+			out := s.run(args...).json(t)
+			if len(field(t, out, "nudges").([]any)) != 0 {
+				t.Fatalf("finishing work immediately nudged: %v", out)
+			}
+		})
+	}
+}

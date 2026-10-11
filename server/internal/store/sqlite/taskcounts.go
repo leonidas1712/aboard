@@ -40,12 +40,13 @@ func (t *tx) TaskMessageCounts(boardID, taskID string, reader board.Member, read
 func (t *tx) PostsWithoutTask(memberID string) (int, error) {
 	rows, err := t.tx.QueryContext(t.ctx, `SELECT type,
  COALESCE(json_extract(data_json,'$.task_id'),''),
- COALESCE(json_array_length(data_json,'$.about'),0)
+ COALESCE(json_array_length(data_json,'$.about'),0),
+ COALESCE(json_extract(actor_json,'$.member_id'),'')
  FROM events WHERE board_id=(SELECT board_id FROM members WHERE id=?)
- AND seq <= COALESCE((SELECT max(seq) FROM messages WHERE sender_id=?),0) AND (
+ AND (
  (type=? AND json_extract(actor_json,'$.member_id')=?) OR
  (type IN (?,?,?) AND json_extract(data_json,'$.member_id')=?) OR type=?)
- ORDER BY seq DESC`, memberID, memberID, events.MessagePosted, memberID, events.TaskStarted, events.TaskJoined, events.TaskDropped, memberID, events.TaskDone)
+ ORDER BY seq DESC`, memberID, events.MessagePosted, memberID, events.TaskStarted, events.TaskJoined, events.TaskDropped, memberID, events.TaskDone)
 	if err != nil {
 		return 0, err
 	}
@@ -56,9 +57,9 @@ func (t *tx) PostsWithoutTask(memberID string) (int, error) {
 	ended := map[string]int{}
 	stopPosts := false
 	for rows.Next() {
-		var typ, task string
+		var typ, task, actor string
 		var about int
-		if err := rows.Scan(&typ, &task, &about); err != nil {
+		if err := rows.Scan(&typ, &task, &about, &actor); err != nil {
 			return 0, err
 		}
 		switch typ {
@@ -79,6 +80,9 @@ func (t *tx) PostsWithoutTask(memberID string) (int, error) {
 				return n, nil
 			}
 		case events.TaskDone, events.TaskDropped:
+			if actor == memberID {
+				return n + pending, nil
+			}
 			if _, seen := ended[task]; !seen {
 				ended[task] = pending
 			}

@@ -421,7 +421,7 @@ func runTask(ctx context.Context, a *app, args []string) error {
 			}
 		}
 	}
-	if a.agentSelected(*as) {
+	if a.agentSelected(*as) && op != "done" && op != "drop" {
 		in := c.taskInbox(ctx)
 		ref := delivery.AgentRef{Server: t.server.URL, Board: t.board}
 		trigger := op
