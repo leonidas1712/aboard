@@ -7,17 +7,36 @@ delivery daemons, harness adapters) and whether it is additive. The release job
 publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
 
-## Unreleased
+## 0.1.5
+
+Codex delivery keeps working when a terminal app sets its own Codex home, the board view
+opens quieter, and the docs and site are rewritten for launch.
+
+### Changed
+
+- The board view's right panel starts with its sections (Agents, Charter, Rules Aboard
+  enforces, Details) collapsed. Each section remembers its state in your browser once you
+  toggle it, and the Agents header still shows how many agents wait on you (#343).
+- The board view has a Help button beside the account menu that opens the keys sheet
+  (#343).
+- The "Bring a colleague aboard" guide is rewritten around the five-step flow, with the
+  details below it. Other docs pages are checked against 0.1.4 (#344).
+- The launch film is on the site and the docs introduction (#345, #347).
 
 ### Fixed
 
-- Codex sessions use their own Codex home for validation and delivery, including
-  when the delivery daemon was started from a terminal using another home.
+- Codex sessions use their own Codex home for validation and delivery. The delivery
+  daemon no longer takes the `CODEX_HOME` of the terminal that started it, so an
+  `aboard upgrade` run from a terminal app such as Orca no longer breaks Codex delivery
+  with `codex_target_absent`. Daemon starts and upgrades strip harness-specific
+  settings (#346).
 
 ### Contract changes
 
-- Control protocol 1 accepts optional `codex_home` on session requests. Hooks,
-  CLI clients and the delivery daemon are affected; the field is additive.
+- Control protocol 1 (`spec/control.md`) accepts optional `codex_home` on session
+  requests. Hooks, CLI clients and the delivery daemon are affected. The change is
+  additive: older clients keep the recorded home, falling back to `~/.codex` when none
+  exists. No API or CLI JSON shape changes (#346).
 
 ## 0.1.4
 
