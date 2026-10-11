@@ -55,9 +55,9 @@ bump)
 	for v in $(older "$new"); do
 		re=$(printf %s "$v" | sed 's/\./\\./g')
 		for f in $(files); do
-			grep -qE "$(pattern "$v")" "$f" || continue
+			grep -E "$(pattern "$v")" "$f" | grep -qvE 'older than [0-9.]+ and is not a|^## New in ' || continue
 			# Twice, since one pass can't rewrite two mentions that share a separator.
-			sed -E -i.bak "s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g; s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g" "$f"
+			sed -E -i.bak "/older than [0-9.]+ and is not a/b; /^## New in /b; s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g; s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g" "$f"
 			rm -f "$f.bak"
 			echo "$f"
 		done
