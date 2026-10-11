@@ -2,7 +2,7 @@
 // `pressed`, the inline hints print `label`, and the "?" sheet lists `what`, so a hint
 // never names a key the handler doesn't have.
 
-export type KeyId = "next" | "previous" | "accept" | "option" | "reply" | "send" | "leave" | "snooze" | "open" | "inbox" | "back" | "help";
+export type KeyId = "next" | "previous" | "accept" | "option" | "reply" | "send" | "leave" | "snooze" | "open" | "inbox" | "back" | "help" | "previousBoard" | "nextBoard" | "blur";
 /** Where a key works: in the Inbox or on a board. */
 export type Place = "inbox" | "board";
 type Key = { id: KeyId; keys: string[]; label: string; what: string; places: Place[] };
@@ -19,6 +19,9 @@ export const allKeys: Key[] = [
   { id: "open", keys: ["Enter"], label: "↵", what: "Open the ask on its board.", places: ["inbox"] },
   { id: "inbox", keys: ["i"], label: "I", what: "Go to the Inbox.", places: ["board"] },
   { id: "back", keys: ["Escape"], label: "Esc", what: "Go back to the Inbox, when you opened this board from it.", places: ["board"] },
+  { id: "blur", keys: ["Escape"], label: "Esc", what: "Leave the message box or any field, keeping its text, so these keys work again.", places: ["board"] },
+  { id: "previousBoard", keys: ["["], label: "[", what: "Go to the previous item in the sidebar: the Inbox, then your boards.", places: ["inbox", "board"] },
+  { id: "nextBoard", keys: ["]"], label: "]", what: "Go to the next item in the sidebar: the Inbox, then your boards.", places: ["inbox", "board"] },
   { id: "help", keys: ["?"], label: "?", what: "Show these keys.", places: ["inbox", "board"] },
 ];
 
@@ -44,6 +47,19 @@ export function pressed(id: KeyId, e: KeyboardEvent | React.KeyboardEvent): bool
 /** typing says whether a key press belongs to a field, menu or dialog rather than the page. */
 export function typing(e: KeyboardEvent): boolean {
   return Boolean((e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable], [role=dialog], [role=menu], dialog[open]"));
+}
+
+/**
+ * leaveFieldOnEscape blurs the text field Escape was pressed in, so the keys work again.
+ * The text stays. A field that used the key itself (a closing list, a menu) marks it
+ * handled and keeps its focus.
+ */
+export function leaveFieldOnEscape(e: KeyboardEvent) {
+  if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
+  const el = e.target as HTMLElement | null;
+  if (!el?.matches?.("input, textarea") || el.closest("[role=dialog], [role=menu], dialog[open]")) return;
+  if (document.querySelector('[role="menu"], [role="alertdialog"], [data-radix-popper-content-wrapper]')) return;
+  el.blur();
 }
 
 /** The ask the Inbox had selected when a board was opened from it, so the Inbox can return to it. */

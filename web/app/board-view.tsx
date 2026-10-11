@@ -27,7 +27,7 @@ import { Sheet, useWide } from "./sheet";
 import { usePref } from "./prefs";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { keyLabel, pressed, typing } from "./keys";
-import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
+import { BoardNav, BoardPanel, type Reveal, useSidebarKeys } from "./sidebars";
 import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
 import { threadsOf, useThreadPrefs } from "./threads";
 import { type Filter, filterActive, useBoard } from "./use-board";
@@ -432,6 +432,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     Date.now(),
   );
 
+  useSidebarKeys(name, s.boards);
   // I goes to the Inbox from anywhere on the board; Escape does too when the board was
   // opened from it and nothing else (a sheet, a panel, a menu, a reply) wants the key.
   const covered = sheet !== null || taskPanel !== null || filePanel !== null || replyTo !== null;
