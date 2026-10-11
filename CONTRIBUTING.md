@@ -25,6 +25,8 @@ section is the daily loop.
 
 ## Testing team flows on one machine
 
+To QA a release by hand, follow [QA a release by hand](engineering/qa.md); the rest of this section is the reference.
+
 One team server can serve several isolated people on your laptop. Start it from the
 checkout:
 
