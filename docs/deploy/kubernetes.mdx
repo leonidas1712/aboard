@@ -17,7 +17,7 @@ is a complete recipe: a volume claim, a deployment, a service and an ingress.
     Take the recipe from the release you run, and make a namespace for it:
 
     ```bash
-    curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v0.1.3/deploy/kubernetes/aboard.yaml
+    curl -fsSLO https://raw.githubusercontent.com/leonidas1712/aboard/v0.1.4/deploy/kubernetes/aboard.yaml
     kubectl create namespace aboard
     ```
   </Step>
@@ -27,7 +27,7 @@ is a complete recipe: a volume claim, a deployment, a service and an ingress.
 
     - **The host.** Replace `aboard.example.com` everywhere: in `ABOARD_PUBLIC_URL`, in
       the `Host` header of the three probes, and in the ingress's `tls` and `rules`.
-    - **The image.** The release you run, such as `ghcr.io/leonidas1712/aboard:0.1.3`,
+    - **The image.** The release you run, such as `ghcr.io/leonidas1712/aboard:0.1.4`,
       or your own registry's copy.
     - **The storage class.** Uncomment `storageClassName` and name a class backed by a
       block disk. Never NFS or another network file system.
@@ -128,8 +128,8 @@ in place of the database, and start the older image:
 ```bash
 kubectl scale -n aboard deploy/aboard --replicas=0
 kubectl wait -n aboard --for=delete pod -l app.kubernetes.io/name=aboard --timeout=120s
-kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/leonidas1712/aboard:0.1.3 \
-  --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/leonidas1712/aboard:0.1.3","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
+kubectl run -n aboard aboard-restore --rm -it --restart=Never --image=ghcr.io/leonidas1712/aboard:0.1.4 \
+  --overrides='{"spec":{"securityContext":{"runAsUser":10001,"runAsGroup":10001,"fsGroup":10001},"containers":[{"name":"aboard-restore","image":"ghcr.io/leonidas1712/aboard:0.1.4","command":["sh"],"stdin":true,"tty":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}],"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"aboard-data"}}]}}'
 # in that shell:
 ls /data/aboard/backups
 cp /data/aboard/backups/aboard-<time>-schema-<n>.db /data/aboard/aboard.db && rm -f /data/aboard/aboard.db-wal /data/aboard/aboard.db-shm
