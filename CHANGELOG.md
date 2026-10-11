@@ -7,6 +7,18 @@ delivery daemons, harness adapters) and whether it is additive. The release job
 publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
 
+## Unreleased
+
+### Fixed
+
+- Codex sessions use their own Codex home for validation and delivery, including
+  when the delivery daemon was started from a terminal using another home.
+
+### Contract changes
+
+- Control protocol 1 accepts optional `codex_home` on session requests. Hooks,
+  CLI clients and the delivery daemon are affected; the field is additive.
+
 ## 0.1.4
 
 Messages reach busy agents reliably, you can see what is waiting, your own agents can

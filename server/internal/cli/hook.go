@@ -134,7 +134,7 @@ func (h hookCall) request(op string) delivery.Request {
 		// its agent as it starts.
 		req.Launch = h.a.launchTicket()
 	}
-	return req
+	return h.a.withSessionHome(req)
 }
 
 func (h hookCall) call(ctx context.Context, op string) (delivery.Response, error) {

@@ -12,11 +12,11 @@ claude-code, everywhere:
 codex, everywhere:
   create    ~/.agents/skills/aboard/SKILL.md (skill)
   create    ~/codex-home/hooks.json (hooks)
-            SessionStart: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start
-            UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt
-            Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
-            PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
-            SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
+            SessionStart: CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start
+            UserPromptSubmit: CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt
+            Stop: CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
+            PreToolUse: CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
+            SessionEnd: CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
             (Codex 0.159.3 doesn't run Stop and PostToolUse; aboard doctor says what that leaves out)
   create    ~/codex-home/rules/aboard.rules (permissions)
             prefix_rule(pattern=["aboard"], decision="allow")
@@ -180,7 +180,7 @@ Nothing to change.
         "hooks": [
           {
             "type": "command",
-            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
+            "command": "CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex session-start",
             "timeout": 30
           }
         ]
@@ -191,7 +191,7 @@ Nothing to change.
         "hooks": [
           {
             "type": "command",
-            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
+            "command": "CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex prompt",
             "timeout": 10,
             "additionalContextLimit": 8192
           }
@@ -203,7 +203,7 @@ Nothing to change.
         "hooks": [
           {
             "type": "command",
-            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
+            "command": "CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop",
             "timeout": 10
           }
         ]
@@ -214,7 +214,7 @@ Nothing to change.
         "hooks": [
           {
             "type": "command",
-            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
+            "command": "CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool",
             "timeout": 30,
             "additionalContextLimit": 8192
           }
@@ -226,7 +226,7 @@ Nothing to change.
         "hooks": [
           {
             "type": "command",
-            "command": "ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
+            "command": "CODEX_HOME={HOME}/codex-home ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end",
             "timeout": 3
           }
         ]

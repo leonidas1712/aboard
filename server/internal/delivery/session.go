@@ -132,6 +132,7 @@ type session struct {
 	runtimeExtensionBoot string
 	boot                 string
 	folder               string
+	codexHome            string
 	locationBoot         string
 	locationEpoch        atomic.Uint64
 	open                 bool
@@ -356,6 +357,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	runtimeHook := s.currentRuntimeHook(req)
+	s.noteSessionHome(ctx, req, runtimeHook)
 	ok := Response{V: ProtocolVersion}
 	if req.Op != OpQueued && req.Op != OpShown && req.Op != OpApprovalWatch {
 		s.noteProcess(ctx, req)
@@ -663,7 +665,7 @@ func (s *session) markTurned(ctx context.Context) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, Folder: s.folder, LocationBoot: s.locationBoot, BusyAt: s.busyAt, UpdatedAt: s.now()}
+	rec := SessionRecord{CodexHome: s.codexHome, Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, Folder: s.folder, LocationBoot: s.locationBoot, BusyAt: s.busyAt, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -713,6 +715,7 @@ func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
 
 func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	runtimeHook := s.currentRuntimeHook(req)
+	s.noteSessionHome(ctx, req, runtimeHook)
 	s.noteProcess(ctx, req)
 	if !req.Started.IsZero() && req.Started.Before(s.busyAt) {
 		// The stop hook of a turn that ended before the latest prompt, reaching the daemon
@@ -1708,6 +1711,7 @@ func (s *session) logConfirmed(ds []*Delivery) {
 // hand calls the harness. The call isn't cut off the moment the daemon starts stopping:
 // it may run for ShutdownGrace more, so a bundle is rarely cut off half handed over.
 func (s *session) hand(ctx context.Context, h Handover) (bool, error) {
+	h.CodexHome = s.codexHome
 	hctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), harnessCallTimeout)
 	defer cancel()
 	stop := context.AfterFunc(ctx, func() {

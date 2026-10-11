@@ -106,6 +106,35 @@ func TestQueueFailureIsAFailedAttempt(t *testing.T) {
 	}
 }
 
+func TestCodexDoesNotUseTheDaemonsHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "bogus"))
+	t.Setenv("FAKE_CODEX_EXPECT_HOME", filepath.Join(home, ".codex"))
+	a := &Adapter{}
+	id := "019a0000-0000-7000-8000-0000000000ee"
+	if err := a.Validate(context.Background(), id); err != nil {
+		t.Fatalf("validate default session home: %v", err)
+	}
+	if _, err := a.Hand(context.Background(), delivery.Handover{SessionID: id, Bundle: "hello"}); err != nil {
+		t.Fatalf("queue default session home: %v", err)
+	}
+}
+
+func TestCodexValidatesAndQueuesInTheSessionsHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "bogus"))
+	t.Setenv("FAKE_CODEX_EXPECT_HOME", home)
+	a := &Adapter{}
+	id := "019a0000-0000-7000-8000-0000000000ef"
+	if err := a.ValidateSession(context.Background(), id, home); err != nil {
+		t.Fatalf("validate session home: %v", err)
+	}
+	if _, err := a.Hand(context.Background(), delivery.Handover{SessionID: id, CodexHome: home, Bundle: "hello"}); err != nil {
+		t.Fatalf("queue session home: %v", err)
+	}
+}
+
 func TestVersionAndQueueCommand(t *testing.T) {
 	a := &Adapter{}
 	v, err := a.Version(context.Background())

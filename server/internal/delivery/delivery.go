@@ -132,6 +132,7 @@ type Delivery struct {
 
 // SessionRecord is what the journal keeps of a session.
 type SessionRecord struct {
+	CodexHome    string
 	Folder       string
 	LocationBoot string
 	Key          SessionKey

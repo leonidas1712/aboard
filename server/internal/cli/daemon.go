@@ -366,6 +366,7 @@ func (a *app) startDaemon(p paths) error {
 	// context and gets a session of its own.
 	cmd := &exec.Cmd{
 		Path:        exe,
+		Env:         daemonEnvironment(os.Environ()),
 		Args:        []string{exe, "daemon"},
 		Dir:         p.state,
 		Stdout:      logFile,
@@ -397,6 +398,7 @@ func (a *app) callDaemon(ctx context.Context, req delivery.Request) (delivery.Re
 	stop := context.AfterFunc(ctx, func() { _ = c.Close() })
 	defer stop()
 	req.V = delivery.ProtocolVersion
+	req = a.withSessionHome(req)
 	req = withHarnessProcess(req)
 	if err := delivery.WriteFrame(c, req); err != nil {
 		return delivery.Response{}, daemonGone(err)
@@ -413,6 +415,32 @@ func (a *app) callDaemon(ctx context.Context, req delivery.Request) (delivery.Re
 		return resp, &Error{Code: resp.Error.Code, Message: resp.Error.Message, Hint: hint, Details: resp.Error.Details}
 	}
 	return resp, nil
+}
+
+func (a *app) withSessionHome(req delivery.Request) delivery.Request {
+	if req.Harness != "codex" || req.Session == "" {
+		return req
+	}
+	home := a.env.Getenv("CODEX_HOME")
+	if home == "" {
+		home = filepath.Join(a.env.Getenv("HOME"), ".codex")
+	}
+	if absolute, err := filepath.Abs(home); err == nil {
+		req.CodexHome = absolute
+	}
+	return req
+}
+
+func daemonEnvironment(env []string) []string {
+	out := make([]string, 0, len(env))
+	for _, value := range env {
+		name, _, _ := strings.Cut(value, "=")
+		if name == "CODEX_HOME" || name == "CLAUDE_CONFIG_DIR" || strings.HasPrefix(name, "ORCA_") {
+			continue
+		}
+		out = append(out, value)
+	}
+	return out
 }
 
 // withHarnessProcess adds the harness process this command runs under to a request

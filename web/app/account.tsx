@@ -3,7 +3,8 @@
 // Who you are, at the right of the top bar: your mark and name, opening a menu with
 // who you are on this board, which server this is, and this browser's settings.
 
-import { ChevronDown, Settings2 } from "lucide-react";
+import { ChevronDown, CircleQuestionMark, Settings2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Allowance, getAllowance, handlePattern, renameSelf } from "./onboarding-api";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -96,9 +97,11 @@ type Props = {
   admin?: boolean;
   /** onSignOut runs once this browser has signed out. */
   onSignOut: () => void;
+  /** onHelp opens the keys sheet, from a Help button beside the account menu. */
+  onHelp?: () => void;
 };
 
-export function Account({ admin, onSignOut, person }: Props) {
+export function Account({ admin, onSignOut, person, onHelp }: Props) {
   const [loadedMe, setMe] = useState<Me | null>(null);
   const [renamed, setRenamed] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
@@ -134,9 +137,24 @@ export function Account({ admin, onSignOut, person }: Props) {
   const server = mode === "local" ? "This computer (local)" : window.location.host;
   return (
     <>
+    {onHelp && (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onHelp}
+            aria-label="Help and keyboard shortcuts"
+            className="help-button ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-control text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
+          >
+            <CircleQuestionMark className="size-5" strokeWidth={1.75} aria-hidden />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Help</TooltipContent>
+      </Tooltip>
+    )}
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected"
+        className={`account ${onHelp ? "ml-1" : "ml-auto"} inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected`}
         aria-label={`You are ${me.name}. Account and settings`}
       >
         <SenderMark name={me.name} kind="human" identity={personIdentity(me.name)} className="size-7" />

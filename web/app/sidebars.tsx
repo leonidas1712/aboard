@@ -236,10 +236,13 @@ type BoardPanelProps = {
 export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle, identity, latest, onShowMessage, agents: showAgents = true, byAgent = false }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
+  const statusOf = useStatus();
+  // Collapsed, the agents section still shows how many agents wait on this person.
+  const waiting = agents.filter((a) => a.presence === "waiting" || statusOf(a).word === "waiting on you").length;
   return (
     <div className="flex flex-col gap-6">
       {showAgents && (
-        <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
+        <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal} waiting={waiting}>
           <div className="flex flex-col gap-5 pt-2">
             {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
             <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} identity={identity} latest={latest} onShowMessage={onShowMessage} byAgent={byAgent} />
@@ -315,10 +318,10 @@ function Help({ topic, children }: { topic: string; children: ReactNode }) {
 
 /**
  * Section is a panel section whose heading opens and closes it; the browser remembers
- * which. When reveal names it, it opens, scrolls into view and takes focus.
+ * which, closed until they open it. When reveal names it, it opens, scrolls into view and takes focus.
  */
-function Section({ id, title, help, reveal, children }: { id: string; title: string; help?: ReactNode; reveal: Reveal; children: ReactNode }) {
-  const [open, setOpen] = usePref(`aboard.open.${id}`, true);
+function Section({ id, title, help, reveal, waiting = 0, children }: { id: string; title: string; help?: ReactNode; reveal: Reveal; waiting?: number; children: ReactNode }) {
+  const [open, setOpen] = usePref(`aboard.open.${id}`, false);
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -346,6 +349,12 @@ function Section({ id, title, help, reveal, children }: { id: string; title: str
                 aria-hidden
               />
               {title}
+              {waiting > 0 && !open && (
+                <span className="waiting-count ml-1 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">
+                  <span aria-hidden>{waiting}</span>
+                  <span className="sr-only">, {count(waiting, "agent waiting on you", "agents waiting on you")}</span>
+                </span>
+              )}
             </CollapsibleTrigger>
           </h3>
           {help && <Help topic={title}>{help}</Help>}

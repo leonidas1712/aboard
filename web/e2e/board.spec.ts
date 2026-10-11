@@ -3,10 +3,11 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type Page, type Response, type Route, expect, test } from "@playwright/test";
+import { type Locator, type Page, type Response, type Route, expect, test } from "@playwright/test";
 import type { Board } from "../app/api";
 import { modeRules, settableModes } from "../app/delivery-modes.gen";
 import { ReadProgress } from "../app/read-progress";
+import { openPanelSections } from "./panel-open";
 
 // One isolated machine: its own home directory, local server port and aboard binary
 // built with the UI embedded. Nothing touches the real home directory.
@@ -55,8 +56,9 @@ test.afterAll(() => {
 // The board view runs under a strict Content-Security-Policy; every test fails if the
 // browser reports breaking it, which would mean a script the policy doesn't allow.
 let violations: string[] = [];
-test.beforeEach(({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
   violations = [];
+  if (!testInfo.tags.includes("@panel-default")) await openPanelSections(page);
   page.on("console", (m) => {
     if (m.text().includes("Content Security Policy")) violations.push(m.text());
   });
@@ -66,6 +68,17 @@ test.afterEach(async ({ page }) => {
   // A test that holds requests may leave one in flight as it ends; it isn't answered.
   await page.unrouteAll({ behavior: "ignoreErrors" });
 });
+
+// hoverUntil hovers a target and runs check, moving the pointer away and hovering again
+// until check passes. The timeline re-pins as it loads and can move a target from under
+// the pointer, so a single hover may never open its tooltip.
+async function hoverUntil(page: Page, target: Locator, check: () => Promise<void>) {
+  await expect(async () => {
+    await page.mouse.move(0, 0);
+    await target.hover();
+    await check();
+  }).toPass();
+}
 
 // base is the local server's address, as aboard open links to it.
 function base(): string {
@@ -200,8 +213,9 @@ test("the board view shows the room live, posts as the person and verifies the r
   // charter and the enforced rules explain themselves.
   const charter = page.locator(".charter");
   await expect(charter.locator("p").first()).toContainText("one document together. The writer drafts");
-  await page.getByRole("button", { name: "About Charter" }).hover();
-  await expect(page.locator(".help-text").first()).toContainText("Every agent reads it when it joins");
+  await hoverUntil(page, page.getByRole("button", { name: "About Charter" }), async () => {
+    await expect(page.locator(".help-text").first()).toContainText("Every agent reads it when it joins", { timeout: 2000 });
+  });
   await page.mouse.move(0, 0);
   await page.getByRole("button", { name: "About Rules Aboard enforces" }).focus();
   await expect(page.locator(".help-text").first()).toContainText("checked by the server on every message");
@@ -312,8 +326,9 @@ test("the board view shows the room live, posts as the person and verifies the r
   await crew.getByRole("button", { name: "Details", exact: true }).click();
   await expect(crew.locator(".board-facts")).toBeHidden();
   await page.getByRole("button", { name: "Hide board panel" }).click();
-  await page.getByRole("button", { name: /Docs review.*board details/ }).hover();
-  await expect(page.getByRole("tooltip")).toHaveText("Board details");
+  await hoverUntil(page, page.getByRole("button", { name: /Docs review.*board details/ }), async () => {
+    await expect(page.getByRole("tooltip")).toHaveText("Board details", { timeout: 2000 });
+  });
   await page.getByRole("button", { name: /Docs review.*board details/ }).click();
   await expect(crew.locator(".board-facts")).toBeInViewport();
   await expect(crew.getByRole("button", { name: "Details", exact: true })).toBeFocused();
@@ -342,6 +357,58 @@ test("the board view shows the room live, posts as the person and verifies the r
   aboard("logout", "--browsers");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
+});
+
+test("a Help button beside the account menu opens the keys sheet, which lists [ and ] and links the docs", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Help check", "--json"));
+  await openLink(page, JSON.parse(aboard("open", "--board", pair.board.name, "--json")).url);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const help = page.getByRole("button", { name: "Help and keyboard shortcuts" });
+  await expect(help).toBeVisible();
+  await hoverUntil(page, help, async () => {
+    await expect(page.getByRole("tooltip").getByText("Help")).toBeVisible({ timeout: 2000 });
+  });
+  await help.click();
+  const sheet = page.getByRole("dialog", { name: "Keys on a board" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText("Previous / next: Inbox and boards");
+  await expect(sheet.locator("kbd", { hasText: /^\[$/ }).first()).toBeVisible();
+  await expect(sheet.locator("kbd", { hasText: /^\]$/ }).first()).toBeVisible();
+  await expect(sheet.getByRole("link", { name: "docs" })).toHaveAttribute("href", "https://docs.comeaboard.dev");
+});
+
+test("the board panel's sections start closed, keep what the person opens across a reload and toggle by keyboard", { tag: "@panel-default" }, async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Collapsed check", "--json"));
+  const board: string = pair.board.name;
+  await openLink(page, JSON.parse(aboard("open", "--board", board, "--json")).url);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const panel = page.getByRole("complementary", { name: "Collapsed check" });
+  const names = ["Agents", "Charter", "Rules Aboard enforces", "Details"];
+  const head = (name: string) => panel.getByRole("button", { name, exact: true });
+
+  // Every header shows with its chevron and help button, and every section is closed.
+  for (const name of names) await expect(head(name)).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.getByRole("button", { name: "About Rules Aboard enforces" })).toBeVisible();
+  await expect(panel.locator('[data-agent="writer"]')).toBeHidden();
+  await expect(panel.locator(".board-facts")).toBeHidden();
+
+  // Opening one persists across a reload; the others stay closed.
+  await head("Details").click();
+  await expect(panel.locator(".board-facts")).toBeVisible();
+  await page.reload();
+  await expect(head("Details")).toHaveAttribute("aria-expanded", "true");
+  await expect(panel.locator(".board-facts")).toBeVisible();
+  for (const name of ["Agents", "Rules Aboard enforces"]) await expect(head(name)).toHaveAttribute("aria-expanded", "false");
+
+  // Enter and Space toggle a header from the keyboard.
+  await head("Rules Aboard enforces").focus();
+  await page.keyboard.press("Enter");
+  await expect(head("Rules Aboard enforces")).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Space");
+  await expect(head("Rules Aboard enforces")).toHaveAttribute("aria-expanded", "false");
+  await head("Agents").focus();
+  await page.keyboard.press("Space");
+  await expect(panel.locator('[data-agent="writer"]')).toBeVisible();
 });
 
 test("the board panel shows the board's details and adds an agent with a prompt the CLI can join with", async ({ page, context }) => {
@@ -550,8 +617,9 @@ test("reactions show under messages, toggle as the person and follow the board l
   const thumbs = msg.locator('[data-reaction="thumbsup"]');
   await expect(thumbs).toHaveText("👍1");
   await expect(thumbs).toHaveAttribute("aria-pressed", "false");
-  await thumbs.hover();
-  await expect(page.getByRole("tooltip")).toHaveText("reviewer reacted with 👍");
+  await hoverUntil(page, thumbs, async () => {
+    await expect(page.getByRole("tooltip")).toHaveText("reviewer reacted with 👍", { timeout: 2000 });
+  });
 
   // Clicking it adds the person's own, which the CLI then reads, and clicking again takes it back.
   await thumbs.click();
@@ -1195,8 +1263,9 @@ test("the person's read position moves only with what they saw, and receipts say
   await expect(toReviewer).toHaveText("Pending");
   aboard("inbox", "--as", "reviewer", "--board", board);
   await expect(toReviewer).toHaveText("Received");
-  await toReviewer.hover();
-  await expect(page.locator(".receipt-list")).toHaveText("reviewer: received");
+  await hoverUntil(page, toReviewer, async () => {
+    await expect(page.locator(".receipt-list")).toHaveText("reviewer: received", { timeout: 2000 });
+  });
   await page.mouse.move(0, 0);
 
   // A message to the person is read once the page has shown it; one to everyone has no mark.
@@ -1522,6 +1591,7 @@ test("an archived board is read-only, groups under Archived, restores and delete
   // the group closed, and she reads the notice with no Restore, Archive or Delete.
   const raeContext = await browser.newContext();
   const raePage = await raeContext.newPage();
+  await openPanelSections(raePage);
   await raePage.goto(`${base()}/`);
   await raePage.getByLabel("Access key").fill(raeKey);
   await raePage.getByRole("button", { name: "Sign in" }).click();
@@ -2129,9 +2199,10 @@ test("a message to a person is never pending, and a mixed one is pending for its
   // Mixed: the mark speaks for the agent. The person never makes it pending, and the
   // hover lists them as unread or read.
   await expect(mark("Mixed note for you both.")).toHaveText("Pending");
-  await mark("Mixed note for you both.").hover();
-  await expect(page.locator(".receipt-list")).toContainText(/alex: (unread|read)/);
-  await expect(page.locator(".receipt-list")).toContainText("reviewer: pending");
+  await hoverUntil(page, mark("Mixed note for you both."), async () => {
+    await expect(page.locator(".receipt-list")).toContainText(/alex: (unread|read)/, { timeout: 2000 });
+    await expect(page.locator(".receipt-list")).toContainText("reviewer: pending", { timeout: 2000 });
+  });
   await page.mouse.move(0, 0);
   aboard("inbox", "--as", "reviewer", "--board", board);
   await expect(mark("Mixed note for you both.")).toHaveText("Received");
