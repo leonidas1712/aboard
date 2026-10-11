@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+// Walks the board view as each person of a running team and saves what they would
+// see, for an agent to review with the checklist in engineering/qa.md. Run with --help.
+"use strict";
+
+require("./uxreview/walk.cjs").main(process.argv.slice(2)).catch((e) => {
+  console.error(e.message);
+  process.exit(1);
+});
