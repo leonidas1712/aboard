@@ -207,7 +207,7 @@ func Run(ctx context.Context, o Options) error {
 		hosts, publicOrigin = []string{o.Team.PublicURL.Host}, o.Team.PublicURL.Origin
 	}
 	joins, connects, serverConnects := 30, 10, 60
-	if o.TestServer {
+	if o.TestServer || webTestProvisioning {
 		joins, connects, serverConnects = 10_000, 10_000, 10_000
 		o.Log.Warn("test rate limits enabled", "joins_per_minute", joins, "connects_per_minute", connects, "connects_per_minute_server", serverConnects)
 	}
