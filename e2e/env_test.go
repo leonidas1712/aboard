@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -400,14 +401,36 @@ func expectLines(t *testing.T, r result, want ...string) {
 	}
 }
 
+var givenAddrs = struct {
+	sync.Mutex
+	m map[string]bool
+}{m: map[string]bool{}}
+
 func freeAddr(t *testing.T) string {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	return freeAddrFrom(t, func() (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	})
+}
+
+// freeAddrFrom keeps issued addresses for the whole run: a fixture's server starts
+// after its listener closes, and another fixture must not claim its pending address.
+func freeAddrFrom(t *testing.T, listen func() (net.Listener, error)) string {
+	t.Helper()
+	givenAddrs.Lock()
+	defer givenAddrs.Unlock()
+	for {
+		l, err := listen()
+		if err != nil {
+			t.Fatal(err)
+		}
+		addr := l.Addr().String()
+		_ = l.Close()
+		if !givenAddrs.m[addr] {
+			givenAddrs.m[addr] = true
+			return addr
+		}
 	}
-	defer l.Close()
-	return l.Addr().String()
 }
 
 // writeProgram writes an executable file that a test then runs. A child process writes
