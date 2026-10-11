@@ -63,6 +63,14 @@ version **1**.
 
 ## Messages
 
+Codex session requests may include `codex_home`, the absolute `CODEX_HOME` used by
+that session. Hooks and commands send it when registering, joining or resuming;
+without an environment override they send the person's `~/.codex`. The daemon
+keeps it with the session across restarts and uses it for thread validation and
+queued delivery. An older client omitting it keeps a recorded home, or defaults
+to `~/.codex` when none is recorded. The daemon never uses its own inherited
+`CODEX_HOME` to find a session. This optional field is additive in protocol 1.
+
 A **request** goes from a client to the daemon. Every field but `v` and `op` is
 optional; each operation says which it reads.
 
