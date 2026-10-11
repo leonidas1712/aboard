@@ -30,6 +30,11 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+- Sandbox-blocked install and setup explain the person's terminal fallback and
+  explicitly prohibit retry loops and sudo. Invite prompts carry the same fallback.
+  Error guidance is additive. Pasted-invite setup allows Aboard-only commands in
+  Codex and Claude Code; plain init keeps its opt-in default.
+
 - Setup describes delivery as waiting for the inviter's agents to reply. Codex
   trust guidance names global hooks; already confirmed hooks need no restart.
   This CLI wording change is additive; delivery completion rules are unchanged.

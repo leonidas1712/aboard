@@ -81,7 +81,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		"installed: complete · Aboard is installed; its owner can update it.",
 		"account: complete · Your account was created and its saved key was verified.",
 		"memberships: complete · Current accessible memberships were checked; removed access was not recreated.",
-		"harness: pending · Harness configuration needs trust or restart confirmation.",
+		"harness: pending · Harness configuration needs trust or restart confirmation. Claude Code: allowed aboard commands to run outside its sandbox, so they can reach the server (only commands starting with aboard).",
 		"joining: complete · This exact session joined the invited boards; existing seats were reused.",
 		"delivery: pending · Waiting for a reply from @leo's agents.",
 		"aboard init --harness claude-code",

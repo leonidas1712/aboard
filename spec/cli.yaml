@@ -4333,7 +4333,7 @@ $defs:
       curl -fsSL https://comeaboard.dev/install | sh, then run
       aboard init --harness codex --allow-commands, restart Codex and say
       "continue Aboard setup". Sandboxed setup write-permission errors carry the
-      same handover without changing their code or the allow-commands default.
+      same handover without changing their code or plain init's allow-commands default.
       Already verified account and memberships resume without a new redemption.
       Installed harness skills apply automatically to the next session; next asks
       the current session to run aboard skill now.

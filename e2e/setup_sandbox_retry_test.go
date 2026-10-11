@@ -44,6 +44,11 @@ func TestSetupSandboxRefusalResumesTheSavedAccount(t *testing.T) {
 		} else if !strings.Contains(refused.stderr, command) || !strings.Contains(refused.stderr, "escalated permissions") {
 			t.Fatalf("text refusal lost continuation: %s", refused)
 		}
+		for _, guidance := range []string{"do not retry", "do not use sudo", "aboard init --harness codex --allow-commands", "restart Codex", "continue Aboard setup"} {
+			if !strings.Contains(refused.stdout+refused.stderr, guidance) {
+				t.Fatalf("missing person fallback %q: %s", guidance, refused)
+			}
+		}
 		if strings.Contains(refused.stdout+refused.stderr, link) {
 			t.Fatal("refusal repeated invitation secret")
 		}

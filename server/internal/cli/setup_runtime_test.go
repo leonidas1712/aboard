@@ -94,6 +94,29 @@ func TestSetupClearsHarnessActionOnlyForCurrentRuntimeConfirmation(t *testing.T)
 	}
 }
 
+func TestSetupAllowsOnlyAboardCommands(t *testing.T) {
+	for _, h := range []string{"codex", "claude-code"} {
+		t.Run(h, func(t *testing.T) {
+			e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
+			e.env["ABOARD_SESSION"] = h + ":setup-current"
+			a := e.app(&bytes.Buffer{}, &bytes.Buffer{})
+			if _, err := a.setupHarness(context.Background(), filepath.Join(e.home, "aboard")); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(e.home, ".codex", "rules", "aboard.rules")
+			want := `prefix_rule(pattern=["aboard"], decision="allow")`
+			if h == "claude-code" {
+				path = filepath.Join(e.home, ".claude", "settings.json")
+				want = "Bash(aboard *)"
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || !strings.Contains(string(data), want) {
+				t.Fatalf("setup did not install Aboard-only permission: %s: %v", data, err)
+			}
+		})
+	}
+}
+
 func TestSetupKeepsPendingHarnessAction(t *testing.T) {
 	e := lifecycleMachine(t, "https://issuer.example", "unused", agentCredential{})
 	e.env["ABOARD_SESSION"] = "claude-code:setup-current"
