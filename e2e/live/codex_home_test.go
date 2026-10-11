@@ -48,7 +48,7 @@ func TestCodexSessionHomeIgnoresTheDaemonsHome(t *testing.T) {
 		socket = fmt.Sprintf("/tmp/aboard-%d/%x.sock", os.Getuid(), sum[:8])
 	}
 	l.waitFor(15*time.Second, "the bogus-home daemon socket", func() bool {
-		conn, err := net.Dial("unix", socket)
+		conn, err := (&net.Dialer{Timeout: time.Second}).DialContext(t.Context(), "unix", socket)
 		if err != nil {
 			return false
 		}
