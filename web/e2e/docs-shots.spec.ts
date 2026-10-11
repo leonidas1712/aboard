@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openPanelSections } from "./panel-open";
 
 // The board view screenshots in the README and the docs, only when DOCS_SHOTS names a
 // folder, at 1440x900 in light and dark:
@@ -71,6 +72,10 @@ async function shot(page: Page, path: string) {
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path, animations: "disabled" });
 }
+
+test.beforeEach(async ({ page }) => {
+  await openPanelSections(page);
+});
 
 test("the board view screenshots for the README and the docs", async ({ page }) => {
   test.skip(!dir, "Set DOCS_SHOTS to a folder to take the docs' screenshots.");

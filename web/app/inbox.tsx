@@ -217,7 +217,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
         <Menu className="size-5" strokeWidth={1.75} aria-hidden />
         {boardsWaiting && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full border-2 border-surface bg-status-needs" />}
       </button>}
-      account={<Account onSignOut={onSignOut} />}
+      account={<Account onSignOut={onSignOut} onHelp={() => setKeysOpen(true)} />}
     />
     <div className="flex w-full flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[252px_minmax(280px,360px)_minmax(0,1fr)]">
       {wide ? <aside aria-label="Boards" className="quiet-scroll border-rule bg-sidebar px-5 py-4 lg:overflow-y-auto lg:border-r">{nav}</aside>

@@ -592,7 +592,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               {agentsWaiting && waitingDot}
             </button>
           )}
-          account={<Account person={s.me} admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
+          account={<Account person={s.me} admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} onHelp={() => setKeysOpen(true)} />}
         />
         <div
           className="board-columns flex min-h-0 w-full flex-1 flex-col lg:grid lg:grid-cols-[var(--columns)]"
