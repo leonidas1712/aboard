@@ -494,6 +494,9 @@ D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prom
 
 ### Board export (GEN-61)
 
+Doctor wording (GEN-44): building a text-only 0.1.5 polish, with plain capability
+descriptions and consistent missing-setup symbols. JSON levels and exit codes stay unchanged.
+
 | Feature | Status |
 | --- | --- |
 | Visible board content as Markdown or a zip with unchanged latest file bytes; one read-only renderer for the CLI and board view | API/CLI in review (#327); approved for 0.1.5; focused acceptance and security pass clear, board-view menu separate |
