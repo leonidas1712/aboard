@@ -9,11 +9,26 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## 0.1.5
 
-Codex delivery keeps working when a terminal app sets its own Codex home, the board view
-opens quieter, and the docs and site are rewritten for launch.
+Codex delivery keeps working when a terminal app sets its own Codex home, upgrading
+needs no Codex hook re-approval, `aboard status` never hangs and shows all your boards,
+the board view opens quieter, and the docs and site are rewritten for launch.
+
+### Added
+
+- `aboard status` without `--board` shows an overview of your boards: unread counts,
+  policy and your own agents on each, with where they last ran (#354).
 
 ### Changed
 
+- When an upgrade or `aboard init` changes a harness's hooks, the output names the
+  harness and the exact approval or restart step; it says nothing about harnesses whose
+  hooks did not change (#354).
+- A person command rejected as unauthorized names the server and says to sign in again
+  or switch servers. Agents keep the rejoin hint (#354).
+- An unknown `--board` fails with `board_not_found` and lists your boards (#354).
+- `aboard doctor` says how to remove a legacy `.aboard` file and drops redundant
+  local-server advice, and `aboard servers use` says which server person commands now
+  use (#354).
 - The board view's right panel starts with its sections (Agents, Charter, Rules Aboard
   enforces, Details) collapsed. Each section remembers its state in your browser once you
   toggle it, and the Agents header still shows how many agents wait on you (#343).
@@ -30,13 +45,27 @@ opens quieter, and the docs and site are rewritten for launch.
   `aboard upgrade` run from a terminal app such as Orca no longer breaks Codex delivery
   with `codex_target_absent`. Daemon starts and upgrades strip harness-specific
   settings (#346).
+- The installed Codex hook commands are byte-identical to 0.1.4's, so upgrading needs no
+  hook re-approval. A session's `CODEX_HOME` is read at runtime from the hook's
+  environment, not written into the command (#354).
+- `aboard status` never hangs. Each request waits at most 3 seconds and all reads
+  together 5 seconds; a timeout exits nonzero with `server_unreachable` and the
+  diagnostics gathered so far (#349).
 
 ### Contract changes
 
 - Control protocol 1 (`spec/control.md`) accepts optional `codex_home` on session
   requests. Hooks, CLI clients and the delivery daemon are affected. The change is
   additive: older clients keep the recorded home, falling back to `~/.codex` when none
-  exists. No API or CLI JSON shape changes (#346).
+  exists (#346).
+- `spec/cli.yaml`, all additive; CLI scripts that parse `--json` are affected only if
+  they reject unknown fields:
+  - `aboard status --json` gains `boards` in the overview without `--board` (#354), and
+    a timeout adds `error.details.status` to the error envelope (#349).
+  - `aboard init` and `aboard upgrade` setup output gains `setup.hooks_changed`, the
+    harnesses whose hooks changed; absent when none did (#354).
+  - An unknown `--board` returns `board_not_found` with `details.boards`, up to ten
+    readable board names (#354).
 
 ## 0.1.4
 
