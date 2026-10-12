@@ -62,8 +62,20 @@ aboard doctor
 
 `aboard status` stops the old local server and starts the new one, and the database is
 migrated then. The old delivery daemon stops with its server, and the new one starts in
-its place. Running sessions don't need `aboard resume`. Later releases install with
-`aboard upgrade`, which an agent may also run in its session.
+its place. When hooks stay unchanged, running sessions continue without `aboard resume`.
+Run `aboard upgrade` in a terminal when you installed with the install script.
+
+When hook content changes, init and upgrade name the affected harnesses and their next
+steps. Approve Aboard's changed hooks in `/hooks`, then resume each affected session:
+
+| Harness | Restart command |
+| --- | --- |
+| Claude Code | `claude --continue` |
+| Codex | `codex resume --last` |
+
+Doctor keeps the recovery visible for sessions still using their earlier boot.
+An unchanged init or a daemon restart does not clear it. Codex approval is checked
+separately: the warning stays until Codex reports the hooks as trusted.
 
 ## Check it worked
 

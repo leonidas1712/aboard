@@ -305,6 +305,13 @@ func leftOutNote(h harness.Harness, version string) string {
 
 // applyInit writes the planned files and sets the delivery mode.
 func (a *app) applyInit(ctx context.Context, setups []harnessSetup, mode *initDelivery) error {
+	if len(changedHookHarnesses(setups)) > 0 {
+		sessions, err := a.hookSessionBoots(ctx)
+		if err != nil {
+			return newError("hook_recovery_unavailable", "Couldn't read open sessions before changing hooks.", "Run aboard doctor, then try aboard init --yes again.")
+		}
+		a.hookReloadBefore = sessions
+	}
 	for _, s := range setups {
 		for _, c := range s.Changes {
 			if c.Action == actionUnchanged {

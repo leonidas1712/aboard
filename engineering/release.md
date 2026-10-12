@@ -123,6 +123,13 @@ hooks again whenever an entry changes. Instead:
   (`hooks_edited` or `skill_edited`; `init` marks it edited in the list it shows
   before replacing it). *Today.*
 
+- When hooks change for an open session, the install manifest keeps its session id
+  and boot as a reload checkpoint. Doctor reads the journal without migrating or
+  writing it. An unchanged init or daemon restart keeps the warning; a closed session
+  or a new session boot resolves the runtime checkpoint. Codex approval is checked
+  separately through its read-only `hooks/list` response. Neither check grants
+  approval or changes a binding.
+
 ### Removing Aboard
 
 `aboard uninstall` is the way out, and it relies on the manifest too. It stops the local

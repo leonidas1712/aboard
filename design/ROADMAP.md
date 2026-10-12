@@ -20,10 +20,11 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
-- **Building (0.1.6, GEN-68):** prove upgrades from the previous release with open
+- **Review (0.1.6, GEN-68):** prove upgrades from the previous release with open
   Claude Code and Codex sessions; keep required hook recovery visible in doctor.
+  Codex proofs pass; the Claude live leg awaits an isolated login.
 - **Merged:** bounded status diagnostics (#349).
-- **Review (#354):** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
+- **Merged (#354):** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
   guidance, a person's board overview, stale-login recovery, readable board choices,
   and doctor/default-server wording.
 - **Review (#355, 0.1.6 after the 0.1.5 tag):** durable unavailable Codex delivery

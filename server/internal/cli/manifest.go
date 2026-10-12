@@ -24,10 +24,11 @@ import (
 
 // installRecord is one file aboard init wrote.
 type installRecord struct {
-	Path    string `json:"path"`
-	Harness string `json:"harness"`
-	Scope   string `json:"scope"`
-	Kind    string `json:"kind"`
+	ReloadSessions []hookReloadSession `json:"reload_sessions,omitempty"`
+	Path           string              `json:"path"`
+	Harness        string              `json:"harness"`
+	Scope          string              `json:"scope"`
+	Kind           string              `json:"kind"`
 	// Version is the aboard that last wrote the file, and Commit the commit it was built
 	// from, when known, which tells two builds of one version apart.
 	Version string `json:"version"`
@@ -167,10 +168,19 @@ func (a *app) recordInit(setups []harnessSetup, scope string) error {
 				SHA256: contentHash(c.Kind, s.Name, c.data), Created: c.Action == actionCreate, AllowAdded: c.allowAdded,
 			}
 			if old, ok := m.find(c.Path, c.Kind); ok {
+				r.ReloadSessions = old.ReloadSessions
 				r.Created = r.Created || old.Created
 				r.AllowAdded = r.AllowAdded || old.AllowAdded
 				if old.SHA256 == r.SHA256 && old.Version != "" {
 					r.Version, r.Commit = old.Version, old.Commit
+				}
+			}
+			if c.Kind == "hooks" && c.Action != actionUnchanged {
+				r.ReloadSessions = nil
+				for _, session := range a.hookReloadBefore {
+					if session.Key.Harness == s.Name && session.Open && (scope == scopeGlobal || session.Folder == "" || sameHookDirectory(session.Folder, a.env.Dir)) {
+						r.ReloadSessions = append(r.ReloadSessions, hookReloadSession{Session: session.Key.String(), Boot: session.Boot})
+					}
 				}
 			}
 			m.put(r)

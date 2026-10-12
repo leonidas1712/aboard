@@ -73,6 +73,18 @@ Code test fails with that instruction: the suite never falls back to your own co
 
 **Settings.**
 
+**Released-binary upgrade continuity.** Before each release, run
+`ABOARD_LIVE_CANDIDATE_VERSION=<next-version> make live HARNESS=claude-code,codex RUN=TestReleasedUpgradeWithSessionsOpen`.
+The previous binary is `aboard` on the PATH, or the path in `ABOARD_LIVE_PREVIOUS`.
+It must report a release version and the commit of that version's Git tag; fetch the
+tag if necessary. The candidate is built from the checkout. Set its next release
+version when the version bump has not landed yet. The test copies the previous binary
+into each isolated lab, starts a real session, replaces the copy and refreshes setup.
+It requires unchanged trusted hook bytes, two replies acknowledged once, and daemon
+replacement without restarting the harness. A restamped build of current source is
+not accepted as the previous release. The download/signature path stays covered by
+the upgrade e2e tests and the release checklist's signing step.
+
 | Variable | Effect |
 | --- | --- |
 | `LIVE_KEEP=1` | Save artifacts for passing tests too |

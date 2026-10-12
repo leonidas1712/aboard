@@ -25,6 +25,16 @@ func TestReleasedUpgradeWithSessionsOpen(t *testing.T) {
 			d.require(t)
 			parallel(t)
 			old, version := previousRelease(t)
+			candidate := newBinary
+			if next := os.Getenv("ABOARD_LIVE_CANDIDATE_VERSION"); next != "" {
+				if !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(next) || next == version {
+					t.Fatal("ABOARD_LIVE_CANDIDATE_VERSION must name the next release, distinct from the previous release")
+				}
+				candidate = filepath.Join(t.TempDir(), "aboard")
+				if err := buildAboard(t.Context(), candidate, next); err != nil {
+					t.Fatal(err)
+				}
+			}
 			l := newLabWith(t, old)
 			d.setUp(l)
 			l.pairCLI()
@@ -46,7 +56,7 @@ func TestReleasedUpgradeWithSessionsOpen(t *testing.T) {
 				t.Fatalf("previous release server version: %q, want %q", got, version)
 			}
 			staged := l.bin + ".new"
-			copyFile(t, newBinary, staged)
+			copyFile(t, candidate, staged)
 			if err := os.Rename(staged, l.bin); err != nil {
 				t.Fatal(err)
 			}
@@ -78,9 +88,9 @@ func TestReleasedUpgradeWithSessionsOpen(t *testing.T) {
 	}
 }
 
-func previousRelease(t *testing.T) (string, string) {
+func previousRelease(t *testing.T) (path, version string) {
 	t.Helper()
-	path := os.Getenv("ABOARD_LIVE_PREVIOUS")
+	path = os.Getenv("ABOARD_LIVE_PREVIOUS")
 	if path == "" {
 		var err error
 		path, err = exec.LookPath("aboard")
