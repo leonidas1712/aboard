@@ -30,6 +30,7 @@ func TestStatusKeepsDiagnosticsWhenServerTimesOut(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			e := newEnv(t)
+			e.vars = append(e.vars, "ABOARD_E2E_STATUS_BUDGET=")
 			peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if tc.infoAnswers && r.URL.Path == "/v1/info" {
 					w.Header().Set("Content-Type", "application/json")
