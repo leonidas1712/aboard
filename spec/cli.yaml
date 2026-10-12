@@ -121,7 +121,10 @@
 # - Board for agent commands (say, inbox, read, react, task, ask, working, paused, file, brief; a task reference also names its board among the session's seats): the board of the agent they act as.
 #   Board for person board commands: --board, otherwise the selected issuer's only
 #   readable active board; none returns board_not_selected, several return
-#   board_ambiguous with readable choices.
+#   board_ambiguous with readable choices. An explicit unreadable board name
+#   returns board_not_found with the first ten sorted readable active names in
+#   details.boards and the hint. Board ids keep existing server-side authorization
+#   for lifecycle/admin operations.
 #   A read never joins a board to make this selection work. open without --board
 #   opens the board list; server-wide commands need no board.
 # - D223 server selection: explicit --server NAME|URL, otherwise servers.json's
@@ -1424,7 +1427,7 @@ $defs:
       fails with server_unknown, whose details.choices lists the ones it does; nothing
       changes. It never moves an agent: sessions stay on the boards they joined, and a
       explicit --server still chooses its issuer. Folder links are ignored. Text output:
-        The default server is now https://team.example.com: person commands act on it unless --server selects another.
+        Person commands now use https://team.example.com by default.
     type: object
     required: [server, previous]
     properties:
@@ -2346,7 +2349,7 @@ $defs:
       check reads no login and does not start the server.
       A regular legacy .aboard link file produces a warning check named
       legacy_folder_link with code legacy_folder_link. Its text says the old link
-      is ignored and can be deleted; its fix names servers use and --board.
+      is ignored and can be deleted; its fix says "Delete it: rm -rf <path>".
       A ~/.aboard state directory produces no legacy_folder_link finding. The
       check neither parses the directory nor follows a symlink. Running doctor
       or person commands from the home directory never treats state as a link file.
