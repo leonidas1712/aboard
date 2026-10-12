@@ -12,7 +12,9 @@ n="$2"
 times="$(dirname "$0")/../e2e/testdata/test-seconds.txt"
 awk -v times="$times" '
 	BEGIN { while ((getline line < times) > 0) { split(line, f, " "); secs[f[1]] = f[2] } }
-	/^Test/ { name[++count] = $1; w[count] = ($1 in secs) ? secs[$1] : 5 }
+	# Each test also costs about 3 seconds that its own time leaves out (starting
+	# servers while the others run), so a shard of many short tests is not overloaded.
+	/^Test/ { name[++count] = $1; w[count] = 3 + (($1 in secs) ? secs[$1] : 5) }
 	END { for (k = 1; k <= count; k++) printf "%s %s\n", w[k], name[k] }
 ' | sort -k1,1nr -k2,2 | awk -v i="$i" -v n="$n" '
 	{
