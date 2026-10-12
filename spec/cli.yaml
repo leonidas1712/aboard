@@ -407,6 +407,7 @@ $defs:
     type: object
     required: [server, board, name, member_id, role, delivery, unread]
     properties:
+      delivery_warning: { $ref: openapi.yaml#/components/schemas/DeliveryWarning }
       server: { type: string }
       board: { type: string }
       name: { type: string }
@@ -2577,6 +2578,9 @@ $defs:
                   id: { type: string }
                   name: { type: string }
                   location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
+      delivery_warning:
+        $ref: openapi.yaml#/components/schemas/DeliveryWarning
+        description: Optional delivery diagnostic reported for the selected seat.
       queued:
         $ref: "#/$defs/QueuedMessages"
       server: { $ref: "#/$defs/ServerRef" }
@@ -4511,3 +4515,12 @@ $defs:
 # setup --handle wins. Prompts name the hint, and text displays @NAME when present.
 # people and invite list accept the exact current active non-guest seat, on its issuer,
 # never a person credential fallback. Invite revoke and other mutations retain their gates.
+
+# Codex unavailable delivery diagnostics: hooks and join/resume check the real parent
+# arguments and session-home control socket. Doctor prints one warning per known
+# affected seat; status and the board agent row show the same last-reported diagnostic.
+# Text: "Codex is running with --no-daemon, so Aboard can't deliver to it. Restart
+# Codex without --no-daemon." With an ORCA_ environment marker, also: "Orca adds
+# --no-daemon; set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc (or run command codex),
+# then restart Codex." codex_target_absent hints name --no-daemon or a CODEX_HOME
+# mismatch and aboard doctor, instead of merely asking to reopen the thread.
