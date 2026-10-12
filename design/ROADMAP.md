@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Merged (#365, 0.1.5):** pre-tag CLI QA: bare join codes follow the saved server
+  default; status overview names its server once with one starter-policy hint.
+
 - **Review:** status reports recovered startup probes as healthy while retaining
   failures from final diagnostic reads and the overall five-second deadline.
 

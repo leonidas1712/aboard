@@ -51,6 +51,14 @@ func TestPersonStatusShowsBoardsAndOnlyOwnLocations(t *testing.T) {
 				t.Fatalf("missing own location: %v", out)
 			}
 		} else {
+			if strings.Count(got.stdout, "Server:") != 1 ||
+				!strings.Contains(got.stdout, "Server: local ("+tm.admin.addr+") running") {
+				t.Errorf("overview must name its server once: %s", got)
+			}
+			if strings.Count(got.stdout, "policy starter") != 2 ||
+				strings.Count(got.stdout, "tighten with aboard board policy recommended") != 1 {
+				t.Errorf("overview must retain badges and share its starter hint: %s", got)
+			}
 			for _, want := range []string{"Server:", "Daemon:", "Setup:", first, second, "unread", folder, "starter"} {
 				if !strings.Contains(got.stdout, want) {
 					t.Errorf("missing %q: %s", want, got)
@@ -66,6 +74,24 @@ func TestPersonStatusShowsBoardsAndOnlyOwnLocations(t *testing.T) {
 	unbound := session.run("status", "--json").json(t)
 	if unbound["boards"] != nil {
 		t.Fatalf("unbound session used person login: %v", unbound)
+	}
+}
+
+func TestPersonOverviewNamesItsDefaultServerOnce(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	person := tm.person("sam")
+	person.run("up")
+	person.run("servers", "name", tm.url(), "qa")
+	person.run("servers", "use", "qa")
+	person.run("board", "new", "first")
+	person.run("board", "new", "second")
+	text := person.run("status").stdout
+	if strings.Count(text, "Server:") != 1 || !strings.Contains(text, "Server: qa ("+tm.admin.addr+") reachable") {
+		t.Fatalf("overview must name its default server once: %s", text)
+	}
+	if strings.Count(text, "policy starter") != 2 || strings.Count(text, "tighten with aboard board policy recommended") != 1 {
+		t.Fatalf("overview lost badges or repeated its starter hint: %s", text)
 	}
 }
 

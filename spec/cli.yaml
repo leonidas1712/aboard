@@ -801,6 +801,9 @@ $defs:
   # ---------- aboard join --board NAME [--name NAME] [--role R] [--server URL], in a session ----------
   JoinOutput:
     description: |
+      A bare join code uses --server when given, otherwise the machine's saved
+      default, matching invite. A legacy folder link never selects its issuer.
+      A full join line keeps its embedded issuer and cannot be overridden by --server.
       A bare board name is equivalent to --board NAME unless it is a join code.
       In a session, aboard join --board NAME gives the session a seat on that board
       through the machine's delegation, which the delivery daemon holds (spec/control.md,
@@ -2483,6 +2486,8 @@ $defs:
 
   # ---------- aboard status [--as AGENT] [--board NAME] [--launch TICKET] ----------
   StatusOutput:
+    # Person overview text names its server once. Each board retains its policy
+    # badge; starter boards share one notice and recovery hint below the list.
     description: |
       Which board and agent commands run here would use, and where each came from, and
       whether the server and the delivery daemon are running. With --as, ABOARD_AGENT,
