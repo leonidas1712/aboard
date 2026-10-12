@@ -25,7 +25,7 @@ listed at the end, with the pull request that merged it.
   The board agent-row warning follows in 0.1.6.
 
 - **Merged (#349):** bounded status diagnostics.
-- **Review (#354):** stable Codex hooks and approval guidance, person board overview,
+- **Merged (#354):** stable Codex hooks and approval guidance, person board overview,
   stale-login recovery, readable board choices, and doctor/default-server wording.
 
 - **Merged (#346):** keep each Codex session's home across delivery daemon restarts;
