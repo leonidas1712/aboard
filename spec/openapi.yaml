@@ -3682,16 +3682,20 @@ paths:
         a guest remains confined to its board. Hidden boards return board_not_found.
         This read never advances a cursor, acknowledges a message or appends an event.
 
-        Markdown includes a header (board name and title, server, export time and
-        acting person or agent), the brief, tasks grouped as Done, In progress and
-        Open, asks with their choices and visible answers, the timeline, and a files
-        index. Cancelled tasks appear under Done with their state labelled. Tasks
-        include their owner, helpers and Where it stands notes. Messages include
-        sender and owner, time, body, reactions and attachment names and versions.
-        Roots appear in sequence order with visible replies nested under their root;
-        a reply whose root is hidden appears alone, without the hidden root's metadata.
-        Hidden payloads are omitted; a generic note explains that the export contains
-        only visible content, without naming hidden members, messages or files.
+        Markdown is written for a person to read. It includes a header (board name and
+        title, then one sentence naming the acting person or agent, the board, the export
+        time and the server), the brief, tasks grouped as In progress, Open and Done,
+        asks with their choices and visible answers, the timeline, and a files index.
+        Times read like 2026-10-12 17:46 UTC and states are in words (in progress, done).
+        An empty section says None. Cancelled tasks appear under Done with their state
+        labelled. Tasks include their owner, helpers and Where it stands notes. Messages
+        include sender and owner, who they went to, task tags, time, body, reactions and
+        attachment names and versions. Message numbers are board sequence numbers; board
+        events are not listed, and a note says so. Roots appear in sequence order with
+        visible replies nested under their root; a reply whose root is hidden appears
+        alone, without the hidden root's metadata. Hidden payloads are omitted; the
+        header says the export holds what the caller can read, without naming hidden
+        members, messages or files.
 
         The zip contains board.md (the same complete document), tasks.md, timeline.md,
         the current brief.md or brief.html if present, and files/<board path> with each
@@ -3702,8 +3706,10 @@ paths:
         locations or private control metadata are included. Uploaded file bytes are
         never redacted or rewritten.
 
+        A Markdown brief, message bodies and task notes are rendered as Markdown, with
+        their headings moved below the document's own and an unclosed code fence closed.
         HTML in rendered text is escaped; an HTML brief is escaped source in a fenced
-        code block, never executed. For fixed content and export metadata, section,
+        code block, never executed. Zip entries are dated at the export time. For fixed content and export metadata, section,
         item and archive-entry ordering is deterministic. The export is a read of the
         current board, not an atomic historical snapshot or a hash-chain backup.
       parameters:
