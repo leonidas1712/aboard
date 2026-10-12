@@ -248,15 +248,20 @@ func TestInitAsksToTrustOnlyChangedHooks(t *testing.T) {
 	e := newEnv(t)
 	e.harnessHome()
 	const both = "Done. Claude Code and Codex ask you to trust new hooks before they run: review them in /hooks in each."
-	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, both+"\n") {
+	const claudeStep = "Claude Code: Aboard's hooks changed. In each open Claude Code session, approve them in /hooks, then restart (claude --continue)."
+	const codexStep = "Codex: Aboard's hooks changed. In each open Codex session, approve them in /hooks, then restart (codex resume --last)."
+	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, both+"\n"+claudeStep+"\n"+codexStep+"\n") {
 		t.Fatalf("first init:\n%s", out)
+	}
+	if out := e.run("init", "--yes").stdout; strings.Contains(out, "hooks changed") || strings.Contains(out, "approve") || strings.Contains(out, "trust") {
+		t.Fatalf("unchanged init asked for hook approval:\n%s", out)
 	}
 
 	skill := filepath.Join(e.home, ".claude", "skills", "aboard", "SKILL.md")
 	if err := os.WriteFile(skill, []byte(readFile(t, skill)+"\nAn older paragraph.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, "\nDone.\n") || strings.Contains(out, "trust") {
+	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, "\nDone.\n") || strings.Contains(out, "trust") || strings.Contains(out, "hooks changed") || strings.Contains(out, "approve") {
 		t.Fatalf("init that rewrote only the skill:\n%s", out)
 	}
 
@@ -266,7 +271,7 @@ func TestInitAsksToTrustOnlyChangedHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	const codex = "Done. Codex asks you to trust new hooks before they run: review them in /hooks."
-	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, codex+"\n") {
+	if out := e.run("init", "--yes").stdout; !strings.HasSuffix(out, codex+"\n"+codexStep+"\n") || strings.Contains(out, claudeStep) {
 		t.Fatalf("init that updated only Codex's hooks:\n%s", out)
 	}
 }
