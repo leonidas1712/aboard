@@ -37,10 +37,18 @@ func (a *app) client(ctx context.Context, srv serverRef, token string, timeout t
 // newClient returns an API client like client, without checking the server's build.
 func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*client, error) {
 	rnd := a.env.Rand
+	if a.statusReads != nil {
+		timeout = min(timeout, 3*time.Second)
+	}
+	httpClient := &http.Client{Timeout: timeout, Transport: &outdatedServer{
+		base: http.DefaultTransport, srv: srv, local: srv.URL == a.localServer().URL,
+	}, CheckRedirect: noRedirects}
+	var doer api.HttpRequestDoer = httpClient
+	if a.statusReads != nil {
+		doer = &statusHTTPClient{client: httpClient, reads: a.statusReads, server: srv.URL}
+	}
 	c, err := api.NewClientWithResponses(srv.URL,
-		api.WithHTTPClient(&http.Client{Timeout: timeout, Transport: &outdatedServer{
-			base: http.DefaultTransport, srv: srv, local: srv.URL == a.localServer().URL,
-		}, CheckRedirect: noRedirects}),
+		api.WithHTTPClient(doer),
 		api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			req.Header.Set("User-Agent", "aboard/"+version)
 			if token != "" {

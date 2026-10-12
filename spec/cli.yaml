@@ -2480,7 +2480,8 @@ $defs:
       diagnostics without starting a server or reading a login. A selected stopped
       server remains diagnostic-only. A terminal with no agent selected uses its own
       login only when the selected server is reachable.
-      Network and daemon reads share a five-second status budget. A timed-out request
+      Each HTTP request has at most three seconds; network and daemon reads share a
+      five-second status budget. A timed-out request
       returns server_unreachable and a nonzero exit code. Text prints the diagnostics
       already collected plus "could not reach <server>: <reason>". With --json, the
       existing error envelope includes those diagnostics as error.details.status

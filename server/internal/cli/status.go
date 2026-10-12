@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -21,7 +23,7 @@ const (
 
 // runStatus prints which board and agent commands run here would use, and where each
 // came from. It is the one place, besides selection errors, that shows the sources.
-func runStatus(ctx context.Context, a *app, args []string) error {
+func runStatus(ctx context.Context, a *app, args []string) (result error) {
 	use := usageOf("status")
 	fs := a.flags("status")
 	as := fs.String("as", "", "the agent to check")
@@ -29,22 +31,6 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 	launch := fs.String("launch", "", "the launch ticket from the session's first prompt")
 	if _, err := a.parse(fs, args, use, 0, 0); err != nil {
 		return err
-	}
-	if *launch != "" {
-		if !launchtickets.Valid(*launch) {
-			return usageError(fmt.Sprintf("%q is not a launch ticket: one is lch_ and 24 hex digits.", *launch), use)
-		}
-		// The session's first prompt (Codex's, from aboard swarm up) gave the ticket:
-		// hand it in so this session takes its seat, unless its prompt hook already has.
-		a.claimTicket(ctx, *launch)
-	}
-	// Like any command that uses them, status first replaces a local server or daemon
-	// from an older build, so what it reports is what the next command will use.
-	if err := a.replaceOutdatedLocal(ctx); err != nil {
-		return err
-	}
-	if p, err := a.paths(); err == nil {
-		a.replaceOutdatedDaemon(ctx, p)
 	}
 	out := struct {
 		Server         serverRef    `json:"server"`
@@ -80,8 +66,50 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		Added  []addedNotice            `json:"added,omitempty"`
 		Queued *delivery.QueuedMessages `json:"queued,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	a.statusReads = &statusReads{timeouts: map[string]string{}}
+	var statusText string
 	var setupLine string
+	defer func() {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && len(a.statusReads.timeouts) == 0 {
+			a.statusReads.timeouts[out.Server.URL] = "status exceeded its five-second budget"
+		}
+		if failure := a.statusReads.failure(); failure != nil {
+			failure.Details = map[string]any{"status": out}
+			result = failure
+			if statusText == "" {
+				var text strings.Builder
+				a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, out.Server)
+				text.WriteString(setupLine)
+				statusText = text.String()
+				failure.Details["status"] = out
+			}
+			if !a.json {
+				a.emit(out, styleStatus(statusText, a.out()))
+			}
+		} else if result == nil {
+			a.emit(out, styleStatus(statusText, a.out()))
+		}
+	}()
 	out.Setup, setupLine = a.setupStatus()
+	if *launch != "" {
+		if !launchtickets.Valid(*launch) {
+			return usageError(fmt.Sprintf("%q is not a launch ticket: one is lch_ and 24 hex digits.", *launch), use)
+		}
+		// The session's first prompt (Codex's, from aboard swarm up) gave the ticket:
+		// hand it in so this session takes its seat, unless its prompt hook already has.
+		a.claimTicket(ctx, *launch)
+	}
+	// Like any command that uses them, status first replaces a local server or daemon
+	// from an older build, so what it reports is what the next command will use.
+	if err := a.replaceOutdatedLocal(ctx); err != nil {
+		return err
+	}
+	if p, err := a.paths(); err == nil {
+		a.replaceOutdatedDaemon(ctx, p)
+	}
+	out.ServerReplaced = a.localReplaced
 
 	creds, err := a.readCredentials()
 	if err != nil {
@@ -127,7 +155,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 					text.WriteString(seats)
 					out.Queued = a.statusQueued(ctx, "", "")
 					text.WriteString(queuedText(out.Queued))
-					a.emit(out, styleStatus(text.String(), a.out()))
+					statusText = text.String()
 					return nil
 				}
 			}
@@ -181,7 +209,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		text.WriteString(subLine)
 		out.Added = a.addedAround(ctx, out.Server, *as)
 		text.WriteString(addedText(out.Added))
-		a.emit(out, styleStatus(text.String(), a.out()))
+		statusText = text.String()
 		return nil
 	}
 	out.Server, out.Board, out.BoardSource = t.server, &t.board, t.source
@@ -291,7 +319,7 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 		out.Queued = a.statusQueued(ctx, selectedCred.Server, selectedCred.MemberID)
 		text.WriteString(queuedText(out.Queued))
 	}
-	a.emit(out, styleStatus(text.String(), a.out()))
+	statusText = text.String()
 	return nil
 }
 
