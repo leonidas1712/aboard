@@ -45,10 +45,10 @@ func (h *Harness) InstalledChecks(ctx context.Context, _ harness.Env) ([]harness
 	if !cx.HasQueue(ctx) {
 		return []harness.CheckResult{{
 			Name: "codex", Level: harness.LevelError, Code: "codex_queue_missing",
-			Message: ver + ": no queue command, so messages can't be delivered to Codex", Fix: "update Codex",
+			Message: "Codex " + harness.VersionNumber(ver) + " can't receive Aboard messages", Fix: "update Codex",
 		}}, false
 	}
-	return []harness.CheckResult{{Name: "codex", Level: harness.LevelOK, Message: ver + ": queue available"}}, true
+	return []harness.CheckResult{{Name: "codex", Level: harness.LevelOK, Message: "Codex " + harness.VersionNumber(ver) + " found; it can receive Aboard messages"}}, true
 }
 
 // Adapter queues bundles with `codex queue`.

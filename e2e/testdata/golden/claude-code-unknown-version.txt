@@ -150,28 +150,28 @@ Setup:  claude-code everywhere
     "code": "claude_version_unknown",
     "fix": "check that claude --version prints Claude Code's version, then run aboard init",
     "level": "warning",
-    "message": "claude-code: couldn't read Claude Code's version, so aboard init left out Aboard's Stop and PreToolUse hooks, which older versions don't run; without them, an idle session doesn't wake for new messages and a subagent's aboard commands act as your agent",
+    "message": "claude-code: couldn't read Claude Code's version; full Aboard support couldn't be enabled, so an idle session doesn't wake for new messages and a subagent's aboard commands act as your agent",
     "name": "claude_version"
   },
   {
     "code": null,
     "fix": null,
     "level": "ok",
-    "message": "codex-cli 0.159.3: queue available",
+    "message": "Codex 0.159.3 found; it can receive Aboard messages",
     "name": "codex"
   },
   {
     "code": "codex_hooks_missing",
     "fix": "run aboard init",
     "level": "warning",
-    "message": "codex: hooks not installed (SessionStart, UserPromptSubmit, Stop, PreToolUse, SessionEnd), so your messages wait for the end of a turn",
+    "message": "codex: Aboard isn't set up, so your messages wait for the end of a turn",
     "name": "codex_hooks"
   },
   {
     "code": "codex_hooks_unsupported",
     "fix": "update Codex to 0.160.0 or later, then run aboard init",
     "level": "warning",
-    "message": "codex: Codex 0.159.3 doesn't run Aboard's Stop and PostToolUse hooks, so turn-end delivery uses the harness queue and older versions use the pre-tool hook",
+    "message": "codex: Codex 0.159.3 needs an update for full Aboard support, so messages after a turn ends use Codex's built-in delivery and messages during a turn arrive before the next tool runs",
     "name": "codex_version"
   },
   {

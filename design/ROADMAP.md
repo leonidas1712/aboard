@@ -494,7 +494,7 @@ D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prom
 
 ### Board export (GEN-61)
 
-Doctor wording (GEN-44): building a text-only 0.1.5 polish, with plain capability
+Doctor wording (GEN-44): merged for 0.1.5, with plain capability
 descriptions and consistent missing-setup symbols. JSON levels and exit codes stay unchanged.
 
 | Feature | Status |
