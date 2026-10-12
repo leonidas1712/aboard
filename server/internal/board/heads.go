@@ -363,7 +363,7 @@ func (f *HeadFeed) readBoards(ctx context.Context, selected []string, fields hea
 			if !ok {
 				was = Presence{State: PresenceNoSession}
 			}
-			if known && (was.State != now.State || was.Delivery != now.Delivery) {
+			if known && (was.State != now.State || was.Delivery != now.Delivery || was.DeliveryWarning != now.DeliveryWarning) {
 				u.Presence = append(u.Presence, PresenceChange{BoardID: id, Board: names[id], Agent: agent, MemberID: seats[id][agent], Presence: now})
 			}
 		}

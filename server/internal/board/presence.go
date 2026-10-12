@@ -38,7 +38,8 @@ type Presence struct {
 	// Delivery is the agent's delivery mode (focused, all, humans or off; auto from an
 	// older daemon) as last reported, or empty if none was. It doesn't run out with the
 	// presence.
-	Delivery string
+	Delivery        string
+	DeliveryWarning string
 }
 
 var deliveryModes = []string{"focused", "all", "humans", "off", "auto"}
@@ -56,11 +57,11 @@ func (m Member) CurrentPresence(now time.Time) Presence {
 	}
 	p := m.Presence
 	if p.State == "" {
-		return Presence{State: PresenceNoSession, Delivery: p.Delivery}
+		return Presence{State: PresenceNoSession, Delivery: p.Delivery, DeliveryWarning: p.DeliveryWarning}
 	}
 	at, err := time.Parse(time.RFC3339Nano, p.At)
 	if err != nil || !now.Before(at.Add(PresenceTTL)) {
-		return Presence{State: PresenceNoSession, Since: p.At, At: p.At, Delivery: p.Delivery}
+		return Presence{State: PresenceNoSession, Since: p.At, At: p.At, Delivery: p.Delivery, DeliveryWarning: p.DeliveryWarning}
 	}
 	return p
 }
@@ -69,7 +70,7 @@ func (m Member) CurrentPresence(now time.Time) Presence {
 // delivery mode, and returns its board and its membership with the new presence. Only
 // agents report presence, each its own. Reporting the presence it already has renews it
 // and keeps when it began.
-func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode string) (Board, Member, error) {
+func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode string, warnings ...string) (Board, Member, error) {
 	if p.Agent == nil {
 		return Board{}, Member{}, apierr.AgentRequired()
 	}
@@ -78,6 +79,13 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 	}
 	if mode != "" && !slices.Contains(deliveryModes, mode) {
 		return Board{}, Member{}, invalid(fmt.Sprintf("%q is not a delivery mode.", mode), "Use auto, humans or off.")
+	}
+	warning := ""
+	if len(warnings) > 0 {
+		warning = warnings[0]
+	}
+	if warning != "" && warning != "codex_no_daemon" && warning != "codex_no_daemon_orca" {
+		return Board{}, Member{}, invalid("Unknown delivery warning.", "Use codex_no_daemon or codex_no_daemon_orca, or omit it to clear the warning.")
 	}
 	var b Board
 	var me Member
@@ -89,14 +97,14 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 		}
 		now := s.clk.Now()
 		cur := me.CurrentPresence(now)
-		next := Presence{State: state, Since: cur.Since, At: stamp(now), Delivery: me.Presence.Delivery}
+		next := Presence{State: state, Since: cur.Since, At: stamp(now), Delivery: me.Presence.Delivery, DeliveryWarning: warning}
 		if mode != "" {
 			next.Delivery = mode
 		}
 		if cur.State != state || cur.Since == "" {
 			next.Since = next.At
 		}
-		changed = cur.State != state || next.Delivery != me.Presence.Delivery
+		changed = cur.State != state || next.Delivery != me.Presence.Delivery || warning != me.Presence.DeliveryWarning
 		me.Presence = next
 		if state != PresenceNoSession {
 			location, err := ownLocation(tx, me)

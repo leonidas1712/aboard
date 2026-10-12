@@ -169,6 +169,8 @@ An agent's delivery mode, as its person set it, is a read model of its
 `agent.delivery_changed` events: the `after` of the latest, and that event's `seq` as the
 mode's revision; an agent with none is `focused` at revision 0. The mode its delivery
 daemon reports applying is bookkeeping, like presence, and never an event.
+The optional `delivery_warning` reported with presence is bookkeeping too. Its change
+is a presence stream update, never a board log event or an authority change.
 
 A reaction is not a message: it takes the next `seq` like every event, but it never
 reaches an inbox, never counts as unread and never wakes an agent. Its `data` is

@@ -380,20 +380,20 @@ func (t *tx) boards(query string, args ...any) ([]board.Board, error) {
 
 const (
 	memberInsertColumns = "id, board_id, name, kind, role, human_id, owner, harness, token_digest, key_id, access, status, cursor, joined_at, session"
-	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human'), midturn_policy"
+	memberColumns       = memberInsertColumns + ", presence, presence_since, presence_at, delivery, delivery_setting, delivery_setting_seq, (SELECT role FROM humans WHERE humans.id = members.human_id), removed_at, removed_by, current_task_id, (SELECT ref FROM tasks WHERE tasks.id = members.current_task_id), (SELECT title FROM tasks WHERE tasks.id = members.current_task_id), (SELECT display_name FROM humans WHERE humans.id = members.human_id AND members.kind = 'human'), midturn_policy, delivery_warning"
 )
 
 func scanMember(row interface{ Scan(...any) error }) (board.Member, error) {
 	var m board.Member
 	var taskID, taskRef, taskTitle sql.NullString
-	var access, presence, since, at, mode, setting sql.NullString
+	var access, presence, since, at, mode, setting, warning sql.NullString
 	err := row.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.Role, &m.HumanID, &m.Owner, &m.Harness, &m.TokenDigest, &m.KeyID, &access, &m.Status, &m.Cursor, &m.JoinedAt,
-		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName, &m.MidturnOverride)
+		&m.Session, &presence, &since, &at, &mode, &setting, &m.Delivery.Seq, &m.PersonRole, &m.RemovedAt, &m.RemovedBy, &taskID, &taskRef, &taskTitle, &m.DisplayName, &m.MidturnOverride, &warning)
 	if taskID.Valid {
 		m.CurrentTask = &board.TaskRef{ID: taskID.String, Ref: taskRef.String, Title: taskTitle.String}
 	}
 	m.Access = access.String
-	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String}
+	m.Presence = board.Presence{State: presence.String, Since: since.String, At: at.String, Delivery: mode.String, DeliveryWarning: warning.String}
 	m.Delivery.Mode = setting.String
 	if m.Kind == "agent" && m.Status == board.StatusLeft && m.RemovedAt != nil && m.RemovedBy == nil {
 		// An agent that left is stored without removed_by, whose column predates the value.
@@ -414,8 +414,8 @@ func (t *tx) SetDelivery(memberID string, d board.DeliverySetting) error {
 // SetPresence records an agent's presence, when it began and when it was reported, and
 // its delivery mode.
 func (t *tx) SetPresence(memberID string, p board.Presence) error {
-	return t.exec("UPDATE members SET presence = ?, presence_since = ?, presence_at = ?, delivery = ? WHERE id = ?",
-		p.State, p.Since, p.At, sql.NullString{String: p.Delivery, Valid: p.Delivery != ""}, memberID)
+	return t.exec("UPDATE members SET presence = ?, presence_since = ?, presence_at = ?, delivery = ?, delivery_warning = ? WHERE id = ?",
+		p.State, p.Since, p.At, sql.NullString{String: p.Delivery, Valid: p.Delivery != ""}, sql.NullString{String: p.DeliveryWarning, Valid: p.DeliveryWarning != ""}, memberID)
 }
 
 // InsertMember adds a member.
@@ -479,7 +479,7 @@ func (t *tx) StreamBoard(boardID string) (board.Board, error) {
 func (t *tx) StreamMembers(boardID string) ([]board.Member, error) {
 	rows, err := t.tx.QueryContext(t.ctx, `SELECT id, board_id, name, kind, human_id,
 		status, cursor, COALESCE(presence, ''), COALESCE(presence_since, ''),
-		COALESCE(presence_at, ''), COALESCE(delivery, '')
+		COALESCE(presence_at, ''), COALESCE(delivery, ''), COALESCE(delivery_warning, '')
 		FROM members WHERE board_id = ? ORDER BY rowid`, boardID)
 	if err != nil {
 		return nil, err
@@ -490,7 +490,7 @@ func (t *tx) StreamMembers(boardID string) ([]board.Member, error) {
 		var m board.Member
 		if err := rows.Scan(&m.ID, &m.BoardID, &m.Name, &m.Kind, &m.HumanID,
 			&m.Status, &m.Cursor, &m.Presence.State, &m.Presence.Since,
-			&m.Presence.At, &m.Presence.Delivery); err != nil {
+			&m.Presence.At, &m.Presence.Delivery, &m.Presence.DeliveryWarning); err != nil {
 			return nil, err
 		}
 		out = append(out, m)

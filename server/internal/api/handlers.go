@@ -198,7 +198,7 @@ func (h *handlers) ListMembers(ctx context.Context, req ListMembersRequestObject
 		}
 		if m.Status != board.StatusActive {
 			w.RemovedAt, w.RemovedBy = m.RemovedAt, m.RemovedBy
-			w.Presence, w.PresenceSince = nil, nil
+			w.Presence, w.PresenceSince, w.DeliveryWarning = nil, nil, nil
 		}
 		out.Members = append(out.Members, w)
 	}
@@ -454,13 +454,21 @@ func (h *handlers) SetPresence(ctx context.Context, req SetPresenceRequestObject
 	if req.Body.Delivery != nil {
 		mode = string(*req.Body.Delivery)
 	}
-	b, me, err := h.svc.SetPresence(ctx, principal(ctx), string(req.Body.Presence), mode)
+	warning := ""
+	if req.Body.DeliveryWarning != nil {
+		warning = string(*req.Body.DeliveryWarning)
+	}
+	b, me, err := h.svc.SetPresence(ctx, principal(ctx), string(req.Body.Presence), mode, warning)
 	if err != nil {
 		return nil, err
 	}
-	return convert[SetPresence200JSONResponse](map[string]string{
+	out := map[string]string{
 		"board": b.Name, "agent": me.Name, "presence": me.Presence.State, "presence_since": me.Presence.Since,
-	})
+	}
+	if warning != "" {
+		out["delivery_warning"] = warning
+	}
+	return convert[SetPresence200JSONResponse](out)
 }
 
 func (h *handlers) ListEvents(ctx context.Context, req ListEventsRequestObject) (ListEventsResponseObject, error) {

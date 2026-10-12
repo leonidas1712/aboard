@@ -20,12 +20,13 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
-- **Merged:** bounded status diagnostics (#349).
-- **Review:** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
-  guidance, a person's board overview, stale-login recovery, readable board choices,
-  and doctor/default-server wording.
-- **Building:** unavailable Codex delivery warnings in doctor and status. The board
-  agent-row warning follows in 0.1.6.
+- **Review:** unavailable Codex delivery diagnostics in presence, doctor and status;
+  detect --no-daemon and session-home socket absence without weakening validation.
+  The board agent-row warning follows in 0.1.6.
+
+- **Merged (#349):** bounded status diagnostics.
+- **Review (#354):** stable Codex hooks and approval guidance, person board overview,
+  stale-login recovery, readable board choices, and doctor/default-server wording.
 
 - **Merged (#346):** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
