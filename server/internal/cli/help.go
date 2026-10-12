@@ -619,6 +619,7 @@ func helpText(templates string) []commandHelp {
 				"which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, " +
 				"and the board's policy. With --as, ABOARD_AGENT or a bound session, it reads metadata with that seat's token, never your login. " +
 				"An unknown named agent refuses; a session with no seat shows local diagnostics without reading board metadata.\n\n" +
+				"In a person’s terminal with several active boards, it lists those boards, unread counts and your own agents’ last reported locations. Use --board to check one board.\n\n" +
 				"It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.\n\n" +
 				"Reads share a five-second budget. A timeout prints known diagnostics and exits with an error; --json keeps them in error.details.status.\n\n" +
 				"A session aboard swarm up starts with its launch ticket in its first prompt (Codex) is asked to run it with --launch, " +

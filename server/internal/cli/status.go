@@ -65,6 +65,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		// Added are the boards the person was added to that are still new to them.
 		Added  []addedNotice            `json:"added,omitempty"`
 		Queued *delivery.QueuedMessages `json:"queued,omitempty"`
+		Boards []statusBoard            `json:"boards,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -187,6 +188,19 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		out.Server = srv
 		if a.serverAnswers(ctx, srv) {
 			t, err = a.humanBoard(ctx, *boardFlag)
+			if err != nil && asError(err).Code == "board_ambiguous" && *boardFlag == "" {
+				out.Boards, out.Added, err = a.personStatusBoards(ctx, srv)
+				if err != nil {
+					return err
+				}
+				var text strings.Builder
+				a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, srv)
+				text.WriteString(setupLine)
+				text.WriteString(statusBoardsText(out.Boards))
+				text.WriteString(addedText(out.Added))
+				a.emit(out, styleStatus(text.String(), a.out()))
+				return nil
+			}
 		} else {
 			err = newError("board_not_selected", "The server is not running.", "Run aboard up.")
 		}
