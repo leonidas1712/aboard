@@ -81,6 +81,20 @@ test("Copy as Markdown puts the server's document on the clipboard and says so",
   expect(queries).toEqual(["?format=md"]);
 });
 
+test("the finder's Copy as Markdown does what the menu item does", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await openBoard(page, "export-finder");
+  await page.route("**/v1/boards/export-finder/export*", (route) =>
+    route.fulfill({ status: 200, contentType: "text/markdown; charset=utf-8", headers: { "Cache-Control": "no-store" }, body: markdown }),
+  );
+  await page.keyboard.press("ControlOrMeta+k");
+  const field = page.getByRole("dialog", { name: "Find or do anything" }).getByRole("combobox");
+  await field.fill("copy markdown");
+  await field.press("Enter");
+  await expect(page.getByRole("status").filter({ hasText: "Copied" })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(markdown);
+});
+
 test("Download .md saves under the server's filename", async ({ page }) => {
   await openBoard(page, "export-md");
   await page.route("**/v1/boards/export-md/export*", (route) =>
