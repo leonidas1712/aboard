@@ -222,7 +222,7 @@ func runServersUse(a *app, name string) error {
 		return err
 	}
 	a.emit(map[string]any{"server": chosen.ref(), "previous": before},
-		fmt.Sprintf("The default server is now %s: person commands outside a linked folder act on it.\n", chosen.URL))
+		fmt.Sprintf("Person commands now use %s by default.\n", chosen.URL))
 	return nil
 }
 
