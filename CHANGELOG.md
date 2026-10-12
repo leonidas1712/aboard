@@ -18,12 +18,15 @@ site are rewritten for launch.
 
 - The board view has a finder: `⌘K` (`Ctrl+K` off a Mac), or **Find or do anything**
   under the board list, opens one box to go to a board, a task on the board on screen
-  (by reference such as `PAY-12` or by title), the Inbox, or the board's Conversation,
-  Tasks and Files. It works from the message box too, and the keys sheet lists it
-  (#359).
+  (by reference such as `PAY-12` or by title), the Inbox, Settings, People, or the
+  board's Conversation, Tasks and Files, and to do a few things: export the board, mark
+  it read, show the keys. Boards come in the sidebar's order. It works from the message
+  box, the Inbox and Settings too, and the keys sheet lists it (#359, #363).
 - `aboard export` and the board view's Export menu (copy as Markdown, download `.md` or
-  `.zip`) save the board content you can see. File bytes in the zip are unchanged, and
-  `aboard export` never replaces an existing local file (#327).
+  `.zip`) save the board content you can see, as a document that reads well: the brief
+  and messages as Markdown, readable times and states, who each message was to. File
+  bytes in the zip are unchanged, and `aboard export` never replaces an existing local
+  file (#327, #364).
 - `aboard status` without `--board` shows an overview of your boards: unread counts,
   policy and your own agents on each, with where they last ran (#354).
 - `aboard doctor` and `aboard status` say when Codex can't receive automatic delivery:
@@ -39,6 +42,8 @@ site are rewritten for launch.
 - A person command rejected as unauthorized names the server and says to sign in again
   or switch servers. Agents keep the rejoin hint (#354).
 - An unknown `--board` fails with `board_not_found` and lists your boards (#354).
+- `aboard status` without `--board` names the server once, and shows the starter
+  policy's notice once below the list, with each board keeping its policy badge (#365).
 - `aboard doctor` says how to remove a legacy `.aboard` file and drops redundant
   local-server advice, and `aboard servers use` says which server person commands now
   use (#354).
@@ -64,6 +69,9 @@ site are rewritten for launch.
 - `aboard status` never hangs. Each request waits at most 3 seconds and all reads
   together 5 seconds; a timeout exits nonzero with `server_unreachable` and the
   diagnostics gathered so far (#349).
+- A bare join code (`aboard join 4VS-B3E`) goes to `--server` or the machine's default
+  server, as `aboard invite` does, instead of the local server or a legacy folder link.
+  A full join line still names its own server (#365).
 - `aboard status` no longer fails after it replaces an older server or daemon that then
   answers: a slow first readiness check isn't reported once the server is up (#360).
 
@@ -77,7 +85,8 @@ site are rewritten for launch.
   an earlier warning as it was.
 - `spec/openapi.yaml`, additive for API clients, browser clients and CLI scripts:
   - read-only `GET /v1/boards/{board}/export?format=md|zip`, returning only content the
-    caller can see; zip file bytes are unchanged (#327);
+    caller can see; zip file bytes are unchanged (#327), described as a readable document
+    (#364);
   - the optional `DeliveryWarning` (`codex_no_daemon`, `codex_no_daemon_orca`) on
     presence reports, members and presence updates. It is diagnostic only, never
     authority or a new presence state (#355).
@@ -92,6 +101,8 @@ site are rewritten for launch.
     harnesses whose hooks changed; absent when none did (#354).
   - An unknown `--board` returns `board_not_found` with `details.boards`, up to ten
     readable board names (#354).
+  - `aboard join CODE` with a bare code uses `--server` or the saved default server;
+    `aboard status` text names its server once. No JSON shape changes (#365).
 - `spec/delivery.md` and `spec/events.md` describe the delivery warning as presence
   bookkeeping: never a board log event, never an acknowledgement (#355).
 
