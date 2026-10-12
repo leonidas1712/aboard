@@ -289,9 +289,10 @@ type lab struct {
 	// claudeConfig is Claude Code's scratch config directory for this test.
 	claudeConfig string
 	// codexReady is true once codexHome has set up the test's CODEX_HOME for Codex.
-	codexReady bool
-	tmux       string
-	panes      []*pane
+	codexHookInheritsHome bool
+	codexReady            bool
+	tmux                  string
+	panes                 []*pane
 	// extra are more artifacts to save, by file name: what a test captured itself, such
 	// as the panes of a swarm's own tmux server or herdr session before they stop.
 	extra map[string][]byte
