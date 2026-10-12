@@ -2530,6 +2530,14 @@ $defs:
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
 
+      In a person's terminal with several readable active boards, no --board shows
+      an overview instead of board_ambiguous. Server, daemon and setup stay visible;
+      boards lists each board's name, unread count, policy and the person's own agents
+      on it, including their last reported session locations. It uses only the selected
+      issuer's person login. Other people's locations and archived boards are omitted.
+      Board and agent stay null, their sources none. --board keeps the existing
+      single-board report. Agent sessions keep their existing seat selection.
+
       In a session with several seats (team slice 5a; once multi-seat binding is on),
       status without --board or --as lists every seat and selects none: board and agent
       are null, board_source none, agent_source session, delivery, delivery_rule,
@@ -2547,6 +2555,25 @@ $defs:
     type: object
     required: [server, server_running, server_replaced, sandbox_blocks_network, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
+      boards:
+        type: array
+        description: Present only for a person's overview with several active boards.
+        items:
+          type: object
+          required: [name, unread, policy, agents]
+          properties:
+            name: { type: string }
+            unread: { type: [integer, "null"], minimum: 0 }
+            policy: { $ref: openapi.yaml#/components/schemas/Policy }
+            agents:
+              type: array
+              items:
+                type: object
+                required: [id, name]
+                properties:
+                  id: { type: string }
+                  name: { type: string }
+                  location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
       queued:
         $ref: "#/$defs/QueuedMessages"
       server: { $ref: "#/$defs/ServerRef" }
