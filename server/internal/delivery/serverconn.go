@@ -36,6 +36,7 @@ type srvMsg struct {
 	presence *AgentRef
 	state    Presence
 	mode     Mode
+	warning  string
 }
 
 // serverConn follows one server. Its watched agents are changed only by run; the
@@ -167,7 +168,12 @@ func (c *serverConn) reportPresence(ctx context.Context, batch []srvMsg) {
 		}
 		m := latest[agent.Key()]
 		pctx, cancel := context.WithTimeout(ctx, serverRequestTimeout)
-		err := c.srv.SetPresence(pctx, agent, m.state, m.mode)
+		var err error
+		if reporter, ok := c.srv.(PresenceWarningServer); ok {
+			err = reporter.SetPresenceWarning(pctx, agent, m.state, m.mode, m.warning)
+		} else {
+			err = c.srv.SetPresence(pctx, agent, m.state, m.mode)
+		}
 		cancel()
 		if err == nil {
 			continue

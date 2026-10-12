@@ -251,7 +251,7 @@ func (d *Daemon) bindGrantedSeat(ctx context.Context, req Request, grant SeatGra
 			"Check that this machine's aboard config folder is writable, then run the join again.")
 	}
 	agent := grantAgent(grant)
-	bound := d.callBindingLocked(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, CodexHome: req.CodexHome, Agent: &agent, Process: req.Process})
+	bound := d.callBindingLocked(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, CodexHome: req.CodexHome, DeliveryChecked: req.DeliveryChecked, DeliveryWarning: req.DeliveryWarning, Agent: &agent, Process: req.Process})
 	if bound.Error != nil {
 		return bound
 	}

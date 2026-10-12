@@ -47,7 +47,8 @@ type presenceEvent struct {
 	Presence      string  `json:"presence"`
 	PresenceSince *string `json:"presence_since"`
 	// Delivery is the mode the agent's delivery daemon last reported applying, or nil.
-	Delivery *string `json:"delivery"`
+	Delivery        *string `json:"delivery"`
+	DeliveryWarning *string `json:"delivery_warning,omitempty"`
 }
 
 // readEvent is the data of one `read` event, the ReadEvent schema.
@@ -63,6 +64,7 @@ func presenceEventOf(pc board.PresenceChange) presenceEvent {
 	return presenceEvent{
 		Board: pc.Board, BoardID: pc.BoardID, Agent: pc.Agent, MemberID: pc.MemberID, Presence: pc.Presence.State,
 		PresenceSince: nullable(pc.Presence.Since), Delivery: nullable(pc.Presence.Delivery),
+		DeliveryWarning: nullable(pc.Presence.DeliveryWarning),
 	}
 }
 

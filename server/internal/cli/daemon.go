@@ -428,6 +428,39 @@ func (a *app) withSessionHome(req delivery.Request) delivery.Request {
 	if absolute, err := filepath.Abs(home); err == nil {
 		req.CodexHome = absolute
 	}
+	p, ok := proctable.Harness()
+	if !ok {
+		return req
+	}
+	name, ok := proctable.Name(p.PID)
+	if !ok || name != "codex" {
+		return req
+	}
+	args, ok := proctable.Args(p.PID)
+	if !ok {
+		return req
+	}
+	req.DeliveryChecked = true
+	disabled := false
+	for _, arg := range args[1:] {
+		if arg == "--no-daemon" {
+			disabled = true
+			break
+		}
+	}
+	if _, err := os.Stat(filepath.Join(req.CodexHome, "app-server-control", "app-server-control.sock")); errors.Is(err, os.ErrNotExist) {
+		disabled = true
+	}
+	if disabled {
+		req.DeliveryWarning = "codex_no_daemon"
+		for _, entry := range os.Environ() {
+			key, _, _ := strings.Cut(entry, "=")
+			if strings.HasPrefix(key, "ORCA_") {
+				req.DeliveryWarning = "codex_no_daemon_orca"
+				break
+			}
+		}
+	}
 	return req
 }
 

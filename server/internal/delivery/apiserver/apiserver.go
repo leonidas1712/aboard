@@ -244,6 +244,11 @@ func (s *Server) Ack(ctx context.Context, agent delivery.AgentRef, upTo int) err
 // SetPresence reports what the agent's session is doing and its delivery mode, with the
 // agent's own token. An empty mode leaves the mode on the server as it was.
 func (s *Server) SetPresence(ctx context.Context, agent delivery.AgentRef, p delivery.Presence, mode delivery.Mode) error {
+	return s.SetPresenceWarning(ctx, agent, p, mode, "")
+}
+
+// SetPresenceWarning includes the session's last delivery diagnostic.
+func (s *Server) SetPresenceWarning(ctx context.Context, agent delivery.AgentRef, p delivery.Presence, mode delivery.Mode, warning string) error {
 	token, err := s.tokens.AgentToken(agent)
 	if err != nil {
 		return err
@@ -253,11 +258,28 @@ func (s *Server) SetPresence(ctx context.Context, agent delivery.AgentRef, p del
 		return err
 	}
 	body := api.SetPresenceJSONRequestBody{Presence: api.Presence(p)}
+	if warning != "" {
+		w := api.DeliveryWarning(warning)
+		body.DeliveryWarning = &w
+	}
 	if mode != "" {
 		m := api.DeliveryMode(mode)
 		body.Delivery = &m
 	}
 	r, err := c.SetPresenceWithResponse(ctx, &api.SetPresenceParams{}, body)
+	if err == nil && warning != "" && r.StatusCode() == http.StatusBadRequest {
+		var rejected struct {
+			Error struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(r.Body, &rejected) == nil && rejected.Error.Code == "invalid_request" &&
+			strings.Contains(rejected.Error.Message, `property "delivery_warning" is unsupported`) {
+			body.DeliveryWarning = nil
+			r, err = c.SetPresenceWithResponse(ctx, &api.SetPresenceParams{}, body)
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("report presence of %s on %s: %w", agent.Name, agent.Board, err)
 	}

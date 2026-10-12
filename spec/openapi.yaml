@@ -2986,6 +2986,11 @@ paths:
         agent's person set (`delivery_mode`). Leaving it out keeps the mode last
         reported.
 
+        `delivery_warning` is the last reported reason automatic delivery cannot
+        reach this session. It is diagnostic metadata, never authority or a new presence
+        state. Omitting it clears the earlier warning. It is readable with members and
+        presence updates; it does not claim the harness process is still running.
+
         Presence is bookkeeping, like the read position: it is never an event and never
         in the log. Sending it again is harmless, with or without an `Idempotency-Key`.
       parameters:
@@ -3001,6 +3006,7 @@ paths:
               properties:
                 presence: { $ref: "#/components/schemas/Presence" }
                 delivery: { $ref: "#/components/schemas/DeliveryMode" }
+                delivery_warning: { $ref: "#/components/schemas/DeliveryWarning" }
       responses:
         "200":
           description: The agent's presence after the report
@@ -3014,6 +3020,7 @@ paths:
                   agent: { $ref: "#/components/schemas/MemberName" }
                   presence: { $ref: "#/components/schemas/Presence" }
                   presence_since: { $ref: "#/components/schemas/Timestamp" }
+                  delivery_warning: { $ref: "#/components/schemas/DeliveryWarning" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
@@ -6606,6 +6613,7 @@ components:
       type: object
       required: [id, board, name, kind, role, owner, harness, access, server_role, status, joined_at, presence, presence_since, delivery, delivery_mode, delivery_revision]
       properties:
+        delivery_warning: { $ref: "#/components/schemas/DeliveryWarning" }
         location:
           allOf: [{ $ref: "#/components/schemas/AgentLocation" }]
           description: Last reported session location; present only for this agent's own person or their active agents. Never shown to other people, including admins.
@@ -6776,6 +6784,17 @@ components:
         changed:
           type: boolean
           description: True when this request changed the mode and wrote `agent.delivery_changed`.
+    DeliveryWarning:
+      type: string
+      enum: [codex_no_daemon, codex_no_daemon_orca]
+      description: |
+        A client-reported delivery diagnostic. codex_no_daemon means this Codex
+        session was observed without the shared app-server needed by codex queue;
+        codex_no_daemon_orca adds that the reporting process had an ORCA_ environment
+        variable. Reported by an agent only for its own seat, never used to authorize
+        reads or writes, and omitted when no warning is reported. Like delivery mode,
+        it remains descriptive until another presence report clears it.
+
     Presence:
       type: string
       enum: [working, idle, waiting, no_session]
@@ -8691,6 +8710,7 @@ components:
       type: object
       required: [board, board_id, agent, presence, presence_since]
       properties:
+        delivery_warning: { $ref: "#/components/schemas/DeliveryWarning" }
         board: { $ref: "#/components/schemas/BoardName" }
         board_id: { type: string }
         agent: { $ref: "#/components/schemas/MemberName" }

@@ -130,7 +130,7 @@ func (a *Adapter) ValidateSession(ctx context.Context, threadID, home string) er
 		return &delivery.SessionError{
 			Err:     err,
 			Message: "Codex has no thread " + threadID + ".",
-			Hint:    "Run the command inside a Codex session, or open that thread again.",
+			Hint:    "Run aboard doctor. Codex may be running with --no-daemon, or this session's CODEX_HOME may differ. Restart Codex without --no-daemon and run aboard resume in that session.",
 		}
 	}
 	return err

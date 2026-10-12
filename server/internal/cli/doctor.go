@@ -15,6 +15,7 @@ import (
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/delivery/control"
+	"github.com/leonidas1712/aboard/server/internal/deliverytext"
 	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
@@ -67,6 +68,16 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 	}
 	if status != nil {
 		checks = append(checks, a.statusChecks(status)...)
+	}
+	if reason := a.currentDeliveryWarning(); reason != "" {
+		seen := false
+		for _, check := range checks {
+			seen = seen || deref(check.Code) == reason
+		}
+		if !seen {
+			checks = append(checks, problem("delivery", levelWarning, reason, deliverytext.DeliveryWarning(reason),
+				"Restart Codex without --no-daemon, then run aboard resume in that session."))
+		}
 	}
 	checks = append(checks, a.checkKeptModes(ctx)...)
 
@@ -354,6 +365,11 @@ func (a *app) checkAllow(h harness.Harness, scopes []string) []doctorCheck {
 // statusChecks reports the daemon's servers and the deliveries that need a person.
 func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 	var checks []doctorCheck
+	for _, warning := range st.DeliveryWarnings {
+		checks = append(checks, problem("delivery", levelWarning, warning.Reason,
+			fmt.Sprintf("%s on %s: %s", warning.Agent.Name, warning.Agent.Board, deliverytext.DeliveryWarning(warning.Reason)),
+			"Restart Codex without --no-daemon, then run aboard resume in that session."))
+	}
 	for _, s := range st.Servers {
 		switch s.Problem {
 		case "login_missing":

@@ -92,6 +92,8 @@ const (
 
 // Request is one message from a hook or the CLI to the daemon.
 type Request struct {
+	DeliveryChecked   bool           `json:"delivery_checked,omitempty"`
+	DeliveryWarning   string         `json:"delivery_warning,omitempty"`
 	CodexHome         string         `json:"codex_home,omitempty"`
 	RuntimeHook       bool           `json:"runtime_hook,omitempty"`
 	ApprovalID        string         `json:"approval_id,omitempty"`
@@ -266,7 +268,8 @@ type Build struct {
 
 // Status is the daemon's state as aboard doctor shows it.
 type Status struct {
-	PID int `json:"pid"`
+	DeliveryWarnings []WarningStatus `json:"delivery_warnings,omitempty"`
+	PID              int             `json:"pid"`
 	// Build is the daemon's build; a daemon from before builds were reported leaves it
 	// empty.
 	Build        Build          `json:"build"`
@@ -281,6 +284,13 @@ type Status struct {
 	MultiSeat bool            `json:"multi_seat,omitempty"`
 	Agents    []AgentProblem  `json:"agents"`
 	Bindings  []BindingStatus `json:"bindings"`
+}
+
+// WarningStatus is advisory metadata for an existing bound seat.
+type WarningStatus struct {
+	Session string   `json:"session"`
+	Agent   AgentRef `json:"agent"`
+	Reason  string   `json:"reason"`
 }
 
 // ServerStatus is one server connection.
