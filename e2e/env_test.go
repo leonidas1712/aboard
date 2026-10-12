@@ -253,6 +253,9 @@ func newEnv(t *testing.T) *env {
 		"ABOARD_LOCAL_ADDR=" + e.addr,
 		// No test reaches GitHub for the update notice; the notice's own tests turn it on.
 		"ABOARD_NO_UPDATE_CHECK=1",
+		// Parallel race tests can spend the normal status budget replacing processes.
+		// Dedicated timeout tests clear this e2e-build-only override.
+		"ABOARD_E2E_STATUS_BUDGET=30s",
 		exitWithVar + "=" + strconv.Itoa(os.Getpid()),
 	}
 	t.Cleanup(e.stopServer)

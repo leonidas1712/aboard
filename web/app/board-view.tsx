@@ -26,6 +26,7 @@ import { HarnessProvider } from "./agent-mark";
 import { attentionCount } from "./asks";
 import { Sheet, useWide } from "./sheet";
 import { usePref } from "./prefs";
+import { Finder } from "./finder";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { keyLabel, pressed, typing } from "./keys";
 import { BoardNav, BoardPanel, type Reveal, useSidebarKeys } from "./sidebars";
@@ -747,6 +748,22 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
           )}
         </div>
         <KeysSheet open={keysOpen} onClose={() => setKeysOpen(false)} place="board" />
+        {/* The UI lab's board list brings its own finder. */}
+        {!lab?.Nav && (
+          <Finder
+            boards={s.boards}
+            here={{
+              name,
+              views,
+              tasks,
+              setView: (v) => {
+                setView(v);
+                toConversation();
+              },
+              openTask,
+            }}
+          />
+        )}
       </div>
     </TooltipProvider>
     </FilesContext>

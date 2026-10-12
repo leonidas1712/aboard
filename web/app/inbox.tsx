@@ -16,6 +16,7 @@ import { keyLabel, pressed, rememberInbox, takeInbox, typing } from "./keys";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { usePref } from "./prefs";
 import { BoardNav, useSidebarKeys } from "./sidebars";
+import { Finder } from "./finder";
 import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
 import { useOnboarding } from "./onboarding-data";
@@ -263,6 +264,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       </section>
     </div>
     <KeysSheet open={keysOpen} onClose={() => setKeysOpen(false)} />
+    <Finder boards={boards} inInbox />
   </div></TooltipProvider>;
 }
 

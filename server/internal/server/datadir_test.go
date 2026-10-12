@@ -1,6 +1,8 @@
 package server
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +25,9 @@ func TestATeamServersDataIsOwnerOnly(t *testing.T) {
 	}
 	for _, e := range entries {
 		info, err := e.Info()
+		if errors.Is(err, fs.ErrNotExist) {
+			continue // SQLite removes its shared-memory file as the last connection closes
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
