@@ -36,25 +36,28 @@ func (a *app) personStatusBoards(ctx context.Context, srv serverRef) ([]statusBo
 	if r.JSON200 == nil {
 		return nil, nil, apiError(r.StatusCode(), r.Body)
 	}
-	own, err := a.ownAgentsGroup(ctx, srv, c)
-	if err != nil {
-		return nil, nil, err
-	}
 	rows := make([]statusBoard, 0, len(r.JSON200.Boards))
 	for _, board := range r.JSON200.Boards {
 		if !board.OnBoard || (board.Lifecycle != nil && *board.Lifecycle != api.BoardLifecycleActive) {
 			continue
 		}
 		row := statusBoard{Name: board.Name, Unread: board.Unread, Policy: board.Policy, Agents: []statusBoardAgent{}}
-		for _, agent := range own.Agents {
-			if agent.Board == board.Name {
-				row.Agents = append(row.Agents, statusBoardAgent{ID: agent.ID, Name: agent.Name, Location: agent.Location})
-			}
-		}
 		rows = append(rows, row)
 	}
 	slices.SortFunc(rows, func(a, b statusBoard) int { return strings.Compare(a.Name, b.Name) })
-	return rows, addedFrom(r.JSON200.Boards), nil
+	notices := addedFrom(r.JSON200.Boards)
+	own, err := a.ownAgentsGroup(ctx, srv, c)
+	if err != nil {
+		return rows, notices, err
+	}
+	for i := range rows {
+		for _, agent := range own.Agents {
+			if agent.Board == rows[i].Name {
+				rows[i].Agents = append(rows[i].Agents, statusBoardAgent{ID: agent.ID, Name: agent.Name, Location: agent.Location})
+			}
+		}
+	}
+	return rows, notices, nil
 }
 
 func statusBoardsText(rows []statusBoard) string {

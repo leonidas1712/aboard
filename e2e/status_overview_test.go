@@ -4,6 +4,9 @@ package e2e
 
 import (
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -63,5 +66,41 @@ func TestPersonStatusShowsBoardsAndOnlyOwnLocations(t *testing.T) {
 	unbound := session.run("status", "--json").json(t)
 	if unbound["boards"] != nil {
 		t.Fatalf("unbound session used person login: %v", unbound)
+	}
+}
+
+func TestPersonOverviewTimeoutRetainsKnownBoards(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	tm.newBoard(tm.admin, "private")
+	tm.newBoard(tm.admin, "private")
+	target, err := url.Parse(tm.url())
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	director := proxy.Director
+	proxy.Director = func(r *http.Request) { director(r); r.Host = target.Host }
+	peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/me/agents" {
+			<-r.Context().Done()
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	}))
+	t.Cleanup(peer.Close)
+	login := tm.admin.exec(nil, tm.key(tm.admin)+"\n", "login", peer.URL)
+	if login.code != 0 {
+		t.Fatalf("fixture proxy login: %s", login)
+	}
+	got := tm.admin.runExit("status", "--server", peer.URL, "--json")
+	out := got.json(t)
+	if got.code != 1 || errorCode(t, out) != "server_unreachable" {
+		t.Fatalf("overview timeout: %s", got)
+	}
+	partial := field(t, out, "error.details.status").(map[string]any)
+	matchesCLISpec(t, "StatusOutput", partial)
+	if boards, ok := partial["boards"].([]any); !ok || len(boards) != 2 {
+		t.Fatalf("lost known board metadata: %v", partial)
 	}
 }

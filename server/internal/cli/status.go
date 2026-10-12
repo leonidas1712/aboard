@@ -80,7 +80,14 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			failure.Details = map[string]any{"status": out}
 			result = failure
 			if statusText == "" {
-				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\nDaemon: status not collected before timeout\n", out.Server.URL) + setupLine
+				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\n", out.Server.URL)
+				if out.ServerRunning {
+					statusText = fmt.Sprintf("Server: %s reachable\n", out.Server.URL)
+				}
+				statusText += "Daemon: status not collected before timeout\n" + setupLine
+				if len(out.Boards) > 0 {
+					statusText += statusBoardsText(out.Boards)
+				}
 			}
 			if !a.json {
 				a.emit(out, styleStatus(statusText, a.out()))
@@ -186,7 +193,8 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			srv = a.localServer()
 		}
 		out.Server = srv
-		if a.serverAnswers(ctx, srv) {
+		out.ServerRunning = a.serverAnswers(ctx, srv)
+		if out.ServerRunning {
 			t, err = a.humanBoard(ctx, *boardFlag)
 			if err != nil && asError(err).Code == "board_ambiguous" && *boardFlag == "" {
 				out.Boards, out.Added, err = a.personStatusBoards(ctx, srv)
@@ -198,7 +206,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 				text.WriteString(setupLine)
 				text.WriteString(statusBoardsText(out.Boards))
 				text.WriteString(addedText(out.Added))
-				a.emit(out, styleStatus(text.String(), a.out()))
+				statusText = text.String()
 				return nil
 			}
 		} else {
