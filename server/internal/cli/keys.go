@@ -53,7 +53,7 @@ func keyRejected(srv serverRef, status int, body []byte) *Error {
 		return e
 	}
 	e.Message = "This machine's key for " + srv.URL + " no longer works: it was revoked or has expired."
-	e.Hint = "Paste a working key with aboard login " + srv.URL + "."
+	e.Hint = "Sign in again with aboard login " + commandWord(srv.URL) + ", or switch servers with aboard servers use local."
 	return e
 }
 
