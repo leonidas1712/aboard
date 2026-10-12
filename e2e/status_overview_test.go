@@ -93,7 +93,7 @@ func TestPersonOverviewTimeoutRetainsKnownBoards(t *testing.T) {
 	if login.code != 0 {
 		t.Fatalf("fixture proxy login: %s", login)
 	}
-	got := tm.admin.runExit("status", "--server", peer.URL, "--json")
+	got := tm.admin.exec([]string{"ABOARD_E2E_STATUS_BUDGET="}, "", "status", "--server", peer.URL, "--json")
 	out := got.json(t)
 	if got.code != 1 || errorCode(t, out) != "server_unreachable" {
 		t.Fatalf("overview timeout: %s", got)
