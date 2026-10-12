@@ -419,3 +419,63 @@ func TestUpdateNotice(t *testing.T) {
 		t.Fatalf("checked for an agent, a script, --json or with the opt-out: %v", r.requests())
 	}
 }
+
+func TestUpgradeNamesOnlyHarnessesWhoseHooksChanged(t *testing.T) {
+	t.Parallel()
+	for _, jsonOutput := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json-%t", jsonOutput), func(t *testing.T) {
+			t.Parallel()
+			u := newUpgradeEnv(t)
+			u.run("init", "--yes", "--harness", "claude-code,codex")
+			path := filepath.Join(u.home, ".codex", "hooks.json")
+			before := readFile(t, path)
+			obsolete := strings.ReplaceAll(before, " hook codex session-start", " hook codex obsolete-start")
+			if obsolete == before {
+				t.Fatal("fixture has no Codex session-start hook")
+			}
+			if err := os.WriteFile(path, []byte(obsolete), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			args := []string{"upgrade"}
+			if jsonOutput {
+				args = append(args, "--json")
+			}
+			got := u.run(args...)
+			if jsonOutput {
+				out := got.json(t)
+				matchesCLISpec(t, "UpgradeOutput", out)
+				if !slices.Equal(anyStrings(field(t, out, "setup.hooks_changed")), []string{"codex"}) {
+					t.Fatalf("wrong changed harnesses: %v", out)
+				}
+			} else {
+				if !strings.Contains(got.stdout, "Codex: Aboard's hooks changed. In each open Codex session, approve them in /hooks, then restart (codex resume --last).") || strings.Contains(got.stdout, "Claude Code: Aboard's hooks changed") {
+					t.Fatalf("recovery guidance: %s", got)
+				}
+			}
+			if readFile(t, path) != before {
+				t.Fatal("refresh did not restore stable hook bytes")
+			}
+		})
+	}
+}
+
+func TestUpgradeSetupFailurePreservesChildError(t *testing.T) {
+	t.Parallel()
+	u := newUpgradeEnv(t)
+	u.run("init", "--yes", "--harness", "codex")
+	path := filepath.Join(u.home, ".codex", "hooks.json")
+	if err := os.WriteFile(path, []byte(`not JSON`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := u.runExit("upgrade", "--json")
+	out := got.json(t)
+	if got.code != 1 || errorCode(t, out) != "upgrade_setup_failed" {
+		t.Fatalf("unexpected upgrade failure: %s", got)
+	}
+	message := field(t, out, "error.message").(string)
+	for _, want := range []string{"invalid_request", "Fix the file so it is a JSON object"} {
+		if !strings.Contains(message, want) {
+			t.Errorf("lost child error %q: %s", want, got)
+		}
+	}
+}

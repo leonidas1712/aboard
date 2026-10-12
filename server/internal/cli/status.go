@@ -65,6 +65,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		// Added are the boards the person was added to that are still new to them.
 		Added  []addedNotice            `json:"added,omitempty"`
 		Queued *delivery.QueuedMessages `json:"queued,omitempty"`
+		Boards []statusBoard            `json:"boards,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -79,7 +80,14 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			failure.Details = map[string]any{"status": out}
 			result = failure
 			if statusText == "" {
-				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\nDaemon: status not collected before timeout\n", out.Server.URL) + setupLine
+				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\n", out.Server.URL)
+				if out.ServerRunning {
+					statusText = fmt.Sprintf("Server: %s reachable\n", out.Server.URL)
+				}
+				statusText += "Daemon: status not collected before timeout\n" + setupLine
+				if len(out.Boards) > 0 {
+					statusText += statusBoardsText(out.Boards)
+				}
 			}
 			if !a.json {
 				a.emit(out, styleStatus(statusText, a.out()))
@@ -185,8 +193,22 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			srv = a.localServer()
 		}
 		out.Server = srv
-		if a.serverAnswers(ctx, srv) {
+		out.ServerRunning = a.serverAnswers(ctx, srv)
+		if out.ServerRunning {
 			t, err = a.humanBoard(ctx, *boardFlag)
+			if err != nil && asError(err).Code == "board_ambiguous" && *boardFlag == "" {
+				out.Boards, out.Added, err = a.personStatusBoards(ctx, srv)
+				if err != nil {
+					return err
+				}
+				var text strings.Builder
+				a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, srv)
+				text.WriteString(setupLine)
+				text.WriteString(statusBoardsText(out.Boards))
+				text.WriteString(addedText(out.Added))
+				statusText = text.String()
+				return nil
+			}
 		} else {
 			err = newError("board_not_selected", "The server is not running.", "Run aboard up.")
 		}
@@ -235,6 +257,8 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 				line += " (a starting point; tighten with aboard board policy recommended)"
 			}
 			fmt.Fprintf(&boardLines, "Policy: %s\n", line)
+		} else if asError(err).Code == "unauthorized" {
+			return err
 		}
 		if r, err := c.api.ListMembersWithResponse(ctx, t.board, nil); err == nil && r.JSON200 != nil {
 			members = r.JSON200.Members

@@ -37,8 +37,8 @@ home does not move existing sessions.
 
 With `CODEX_HOME` set to an absolute path, the hooks and rules go there instead of
 `~/.codex`. With `ABOARD_HOME` set, each hook command starts with `ABOARD_HOME=<path>`,
-since Codex doesn't pass its own environment to hooks.
-Custom-home Codex hooks also carry `CODEX_HOME=<path>`.
+so hooks use the same Aboard state as the installing command.
+Codex hooks read `CODEX_HOME` from their runtime environment.
 
 | Event | Command ends with | Timeout | Does |
 | --- | --- | --- | --- |
