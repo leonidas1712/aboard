@@ -1,0 +1,23 @@
+#!/bin/sh
+# e2e-shard I N: reads test names, one per line, and prints those in shard I of N, joined
+# by "|" for go test -run. Tests are dealt longest first to the shard with the least time
+# so far, using the times in e2e/testdata/test-seconds.txt; a test not listed there
+# counts as 5 seconds. Every test lands in exactly one shard whatever the times say, so
+# stale times only make the shards less even. make e2e-times refreshes the file.
+set -eu
+i="$1"
+n="$2"
+times="$(dirname "$0")/../e2e/testdata/test-seconds.txt"
+awk -v times="$times" '
+	BEGIN { while ((getline line < times) > 0) { split(line, f, " "); secs[f[1]] = f[2] } }
+	/^Test/ { name[++count] = $1; w[count] = ($1 in secs) ? secs[$1] : 5 }
+	END { for (k = 1; k <= count; k++) printf "%s %s\n", w[k], name[k] }
+' | sort -k1,1nr -k2,2 | awk -v i="$i" -v n="$n" '
+	{
+		best = 1
+		for (s = 2; s <= n; s++) if (load[s] < load[best]) best = s
+		load[best] += $1
+		if (best == i) picked = picked (picked == "" ? "" : "|") $2
+	}
+	END { print picked }
+'

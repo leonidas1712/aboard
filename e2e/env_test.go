@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -91,6 +92,11 @@ func TestMain(m *testing.M) {
 	// owned is the directory this process built the programs into and removes; empty
 	// when a helper reuses the build of the test that runs it.
 	var owned string
+	// Listing the tests (make e2e E2E_SHARD does) runs none, so it needs no programs.
+	flag.Parse()
+	if flag.Lookup("test.list").Value.String() != "" {
+		os.Exit(m.Run())
+	}
 	dir := os.Getenv(builtVar)
 	if dir == "" {
 		tmp, err := os.MkdirTemp("", "aboard-e2e-bin-")
@@ -139,63 +145,40 @@ func exitWithParent(owned string) {
 }
 
 // buildPrograms builds aboard, its older and unstamped builds and the fake harnesses
-// into dir, or exits.
+// into dir, all at once, or exits.
 func buildPrograms(dir string) {
-	build := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-o", filepath.Join(dir, "aboard"), "./server/cmd/aboard")
-	build.Dir = ".."
-	build.Stdout, build.Stderr = os.Stderr, os.Stderr
-	if err := build.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "build aboard:", err)
-		os.Exit(1)
+	race := []string{"-tags", "aboard_e2e", "-race"}
+	builds := []struct {
+		what string
+		args []string
+	}{
+		{"aboard", append(race[:3:3], "-o", filepath.Join(dir, "aboard"), "./server/cmd/aboard")},
+		{"the older aboard", append(race[:3:3], "-o", filepath.Join(dir, "old", "aboard"),
+			"-ldflags", "-X github.com/leonidas1712/aboard/server/internal/cli.version="+oldVersion, "./server/cmd/aboard")},
+		{"aboard without Git information", append(race[:3:3], "-buildvcs=false", "-o", filepath.Join(dir, "unstamped", "aboard"), "./server/cmd/aboard")},
+		{"aboard without the race detector", []string{"-tags", "aboard_e2e", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard"}},
+		{"fake codex", []string{"-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex"}},
+		{"fake harness", []string{"-o", filepath.Join(dir, "fakeharness"), "./e2e/fakeharness"}},
+		// The harnesses swarm up starts: one program that plays claude, codex and omp by
+		// the name it runs as. And herdr's launcher, with a stand-in for herdr.
+		{"./e2e/fakeagent", []string{"-o", filepath.Join(dir, "fakeagents", "claude"), "./e2e/fakeagent"}},
+		{"./e2e/fakeherdr", []string{"-o", filepath.Join(dir, "herdrbin", "herdr"), "./e2e/fakeherdr"}},
+		{"./launchers/herdr", []string{"-o", filepath.Join(dir, "herdrbin", "aboard-launcher-herdr"), "./launchers/herdr"}},
 	}
-	old := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-o", filepath.Join(dir, "old", "aboard"),
-		"-ldflags", "-X github.com/leonidas1712/aboard/server/internal/cli.version="+oldVersion, "./server/cmd/aboard")
-	old.Dir = ".."
-	old.Stdout, old.Stderr = os.Stderr, os.Stderr
-	if err := old.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "build the older aboard:", err)
-		os.Exit(1)
+	var wg sync.WaitGroup
+	failed := make([]error, len(builds))
+	for i, b := range builds {
+		wg.Go(func() {
+			build := exec.Command("go", append([]string{"build"}, b.args...)...)
+			build.Dir = ".."
+			build.Stdout, build.Stderr = os.Stderr, os.Stderr
+			failed[i] = build.Run()
+		})
 	}
-	unstamped := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-buildvcs=false", "-o", filepath.Join(dir, "unstamped", "aboard"), "./server/cmd/aboard")
-	unstamped.Dir = ".."
-	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
-	if err := unstamped.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "build aboard without Git information:", err)
-		os.Exit(1)
-	}
-	plain := exec.Command("go", "build", "-tags", "aboard_e2e", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard")
-	plain.Dir = ".."
-	plain.Stdout, plain.Stderr = os.Stderr, os.Stderr
-	if err := plain.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "build aboard without the race detector:", err)
-		os.Exit(1)
-	}
-	fake := exec.Command("go", "build", "-o", filepath.Join(dir, "fakebin", "codex"), "./e2e/fakecodex")
-	fake.Dir = ".."
-	fake.Stdout, fake.Stderr = os.Stderr, os.Stderr
-	if err := fake.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "build fake codex:", err)
-		os.Exit(1)
-	}
-	harness := exec.Command("go", "build", "-o", filepath.Join(dir, "fakeharness"), "./e2e/fakeharness")
-	harness.Dir = ".."
-	harness.Stdout, harness.Stderr = os.Stderr, os.Stderr
-	if err := harness.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "build fake harness:", err)
-		os.Exit(1)
-	}
-	// The harnesses swarm up starts: one program that plays claude, codex and omp by the
-	// name it runs as. And herdr's launcher, with a stand-in for herdr.
-	for _, b := range []struct{ out, pkg string }{
-		{filepath.Join(dir, "fakeagents", "claude"), "./e2e/fakeagent"},
-		{filepath.Join(dir, "herdrbin", "herdr"), "./e2e/fakeherdr"},
-		{filepath.Join(dir, "herdrbin", "aboard-launcher-herdr"), "./launchers/herdr"},
-	} {
-		build := exec.Command("go", "build", "-o", b.out, b.pkg)
-		build.Dir = ".."
-		build.Stdout, build.Stderr = os.Stderr, os.Stderr
-		if err := build.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "build", b.pkg+":", err)
+	wg.Wait()
+	for i, err := range failed {
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "build "+builds[i].what+":", err)
 			os.Exit(1)
 		}
 	}

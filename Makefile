@@ -23,7 +23,7 @@ export GOTOOLCHAIN := $(shell awk '/^toolchain /{print $$2}' go.mod 2>/dev/null)
 # Go steps are skipped, visibly, until the repo has a go.mod.
 REQUIRE_GO = if [ ! -f go.mod ]; then echo "$@: skipped, no go.mod yet"; exit 0; fi
 
-.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e web-lab-check lab lab-export lab-shots install dev release-snapshot release release-check sandbox sandbox-update sandbox-clean sandbox-team sandbox-team-stop sandbox-team-clean
+.PHONY: load check quick fmt fmt-check lint vet generate generate-check test e2e e2e-times conformance extension-test live live-affected live-smoke launchers launcher-kit harness-table harness-table-check docs-cli docs-check docs-versions docs-preview docs-links vuln tools web web-check web-e2e web-lab-check lab lab-export lab-shots install dev release-snapshot release release-check sandbox sandbox-update sandbox-clean sandbox-team sandbox-team-stop sandbox-team-clean
 
 ## check: format check, lint, vet, generated code, harness table, docs reference, tests, e2e, extension tests, vulnerabilities
 check: fmt-check lint vet generate-check harness-table-check docs-check test e2e extension-test vuln
@@ -63,27 +63,41 @@ generate-check:
 		git status --short; echo "Generated code is out of date. Run: make generate"; exit 1; \
 	fi
 
-# TEST_PART=api, board or rest runs one part of the unit tests, so CI can split them
-# across machines: api and board are the two slow packages.
+# TEST_PART runs one part of the unit tests, so CI can split them across machines: api
+# and board are the slow packages, api in two halves (api:1/2, api:2/2), and rest is
+# everything else. A half is every other top-level test of the package's test binary.
 test:
 	@$(REQUIRE_GO); \
 	case "$(TEST_PART)" in \
 	"") go test -race ./... ;; \
-	api|board) go test -race ./server/internal/$(TEST_PART)/ ;; \
+	board) go test -race ./server/internal/board/ ;; \
+	api:1/2|api:2/2) \
+		bin="$$(mktemp -d)/api.test"; i="$${TEST_PART#api:}"; i="$${i%/*}"; \
+		go test -c -race -o "$$bin" ./server/internal/api/ || exit 1; \
+		cd server/internal/api && tests="$$("$$bin" -test.list '.*' | grep '^Test' | awk -v i="$$i" 'NR % 2 == i - 1' | paste -sd '|' -)" && \
+		"$$bin" -test.run "^($$tests)\$$" ;; \
 	rest) go test -race $$(go list ./... | grep -v -E '/server/internal/(api|board)$$') ;; \
-	*) echo "TEST_PART is api, board or rest, not $(TEST_PART)"; exit 2 ;; \
+	*) echo "TEST_PART is api:1/2, api:2/2, board or rest, not $(TEST_PART)"; exit 2 ;; \
 	esac
 
-# E2E_SHARD=i/n runs every nth top-level test of ./e2e, starting at the ith, so CI can
-# split the suite across machines; e2e/support and e2e/live/affected run in make test.
+# E2E_SHARD=i/n runs one nth of the top-level tests of ./e2e, split by how long each
+# takes (scripts/e2e-shard), so CI can spread the suite across machines. It builds the
+# test binary once to list and run them. e2e/support and e2e/live/affected run in make test.
 e2e:
 	@$(REQUIRE_GO); \
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
 	if [ -z "$(E2E_SHARD)" ]; then go test -race -tags e2e -count=1 -timeout 20m ./e2e/...; exit; fi; \
-	i="$${E2E_SHARD%/*}"; n="$${E2E_SHARD#*/}"; \
-	tests="$$(go test -tags e2e -list '.*' ./e2e/ | grep '^Test' | awk -v i="$$i" -v n="$$n" 'NR % n == i - 1' | paste -sd '|' -)"; \
+	bin="$$(mktemp -d)/e2e.test"; \
+	go test -c -race -tags e2e -o "$$bin" ./e2e/ || exit 1; \
+	tests="$$(cd e2e && "$$bin" -test.list '.*' | ../scripts/e2e-shard "$${E2E_SHARD%/*}" "$${E2E_SHARD#*/}")"; \
 	if [ -z "$$tests" ]; then echo "$@: shard $(E2E_SHARD) has no tests"; exit 0; fi; \
-	go test -race -tags e2e -count=1 -timeout 20m $(if $(E2E_PARALLEL),-parallel $(E2E_PARALLEL)) -run "^($$tests)\$$" ./e2e/
+	cd e2e && "$$bin" -test.timeout 20m -test.run "^($$tests)\$$"
+
+## e2e-times: time each e2e test and save the times scripts/e2e-shard balances CI's shards by
+e2e-times:
+	@$(REQUIRE_GO); go test -race -tags e2e -count=1 -timeout 30m -json ./e2e/ | \
+		jq -r 'select(.Action == "pass" or .Action == "fail") | select(.Test != null and (.Test | contains("/") | not)) | "\(.Test) \(.Elapsed | ceil)"' | \
+		sort > e2e/testdata/test-seconds.txt
 
 ## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
 # The kit's two halves also run in make test and make e2e, so make check runs them. A
@@ -275,7 +289,7 @@ lab-shots:
 
 # Builds aboard with the UI (after make web) and drives a board in Chromium.
 web-e2e:
-	cd web && $(WEB_ENV) npx playwright test
+	cd web && $(WEB_ENV) npx playwright test $(if $(WEB_SHARD),--shard=$(WEB_SHARD))
 
 # The release build (.goreleaser.yaml). The release job runs it on a version tag; locally it
 # builds every platform's archive into dist/ and publishes nothing. It builds the web UI
