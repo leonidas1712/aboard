@@ -79,11 +79,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			failure.Details = map[string]any{"status": out}
 			result = failure
 			if statusText == "" {
-				var text strings.Builder
-				a.runningLines(ctx, &text, &out.ServerRunning, &out.SandboxBlocks, &out.Daemon, out.Server)
-				text.WriteString(setupLine)
-				statusText = text.String()
-				failure.Details["status"] = out
+				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\nDaemon: status not collected before timeout\n", out.Server.URL) + setupLine
 			}
 			if !a.json {
 				a.emit(out, styleStatus(statusText, a.out()))
