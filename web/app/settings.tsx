@@ -21,6 +21,7 @@ import { type Allowance, type AllowanceCategory, getAllowance, setAllowance } fr
 import { Command, Warning } from "./onboarding-ui";
 import { Sheet, useWide } from "./sheet";
 import { BoardNav } from "./sidebars";
+import { Finder } from "./finder";
 
 export default function Settings({ onSignOut }: { onSignOut: () => void }) {
   const wide = useWide();
@@ -60,6 +61,7 @@ export default function Settings({ onSignOut }: { onSignOut: () => void }) {
             </div>
           </main>
         </div>
+        <Finder boards={boards} />
       </div>
     </TooltipProvider>
   );
