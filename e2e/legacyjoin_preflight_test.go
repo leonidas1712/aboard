@@ -89,7 +89,8 @@ func TestLegacyExtensionRefusesNewSeatsBeforeAPIWrites(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			saved, err := json.Marshal(map[string]any{"servers": []map[string]string{{"url": server.URL, "handle": "alex", "key": strings.TrimSpace(string(key))}}})
+			// Bare-code attempts use this default, so the proxy observes every API write.
+			saved, err := json.Marshal(map[string]any{"default": server.URL, "servers": []map[string]string{{"url": server.URL, "handle": "alex", "key": strings.TrimSpace(string(key))}}})
 			if err != nil {
 				t.Fatal(err)
 			}
