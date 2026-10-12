@@ -132,7 +132,8 @@
   --glass-tone: var(--background);
 }
 .scrim,
-dialog.keys-sheet::backdrop {
+dialog.keys-sheet::backdrop,
+dialog.finder::backdrop {
   background-color: var(--scrim);
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -142,7 +143,8 @@ dialog.keys-sheet::backdrop {
     backdrop-filter: blur(14px) saturate(1.4);
   }
   .scrim,
-  dialog.keys-sheet::backdrop {
+  dialog.keys-sheet::backdrop,
+  dialog.finder::backdrop {
     -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
   }
@@ -154,7 +156,8 @@ dialog.keys-sheet::backdrop {
     backdrop-filter: none;
   }
   .scrim,
-  dialog.keys-sheet::backdrop {
+  dialog.keys-sheet::backdrop,
+  dialog.finder::backdrop {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
