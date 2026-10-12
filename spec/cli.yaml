@@ -2343,6 +2343,13 @@ $defs:
   # ---------- aboard doctor ----------
   DoctorOutput:
     description: |
+      For installed Codex hooks, doctor reads hooks/list in the session's CODEX_HOME.
+      Only Aboard's commands in the installed hook files are checked. Modified or
+      untrusted entries produce codex_hooks_need_review with the /hooks approval and
+      codex resume --last steps. A later trusted response clears the warning; writing
+      a hook file never clears it. If approval state cannot be read, doctor reports
+      codex_hooks_review_unavailable instead of assuming approval. No hook is trusted
+      or changed by doctor, and no thread is resumed by this check.
       On a fresh machine with no known server, doctor reports its local server as
       not running, with an aboard up fix, rather than server_not_selected. The same
       local_server diagnostic applies after the local server stops. This server
