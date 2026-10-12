@@ -3020,6 +3020,7 @@ paths:
                   agent: { $ref: "#/components/schemas/MemberName" }
                   presence: { $ref: "#/components/schemas/Presence" }
                   presence_since: { $ref: "#/components/schemas/Timestamp" }
+                  delivery_warning: { $ref: "#/components/schemas/DeliveryWarning" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
