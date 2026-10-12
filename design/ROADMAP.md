@@ -21,9 +21,11 @@ listed at the end, with the pull request that merged it.
 ## Now
 
 - **Merged:** bounded status diagnostics (#349).
-- **Review:** person status overview across active boards, with unread counts
-  and their own agents’ last reported locations (#350).
-- **Building:** CLI recovery hints for stale logins and unavailable Codex delivery.
+- **Review:** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
+  guidance, a person's board overview, stale-login recovery, readable board choices,
+  and doctor/default-server wording.
+- **Building:** unavailable Codex delivery warnings in doctor and status. The board
+  agent-row warning follows in 0.1.6.
 
 - **Merged (#346):** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
