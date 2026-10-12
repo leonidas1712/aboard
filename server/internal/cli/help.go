@@ -197,7 +197,7 @@ func helpText(templates string) []commandHelp {
 			Name: "join", Group: groupStart,
 			Summary: "Join a board with a join line, a join code, or its name",
 			Usage: []string{
-				"aboard join <board|join-line|code> [--name NAME] [--harness H] [--json]",
+				"aboard join <board|join-line|code> [--name NAME] [--harness H] [--server NAME|URL] [--json]",
 				"aboard join --board NAME [--name NAME] [--role R] [--server URL] [--json]",
 			},
 			Description: "Creates an agent on the board a join line names, as the role it names, and keeps the agent's token on this machine. " +
@@ -214,7 +214,7 @@ func helpText(templates string) []commandHelp {
 				{"--harness", "H", "The program running this session, such as claude-code or codex. Default: the harness of this session."},
 				{"--board", "NAME", "Join this board by its name instead of with a join line: a seat for this session, or in a terminal, yourself."},
 				{"--role", "R", "With --board in a session: the role to join as. Default: member."},
-				{"--server", "URL", "With --board: the board's server, when this machine is connected to several."},
+				{"--server", "NAME|URL", "With a bare code or --board: the board's server. A join line already names its server."},
 				flagJSON,
 			},
 			Examples: []helpExample{

@@ -62,12 +62,16 @@ heuristics.
 
 **Faster path: seed a team yourself.** Use it when you only need the board view. With
 `SANDBOX_CMD` a sandbox runs one command and exits, so you never type in a normal
-terminal. Make the team, the board, an agent for leo, and the invite:
+terminal. Make the team and the board, then a join line for leo's agent. In a plain
+terminal `aboard join qa` adds the person, not an agent, so the agent joins with the
+join line `aboard invite --board qa` prints. `aboard invite` has no `--as`; pick the
+agent with `ABOARD_AGENT`:
 
 ```sh
 make sandbox-team TEAM=qa
-TEAM=qa SANDBOX_CMD='aboard board new qa && aboard join qa --name leo-agent' scripts/sandbox open leo
-TEAM=qa SANDBOX_CMD='aboard invite --person --handle maya --board qa --as leo-agent' scripts/sandbox open leo
+TEAM=qa SANDBOX_CMD='aboard board new qa && aboard invite --board qa' scripts/sandbox open leo
+TEAM=qa SANDBOX_CMD='aboard join "JOIN_LINE" --name leo-agent --harness codex' scripts/sandbox open leo
+TEAM=qa SANDBOX_CMD='ABOARD_AGENT=leo-agent aboard invite --person --handle maya --board qa' scripts/sandbox open leo
 ```
 
 The invite is held for approval. Allow it as leo, then collect the link:

@@ -80,9 +80,9 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			failure.Details = map[string]any{"status": out}
 			result = failure
 			if statusText == "" {
-				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\n", out.Server.URL)
+				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\n", a.statusServerLabel(out.Server))
 				if out.ServerRunning {
-					statusText = fmt.Sprintf("Server: %s reachable\n", out.Server.URL)
+					statusText = fmt.Sprintf("Server: %s reachable\n", a.statusServerLabel(out.Server))
 				}
 				statusText += "Daemon: status not collected before timeout\n" + setupLine
 				if len(out.Boards) > 0 {
@@ -203,6 +203,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		if out.ServerRunning {
 			t, err = a.humanBoard(ctx, *boardFlag)
 			if err != nil && asError(err).Code == "board_ambiguous" && *boardFlag == "" {
+				a.statusOverview = true
 				out.Boards, out.Added, err = a.personStatusBoards(ctx, srv)
 				if err != nil {
 					return err
@@ -510,21 +511,22 @@ type stoppedAgent struct {
 // of "not running" and sets blocked.
 func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, blocked *bool, d *daemonReport, srv serverRef) {
 	*running = a.serverAnswers(ctx, srv)
+	label := a.statusServerLabel(srv)
 	local := srv.URL == a.localServer().URL
 	sandbox, noNetwork := a.networkBlocked()
 	switch {
 	case !*running && noNetwork:
 		*blocked = true
 		fmt.Fprintf(text, "Server: %s can't be reached from %s's sandbox, which blocks network access; "+
-			"run %s in a terminal, or approve this command outside the sandbox\n", srv.URL, sandbox, allowFix)
+			"run %s in a terminal, or approve this command outside the sandbox\n", label, sandbox, allowFix)
 	case *running && local:
-		fmt.Fprintf(text, "Server: %s running%s\n", srv.URL, a.localReplaced.text())
+		fmt.Fprintf(text, "Server: %s running%s\n", label, a.localReplaced.text())
 	case *running:
-		fmt.Fprintf(text, "Server: %s reachable\n", srv.URL)
+		fmt.Fprintf(text, "Server: %s reachable\n", label)
 	case local:
-		fmt.Fprintf(text, "Server: %s not running; aboard up starts it\n", srv.URL)
+		fmt.Fprintf(text, "Server: %s not running; aboard up starts it\n", label)
 	default:
-		fmt.Fprintf(text, "Server: %s unreachable\n", srv.URL)
+		fmt.Fprintf(text, "Server: %s unreachable\n", label)
 	}
 	st, _ := a.daemonStatus(ctx)
 	if st == nil && noNetwork {

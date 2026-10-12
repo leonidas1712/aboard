@@ -39,7 +39,7 @@ import { useOnboardingCount } from "./onboarding-data";
 import { newerFirst } from "./time";
 
 /** sidebarOrder groups the boards the way the sidebar lists them: those with a question waiting, the rest, then the archived. */
-function sidebarOrder(boards: Board[]) {
+export function sidebarOrder(boards: Board[]) {
   const recent = [...boards].sort((a, b) => {
     const activity = newerFirst(a.last_message_at ?? a.created_at, b.last_message_at ?? b.created_at);
     return activity || a.id.localeCompare(b.id);
