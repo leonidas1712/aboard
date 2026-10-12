@@ -86,7 +86,7 @@ func runExport(ctx context.Context, a *app, args []string) error {
 		Path   string `json:"path"`
 		Format string `json:"format"`
 		Bytes  int64  `json:"bytes"`
-	}{dest, format, n}, fmt.Sprintf("Exported %s on %s to %s (%d bytes).", t.board, t.server.URL, dest, n))
+	}{dest, format, n}, fmt.Sprintf("Exported %s on %s to %s (%d bytes).\n", t.board, t.server.URL, dest, n))
 	return nil
 }
 
