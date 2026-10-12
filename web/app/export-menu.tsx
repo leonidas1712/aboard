@@ -10,7 +10,22 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from "@/lib/utils";
 import { ApiError, type ExportFormat, exportBoard } from "./api";
 
-type Action = "copy" | "md" | "zip";
+export type ExportAction = "copy" | "md" | "zip";
+type Action = ExportAction;
+
+/** exportActions are the menu's items, which the finder offers too. */
+export const exportActions: { action: ExportAction; label: string }[] = [
+  { action: "copy", label: "Copy as Markdown" },
+  { action: "md", label: "Download .md" },
+  { action: "zip", label: "Download .zip" },
+];
+
+const exportEvent = "aboard:export";
+
+/** exportAs runs one of the Export menu's items on the board on screen, as picking it does. */
+export function exportAs(action: ExportAction) {
+  window.dispatchEvent(new CustomEvent<ExportAction>(exportEvent, { detail: action }));
+}
 
 const notAvailable = "Export isn't available on this server yet";
 
@@ -89,7 +104,15 @@ export function ExportMenu({ board }: { board: string }) {
     }
   };
 
+  // The finder picks an item through exportAs.
+  useEffect(() => {
+    const onExport = (e: Event) => void run((e as CustomEvent<ExportAction>).detail);
+    window.addEventListener(exportEvent, onExport);
+    return () => window.removeEventListener(exportEvent, onExport);
+  });
+
   const icon = "pointer-events-none absolute left-3 size-4 text-muted";
+  const icons = { copy: Copy, md: Download, zip: FileArchive };
   return (
     <div className="export-menu relative flex shrink-0">
       <DropdownMenu>
@@ -103,18 +126,15 @@ export function ExportMenu({ board }: { board: string }) {
           {busy ? <LoaderCircle className="size-4 motion-safe:animate-spin" strokeWidth={1.5} aria-hidden /> : <Download className="size-4" strokeWidth={1.5} aria-hidden />}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[14rem]">
-          <DropdownMenuItem onSelect={() => void run("copy")}>
-            <Copy className={icon} strokeWidth={1.5} aria-hidden />
-            Copy as Markdown
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void run("md")}>
-            <Download className={icon} strokeWidth={1.5} aria-hidden />
-            Download .md
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void run("zip")}>
-            <FileArchive className={icon} strokeWidth={1.5} aria-hidden />
-            Download .zip
-          </DropdownMenuItem>
+          {exportActions.map(({ action, label }) => {
+            const Icon = icons[action];
+            return (
+              <DropdownMenuItem key={action} onSelect={() => void run(action)}>
+                <Icon className={icon} strokeWidth={1.5} aria-hidden />
+                {label}
+              </DropdownMenuItem>
+            );
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
       {/* The status floats under the button so a message never changes the row's height. */}
