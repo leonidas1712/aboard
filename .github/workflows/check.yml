@@ -80,7 +80,7 @@ jobs:
       - name: Install tmux
         run: command -v tmux || { if [ "$RUNNER_OS" = macOS ]; then brew install tmux; else sudo apt-get update && sudo apt-get install -y tmux; fi; }
       - name: make e2e, shard ${{ matrix.shard }} of 6
-        run: make e2e E2E_SHARD=${{ matrix.shard }}/6
+        run: make e2e E2E_SHARD=${{ matrix.shard }}/6 E2E_PARALLEL=12
 
   # The web UI: install, build, typecheck, and a browser smoke test against aboard built
   # with the UI embedded. Separate from make check, which needs only Go.

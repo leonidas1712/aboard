@@ -83,7 +83,7 @@ e2e:
 	i="$${E2E_SHARD%/*}"; n="$${E2E_SHARD#*/}"; \
 	tests="$$(go test -tags e2e -list '.*' ./e2e/ | grep '^Test' | awk -v i="$$i" -v n="$$n" 'NR % n == i - 1' | paste -sd '|' -)"; \
 	if [ -z "$$tests" ]; then echo "$@: shard $(E2E_SHARD) has no tests"; exit 0; fi; \
-	go test -race -tags e2e -count=1 -timeout 20m -run "^($$tests)\$$" ./e2e/
+	go test -race -tags e2e -count=1 -timeout 20m $(if $(E2E_PARALLEL),-parallel $(E2E_PARALLEL)) -run "^($$tests)\$$" ./e2e/
 
 ## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
 # The kit's two halves also run in make test and make e2e, so make check runs them. A
