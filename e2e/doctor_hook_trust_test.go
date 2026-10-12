@@ -11,13 +11,14 @@ func TestDoctorKeepsHookReviewVisibleUntilCodexReportsTrust(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.run("init", "--yes", "--harness", "codex", "--allow-commands")
-	for _, tc := range []struct{ trust, code string }{
-		{"untrusted", "codex_hooks_need_review"},
-		{"modified", "codex_hooks_need_review"},
-		{"unknown", "codex_hooks_review_unavailable"},
-		{"trusted", ""},
+	for _, tc := range []struct{ trust, partial, code string }{
+		{"untrusted", "", "codex_hooks_need_review"},
+		{"modified", "", "codex_hooks_need_review"},
+		{"unknown", "", "codex_hooks_review_unavailable"},
+		{"trusted", "1", "codex_hooks_review_unavailable"},
+		{"trusted", "", ""},
 	} {
-		r := e.exec([]string{"FAKE_CODEX_HOOK_TRUST=" + tc.trust}, "", "doctor", "--json")
+		r := e.exec([]string{"FAKE_CODEX_HOOK_TRUST=" + tc.trust, "FAKE_CODEX_HOOK_LIST_PARTIAL=" + tc.partial}, "", "doctor", "--json")
 		seen := false
 		for _, raw := range field(t, r.json(t), "checks").([]any) {
 			check := raw.(map[string]any)

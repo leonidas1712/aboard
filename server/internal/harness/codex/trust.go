@@ -3,7 +3,6 @@ package codex
 import (
 	"context"
 	"path/filepath"
-	"slices"
 	"time"
 
 	deliverycodex "github.com/leonidas1712/aboard/server/internal/delivery/codex"
@@ -23,26 +22,34 @@ func (h *Harness) HookTrustChecks(ctx context.Context, e harness.Env, commands, 
 	if err != nil {
 		return unknown()
 	}
-	paths := make([]string, len(files))
-	for i, file := range files {
-		paths[i] = hookPath(file)
+	type hookSource struct{ command, path string }
+	expected := make(map[hookSource]bool)
+	for _, file := range files {
+		for _, command := range commands {
+			expected[hookSource{command, hookPath(file)}] = false
+		}
 	}
-	seen := false
 	for _, hook := range hooks {
-		if !slices.Contains(commands, hook.Command) || !slices.Contains(paths, hookPath(hook.SourcePath)) {
+		key := hookSource{hook.Command, hookPath(hook.SourcePath)}
+		if _, ok := expected[key]; !ok {
 			continue
 		}
-		seen = true
 		switch hook.TrustStatus {
 		case "trusted", "managed":
+			expected[key] = true
 		case "untrusted", "modified":
 			return []harness.CheckResult{{Name: "codex_hooks_review", Level: harness.LevelWarning, Code: "codex_hooks_need_review", Message: "codex: Aboard's hooks need approval before they can run", Fix: fix}}
 		default:
 			return unknown()
 		}
 	}
-	if !seen {
+	if len(expected) == 0 {
 		return unknown()
+	}
+	for _, trusted := range expected {
+		if !trusted {
+			return unknown()
+		}
 	}
 	return nil
 }

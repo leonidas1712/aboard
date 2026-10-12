@@ -255,6 +255,9 @@ func appServer() int {
 						}
 					}
 				}
+				if os.Getenv("FAKE_CODEX_HOOK_LIST_PARTIAL") == "1" && len(hooks) > 1 {
+					hooks = hooks[:1]
+				}
 				hooks = append(hooks, map[string]any{"command": "echo another tool", "sourcePath": filepath.Join(cwd, ".codex", "hooks.json"), "trustStatus": "modified", "currentHash": "foreign-hash", "enabled": true})
 				data = append(data, map[string]any{"cwd": cwd, "hooks": hooks, "errors": []any{}, "warnings": []any{}})
 			}
