@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Building:** bounded status diagnostics, a person’s board overview, and CLI
+  recovery hints for stale logins and unavailable Codex delivery.
+
 - **Review:** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
 
