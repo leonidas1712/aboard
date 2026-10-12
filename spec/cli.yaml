@@ -4549,8 +4549,7 @@ $defs:
       <board>-<UTC date>.md or .zip in the current directory. --out is a local file
       path, not a directory or stdout. An existing destination refuses with
       output_exists; no local file is replaced. Failed downloads leave no partial
-      destination. Text output names the selected board, issuer and saved path,
-      followed by a newline.
+      destination. Text output names the selected board, issuer and saved path.
       JSON prints only this object, never the document or archive bytes. bytes is the
       number of bytes saved, and path is the absolute destination path.
       Agents use only the selected active seat's credential, never their person's
