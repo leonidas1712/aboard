@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 )
@@ -71,7 +72,7 @@ func (a *app) humanBoard(ctx context.Context, boardFlag string) (target, error) 
 		return target{}, err
 	}
 	t := target{server: srv, board: boardFlag, source: boardFromFlag}
-	if boardFlag != "" {
+	if boardIDPattern.MatchString(boardFlag) {
 		return t, nil
 	}
 	c, err := a.humanClient(ctx, t)
@@ -80,6 +81,13 @@ func (a *app) humanBoard(ctx context.Context, boardFlag string) (target, error) 
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
+	if boardFlag != "" {
+		if _, err := c.board(ctx, boardFlag); err == nil {
+			return t, nil
+		} else if asError(err).Code != "board_not_found" {
+			return target{}, err
+		}
+	}
 	all := true
 	r, err := c.api.ListBoardsWithResponse(ctx, &api.ListBoardsParams{All: &all})
 	if err != nil {
@@ -94,6 +102,13 @@ func (a *app) humanBoard(ctx context.Context, boardFlag string) (target, error) 
 			continue
 		}
 		choices = append(choices, b.Name)
+	}
+	if boardFlag != "" {
+		slices.Sort(choices)
+		choices = choices[:min(len(choices), 10)]
+		e := newError("board_not_found", "Board "+boardFlag+" was not found among your readable boards on "+srv.URL+".", "Readable boards: "+namesText(choices)+". Repeat with --board NAME.")
+		e.Details = map[string]any{"boards": choices, "server": srv.URL}
+		return target{}, e
 	}
 	if len(choices) == 1 {
 		t.board, t.source = choices[0], boardFromOnly
