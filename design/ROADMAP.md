@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Review:** status reports recovered startup probes as healthy while retaining
+  failures from final diagnostic reads and the overall five-second deadline.
+
 - **Review (#356, 0.1.5, GEN-68):** prove upgrades from the previous release with
   open Claude Code and Codex sessions; keep required hook recovery visible in doctor.
   Codex proofs pass; the Claude live leg will be run by the maintainer.
