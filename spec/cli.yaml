@@ -2611,6 +2611,17 @@ $defs:
           running: { type: boolean }
           pid: { type: [integer, "null"] }
           open_sessions: { type: integer }
+          delivery_warnings:
+            type: array
+            description: Last reported delivery diagnostics for seats bound on this machine.
+            items:
+              type: object
+              required: [server, board, name, reason]
+              properties:
+                server: { type: string }
+                board: { type: string }
+                name: { type: string }
+                reason: { $ref: openapi.yaml#/components/schemas/DeliveryWarning }
           replaced:
             $ref: "#/$defs/Replaced"
             description: The older daemon this command replaced, or null.
