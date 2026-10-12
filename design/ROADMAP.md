@@ -20,7 +20,7 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
-- **Review:** unavailable Codex delivery diagnostics in presence, doctor and status;
+- **Review (0.1.6, after the 0.1.5 tag):** unavailable Codex delivery diagnostics in presence, doctor and status;
   detect --no-daemon and session-home socket absence without weakening validation.
   The board agent-row warning follows in 0.1.6.
 
