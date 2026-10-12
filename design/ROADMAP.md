@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Review:** allow extra time for status process replacement only in e2e builds;
+  dedicated timeout proofs and shipped builds keep the five-second budget.
+
 - **Merged:** bounded status diagnostics (#349).
 - **Review:** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
   guidance, a person's board overview, stale-login recovery, readable board choices,
