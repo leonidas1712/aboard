@@ -46,7 +46,8 @@ site are rewritten for launch.
   policy's notice once below the list, with each board keeping its policy badge (#365).
 - `aboard doctor` says how to remove a legacy `.aboard` file and drops redundant
   local-server advice, and `aboard servers use` says which server person commands now
-  use (#354).
+  use (#354). It describes each harness's capabilities and versions in plain words,
+  and marks missing setup the same way for every harness (#367).
 - The board view's right panel starts with its sections (Agents, Charter, Rules Aboard
   enforces, Details) collapsed. Each section remembers its state in your browser once you
   toggle it, and the Agents header still shows how many agents wait on you (#343).
