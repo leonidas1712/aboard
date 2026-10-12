@@ -20,12 +20,15 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Building (0.1.6, GEN-68):** prove upgrades from the previous release with open
+  Claude Code and Codex sessions; keep required hook recovery visible in doctor.
 - **Merged:** bounded status diagnostics (#349).
-- **Review:** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
+- **Review (#354):** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
   guidance, a person's board overview, stale-login recovery, readable board choices,
   and doctor/default-server wording.
-- **Building:** unavailable Codex delivery warnings in doctor and status. The board
-  agent-row warning follows in 0.1.6.
+- **Review (#355, 0.1.6 after the 0.1.5 tag):** durable unavailable Codex delivery
+  warnings in doctor and status. The board agent-row warning follows in 0.1.6.
+
 
 - **Merged (#346):** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
