@@ -53,9 +53,9 @@ func (h *Harness) InstalledChecks(ctx context.Context, e harness.Env) ([]harness
 	case !harness.VersionAtLeast(version, p.Checks.MinVersion):
 		return []harness.CheckResult{{
 			Name: p.CheckName, Level: harness.LevelWarning, Code: "omp_outdated",
-			Message: version + " is older than " + p.Checks.MinVersion + ", the first omp whose commands carry the session Aboard's extension sets",
+			Message: "omp " + harness.VersionNumber(version) + " needs an update to connect its sessions to Aboard",
 			Fix:     "update omp with omp update",
 		}}, true
 	}
-	return []harness.CheckResult{{Name: p.CheckName, Level: harness.LevelOK, Message: version}}, true
+	return []harness.CheckResult{{Name: p.CheckName, Level: harness.LevelOK, Message: "omp " + harness.VersionNumber(version) + " found"}}, true
 }

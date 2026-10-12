@@ -92,7 +92,11 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 			text.WriteString(st.warn("!") + " " + c.Message + ". " + st.heading("Fix:") + " " + deref(c.Fix) + "\n")
 		default:
 			failed = true
-			text.WriteString(st.bad("✗") + " " + c.Message + ". " + st.heading("Fix:") + " " + deref(c.Fix) + "\n")
+			marker := st.bad("✗")
+			if (strings.HasSuffix(deref(c.Code), "_hooks_missing") || deref(c.Code) == "omp_extension_missing") && deref(c.Fix) == "run aboard init" {
+				marker = st.warn("!")
+			}
+			text.WriteString(marker + " " + c.Message + ". " + st.heading("Fix:") + " " + deref(c.Fix) + "\n")
 		}
 	}
 	a.emit(struct {
@@ -268,12 +272,12 @@ func (a *app) checkHarness(ctx context.Context, h harness.Harness) []doctorCheck
 		}
 	}
 	code := p.CheckName + "_hooks_missing"
-	missing, err2 := hooksMissing(a.hooksFile(h, scopeGlobal), p.Harness, a.currentHooks(ctx, h))
+	_, err2 := hooksMissing(a.hooksFile(h, scopeGlobal), p.Harness, a.currentHooks(ctx, h))
 	if err != nil || err2 != nil {
 		checks = append(checks, problem(name, level, code, p.Harness+": "+errors.Join(err, err2).Error(), "fix the file, then run aboard init"))
 	} else {
 		checks = append(checks, problem(name, level, code,
-			p.Harness+": hooks not installed ("+strings.Join(missing, ", ")+")"+effect, "run aboard init"))
+			p.Harness+": Aboard isn't set up"+effect, "run aboard init"))
 	}
 	checks = append(checks, a.checkHookVersion(ctx, h)...)
 	return append(checks, a.checkAllow(h, nil)...)
@@ -290,34 +294,38 @@ func (a *app) checkHookVersion(ctx context.Context, h harness.Harness) []doctorC
 		return nil
 	}
 	p := h.Profile()
-	var events, losses []string
+	var losses []string
 	need := ""
 	for _, s := range left {
-		events = append(events, s.Event)
 		if s.Without != "" {
-			losses = append(losses, s.Without)
+			loss := s.Without
+			switch loss {
+			case "turn-end delivery uses the harness queue":
+				loss = "messages after a turn ends use Codex's built-in delivery"
+			case "older versions use the pre-tool hook":
+				loss = "messages during a turn arrive before the next tool runs"
+			case "a session closes only when the daemon sees Codex's app server gone":
+				loss = "closed sessions are detected only after Codex stops"
+			}
+			losses = append(losses, loss)
 		}
 		if need == "" || !harness.VersionAtLeast(need, s.Since) {
 			need = s.Since
 		}
 	}
-	hooks, them := "hook", "it"
-	if len(events) > 1 {
-		hooks, them = "hooks", "them"
-	}
-	effect, unknownEffect := "", ""
+	effect := ""
 	if len(losses) > 0 {
-		effect, unknownEffect = ", so "+harness.AndList(losses), "; without "+them+", "+harness.AndList(losses)
+		effect = ", so " + harness.AndList(losses)
 	}
 	name := p.CheckName + "_version"
 	if n := harness.VersionNumber(version); n != "" {
 		return []doctorCheck{problem(name, levelWarning, p.CheckName+"_hooks_unsupported",
-			fmt.Sprintf("%s: %s %s doesn't run Aboard's %s %s%s", p.Harness, p.Name, n, harness.AndList(events), hooks, effect),
+			fmt.Sprintf("%s: %s %s needs an update for full Aboard support%s", p.Harness, p.Name, n, effect),
 			fmt.Sprintf("update %s to %s or later, then run aboard init", p.Name, need))}
 	}
 	return []doctorCheck{problem(name, levelWarning, p.CheckName+"_version_unknown",
-		fmt.Sprintf("%s: couldn't read %s's version, so aboard init left out Aboard's %s %s, which older versions don't run%s",
-			p.Harness, p.Name, harness.AndList(events), hooks, unknownEffect),
+		fmt.Sprintf("%s: couldn't read %s's version; full Aboard support couldn't be enabled%s",
+			p.Harness, p.Name, effect),
 		fmt.Sprintf("check that %s prints %s's version, then run aboard init", strings.Join(p.Checks.Installed.Run, " "), p.Name))}
 }
 

@@ -2368,6 +2368,10 @@ $defs:
       uses that version's core numbers. These warnings never count as errors.
       One check per part. Exit 0 when no check is an error, 3 otherwise. Text output is
       one line per check: "✓ …", "! …" (warning) or "✗ … Fix: …".
+      Missing Aboard setup uses "! … Fix: run aboard init" for every harness in
+      text output. JSON levels and exit codes stay unchanged; damaged configuration
+      files retain their error marker. Messages name the missing capability in plain
+      words, rather than hook event names or internal delivery commands.
       An installed skill or Aboard hook entries that differ from what this aboard writes
       are told apart with the install manifest (see InitOutput): skill_outdated or
       hooks_outdated when unchanged since an aboard wrote them, naming that version
@@ -2382,8 +2386,8 @@ $defs:
       instead of <check>_hooks: <check>_extension_missing (an error), extension_outdated
       or extension_edited. aboard init writes only the hooks the harness's version runs;
       a check named <check>_version warns about the rest: <check>_hooks_unsupported names
-      them and what the person loses ("claude-code: Claude Code 2.0.50 doesn't run
-      Aboard's Stop and PreToolUse hooks, so an idle session doesn't wake for new
+      what the person loses ("claude-code: Claude Code 2.0.50 needs an update for
+      full Aboard support, so an idle session doesn't wake for new
       messages and …", fix "update Claude Code to 2.1.69 or later, then run aboard
       init"), and <check>_version_unknown says the version couldn't be read, so only
       what the oldest supported version runs was installed.
