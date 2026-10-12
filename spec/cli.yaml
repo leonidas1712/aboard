@@ -2350,6 +2350,13 @@ $defs:
       a hook file never clears it. If approval state cannot be read, doctor reports
       codex_hooks_review_unavailable instead of assuming approval. No hook is trusted
       or changed by doctor, and no thread is resumed by this check.
+      When init changes hooks used by an open session, its local install manifest keeps
+      that session's boot as a reload checkpoint. Doctor reports
+      claude_hooks_reload_required or codex_hooks_reload_required while an affected
+      session is still open on that boot. A daemon restart or an unchanged init does
+      not clear it. A closed session or a new boot clears the runtime warning; Codex
+      approval remains checked separately. Unreadable session evidence keeps the
+      warning. This is local diagnostic metadata, not approval or binding authority.
       On a fresh machine with no known server, doctor reports its local server as
       not running, with an aboard up fix, rather than server_not_selected. The same
       local_server diagnostic applies after the local server stops. This server
