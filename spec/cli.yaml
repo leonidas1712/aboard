@@ -2480,6 +2480,15 @@ $defs:
       diagnostics without starting a server or reading a login. A selected stopped
       server remains diagnostic-only. A terminal with no agent selected uses its own
       login only when the selected server is reachable.
+      Each HTTP request has at most three seconds; network and daemon reads share a
+      five-second status budget. A timed-out request
+      returns server_unreachable and a nonzero exit code. Text prints the diagnostics
+      already collected plus "could not reach <server>: <reason>". With --json, the
+      existing error envelope includes those diagnostics as error.details.status
+      (StatusOutput), so there is still exactly one JSON object. In this partial
+      object, false running flags can mean unconfirmed before the deadline; text
+      says so when no running diagnostics were collected. A stopped local
+      server remains diagnostic-only when it refuses the connection immediately.
       With --launch, run in a
       session whose first prompt from aboard swarm up gave a launch ticket (Codex), it
       first hands the ticket in, so the session takes its seat; a ticket already taken
