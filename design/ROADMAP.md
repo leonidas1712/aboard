@@ -20,6 +20,10 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Building:** preserve Codex hook commands across the session-home fix; when
+  future hook changes are needed, init/setup/upgrade name the approval and restart
+  steps for each harness.
+
 - **Review:** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
 

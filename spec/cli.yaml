@@ -610,7 +610,9 @@ $defs:
       ABOARD_DOWNLOAD_URL, as for the install script, changes where releases are
       downloaded from (https only, except a server on this machine). Text output:
       "Upgraded aboard 0.1.0 to 0.2.0 at ~/.local/bin/aboard.", a line for each launcher,
-      a line for the setup, and a reminder to restart open sessions; or "aboard 0.2.0 is
+      a line for the setup, and a reminder to restart open sessions. When hooks changed,
+      it names each affected harness and its approval/restart steps. setup.hooks_changed
+      lists those harnesses; absent when no hook command changed. Or "aboard 0.2.0 is
       already installed; nothing to upgrade."
     type: object
     required: [upgraded, from, to, path, launchers, signature_checked, setup]
@@ -635,6 +637,10 @@ $defs:
             type: array
             items: { type: string }
             description: The harnesses it refreshed, from the install manifest's global scope.
+          hooks_changed:
+            type: array
+            items: { type: string }
+            description: Harnesses whose hooks were created or changed by this refresh; omitted when unchanged.
 
   # ---------- aboard version ----------
   VersionOutput:
