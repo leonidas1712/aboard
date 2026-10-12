@@ -9,6 +9,11 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## Unreleased
 
+### Added
+
+- `aboard export` and the board view's export menu save the board content you can
+  see as Markdown or a zip; file bytes in the zip are unchanged.
+
 ### Fixed
 
 - Codex sessions use their own Codex home for validation and delivery, including
@@ -18,6 +23,9 @@ publishes a version's section as its release notes. How releases are cut is in
 
 - Control protocol 1 accepts optional `codex_home` on session requests. Hooks,
   CLI clients and the delivery daemon are affected; the field is additive.
+- Add read-only `GET /v1/boards/{board}/export?format=md|zip` and `aboard export`
+  with the additive `ExportOutput` shape for API clients, browser clients and CLI
+  scripts. Exports contain only caller-visible content; zip file bytes are unchanged.
 
 ## 0.1.4
 

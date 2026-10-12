@@ -485,3 +485,9 @@ D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prom
 | --- | --- |
 | Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | tool in review (#301, GEN-54); invite-from-scratch flow passed with Haiku and GPT-6-Luna after a greeting-scorer correction; other scenarios remain unproven |
 | Agent UX review before every tag: `scripts/ux-review` walks the board view as each person of a kept flow-eval or sandbox team, at desktop and phone sizes, with keyboard checks; an agent reviews the screenshots with the checklist in engineering/qa.md (GEN-62) | in review |
+
+### Board export (GEN-61)
+
+| Feature | Status |
+| --- | --- |
+| Visible board content as Markdown or a zip with unchanged latest file bytes; one read-only renderer for the CLI and board view | API/CLI in review (#327); approved for 0.1.5; focused acceptance and security pass clear, board-view menu separate |
