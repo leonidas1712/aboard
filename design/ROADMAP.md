@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Building:** person status overview across active boards, with unread counts
+  and their own agents’ last reported locations.
+
 - **Review:** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
 
