@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Building:** unknown person-board names list readable alternatives; CLI
+  recovery wording follows the machine default and ignored legacy folder links.
+
 - **Review:** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
 
