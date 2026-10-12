@@ -956,7 +956,7 @@ func helpText(templates string) []commandHelp {
 			Summary: "Check the server, the delivery daemon and each harness's setup",
 			Usage:   []string{"aboard doctor [--json]"},
 			Description: "Checks the selected server without starting it, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, " +
-				"and deliveries that need attention. Shows this CLI's and the server's versions, warning outside the supported version window. Each problem comes with the fix to run.\n\n" +
+				"and deliveries that need attention. Shows this CLI's and the server's versions, warning when the versions may not work together. Each problem comes with the fix to run.\n\n" +
 				"A regular legacy .aboard folder-link file is ignored; its warning shows the command to delete that file. State directories and symlinks are not treated as folder links.\n\n" +
 				"Exits 0 when no check is an error and 3 when one is.",
 			Flags:    []helpFlag{flagJSON},

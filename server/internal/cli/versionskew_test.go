@@ -36,7 +36,7 @@ func TestVersionSkewPolicyAndUpgradeDirection(t *testing.T) {
 					t.Fatalf("warning: %+v", c)
 				}
 				if tc.code == "version_unknown" {
-					if !strings.Contains(c.Message, "compatibility can't be assessed") {
+					if !strings.Contains(c.Message, "can't tell whether these versions work together") {
 						t.Fatalf("unknown: %+v", c)
 					}
 				} else if !strings.Contains(deref(c.Fix), tc.fix) {

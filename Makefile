@@ -82,7 +82,8 @@ test:
 
 # E2E_SHARD=i/n runs one nth of the top-level tests of ./e2e, split by how long each
 # takes (scripts/e2e-shard), so CI can spread the suite across machines. It builds the
-# test binary once to list and run them. e2e/support and e2e/live/affected run in make test.
+# test binary once to list and run them, and on success prints each test's time.
+# e2e/support and e2e/live/affected run in make test.
 e2e:
 	@$(REQUIRE_GO); \
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
@@ -91,7 +92,11 @@ e2e:
 	go test -c -race -tags e2e -o "$$bin" ./e2e/ || exit 1; \
 	tests="$$(cd e2e && "$$bin" -test.list '.*' | ../scripts/e2e-shard "$${E2E_SHARD%/*}" "$${E2E_SHARD#*/}")"; \
 	if [ -z "$$tests" ]; then echo "$@: shard $(E2E_SHARD) has no tests"; exit 0; fi; \
-	cd e2e && "$$bin" -test.timeout 20m -test.run "^($$tests)\$$"
+	log="$$(dirname "$$bin")/e2e.log"; \
+	(cd e2e && "$$bin" -test.v -test.timeout 20m -test.run "^($$tests)\$$") >"$$log" 2>&1; status=$$?; \
+	if [ $$status -ne 0 ]; then grep -v -E '^ *(=== |--- PASS)' "$$log"; exit $$status; fi; \
+	echo "PASS. Each test's seconds, slowest first (the format of e2e/testdata/test-seconds.txt):"; \
+	sed -n -E 's/^--- PASS: (Test[^ ]+) \(([0-9]+)\.[0-9]+s\)$$/\1 \2/p' "$$log" | sort -k2,2nr
 
 ## e2e-times: time each e2e test and save the times scripts/e2e-shard balances CI's shards by
 e2e-times:
