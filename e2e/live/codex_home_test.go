@@ -20,6 +20,8 @@ func TestCodexSessionHomeIgnoresTheDaemonsHome(t *testing.T) {
 	setup := requireCodex(t)
 	parallel(t)
 	l := newLab(t)
+	// The hook wrapper must inherit the real app server’s home, without injecting it.
+	l.codexHookInheritsHome = true
 	l.codexHome(setup)
 	oldDaemon := l.daemonPID()
 	if err := syscall.Kill(oldDaemon, syscall.SIGTERM); err != nil {

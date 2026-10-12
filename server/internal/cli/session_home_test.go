@@ -3,7 +3,6 @@ package cli
 import (
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -30,12 +29,30 @@ func TestDaemonDropsHarnessHomesAndOrcaEnvironment(t *testing.T) {
 	}
 }
 
-func TestCustomCodexHooksKeepTheCodexHome(t *testing.T) {
+func TestCustomCodexHomeDoesNotChangeInstalledHookCommands(t *testing.T) {
 	env := map[string]string{"HOME": t.TempDir(), "CODEX_HOME": filepath.Join(t.TempDir(), "custom home")}
 	a := &app{env: Env{Getenv: func(k string) string { return env[k] }}}
-	for _, h := range a.withHome(hooksOf(t, "codex", "/bin/aboard")) {
-		if !strings.HasPrefix(h.Handler.Command, "CODEX_HOME="+shellWord(env["CODEX_HOME"])+" ") {
-			t.Fatalf("custom home missing from hook: %s", h.Handler.Command)
+	custom := a.withHome(hooksOf(t, "codex", "/bin/aboard"))
+	delete(env, "CODEX_HOME")
+	original := a.withHome(hooksOf(t, "codex", "/bin/aboard"))
+	for i, h := range custom {
+		if h.Handler.Command != original[i].Handler.Command {
+			t.Fatalf("custom home changed trusted hook: %s; want %s", h.Handler.Command, original[i].Handler.Command)
 		}
+	}
+}
+
+func TestCodexHookRequestUsesRuntimeHome(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "runtime home")
+	a := &app{env: Env{Getenv: func(name string) string {
+		if name == "CODEX_HOME" {
+			return home
+		}
+		return ""
+	}}}
+	h := hookCall{a: a, harness: "codex"}
+	h.in.SessionID = "runtime-thread"
+	if got := h.request(delivery.OpTurnStart).CodexHome; got != home {
+		t.Fatalf("hook request home = %q, want %q", got, home)
 	}
 }

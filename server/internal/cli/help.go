@@ -151,7 +151,7 @@ func helpText(templates string) []commandHelp {
 				"In a terminal, init first shows what is already set up, then asks which harnesses, where to install, the delivery mode and whether to allow aboard commands, " +
 				"shows the changes and asks before making them. Each flag answers its question. " +
 				"In a pipe, inside an agent's session or with --json it never asks: without --yes it lists the changes it would make and changes nothing.\n\n" +
-				"Restart open sessions afterwards so they load the hooks. Claude Code and Codex ask you to trust new hooks once, in /hooks.",
+				"Restart open sessions afterwards so they load the hooks. When hooks change, the output names each harness and its /hooks approval and restart steps.",
 			Flags: []helpFlag{
 				{"--yes", "", "Make the changes without asking."},
 				{"--scope", "global|project", "global (the default) installs in each harness's config folder, for every project; project installs only under this directory."},
@@ -981,7 +981,8 @@ func helpText(templates string) []commandHelp {
 				"Every check comes before anything is replaced.\n\n" +
 				"It upgrades an aboard installed by the install script. For one installed with Homebrew or built from source it changes nothing and gives the command to run instead. " +
 				"Agents may run it too; upgrading does not grant access to keys or login. " +
-				"Running daemons and the local server switch to the new aboard at the next command.",
+				"Running daemons and the local server switch to the new aboard at the next command. " +
+				"When hooks change, the output names each affected harness and its /hooks approval and restart steps.",
 			Flags: []helpFlag{
 				{"--version", "V", "Install this version, such as 0.2.0, instead of the latest."},
 				flagJSON,
