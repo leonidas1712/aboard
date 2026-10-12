@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Building:** issuer-specific recovery hints for stale person logins. Agent
+  token refusals retain their rejoin instructions.
+
 - **Review:** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
 

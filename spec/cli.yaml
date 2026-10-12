@@ -138,6 +138,9 @@
 #   With no known server, up/pair/board new/open bootstrap local and persist its initial
 #   default. connect/setup may establish a first default; adding a server never
 #   replaces one. Every follow-up command preserves the selected issuer.
+# - A person-token HTTP 401 names its issuer and hints to sign in again with
+#   aboard login <server>, or switch with aboard servers use local. Agent-token
+#   401s retain the server’s rejoin hint. No credential is retried or substituted.
 # - Agent commands never use the person's login: say, read, react, inbox, status,
 #   boards, agents, task, ask, working, paused, file, brief, audit, leave, resume,
 #   board actions and pairing use the selected issuer-bound seat or their contracted
