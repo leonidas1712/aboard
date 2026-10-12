@@ -2357,6 +2357,9 @@ $defs:
       not clear it. A closed session or a new boot clears the runtime warning; Codex
       approval remains checked separately. Unreadable session evidence keeps the
       warning. This is local diagnostic metadata, not approval or binding authority.
+      Init reads the open-session checkpoint before writing changed hooks. If that
+      read fails, hook_recovery_unavailable leaves the planned files unwritten and
+      names doctor and init --yes as the next steps.
       On a fresh machine with no known server, doctor reports its local server as
       not running, with an aboard up fix, rather than server_not_selected. The same
       local_server diagnostic applies after the local server stops. This server
