@@ -72,7 +72,7 @@ func helpTopics() []commandHelp {
 		// Lists are never null in --json output.
 		h := &topics[i]
 		switch h.Name {
-		case "say", "read", "inbox", "react", "file", "task", "board", "boards", "agent", "leave", "ask", "pairing", "resume", "pair", "join", "audit", "status", "brief", "delivery":
+		case "say", "read", "inbox", "react", "file", "task", "board", "boards", "agent", "leave", "ask", "pairing", "resume", "pair", "join", "audit", "status", "brief", "export", "delivery":
 			hasServer := false
 			for _, flag := range h.Flags {
 				if flag.Name == "--server" {
@@ -453,6 +453,15 @@ func helpText(templates string) []commandHelp {
 			Flags:       []helpFlag{{"--name", "PATH", "The board path to write; folders are allowed."}, {"--base", "N", "The version to replace, overriding the remembered version."}, {"--version", "N", "Download this historical version."}, {"--force", "", "Replace a changed local file."}, {"--task", "ID", "Link the upload to tasks, or filter the list."}, {"--mine", "", "List files you wrote."}, {"--maintained", "", "Mark the upload as kept current."}, {"--media-type", "TYPE", "The bytes' media type; inferred from the name otherwise."}, flagAs, flagBoard, flagJSON},
 			Examples:    []helpExample{{"aboard file list", "List files"}, {"aboard file get notes/api.md api.md", "Fetch a version to edit"}, {"aboard file put api.md", "Put the edited version back"}},
 			SeeAlso:     []string{"say", "storage"},
+		},
+		{
+			Name: "export", Group: groupTalk,
+			Summary:     "Save the board as Markdown or a zip with files",
+			Usage:       []string{exportUsage},
+			Description: "Exports only the content you can read: brief, tasks, asks, timeline and files index. --zip includes unchanged latest file bytes. Reads never mark messages read. This is a content document, not a record backup. Existing local files are never replaced.",
+			Flags:       []helpFlag{{"--zip", "", "Include latest file bytes in a zip archive."}, {"--out", "PATH", "Save to this local path instead of the board-and-date filename."}, flagAs, flagBoard, flagJSON},
+			Examples:    []helpExample{{"aboard export", "Save the board as Markdown"}, {"aboard export --zip --out board.zip", "Save the board with its latest files"}},
+			SeeAlso:     []string{"file", "brief", "read"},
 		},
 		{
 			Name: "brief", Group: groupTalk,

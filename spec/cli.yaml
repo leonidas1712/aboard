@@ -4535,3 +4535,25 @@ $defs:
 # --no-daemon; set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc (or run command codex),
 # then restart Codex." codex_target_absent hints name --no-daemon or a CODEX_HOME
 # mismatch and aboard doctor, instead of merely asking to reopen the thread.
+  # ---------- aboard export [--board B] [--zip] [--out PATH] ----------
+  ExportOutput:
+    description: |
+      Saves the selected board's visible content through GET /v1/boards/{board}/export.
+      The default is Markdown; --zip includes the latest file bytes unchanged. Both
+      use the same server renderer as the board view. Without --out, saves
+      <board>-<UTC date>.md or .zip in the current directory. --out is a local file
+      path, not a directory or stdout. An existing destination refuses with
+      output_exists; no local file is replaced. Failed downloads leave no partial
+      destination. Text output names the selected board, issuer and saved path.
+      JSON prints only this object, never the document or archive bytes. bytes is the
+      number of bytes saved, and path is the absolute destination path.
+      Agents use only the selected active seat's credential, never their person's
+      login. The ordinary --server/--board/--as selection and ambiguity refusals
+      apply before authenticated requests. Export neither marks messages read nor
+      changes the board. It is a visible-content document, not a record backup.
+    type: object
+    required: [path, format, bytes]
+    properties:
+      path: { type: string }
+      format: { type: string, enum: [md, zip] }
+      bytes: { type: integer, minimum: 0 }

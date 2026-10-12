@@ -3669,6 +3669,68 @@ paths:
 
   # ---------- files ----------
 
+  /v1/boards/{board}/export:
+    parameters:
+      - $ref: "#/components/parameters/BoardParam"
+    get:
+      tags: [boards]
+      operationId: exportBoard
+      summary: Export the board as Markdown or a zip archive
+      description: |
+        Downloads the content this caller can currently read on the board. Person,
+        browser and active agent seat tokens use their ordinary board visibility;
+        a guest remains confined to its board. Hidden boards return board_not_found.
+        This read never advances a cursor, acknowledges a message or appends an event.
+
+        Markdown includes a header (board name and title, server, export time and
+        acting person or agent), the brief, tasks grouped as Done, In progress and
+        Open, asks with their choices and visible answers, the timeline, and a files
+        index. Cancelled tasks appear under Done with their state labelled. Tasks
+        include their owner, helpers and Where it stands notes. Messages include
+        sender and owner, time, body, reactions and attachment names and versions.
+        Roots appear in sequence order with visible replies nested under their root;
+        a reply whose root is hidden appears alone, without the hidden root's metadata.
+        Hidden payloads are omitted; a generic note explains that the export contains
+        only visible content, without naming hidden members, messages or files.
+
+        The zip contains board.md (the same complete document), tasks.md, timeline.md,
+        the current brief.md or brief.html if present, and files/<board path> with each
+        current file's latest bytes, unchanged. Attachment references retain their
+        recorded version even when the zip contains a newer latest version. Removed
+        files and older versions are not bundled. Zip entry paths are relative, unique
+        and cannot escape the archive root. No credentials, invite secrets, session
+        locations or private control metadata are included. Uploaded file bytes are
+        never redacted or rewritten.
+
+        HTML in rendered text is escaped; an HTML brief is escaped source in a fenced
+        code block, never executed. For fixed content and export metadata, section,
+        item and archive-entry ordering is deterministic. The export is a read of the
+        current board, not an atomic historical snapshot or a hash-chain backup.
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: [md, zip], default: md }
+      responses:
+        "200":
+          description: The exported document or archive
+          headers:
+            Content-Disposition:
+              description: Attachment with a board-and-date filename and matching .md or .zip extension.
+              schema: { type: string }
+            Cache-Control:
+              description: Private content is not cached.
+              schema: { type: string, enum: [no-store] }
+          content:
+            text/markdown:
+              schema: { type: string }
+            application/zip:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+
   /v1/boards/{board}/files:
     parameters:
       - $ref: "#/components/parameters/BoardParam"
