@@ -90,6 +90,8 @@ test("the finder's Copy as Markdown does what the menu item does", async ({ page
   await page.keyboard.press("ControlOrMeta+k");
   const field = page.getByRole("dialog", { name: "Find or do anything" }).getByRole("combobox");
   await field.fill("copy markdown");
+  // The finder offers export once the board has loaded.
+  await expect(page.getByRole("option", { name: /Copy as Markdown/ })).toBeVisible();
   await field.press("Enter");
   await expect(page.getByRole("status").filter({ hasText: "Copied" })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(markdown);
