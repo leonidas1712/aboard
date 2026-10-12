@@ -497,7 +497,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 		trust = "Run /hooks, approve Aboard's hooks, then restart Claude Code."
 	}
 	if key.Harness == "codex" {
-		trust = "Approve Aboard's global hooks in Codex, then restart Codex."
+		trust = "Run /hooks, approve Aboard's global hooks, then restart Codex (codex resume --last)."
 	}
 	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: "Run aboard skill now; it loads automatically in your next session. " + trust + " Continue Aboard setup."}, nil
 }

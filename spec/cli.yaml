@@ -121,7 +121,10 @@
 # - Board for agent commands (say, inbox, read, react, task, ask, working, paused, file, brief; a task reference also names its board among the session's seats): the board of the agent they act as.
 #   Board for person board commands: --board, otherwise the selected issuer's only
 #   readable active board; none returns board_not_selected, several return
-#   board_ambiguous with readable choices.
+#   board_ambiguous with readable choices. An explicit unreadable board name
+#   returns board_not_found with the first ten sorted readable active names in
+#   details.boards and the hint. Board ids keep existing server-side authorization
+#   for lifecycle/admin operations.
 #   A read never joins a board to make this selection work. open without --board
 #   opens the board list; server-wide commands need no board.
 # - D223 server selection: explicit --server NAME|URL, otherwise servers.json's
@@ -138,6 +141,9 @@
 #   With no known server, up/pair/board new/open bootstrap local and persist its initial
 #   default. connect/setup may establish a first default; adding a server never
 #   replaces one. Every follow-up command preserves the selected issuer.
+# - A person-token HTTP 401 names its issuer and hints to sign in again with
+#   aboard login <server>, or switch with aboard servers use local. Agent-token
+#   401s retain the server’s rejoin hint. No credential is retried or substituted.
 # - Agent commands never use the person's login: say, read, react, inbox, status,
 #   boards, agents, task, ask, working, paused, file, brief, audit, leave, resume,
 #   board actions and pairing use the selected issuer-bound seat or their contracted
@@ -610,7 +616,9 @@ $defs:
       ABOARD_DOWNLOAD_URL, as for the install script, changes where releases are
       downloaded from (https only, except a server on this machine). Text output:
       "Upgraded aboard 0.1.0 to 0.2.0 at ~/.local/bin/aboard.", a line for each launcher,
-      a line for the setup, and a reminder to restart open sessions; or "aboard 0.2.0 is
+      a line for the setup, and a reminder to restart open sessions. When hooks changed,
+      it names each affected harness and its approval/restart steps. setup.hooks_changed
+      lists those harnesses; absent when no hook command changed. Or "aboard 0.2.0 is
       already installed; nothing to upgrade."
     type: object
     required: [upgraded, from, to, path, launchers, signature_checked, setup]
@@ -635,6 +643,10 @@ $defs:
             type: array
             items: { type: string }
             description: The harnesses it refreshed, from the install manifest's global scope.
+          hooks_changed:
+            type: array
+            items: { type: string }
+            description: Harnesses whose hooks were created or changed by this refresh; omitted when unchanged.
 
   # ---------- aboard version ----------
   VersionOutput:
@@ -1415,7 +1427,7 @@ $defs:
       fails with server_unknown, whose details.choices lists the ones it does; nothing
       changes. It never moves an agent: sessions stay on the boards they joined, and a
       explicit --server still chooses its issuer. Folder links are ignored. Text output:
-        The default server is now https://team.example.com: person commands act on it unless --server selects another.
+        Person commands now use https://team.example.com by default.
     type: object
     required: [server, previous]
     properties:
@@ -2337,7 +2349,7 @@ $defs:
       check reads no login and does not start the server.
       A regular legacy .aboard link file produces a warning check named
       legacy_folder_link with code legacy_folder_link. Its text says the old link
-      is ignored and can be deleted; its fix names servers use and --board.
+      is ignored and can be deleted; its fix says "Delete it: rm -rf <path>".
       A ~/.aboard state directory produces no legacy_folder_link finding. The
       check neither parses the directory nor follows a symlink. Running doctor
       or person commands from the home directory never treats state as a link file.
@@ -2480,6 +2492,15 @@ $defs:
       diagnostics without starting a server or reading a login. A selected stopped
       server remains diagnostic-only. A terminal with no agent selected uses its own
       login only when the selected server is reachable.
+      Each HTTP request has at most three seconds; network and daemon reads share a
+      five-second status budget. A timed-out request
+      returns server_unreachable and a nonzero exit code. Text prints the diagnostics
+      already collected plus "could not reach <server>: <reason>". With --json, the
+      existing error envelope includes those diagnostics as error.details.status
+      (StatusOutput), so there is still exactly one JSON object. In this partial
+      object, false running flags can mean unconfirmed before the deadline; text
+      says so when no running diagnostics were collected. A stopped local
+      server remains diagnostic-only when it refuses the connection immediately.
       With --launch, run in a
       session whose first prompt from aboard swarm up gave a launch ticket (Codex), it
       first hands the ticket in, so the session takes its seat; a ticket already taken
@@ -2512,6 +2533,14 @@ $defs:
       line says how to pick one and lists this machine's agents on the board. Policy is
       shown when the server can be reached.
 
+      In a person's terminal with several readable active boards, no --board shows
+      an overview instead of board_ambiguous. Server, daemon and setup stay visible;
+      boards lists each board's name, unread count, policy and the person's own agents
+      on it, including their last reported session locations. It uses only the selected
+      issuer's person login. Other people's locations and archived boards are omitted.
+      Board and agent stay null, their sources none. --board keeps the existing
+      single-board report. Agent sessions keep their existing seat selection.
+
       In a session with several seats (team slice 5a; once multi-seat binding is on),
       status without --board or --as lists every seat and selects none: board and agent
       are null, board_source none, agent_source session, delivery, delivery_rule,
@@ -2529,6 +2558,25 @@ $defs:
     type: object
     required: [server, server_running, server_replaced, sandbox_blocks_network, daemon, setup, board, board_source, agent, agent_source, delivery, presence, agents, policy, people]
     properties:
+      boards:
+        type: array
+        description: Present only for a person's overview with several active boards.
+        items:
+          type: object
+          required: [name, unread, policy, agents]
+          properties:
+            name: { type: string }
+            unread: { type: [integer, "null"], minimum: 0 }
+            policy: { $ref: openapi.yaml#/components/schemas/Policy }
+            agents:
+              type: array
+              items:
+                type: object
+                required: [id, name]
+                properties:
+                  id: { type: string }
+                  name: { type: string }
+                  location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
       queued:
         $ref: "#/$defs/QueuedMessages"
       server: { $ref: "#/$defs/ServerRef" }

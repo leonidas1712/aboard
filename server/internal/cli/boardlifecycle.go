@@ -114,7 +114,14 @@ func runBoardDelete(ctx context.Context, a *app, sel, asFlag string, yes bool) e
 	if err := a.refuseInSession("Deleting a board", command); err != nil {
 		return err
 	}
-	t, err := a.humanBoard(ctx, sel)
+	var t target
+	var err error
+	if sel != "" && !yes && !a.interactive() {
+		// Refuse an unconfirmed deletion before making an authenticated request.
+		t, err = a.selectBoard(sel)
+	} else {
+		t, err = a.humanBoard(ctx, sel)
+	}
 	if err != nil {
 		return err
 	}

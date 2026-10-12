@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,8 +27,9 @@ type upgradeOutput struct {
 }
 
 type upgradeSetup struct {
-	Refreshed bool     `json:"refreshed"`
-	Harnesses []string `json:"harnesses"`
+	Refreshed    bool     `json:"refreshed"`
+	Harnesses    []string `json:"harnesses"`
+	HooksChanged []string `json:"hooks_changed,omitempty"`
 }
 
 // upgradeTimeout bounds the downloads of one upgrade.
@@ -111,7 +113,8 @@ func runUpgrade(ctx context.Context, a *app, args []string) error {
 
 	out.Setup.Harnesses = a.globalHarnesses()
 	if len(out.Setup.Harnesses) > 0 {
-		if err := refreshSetup(ctx, exe, out.Setup.Harnesses); err != nil {
+		changed, err := refreshSetup(ctx, exe, out.Setup.Harnesses)
+		if err != nil {
 			return &Error{
 				Code: "upgrade_setup_failed",
 				Message: "aboard was upgraded from " + version + " to " + target + ", but refreshing the skill and hooks failed: " +
@@ -120,6 +123,7 @@ func runUpgrade(ctx context.Context, a *app, args []string) error {
 				Details: map[string]any{"from": version, "to": target},
 			}
 		}
+		out.Setup.HooksChanged = changed
 		out.Setup.Refreshed = true
 	}
 	a.emit(out, a.upgradeText(out))
@@ -252,17 +256,27 @@ func (a *app) globalHarnesses() []string {
 
 // refreshSetup runs the new binary's aboard init --yes for the harnesses, so the skill
 // and hooks are what the new build writes.
-func refreshSetup(ctx context.Context, exe string, harnesses []string) error {
-	cmd := exec.CommandContext(ctx, exe, "init", "--yes", "--scope", scopeGlobal, "--harness", strings.Join(harnesses, ",")) //nolint:gosec // the binary just installed
-	out, err := cmd.CombinedOutput()
+func refreshSetup(ctx context.Context, exe string, harnesses []string) ([]string, error) {
+	cmd := exec.CommandContext(ctx, exe, "init", "--yes", "--scope", scopeGlobal, "--harness", strings.Join(harnesses, ","), "--json") //nolint:gosec // the binary just installed
+	out, err := cmd.Output()
 	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			msg = err.Error()
+		var failure wireError
+		if json.Unmarshal(out, &failure) == nil && failure.Error.Code != "" {
+			return nil, fmt.Errorf("%s: %s Hint: %s", failure.Error.Code, failure.Error.Message, failure.Error.Hint)
 		}
-		return errors.New(msg)
+		var exit *exec.ExitError
+		if errors.As(err, &exit) && len(exit.Stderr) > 0 {
+			return nil, errors.New(strings.TrimSpace(string(exit.Stderr)))
+		}
+		return nil, err
 	}
-	return nil
+	var report struct {
+		Harnesses []harnessSetup `json:"harnesses"`
+	}
+	if err := json.Unmarshal(out, &report); err != nil {
+		return nil, fmt.Errorf("read refreshed setup: %w", err)
+	}
+	return changedHookHarnesses(report.Harnesses), nil
 }
 
 // upgradeText is aboard upgrade's text output.
@@ -283,6 +297,7 @@ func (a *app) upgradeText(out upgradeOutput) string {
 	} else {
 		b.WriteString("Nothing to refresh: aboard init hasn't set up any harness for every project. Run aboard init to set one up.\n")
 	}
+	b.WriteString(hookChangesText(out.Setup.HooksChanged))
 	b.WriteString("Restart open sessions so they run the new aboard's skill.\n")
 	return b.String()
 }

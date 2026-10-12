@@ -151,7 +151,7 @@ func helpText(templates string) []commandHelp {
 				"In a terminal, init first shows what is already set up, then asks which harnesses, where to install, the delivery mode and whether to allow aboard commands, " +
 				"shows the changes and asks before making them. Each flag answers its question. " +
 				"In a pipe, inside an agent's session or with --json it never asks: without --yes it lists the changes it would make and changes nothing.\n\n" +
-				"Restart open sessions afterwards so they load the hooks. Claude Code and Codex ask you to trust new hooks once, in /hooks.",
+				"Restart open sessions afterwards so they load the hooks. When hooks change, the output names each harness and its /hooks approval and restart steps.",
 			Flags: []helpFlag{
 				{"--yes", "", "Make the changes without asking."},
 				{"--scope", "global|project", "global (the default) installs in each harness's config folder, for every project; project installs only under this directory."},
@@ -311,6 +311,7 @@ func helpText(templates string) []commandHelp {
 				"A machine that already has a default server, or already uses its local server, keeps it as the default (aboard servers) and says how to switch; otherwise a team's server becomes the default.\n\n" +
 				"One key used on two machines ties them to one revocation, so login always says so, and says when the key was last used. " +
 				"To give a machine a key of its own, run aboard keys create <name> on a machine that is signed in, then aboard login here with the new key. " +
+				"If a person command reports unauthorized, sign in again on the server named in its hint, or switch with aboard servers use local. Agent-token refusals keep their rejoin instructions. " +
 				"Signing in is up to a person, so it refuses inside an agent's session.",
 			Flags: []helpFlag{flagJSON},
 			Examples: []helpExample{
@@ -618,7 +619,9 @@ func helpText(templates string) []commandHelp {
 				"which board and agent commands run here would use and where each choice came from, the agent's delivery mode and presence, " +
 				"and the board's policy. With --as, ABOARD_AGENT or a bound session, it reads metadata with that seat's token, never your login. " +
 				"An unknown named agent refuses; a session with no seat shows local diagnostics without reading board metadata.\n\n" +
+				"In a person’s terminal with several active boards, it lists those boards, unread counts and your own agents’ last reported locations. Use --board to check one board.\n\n" +
 				"It starts nothing, but replaces a server or daemon left running by an older aboard, as any command does.\n\n" +
+				"Reads share a five-second budget. A timeout prints known diagnostics and exits with an error; --json keeps them in error.details.status.\n\n" +
 				"A session aboard swarm up starts with its launch ticket in its first prompt (Codex) is asked to run it with --launch, " +
 				"which seats the session as its agent if its hooks haven't already.",
 			Flags: []helpFlag{
@@ -945,6 +948,7 @@ func helpText(templates string) []commandHelp {
 			Usage:   []string{"aboard doctor [--json]"},
 			Description: "Checks the selected server without starting it, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, " +
 				"and deliveries that need attention. Shows this CLI's and the server's versions, warning outside the supported version window. Each problem comes with the fix to run.\n\n" +
+				"A regular legacy .aboard folder-link file is ignored; its warning shows the command to delete that file. State directories and symlinks are not treated as folder links.\n\n" +
 				"Exits 0 when no check is an error and 3 when one is.",
 			Flags:    []helpFlag{flagJSON},
 			Examples: []helpExample{{"aboard doctor", "Check everything"}, {"aboard doctor --json", "The same, for a script or an agent"}},
@@ -981,7 +985,8 @@ func helpText(templates string) []commandHelp {
 				"Every check comes before anything is replaced.\n\n" +
 				"It upgrades an aboard installed by the install script. For one installed with Homebrew or built from source it changes nothing and gives the command to run instead. " +
 				"Agents may run it too; upgrading does not grant access to keys or login. " +
-				"Running daemons and the local server switch to the new aboard at the next command.",
+				"Running daemons and the local server switch to the new aboard at the next command. " +
+				"When hooks change, the output names each affected harness and its /hooks approval and restart steps.",
 			Flags: []helpFlag{
 				{"--version", "V", "Install this version, such as 0.2.0, instead of the latest."},
 				flagJSON,
