@@ -69,14 +69,14 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
 	ctx, cancel := context.WithTimeout(ctx, statusBudget(a.env.Getenv))
 	defer cancel()
-	a.statusReads = &statusReads{timeouts: map[string]string{}}
+	reads := &statusReads{timeouts: map[string]string{}}
 	var statusText string
 	var setupLine string
 	defer func() {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) && len(a.statusReads.timeouts) == 0 {
-			a.statusReads.timeouts[out.Server.URL] = "status exceeded its five-second budget"
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && len(reads.timeouts) == 0 {
+			reads.timeouts[out.Server.URL] = "status exceeded its five-second budget"
 		}
-		if failure := a.statusReads.failure(); failure != nil {
+		if failure := reads.failure(); failure != nil {
 			failure.Details = map[string]any{"status": out}
 			result = failure
 			if statusText == "" {
@@ -117,6 +117,9 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		a.replaceOutdatedDaemon(ctx, p)
 	}
 	out.ServerReplaced = a.localReplaced
+	// Replacement retries its own readiness probes. Only the final diagnostic reads
+	// should retain request timeouts; the overall deadline still covers replacement.
+	a.statusReads = reads
 
 	creds, err := a.readCredentials()
 	if err != nil {
