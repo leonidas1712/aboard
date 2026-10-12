@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -68,7 +67,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		Queued *delivery.QueuedMessages `json:"queued,omitempty"`
 		Boards []statusBoard            `json:"boards,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, statusBudget(a.env.Getenv))
 	defer cancel()
 	a.statusReads = &statusReads{timeouts: map[string]string{}}
 	var statusText string
