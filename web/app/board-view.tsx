@@ -11,7 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
-import { ExportMenu } from "./export-menu";
+import { ExportMenu, exportAs } from "./export-menu";
 import { Header, Problem } from "./chrome";
 import { TaskBoard, TaskContext, TaskDetail, type WorkBy, WorkTasks, WorkTitle, useTasks } from "./task-ui";
 import { FilePanel, FilesView, useFiles } from "./files";
@@ -761,7 +761,11 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
                 toConversation();
               },
               openTask,
+              members: { title: people.length > 1 ? "Agents and people" : "Agents", show: () => show("board-agents") },
+              exportAs: s.board ? exportAs : undefined,
+              markAllRead: !loading && s.board && (s.board.unread ?? 0) > 0 ? () => markRead(s.board!) : undefined,
             }}
+            onKeys={() => setKeysOpen(true)}
           />
         )}
       </div>
