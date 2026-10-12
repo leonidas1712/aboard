@@ -9,14 +9,27 @@ publishes a version's section as its release notes. How releases are cut is in
 
 ## 0.1.5
 
-Codex delivery keeps working when a terminal app sets its own Codex home, upgrading
-needs no Codex hook re-approval, `aboard status` never hangs and shows all your boards,
-the board view opens quieter, and the docs and site are rewritten for launch.
+Codex delivery keeps working when a terminal app sets its own Codex home, and says why
+when it can't; upgrading needs no Codex hook re-approval; `aboard status` never hangs and
+shows all your boards; the board view gains a finder and board export; and the docs and
+site are rewritten for launch.
 
 ### Added
 
+- The board view has a finder: `⌘K` (`Ctrl+K` off a Mac), or **Find or do anything**
+  under the board list, opens one box to go to a board, a task on the board on screen
+  (by reference such as `PAY-12` or by title), the Inbox, or the board's Conversation,
+  Tasks and Files. It works from the message box too, and the keys sheet lists it
+  (#359).
+- `aboard export` and the board view's Export menu (copy as Markdown, download `.md` or
+  `.zip`) save the board content you can see. File bytes in the zip are unchanged, and
+  `aboard export` never replaces an existing local file (#327).
 - `aboard status` without `--board` shows an overview of your boards: unread counts,
   policy and your own agents on each, with where they last ran (#354).
+- `aboard doctor` and `aboard status` say when Codex can't receive automatic delivery:
+  Codex started with `--no-daemon` (with the Orca setting to change when Orca added it),
+  or no shared Codex app-server for the session. The warning is kept until a healthy
+  check clears it (#355).
 
 ### Changed
 
@@ -51,21 +64,36 @@ the board view opens quieter, and the docs and site are rewritten for launch.
 - `aboard status` never hangs. Each request waits at most 3 seconds and all reads
   together 5 seconds; a timeout exits nonzero with `server_unreachable` and the
   diagnostics gathered so far (#349).
+- `aboard status` no longer fails after it replaces an older server or daemon that then
+  answers: a slow first readiness check isn't reported once the server is up (#360).
 
 ### Contract changes
 
 - Control protocol 1 (`spec/control.md`) accepts optional `codex_home` on session
-  requests. Hooks, CLI clients and the delivery daemon are affected. The change is
-  additive: older clients keep the recorded home, falling back to `~/.codex` when none
-  exists (#346).
+  requests (#346), and optional `delivery_checked` and `delivery_warning`
+  (`codex_no_daemon`, `codex_no_daemon_orca`) (#355). Hooks, CLI clients and the delivery
+  daemon are affected. Both are additive: older clients keep the recorded home, falling
+  back to `~/.codex` when none exists, and a client that omits `delivery_checked` leaves
+  an earlier warning as it was.
+- `spec/openapi.yaml`, additive for API clients, browser clients and CLI scripts:
+  - read-only `GET /v1/boards/{board}/export?format=md|zip`, returning only content the
+    caller can see; zip file bytes are unchanged (#327);
+  - the optional `DeliveryWarning` (`codex_no_daemon`, `codex_no_daemon_orca`) on
+    presence reports, members and presence updates. It is diagnostic only, never
+    authority or a new presence state (#355).
 - `spec/cli.yaml`, all additive; CLI scripts that parse `--json` are affected only if
   they reject unknown fields:
-  - `aboard status --json` gains `boards` in the overview without `--board` (#354), and
-    a timeout adds `error.details.status` to the error envelope (#349).
+  - `aboard export` with the `ExportOutput` shape (#327).
+  - `aboard status --json` gains `boards` in the overview without `--board` (#354),
+    `delivery_warning` for the selected seat and `delivery_warnings` for seats on this
+    machine (#355), and a timeout adds `error.details.status` to the error envelope
+    (#349).
   - `aboard init` and `aboard upgrade` setup output gains `setup.hooks_changed`, the
     harnesses whose hooks changed; absent when none did (#354).
   - An unknown `--board` returns `board_not_found` with `details.boards`, up to ten
     readable board names (#354).
+- `spec/delivery.md` and `spec/events.md` describe the delivery warning as presence
+  bookkeeping: never a board log event, never an acknowledgement (#355).
 
 ## 0.1.4
 

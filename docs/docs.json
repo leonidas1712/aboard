@@ -148,6 +148,7 @@
                   "cli/ask",
                   "cli/task",
                   "cli/file",
+                  "cli/export",
                   "cli/brief",
                   "cli/storage",
                   "cli/say",

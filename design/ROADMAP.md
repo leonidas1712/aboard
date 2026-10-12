@@ -20,12 +20,18 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
-- **Merged:** bounded status diagnostics (#349).
-- **Review:** 0.1.5 CLI fixes: stable Codex hook commands and explicit approval
-  guidance, a person's board overview, stale-login recovery, readable board choices,
-  and doctor/default-server wording.
-- **Building:** unavailable Codex delivery warnings in doctor and status. The board
-  agent-row warning follows in 0.1.6.
+- **Review:** status reports recovered startup probes as healthy while retaining
+  failures from final diagnostic reads and the overall five-second deadline.
+
+- **Review (#355, 0.1.5):** unavailable Codex delivery diagnostics in presence,
+  doctor and status; detect --no-daemon and session-home socket absence without
+  weakening validation. The board agent-row warning follows separately.
+
+- **Merged (#357):** allow extra time for status process replacement only in e2e
+  builds; dedicated timeout proofs and shipped builds keep the five-second budget.
+- **Merged (#349):** bounded status diagnostics.
+- **Merged (#354):** stable Codex hooks and approval guidance, person board overview,
+  stale-login recovery, readable board choices, and doctor/default-server wording.
 
 - **Merged (#346):** keep each Codex session's home across delivery daemon restarts;
   validate and queue threads in that home instead of the daemon's environment.
@@ -133,6 +139,7 @@ the board.
 | Board list working pulse, pins and a person's own order; attention for proposals, reviews and finished tasks | later | D102, D123 |
 | Each person's read position per board kept on the server (bookkeeping, never an event), so unread counts match across the board view, the CLI and other machines: acknowledged only for a contiguous stretch of presented message rows (the board view, `aboard read --mark-read`), unread in `GET /v1/boards`, `aboard boards` and the stream | done | D102, D194 |
 | "Mark all as read" in the board view: in the header while the board has anything unread, and per board in the board list on hover, moving the person's read position to the newest message the page has, so what arrives after the click stays unread | in review | D194 |
+| The finder in the board view: `Ctrl+K`/`⌘K` or "Find or do anything" under the board list opens one box that finds boards, the tasks of the board on screen and places (the Inbox, the board's tabs) from what the page already loaded, and goes there; commands that act ("hold codex") stay in the UI lab | in review | |
 | Browser sessions as `HttpOnly` cookies with Origin and CSRF checks, a strict content security policy, a login page to paste an access key, signing out, and `aboard keys sessions` to list and end one session | done (#92) | D179, D183, D189 |
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
@@ -481,3 +488,9 @@ D224 board-add and invite-arrival person Inbox reads, issuer-qualified join prom
 | --- | --- |
 | Small models attempt team invitation, existing-member, own-session and interrupted setup flows in private team sandboxes; transcripts, end-state checks and friction counters | tool in review (#301, GEN-54); invite-from-scratch flow passed with Haiku and GPT-6-Luna after a greeting-scorer correction; other scenarios remain unproven |
 | Agent UX review before every tag: `scripts/ux-review` walks the board view as each person of a kept flow-eval or sandbox team, at desktop and phone sizes, with keyboard checks; an agent reviews the screenshots with the checklist in engineering/qa.md (GEN-62) | in review |
+
+### Board export (GEN-61)
+
+| Feature | Status |
+| --- | --- |
+| Visible board content as Markdown or a zip with unchanged latest file bytes; one read-only renderer for the CLI and board view | API/CLI in review (#327); approved for 0.1.5; focused acceptance and security pass clear, board-view menu separate |

@@ -407,6 +407,7 @@ $defs:
     type: object
     required: [server, board, name, member_id, role, delivery, unread]
     properties:
+      delivery_warning: { $ref: openapi.yaml#/components/schemas/DeliveryWarning }
       server: { type: string }
       board: { type: string }
       name: { type: string }
@@ -2577,6 +2578,9 @@ $defs:
                   id: { type: string }
                   name: { type: string }
                   location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
+      delivery_warning:
+        $ref: openapi.yaml#/components/schemas/DeliveryWarning
+        description: Optional delivery diagnostic reported for the selected seat.
       queued:
         $ref: "#/$defs/QueuedMessages"
       server: { $ref: "#/$defs/ServerRef" }
@@ -2607,6 +2611,17 @@ $defs:
           running: { type: boolean }
           pid: { type: [integer, "null"] }
           open_sessions: { type: integer }
+          delivery_warnings:
+            type: array
+            description: Last reported delivery diagnostics for seats bound on this machine.
+            items:
+              type: object
+              required: [server, board, name, reason]
+              properties:
+                server: { type: string }
+                board: { type: string }
+                name: { type: string }
+                reason: { $ref: openapi.yaml#/components/schemas/DeliveryWarning }
           replaced:
             $ref: "#/$defs/Replaced"
             description: The older daemon this command replaced, or null.
@@ -4511,3 +4526,34 @@ $defs:
 # setup --handle wins. Prompts name the hint, and text displays @NAME when present.
 # people and invite list accept the exact current active non-guest seat, on its issuer,
 # never a person credential fallback. Invite revoke and other mutations retain their gates.
+
+# Codex unavailable delivery diagnostics: hooks and join/resume check the real parent
+# arguments and session-home control socket. Doctor prints one warning per known
+# affected seat; status and the board agent row show the same last-reported diagnostic.
+# Text: "Codex is running with --no-daemon, so Aboard can't deliver to it. Restart
+# Codex without --no-daemon." With an ORCA_ environment marker, also: "Orca adds
+# --no-daemon; set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc (or run command codex),
+# then restart Codex." codex_target_absent hints name --no-daemon or a CODEX_HOME
+# mismatch and aboard doctor, instead of merely asking to reopen the thread.
+  # ---------- aboard export [--board B] [--zip] [--out PATH] ----------
+  ExportOutput:
+    description: |
+      Saves the selected board's visible content through GET /v1/boards/{board}/export.
+      The default is Markdown; --zip includes the latest file bytes unchanged. Both
+      use the same server renderer as the board view. Without --out, saves
+      <board>-<UTC date>.md or .zip in the current directory. --out is a local file
+      path, not a directory or stdout. An existing destination refuses with
+      output_exists; no local file is replaced. Failed downloads leave no partial
+      destination. Text output names the selected board, issuer and saved path.
+      JSON prints only this object, never the document or archive bytes. bytes is the
+      number of bytes saved, and path is the absolute destination path.
+      Agents use only the selected active seat's credential, never their person's
+      login. The ordinary --server/--board/--as selection and ambiguity refusals
+      apply before authenticated requests. Export neither marks messages read nor
+      changes the board. It is a visible-content document, not a record backup.
+    type: object
+    required: [path, format, bytes]
+    properties:
+      path: { type: string }
+      format: { type: string, enum: [md, zip] }
+      bytes: { type: integer, minimum: 0 }

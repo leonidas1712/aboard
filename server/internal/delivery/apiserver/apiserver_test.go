@@ -3,6 +3,7 @@ package apiserver
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -41,6 +42,43 @@ func (k tokens) HumanToken(url string) (string, error) {
 		return t, nil
 	}
 	return "", delivery.ErrLoginMissing
+}
+
+func TestWarningFallsBackToPresenceForAnOlderServer(t *testing.T) {
+	t.Parallel()
+	requests := 0
+	peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.URL.Path != "/v1/me/presence" || r.Header.Get("Authorization") != "Bearer own-seat-token" {
+			t.Errorf("wrong presence path or credential")
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if requests == 1 {
+			if body["delivery_warning"] != "codex_no_daemon" {
+				t.Errorf("first report omitted warning: %v", body)
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"code":"invalid_request","message":"property \"delivery_warning\" is unsupported","hint":"Upgrade the server."}}`))
+			return
+		}
+		if body["delivery_warning"] != nil || body["presence"] != "idle" || body["delivery"] != "focused" {
+			t.Errorf("fallback changed presence or mode: %v", body)
+		}
+		_, _ = w.Write([]byte(`{"board":"docs","agent":"reviewer","presence":"idle","presence_since":"2026-10-12T02:00:00Z"}`))
+	}))
+	t.Cleanup(peer.Close)
+	agent := delivery.AgentRef{Server: peer.URL, Board: "docs", Name: "reviewer"}
+	srv := New(peer.URL, tokens{agents: map[delivery.AgentRef]string{agent: "own-seat-token"}}, rand.Reader)
+	if err := srv.SetPresenceWarning(t.Context(), agent, delivery.PresenceIdle, delivery.ModeFocused, "codex_no_daemon"); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 2 {
+		t.Fatalf("reports: %d, want warning then legacy presence", requests)
+	}
 }
 
 // localServer runs a real Aboard server in this process and returns its URL and owner

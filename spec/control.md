@@ -71,6 +71,21 @@ queued delivery. An older client omitting it keeps a recorded home, or defaults
 to `~/.codex` when none is recorded. The daemon never uses its own inherited
 `CODEX_HOME` to find a session. This optional field is additive in protocol 1.
 
+Codex session requests may also carry `delivery_checked: true` and an optional
+`delivery_warning` (`codex_no_daemon` or `codex_no_daemon_orca`). The client checks
+its actual Codex ancestor arguments for `--no-daemon`, or checks for the shared
+app-server control socket in this session's home. The second code means an
+`ORCA_` variable was present; no variable value or process argument is transmitted.
+A checked request without a warning clears the earlier diagnostic; an older client
+omitting `delivery_checked` keeps it. Delayed hooks cannot replace a newer boot's
+diagnostic. A failed validation may update only a previously known session's warning,
+never create a binding or change its boot, process identity, home or agents. Session
+warnings survive daemon restarts. `status` gains optional `delivery_warnings`, one
+entry per affected known seat, with `session`, `agent` and `reason`. Presence reports
+carry the same diagnostic to the server. This bookkeeping never acknowledges messages,
+changes a delivery mode or grants authority; thread validation remains required.
+
+
 ```json
 {"v":1,"op":"register","harness":"codex","session":"019a0000-0000-7000-8000-000000000001","codex_home":"/home/alex/custom-codex"}
 ```

@@ -15,16 +15,17 @@ import (
 // keyed by member id, with its board and name for display, and what its server says of
 // it, read with its own token.
 type seatRow struct {
-	Server   string               `json:"server"`
-	Board    string               `json:"board"`
-	Name     string               `json:"name"`
-	MemberID string               `json:"member_id"`
-	Role     *string              `json:"role"`
-	Delivery string               `json:"delivery"`
-	Unread   *int                 `json:"unread"`
-	Presence *string              `json:"presence,omitempty"`
-	Work     *api.AgentWork       `json:"work,omitempty"`
-	Nudges   []deliverytext.Nudge `json:"nudges,omitempty"`
+	Server          string               `json:"server"`
+	Board           string               `json:"board"`
+	Name            string               `json:"name"`
+	MemberID        string               `json:"member_id"`
+	Role            *string              `json:"role"`
+	Delivery        string               `json:"delivery"`
+	Unread          *int                 `json:"unread"`
+	Presence        *string              `json:"presence,omitempty"`
+	DeliveryWarning *string              `json:"delivery_warning,omitempty"`
+	Work            *api.AgentWork       `json:"work,omitempty"`
+	Nudges          []deliverytext.Nudge `json:"nudges,omitempty"`
 }
 
 // sessionSeats reads each of a session's seats from its server with the seat's own
@@ -64,6 +65,10 @@ func (a *app) readSeat(ctx context.Context, cred agentCredential, row *seatRow) 
 				continue
 			}
 			row.Role, row.Name = mem.Role, mem.Name
+			if mem.DeliveryWarning != nil {
+				warning := string(*mem.DeliveryWarning)
+				row.DeliveryWarning = &warning
+			}
 			if held := heldModeOf(mem); held != "" {
 				row.Delivery = held
 			}
@@ -121,6 +126,9 @@ func seatsText(server string, rows []seatRow) (text string, usage []string) {
 			cols = append(cols, fmt.Sprintf("%d unread", *r.Unread))
 		}
 		b.WriteString("          " + strings.TrimRight(strings.Join(cols, "  "), " ") + "\n")
+		if r.DeliveryWarning != nil {
+			b.WriteString("          " + deliverytext.DeliveryWarning(*r.DeliveryWarning) + "\n")
+		}
 		for _, n := range r.Nudges {
 			b.WriteString("          " + n.Text + "\n")
 		}

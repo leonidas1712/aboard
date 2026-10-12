@@ -63,13 +63,27 @@ generate-check:
 		git status --short; echo "Generated code is out of date. Run: make generate"; exit 1; \
 	fi
 
+# TEST_PART=api, board or rest runs one part of the unit tests, so CI can split them
+# across machines: api and board are the two slow packages.
 test:
-	@$(REQUIRE_GO); go test -race ./...
+	@$(REQUIRE_GO); \
+	case "$(TEST_PART)" in \
+	"") go test -race ./... ;; \
+	api|board) go test -race ./server/internal/$(TEST_PART)/ ;; \
+	rest) go test -race $$(go list ./... | grep -v -E '/server/internal/(api|board)$$') ;; \
+	*) echo "TEST_PART is api, board or rest, not $(TEST_PART)"; exit 2 ;; \
+	esac
 
+# E2E_SHARD=i/n runs every nth top-level test of ./e2e, starting at the ith, so CI can
+# split the suite across machines; e2e/support and e2e/live/affected run in make test.
 e2e:
 	@$(REQUIRE_GO); \
 	if [ -z "$$(go list -tags e2e ./e2e/... 2>/dev/null)" ]; then echo "$@: skipped, no e2e tests yet"; exit 0; fi; \
-	go test -race -tags e2e -count=1 -timeout 20m ./e2e/...
+	if [ -z "$(E2E_SHARD)" ]; then go test -race -tags e2e -count=1 -timeout 20m ./e2e/...; exit; fi; \
+	i="$${E2E_SHARD%/*}"; n="$${E2E_SHARD#*/}"; \
+	tests="$$(go test -tags e2e -list '.*' ./e2e/ | grep '^Test' | awk -v i="$$i" -v n="$$n" 'NR % n == i - 1' | paste -sd '|' -)"; \
+	if [ -z "$$tests" ]; then echo "$@: shard $(E2E_SHARD) has no tests"; exit 0; fi; \
+	go test -race -tags e2e -count=1 -timeout 20m -run "^($$tests)\$$" ./e2e/
 
 ## conformance: the harness conformance kit, no model (HARNESS=<name> for one harness)
 # The kit's two halves also run in make test and make e2e, so make check runs them. A

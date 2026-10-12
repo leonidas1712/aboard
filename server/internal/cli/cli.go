@@ -142,6 +142,7 @@ func commands() []command {
 		{"task", runTask},
 		{"file", runFile},
 		{"brief", runBrief},
+		{"export", runExport},
 		{"storage", runStorage},
 		{"ask", runAsk},
 		{"inbox", runInbox},

@@ -2,7 +2,7 @@
 // `pressed`, the inline hints print `label`, and the "?" sheet lists `what`, so a hint
 // never names a key the handler doesn't have.
 
-export type KeyId = "next" | "previous" | "accept" | "option" | "reply" | "send" | "leave" | "snooze" | "open" | "inbox" | "back" | "help" | "previousBoard" | "nextBoard" | "blur";
+export type KeyId = "next" | "previous" | "accept" | "option" | "reply" | "send" | "leave" | "snooze" | "open" | "inbox" | "back" | "help" | "previousBoard" | "nextBoard" | "blur" | "find";
 /** Where a key works: in the Inbox or on a board. */
 export type Place = "inbox" | "board";
 type Key = { id: KeyId; keys: string[]; label: string; what: string; places: Place[] };
@@ -22,6 +22,7 @@ export const allKeys: Key[] = [
   { id: "blur", keys: ["Escape"], label: "Esc", what: "Leave the message box or any field, keeping its text, so these keys work again.", places: ["board"] },
   { id: "previousBoard", keys: ["["], label: "[", what: "Go to the previous item in the sidebar: the Inbox, then your boards.", places: ["inbox", "board"] },
   { id: "nextBoard", keys: ["]"], label: "]", what: "Go to the next item in the sidebar: the Inbox, then your boards.", places: ["inbox", "board"] },
+  { id: "find", keys: ["mod+k"], label: "mod+K", what: "Find a board, or a task on the board you are on, and go there. Works in a field too.", places: ["inbox", "board"] },
   { id: "help", keys: ["?"], label: "?", what: "Show these keys.", places: ["inbox", "board"] },
 ];
 
@@ -41,7 +42,7 @@ export function keyLabel(id: KeyId): string {
 export function pressed(id: KeyId, e: KeyboardEvent | React.KeyboardEvent): boolean {
   const key = allKeys.find((k) => k.id === id)!;
   const mod = e.metaKey || e.ctrlKey;
-  return key.keys.some((k) => k === "mod+Enter" ? mod && e.key === "Enter" : !mod && !e.altKey && (e.key === k || (k.length === 1 && e.key === k.toUpperCase() && k !== k.toUpperCase())));
+  return key.keys.some((k) => k === "mod+Enter" ? mod && e.key === "Enter" : k.startsWith("mod+") ? mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === k.slice(4).toLowerCase() : !mod && !e.altKey && (e.key === k || (k.length === 1 && e.key === k.toUpperCase() && k !== k.toUpperCase())));
 }
 
 /** typing says whether a key press belongs to a field, menu or dialog rather than the page. */

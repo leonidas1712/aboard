@@ -282,8 +282,8 @@ These are repository settings, made by the maintainer:
    maintainer may create, update or delete them, so nobody else can start a release.
 3. **Require CI on `main`** (Settings → Rules → New branch ruleset, target the default
    branch): require status checks to pass before merging, with the `check` workflow's
-   jobs `check (ubuntu-latest)`, `web` and `docs` (not `check (macos-latest)`, which
-   runs only on `main`), and require
+   Linux jobs (`static`, every `test` and `e2e` shard on `ubuntu-latest`, `web` and
+   `docs`; not the macOS ones, which run only on `main`), and require
    branches to be up to date before merging (strict), so the commit CI passed is the
    one `main` becomes. This makes CI the merge gate for everyone, not only for
    `scripts/land-pr`.

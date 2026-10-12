@@ -26,6 +26,7 @@ import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { AgentLocation } from "./location";
 import { changeMidturn, effectiveMidturn, midturnCopy, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
+import { FindRow } from "./finder";
 import { Kbd } from "./keys-sheet";
 import { keyLabel, leaveFieldOnEscape, pressed, typing } from "./keys";
 import { usePref } from "./prefs";
@@ -105,6 +106,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
         </ArchivedGroup>
       )}
       {boards.length === 0 && <p className="text-meta text-muted">No boards yet.</p>}
+      <FindRow />
     </div>
   );
 }

@@ -60,7 +60,7 @@ func (h *Harness) Adapter(clientVersion string) delivery.Adapter {
 func (h *Harness) Fix(reason string) string {
 	switch reason {
 	case delivery.ReasonTargetAbsent:
-		return "open that Codex thread again, or rejoin with aboard join"
+		return "run aboard doctor; check for --no-daemon or a CODEX_HOME mismatch, then restart Codex without --no-daemon and run aboard resume in that session"
 	case delivery.ReasonSubAgent:
 		return "run aboard resume from the root Codex conversation"
 	}

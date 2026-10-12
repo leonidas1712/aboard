@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -52,6 +51,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		// one this machine kept.
 		DeliveryUnconfirmed bool        `json:"delivery_unconfirmed"`
 		Presence            *string     `json:"presence"`
+		DeliveryWarning     *string     `json:"delivery_warning,omitempty"`
 		Agents              []string    `json:"agents"`
 		Policy              *api.Policy `json:"policy"`
 		People              []person    `json:"people"`
@@ -67,16 +67,16 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		Queued *delivery.QueuedMessages `json:"queued,omitempty"`
 		Boards []statusBoard            `json:"boards,omitempty"`
 	}{Server: a.localServer(), ServerReplaced: a.localReplaced, BoardSource: selectedNone, AgentSource: selectedNone, Agents: []string{}}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, statusBudget(a.env.Getenv))
 	defer cancel()
-	a.statusReads = &statusReads{timeouts: map[string]string{}}
+	reads := &statusReads{timeouts: map[string]string{}}
 	var statusText string
 	var setupLine string
 	defer func() {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) && len(a.statusReads.timeouts) == 0 {
-			a.statusReads.timeouts[out.Server.URL] = "status exceeded its five-second budget"
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) && len(reads.timeouts) == 0 {
+			reads.timeouts[out.Server.URL] = "status exceeded its five-second budget"
 		}
-		if failure := a.statusReads.failure(); failure != nil {
+		if failure := reads.failure(); failure != nil {
 			failure.Details = map[string]any{"status": out}
 			result = failure
 			if statusText == "" {
@@ -90,13 +90,16 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 				}
 			}
 			if !a.json {
-				a.emit(out, styleStatus(statusText, a.out()))
+				a.emit(out, styleStatus(statusWarningText(statusText, out.DeliveryWarning), a.out()))
 			}
 		} else if result == nil {
-			a.emit(out, styleStatus(statusText, a.out()))
+			a.emit(out, styleStatus(statusWarningText(statusText, out.DeliveryWarning), a.out()))
 		}
 	}()
 	out.Setup, setupLine = a.setupStatus()
+	if reason := a.currentDeliveryWarning(); reason != "" && *as == "" && a.env.Getenv("ABOARD_AGENT") == "" {
+		out.DeliveryWarning = &reason
+	}
 	if *launch != "" {
 		if !launchtickets.Valid(*launch) {
 			return usageError(fmt.Sprintf("%q is not a launch ticket: one is lch_ and 24 hex digits.", *launch), use)
@@ -114,6 +117,9 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		a.replaceOutdatedDaemon(ctx, p)
 	}
 	out.ServerReplaced = a.localReplaced
+	// Replacement retries its own readiness probes. Only the final diagnostic reads
+	// should retain request timeouts; the overall deadline still covers replacement.
+	a.statusReads = reads
 
 	creds, err := a.readCredentials()
 	if err != nil {
@@ -288,6 +294,10 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			if cred.MemberID != "" && mem.Id == cred.MemberID && mem.Kind == api.MemberKindAgent {
 				m = heldModeOf(mem)
 				out.Presence = presenceOf([]api.Member{mem}, mem.Name)
+				if mem.DeliveryWarning != nil {
+					warning := string(*mem.DeliveryWarning)
+					out.DeliveryWarning = &warning
+				}
 				if mem.Delivery != nil {
 					if parsed, ok := delivery.ParseMode(string(*mem.Delivery)); ok {
 						s := string(parsed)
@@ -481,7 +491,8 @@ type daemonReport struct {
 	// Stalled counts deliveries handed to an idle session that started no turn.
 	Stalled int `json:"stalled"`
 	// StoppedAgents are agents whose deliveries the daemon stopped, with why.
-	StoppedAgents []stoppedAgent `json:"stopped_agents,omitempty"`
+	StoppedAgents    []stoppedAgent `json:"stopped_agents,omitempty"`
+	DeliveryWarnings []stoppedAgent `json:"delivery_warnings,omitempty"`
 }
 
 // stoppedAgent is an agent whose deliveries the daemon stopped, such as one whose board
@@ -527,6 +538,10 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 	}
 	pid := st.PID
 	*d = daemonReport{Running: true, PID: &pid, OpenSessions: st.OpenSessions, Replaced: a.daemonReplaced, Stalled: len(st.Stalled)}
+	for _, warning := range st.DeliveryWarnings {
+		d.DeliveryWarnings = append(d.DeliveryWarnings, stoppedAgent{Server: warning.Agent.Server, Board: warning.Agent.Board, Name: warning.Agent.Name, Reason: warning.Reason})
+		fmt.Fprintf(text, "        %s on %s: %s\n", warning.Agent.Name, warning.Agent.Board, deliverytext.DeliveryWarning(warning.Reason))
+	}
 	stalled := ""
 	if n := len(st.Stalled); n > 0 {
 		stalled = fmt.Sprintf("; %d %s stalled: handed to an idle session that started no turn (see aboard doctor)", n, plural(n, "delivery", "deliveries"))

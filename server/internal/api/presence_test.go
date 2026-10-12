@@ -132,13 +132,35 @@ func TestPresenceRunsOutWithoutRenewal(t *testing.T) {
 }
 
 type presenceEvent struct {
-	Board         string  `json:"board"`
-	BoardID       string  `json:"board_id"`
-	Agent         string  `json:"agent"`
-	MemberID      string  `json:"member_id"`
-	Presence      string  `json:"presence"`
-	PresenceSince *string `json:"presence_since"`
-	Delivery      *string `json:"delivery"`
+	DeliveryWarning *string `json:"delivery_warning,omitempty"`
+	Board           string  `json:"board"`
+	BoardID         string  `json:"board_id"`
+	Agent           string  `json:"agent"`
+	MemberID        string  `json:"member_id"`
+	Presence        string  `json:"presence"`
+	PresenceSince   *string `json:"presence_since"`
+	Delivery        *string `json:"delivery"`
+}
+
+func TestStreamSendsWarningChangesWithoutChangingPresence(t *testing.T) {
+	t.Parallel()
+	s := newTestServer(t)
+	_, writer, _ := s.pair("starter")
+	st := s.openStream(s.owner)
+	st.head()
+	s.setPresence(writer, api.PresenceIdle)
+	initial := st.presence()
+	warning := api.CodexNoDaemonOrca
+	r, err := s.client(writer).SetPresenceWithResponse(context.Background(), nil, api.SetPresenceJSONRequestBody{Presence: api.PresenceIdle, DeliveryWarning: &warning})
+	mustStatus(t, r, err, 200)
+	p := st.presence()
+	if p.DeliveryWarning == nil || *p.DeliveryWarning != string(warning) || p.Presence != "idle" || p.PresenceSince == nil || *p.PresenceSince != *initial.PresenceSince {
+		t.Fatalf("warning update changed presence: %+v", p)
+	}
+	s.setPresence(writer, api.PresenceIdle)
+	if p := st.presence(); p.DeliveryWarning != nil || p.Presence != "idle" {
+		t.Fatalf("cleared warning: %+v", p)
+	}
 }
 
 // presence returns the next block, failing unless it is a presence event.

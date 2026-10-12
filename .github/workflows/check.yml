@@ -1,8 +1,10 @@
-# Runs make check on Linux, and on macOS for pushes to main: the same checks as on a
-# developer's machine, and the socket peer check on both systems it is implemented for.
-# Pull requests run Linux only, because macOS runners can queue for an hour; a macOS-only
-# failure then shows on main's run, which the release gate reads. The web job builds and
-# checks the web UI, which make check leaves out so it needs only Go and Bun.
+# Runs make check's parts as parallel jobs, on Linux, and on macOS for pushes to main: the
+# same checks as on a developer's machine, and the socket peer check on both systems it is
+# implemented for. The e2e suite is split into shards (make e2e E2E_SHARD=i/n), because it
+# is most of the time and its tests already run in parallel, so more machines make it
+# faster. Pull requests run Linux only, because macOS runners can queue for an hour; a
+# macOS-only failure then shows on main's run, which the release gate reads. The web job
+# builds and checks the web UI, which make check leaves out so it needs only Go and Bun.
 #
 # A pull request is checked at its exact head commit, not at GitHub's merge of it with
 # main, so a run's result belongs to the commit it names: scripts/land-pr merges that
@@ -20,13 +22,10 @@ permissions:
   contents: read
 
 jobs:
-  check:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+  # Everything in make check except the test suites.
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,11 +36,51 @@ jobs:
           go-version-file: go.mod
       # omp's extension is TypeScript that omp's Bun runs; make check tests it with Bun.
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: make check, without the test suites
+        run: make fmt-check lint vet generate-check harness-table-check docs-check extension-test vuln
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
+        part: [api, board, rest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
       # The tmux launcher's kit and the swarm tests start tmux servers of their own.
       - name: Install tmux
         run: command -v tmux || { if [ "$RUNNER_OS" = macOS ]; then brew install tmux; else sudo apt-get update && sudo apt-get install -y tmux; fi; }
-      - name: make check
-        run: make check
+      - name: make test, ${{ matrix.part }}
+        run: make test TEST_PART=${{ matrix.part }}
+
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
+        shard: [1, 2, 3, 4, 5, 6]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Install tmux
+        run: command -v tmux || { if [ "$RUNNER_OS" = macOS ]; then brew install tmux; else sudo apt-get update && sudo apt-get install -y tmux; fi; }
+      - name: make e2e, shard ${{ matrix.shard }} of 6
+        run: make e2e E2E_SHARD=${{ matrix.shard }}/6
 
   # The web UI: install, build, typecheck, and a browser smoke test against aboard built
   # with the UI embedded. Separate from make check, which needs only Go.
