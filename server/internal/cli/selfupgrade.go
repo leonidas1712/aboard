@@ -260,6 +260,10 @@ func refreshSetup(ctx context.Context, exe string, harnesses []string) ([]string
 	cmd := exec.CommandContext(ctx, exe, "init", "--yes", "--scope", scopeGlobal, "--harness", strings.Join(harnesses, ","), "--json") //nolint:gosec // the binary just installed
 	out, err := cmd.Output()
 	if err != nil {
+		var failure wireError
+		if json.Unmarshal(out, &failure) == nil && failure.Error.Code != "" {
+			return nil, fmt.Errorf("%s: %s Hint: %s", failure.Error.Code, failure.Error.Message, failure.Error.Hint)
+		}
 		var exit *exec.ExitError
 		if errors.As(err, &exit) && len(exit.Stderr) > 0 {
 			return nil, errors.New(strings.TrimSpace(string(exit.Stderr)))

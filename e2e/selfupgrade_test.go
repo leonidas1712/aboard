@@ -458,3 +458,24 @@ func TestUpgradeNamesOnlyHarnessesWhoseHooksChanged(t *testing.T) {
 		})
 	}
 }
+
+func TestUpgradeSetupFailurePreservesChildError(t *testing.T) {
+	t.Parallel()
+	u := newUpgradeEnv(t)
+	u.run("init", "--yes", "--harness", "codex")
+	path := filepath.Join(u.home, ".codex", "hooks.json")
+	if err := os.WriteFile(path, []byte(`not JSON`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := u.runExit("upgrade", "--json")
+	out := got.json(t)
+	if got.code != 1 || errorCode(t, out) != "upgrade_setup_failed" {
+		t.Fatalf("unexpected upgrade failure: %s", got)
+	}
+	message := field(t, out, "error.message").(string)
+	for _, want := range []string{"invalid_request", "Fix the file so it is a JSON object"} {
+		if !strings.Contains(message, want) {
+			t.Errorf("lost child error %q: %s", want, got)
+		}
+	}
+}
