@@ -211,6 +211,8 @@ func runStatus(ctx context.Context, a *app, args []string) error {
 				line += " (a starting point; tighten with aboard board policy recommended)"
 			}
 			fmt.Fprintf(&boardLines, "Policy: %s\n", line)
+		} else if asError(err).Code == "unauthorized" {
+			return err
 		}
 		if r, err := c.api.ListMembersWithResponse(ctx, t.board, nil); err == nil && r.JSON200 != nil {
 			members = r.JSON200.Members

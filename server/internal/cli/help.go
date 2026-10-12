@@ -311,6 +311,7 @@ func helpText(templates string) []commandHelp {
 				"A machine that already has a default server, or already uses its local server, keeps it as the default (aboard servers) and says how to switch; otherwise a team's server becomes the default.\n\n" +
 				"One key used on two machines ties them to one revocation, so login always says so, and says when the key was last used. " +
 				"To give a machine a key of its own, run aboard keys create <name> on a machine that is signed in, then aboard login here with the new key. " +
+				"If a person command reports unauthorized, sign in again on the server named in its hint, or switch with aboard servers use local. Agent-token refusals keep their rejoin instructions. " +
 				"Signing in is up to a person, so it refuses inside an agent's session.",
 			Flags: []helpFlag{flagJSON},
 			Examples: []helpExample{

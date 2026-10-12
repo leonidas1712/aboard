@@ -37,10 +37,14 @@ func (a *app) client(ctx context.Context, srv serverRef, token string, timeout t
 // newClient returns an API client like client, without checking the server's build.
 func (a *app) newClient(srv serverRef, token string, timeout time.Duration) (*client, error) {
 	rnd := a.env.Rand
+	var transport http.RoundTripper = &outdatedServer{base: http.DefaultTransport, srv: srv, local: srv.URL == a.localServer().URL}
+	if token != "" {
+		if personToken, err := a.readOwnerToken(srv); err == nil && personToken == token {
+			transport = &personAuthTransport{base: transport, server: srv}
+		}
+	}
 	c, err := api.NewClientWithResponses(srv.URL,
-		api.WithHTTPClient(&http.Client{Timeout: timeout, Transport: &outdatedServer{
-			base: http.DefaultTransport, srv: srv, local: srv.URL == a.localServer().URL,
-		}, CheckRedirect: noRedirects}),
+		api.WithHTTPClient(&http.Client{Timeout: timeout, Transport: transport, CheckRedirect: noRedirects}),
 		api.WithRequestEditorFn(func(_ context.Context, req *http.Request) error {
 			req.Header.Set("User-Agent", "aboard/"+version)
 			if token != "" {
