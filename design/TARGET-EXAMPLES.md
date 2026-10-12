@@ -408,3 +408,10 @@ aboard invite --person --server work --board retry-design
 ```
 
 A fresh solo `aboard pair` still bootstraps the local server and its persisted default.
+
+### Save board content
+
+`aboard export` saves the selected board as Markdown. `aboard export --zip --out board.zip`
+includes unchanged latest file bytes. Both use the caller's existing visibility and
+never mark messages read; this is a content document, not the board-file configuration
+export or a record backup. A session uses its selected seat, never the person's login.
