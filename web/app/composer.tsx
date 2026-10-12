@@ -48,13 +48,30 @@ type Props = {
 };
 
 const noFiles: BoardFile[] = [];
+
+// Unsent text is kept for this tab, per board and per thread being replied to, so a
+// visit to another board or a reload doesn't lose it.
+const draftKey = (board: string, replyId: string | null) => `aboard.draft.${board}.${replyId ?? "-"}`;
+function readDraft(board: string, replyId: string | null): string {
+  try { return sessionStorage.getItem(draftKey(board, replyId)) ?? ""; } catch { return ""; }
+}
+function writeDraft(board: string, replyId: string | null, text: string) {
+  try {
+    if (text) sessionStorage.setItem(draftKey(board, replyId), text);
+    else sessionStorage.removeItem(draftKey(board, replyId));
+  } catch { /* The text stays on the page only. */ }
+}
+/** startDraft puts text in a board's composer for its next visit, unless a draft is already there. */
+export function startDraft(board: string, text: string) {
+  if (!readDraft(board, null)) writeDraft(board, null, text);
+}
 const nothing = () => {};
 
 export function Composer({ board, members, roles, me, replyTo, replyDefault, identity, onCancelReply, onPosted, onError, files = null, onFilesChanged = nothing }: Props) {
   // picked are the recipients chosen outside the text: a reply's default ones and the
   // "To" menu's. Each shows as a chip that removes it.
   const [picked, setPicked] = useState<string[]>([]);
-  const [body, setBody] = useState("");
+  const [body, setBodyState] = useState("");
   const [caret, setCaret] = useState(0);
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -73,10 +90,10 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
   const drafts = useDrafts(board, files ?? noFiles, me, onFilesChanged);
   const drop = useDrop(files !== null, (_f, _n, all) => drafts.upload(all));
   // Another file set makes another message.
-  const draftKey = drafts.selectors.map((x) => `${x.file}@${x.version}`).join();
+  const fileSet = drafts.selectors.map((x) => `${x.file}@${x.version}`).join();
   useEffect(() => {
     key.current = "";
-  }, [draftKey]);
+  }, [fileSet]);
 
   const known = useMemo(() => knownTargets(members, roles), [members, roles]);
   const mentioned = useMemo(() => mentionsIn(body, known), [body, known]);
@@ -89,10 +106,23 @@ export function Composer({ board, members, roles, me, replyTo, replyDefault, ide
   const defaults = useRef(replyDefault);
   defaults.current = replyDefault;
   const replyId = replyTo?.id ?? null;
+  const writing = useRef({ board, replyId });
+  writing.current = { board, replyId };
+  // Every change to the text is kept under the board and thread it is written for.
+  const setBody = (text: string) => {
+    setBodyState(text);
+    writeDraft(writing.current.board, writing.current.replyId, text);
+  };
   useEffect(() => {
     setPicked(replyId ? defaults.current : []);
-    if (replyId) field.current?.focus();
-  }, [replyId]);
+    // The board or thread now being written shows its kept text, caret at the end.
+    const kept = readDraft(board, replyId);
+    setBodyState(kept);
+    setCaret(kept.length);
+    if (kept) placeCaret.current = kept.length;
+    // A link that ends in &compose (the Inbox's Say hello) opens the board ready to write.
+    if (replyId || new URLSearchParams(window.location.search).has("compose")) field.current?.focus();
+  }, [board, replyId]);
 
   // The field grows with its text, up to about eight lines.
   useEffect(() => {

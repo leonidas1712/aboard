@@ -15,11 +15,11 @@ import { Header, Problem } from "./chrome";
 import { keyLabel, pressed, rememberInbox, takeInbox, typing } from "./keys";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { usePref } from "./prefs";
-import { BoardNav } from "./sidebars";
+import { BoardNav, useSidebarKeys } from "./sidebars";
 import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
 import { useOnboarding } from "./onboarding-data";
-import { type OnboardingItem, OnboardingDetail, OnboardingRow, onboardingGroups } from "./inbox-onboarding";
+import { type OnboardingItem, OnboardingDetail, OnboardingRow, inviteItem, onboardingGroups } from "./inbox-onboarding";
 
 export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const [boards, setBoards] = useState<Board[] | null>(null);
@@ -208,6 +208,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   </>;
   const rest = current ? askDetail(current.body) : "";
   const sentLine = sent && <p role="status" key={sent.at} className={cn("max-w-[640px] truncate text-meta text-muted", wide ? "mb-5" : "px-2.5 pb-1", fading ? "animate-fade-out" : "animate-fade-in")}>Sent to @{sent.to}: &ldquo;{sent.body}&rdquo;</p>;
+  useSidebarKeys("", boards);
   const nav = <BoardNav current="" boards={boards} onMarkRead={markRead} />;
   const boardsWaiting = (boards ?? []).some((b) => attentionCount(b) > 0);
   return <TooltipProvider delayDuration={250}><div className="inbox-page flex min-h-dvh flex-col lg:h-dvh lg:overflow-clip">
@@ -216,7 +217,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
         <Menu className="size-5" strokeWidth={1.75} aria-hidden />
         {boardsWaiting && <span aria-hidden className="absolute top-2 right-2 size-2.5 rounded-full border-2 border-surface bg-status-needs" />}
       </button>}
-      account={<Account onSignOut={onSignOut} />}
+      account={<Account onSignOut={onSignOut} onHelp={() => setKeysOpen(true)} />}
     />
     <div className="flex w-full flex-1 flex-col lg:grid lg:min-h-0 lg:grid-cols-[252px_minmax(280px,360px)_minmax(0,1fr)]">
       {wide ? <aside aria-label="Boards" className="quiet-scroll border-rule bg-sidebar px-5 py-4 lg:overflow-y-auto lg:border-r">{nav}</aside>
@@ -244,7 +245,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       <section aria-label="The selected ask" className={cn("quiet-scroll px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:overflow-y-auto lg:px-10 lg:py-8", !wide && !phoneReading && "hidden")}>
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
-        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={readOb} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
+        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={(id) => readOb(inviteItem(obGroups, id))} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
           <p className="text-meta text-muted"><a href={boardHref} onClick={leave} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);

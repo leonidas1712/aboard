@@ -25,9 +25,9 @@ import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
 import { AgentLocation } from "./location";
-import { changeMidturn, effectiveMidturn, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
+import { changeMidturn, effectiveMidturn, midturnCopy, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 import { Kbd } from "./keys-sheet";
-import { keyLabel } from "./keys";
+import { keyLabel, leaveFieldOnEscape, pressed, typing } from "./keys";
 import { usePref } from "./prefs";
 import type { RecordCheck } from "./use-board";
 import { LineText, StatusDot } from "./status";
@@ -37,11 +37,8 @@ import { VisibilityControl } from "./visibility";
 import { useOnboardingCount } from "./onboarding-data";
 import { newerFirst } from "./time";
 
-/** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
-export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
-  // Approvals and pairing requests that wait on the person count toward the Inbox too.
-  const onboarding = useOnboardingCount();
-  if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
+/** sidebarOrder groups the boards the way the sidebar lists them: those with a question waiting, the rest, then the archived. */
+function sidebarOrder(boards: Board[]) {
   const recent = [...boards].sort((a, b) => {
     const activity = newerFirst(a.last_message_at ?? a.created_at, b.last_message_at ?? b.created_at);
     return activity || a.id.localeCompare(b.id);
@@ -50,10 +47,44 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   const active = recent.filter((b) => !isArchived(b));
   const needs = active.filter((b) => attentionCount(b) > 0);
   const others = active.filter((b) => attentionCount(b) === 0);
+  return { archived, needs, others };
+}
+
+/**
+ * useSidebarKeys moves through the sidebar with [ and ]: the Inbox, then the boards in the
+ * order listed (archived ones are skipped). Escape leaves a text field. Keys do nothing
+ * while a field, menu or dialog has the focus.
+ */
+export function useSidebarKeys(current: string, boards: Board[] | null) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      leaveFieldOnEscape(e);
+      if (typing(e) || e.defaultPrevented || boards === null) return;
+      const step = pressed("nextBoard", e) ? 1 : pressed("previousBoard", e) ? -1 : 0;
+      if (step === 0) return;
+      const { needs, others } = sidebarOrder(boards);
+      const stops = ["", ...[...needs, ...others].map((b) => b.name)];
+      const here = stops.indexOf(current);
+      const to = stops[(here < 0 ? (step > 0 ? -1 : stops.length) : here) + step];
+      e.preventDefault();
+      if (to === undefined) return;
+      window.location.href = to === "" ? "/?inbox" : `/?board=${encodeURIComponent(to)}`;
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [current, boards]);
+}
+
+/** BoardNav keeps unanswered questions distinct from messages the person hasn't read. */
+export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
+  // Approvals and pairing requests that wait on the person count toward the Inbox too.
+  const onboarding = useOnboardingCount();
+  if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
+  const { archived, needs, others } = sidebarOrder(boards);
   return (
     <div className="flex flex-col gap-6">
-      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("-mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
-        <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd>{keyLabel("inbox")}</Kbd>}</span>
+      <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("group -mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
+        <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd className="font-normal opacity-0 transition-opacity duration-[140ms] ease-out group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none" title={`Shortcut: ${keyLabel("inbox")}`} aria-label={`Shortcut: ${keyLabel("inbox")}`}>{keyLabel("inbox")}</Kbd>}</span>
         {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding)}</span>}
       </a>
       {needs.length > 0 && (
@@ -205,10 +236,13 @@ type BoardPanelProps = {
 export function BoardPanel({ board, members, record, me, meId, canInvite, from, onPick, reveal, onLifecycle, identity, latest, onShowMessage, agents: showAgents = true, byAgent = false }: BoardPanelProps) {
   const agents = (members ?? []).filter((m) => m.kind === "agent");
   const people = (members ?? []).filter((m) => m.kind === "human");
+  const statusOf = useStatus();
+  // Collapsed, the agents section still shows how many agents wait on this person.
+  const waiting = agents.filter((a) => a.presence === "waiting" || statusOf(a).word === "waiting on you").length;
   return (
     <div className="flex flex-col gap-6">
       {showAgents && (
-        <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal}>
+        <Section id="board-agents" title={people.length > 1 ? "Agents and people" : "Agents"} reveal={reveal} waiting={waiting}>
           <div className="flex flex-col gap-5 pt-2">
             {canInvite && board && !isArchived(board) && <AddAgent board={board} />}
             <WhosHere board={board} members={members} me={me} meId={meId} from={from} onPick={onPick} onRemoved={onLifecycle} identity={identity} latest={latest} onShowMessage={onShowMessage} byAgent={byAgent} />
@@ -284,10 +318,10 @@ function Help({ topic, children }: { topic: string; children: ReactNode }) {
 
 /**
  * Section is a panel section whose heading opens and closes it; the browser remembers
- * which. When reveal names it, it opens, scrolls into view and takes focus.
+ * which, closed until they open it. When reveal names it, it opens, scrolls into view and takes focus.
  */
-function Section({ id, title, help, reveal, children }: { id: string; title: string; help?: ReactNode; reveal: Reveal; children: ReactNode }) {
-  const [open, setOpen] = usePref(`aboard.open.${id}`, true);
+function Section({ id, title, help, reveal, waiting = 0, children }: { id: string; title: string; help?: ReactNode; reveal: Reveal; waiting?: number; children: ReactNode }) {
+  const [open, setOpen] = usePref(`aboard.open.${id}`, false);
   const section = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -315,6 +349,12 @@ function Section({ id, title, help, reveal, children }: { id: string; title: str
                 aria-hidden
               />
               {title}
+              {waiting > 0 && !open && (
+                <span className="waiting-count ml-1 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">
+                  <span aria-hidden>{waiting}</span>
+                  <span className="sr-only">, {count(waiting, "agent waiting on you", "agents waiting on you")}</span>
+                </span>
+              )}
             </CollapsibleTrigger>
           </h3>
           {help && <Help topic={title}>{help}</Help>}
@@ -703,7 +743,7 @@ function MidturnMenu({ agent, view, mid }: { agent: Member; view: MidturnPolicy;
         <DropdownMenuContent align="start" className="midturn-options w-[22rem] max-w-[calc(100vw-2rem)]">
           <DropdownMenuLabel>Mid-turn messages for {agent.name}</DropdownMenuLabel>
           <p className="px-3 pb-1 text-meta text-muted">
-            Urgent messages from your own agents arrive at its next step instead of waiting for the turn to end.
+            {midturnCopy}
           </p>
           <DropdownMenuRadioGroup value={mid.overridden ? mid.policy : "default"} onValueChange={pick}>
             <DropdownMenuRadioItem value="default">Default (follows your setting: {midturnLabels[view]})</DropdownMenuRadioItem>

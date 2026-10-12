@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -140,14 +141,14 @@ func exitWithParent(owned string) {
 // buildPrograms builds aboard, its older and unstamped builds and the fake harnesses
 // into dir, or exits.
 func buildPrograms(dir string) {
-	build := exec.Command("go", "build", "-race", "-o", filepath.Join(dir, "aboard"), "./server/cmd/aboard")
+	build := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-o", filepath.Join(dir, "aboard"), "./server/cmd/aboard")
 	build.Dir = ".."
 	build.Stdout, build.Stderr = os.Stderr, os.Stderr
 	if err := build.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard:", err)
 		os.Exit(1)
 	}
-	old := exec.Command("go", "build", "-race", "-o", filepath.Join(dir, "old", "aboard"),
+	old := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-o", filepath.Join(dir, "old", "aboard"),
 		"-ldflags", "-X github.com/leonidas1712/aboard/server/internal/cli.version="+oldVersion, "./server/cmd/aboard")
 	old.Dir = ".."
 	old.Stdout, old.Stderr = os.Stderr, os.Stderr
@@ -155,14 +156,14 @@ func buildPrograms(dir string) {
 		fmt.Fprintln(os.Stderr, "build the older aboard:", err)
 		os.Exit(1)
 	}
-	unstamped := exec.Command("go", "build", "-race", "-buildvcs=false", "-o", filepath.Join(dir, "unstamped", "aboard"), "./server/cmd/aboard")
+	unstamped := exec.Command("go", "build", "-tags", "aboard_e2e", "-race", "-buildvcs=false", "-o", filepath.Join(dir, "unstamped", "aboard"), "./server/cmd/aboard")
 	unstamped.Dir = ".."
 	unstamped.Stdout, unstamped.Stderr = os.Stderr, os.Stderr
 	if err := unstamped.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "build aboard without Git information:", err)
 		os.Exit(1)
 	}
-	plain := exec.Command("go", "build", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard")
+	plain := exec.Command("go", "build", "-tags", "aboard_e2e", "-o", filepath.Join(dir, "plain", "aboard"), "./server/cmd/aboard")
 	plain.Dir = ".."
 	plain.Stdout, plain.Stderr = os.Stderr, os.Stderr
 	if err := plain.Run(); err != nil {
@@ -400,14 +401,36 @@ func expectLines(t *testing.T, r result, want ...string) {
 	}
 }
 
+var givenAddrs = struct {
+	sync.Mutex
+	m map[string]bool
+}{m: map[string]bool{}}
+
 func freeAddr(t *testing.T) string {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	return freeAddrFrom(t, func() (net.Listener, error) {
+		return net.Listen("tcp", "127.0.0.1:0")
+	})
+}
+
+// freeAddrFrom keeps issued addresses for the whole run: a fixture's server starts
+// after its listener closes, and another fixture must not claim its pending address.
+func freeAddrFrom(t *testing.T, listen func() (net.Listener, error)) string {
+	t.Helper()
+	givenAddrs.Lock()
+	defer givenAddrs.Unlock()
+	for {
+		l, err := listen()
+		if err != nil {
+			t.Fatal(err)
+		}
+		addr := l.Addr().String()
+		_ = l.Close()
+		if !givenAddrs.m[addr] {
+			givenAddrs.m[addr] = true
+			return addr
+		}
 	}
-	defer l.Close()
-	return l.Addr().String()
 }
 
 // writeProgram writes an executable file that a test then runs. A child process writes

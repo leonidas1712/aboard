@@ -152,6 +152,16 @@ def hello_from(messages, names):
                for m in messages)
 
 
+def round3_observed(messages, tasks, inviter_agents, sent):
+    addressed = any(m.get('from', {}).get('kind') == 'agent' and
+                    m['from'].get('name') in inviter_agents and
+                    '@leo' in m.get('to', []) for m in messages)
+    finished = any(t.get('title', '').startswith('Round 3 ') and t.get('state') == 'done'
+                   for t in tasks)
+    return {'messages_sent_while_working': sent == {'leo', 'maya'},
+            'agent_addressed_person': addressed, 'task_finished': finished}
+
+
 class Eval:
     def __init__(self, args):
         self.args = args
@@ -169,8 +179,9 @@ class Eval:
         codex_path = shutil.which(args.codex)
         if codex_path:
             self.env['PATH'] = str(Path(codex_path).parent) + os.pathsep + self.env['PATH']
-        self.env.update(HOME=str(self.home), ABOARD_SANDBOXES=str(self.root / 'sandboxes'),
-                        ABOARD_EXIT_WITH_PID=str(os.getpid()))
+        self.env.update(HOME=str(self.home), ABOARD_SANDBOXES=str(self.root / 'sandboxes'))
+        if not args.keep:
+            self.env['ABOARD_EXIT_WITH_PID'] = str(os.getpid())
         self.team_name = 'flow-eval-' + secrets.token_hex(4)
         self.team = self.root / 'sandboxes/teams' / self.team_name
         self.binary = Path(os.environ.get('SANDBOX_ABOARD', str(REPO / '.bin/aboard'))).resolve()
@@ -187,6 +198,8 @@ class Eval:
         self.responded = set()
         self.trusted = {}
         self.last_members = None
+        self.round3_started = False
+        self.round3_sent = set()
 
     def run(self, argv, env=None, check=True, cwd=None):
         return subprocess.run(argv, env=env or self.env, cwd=cwd or REPO,
@@ -478,7 +491,8 @@ class Eval:
             if all(result.values()):
                 if self.args.scenario != 'interrupted' or interrupted:
                     check_installed_build(self.sides['maya']['env']['HOME'], self.binary)
-                    return result
+                    if self.args.scenario != 'invite' or self.round3():
+                        return result
             time.sleep(1)
         raise RuntimeError('The flow did not reach the required end state before the deadline.')
 
@@ -501,6 +515,51 @@ class Eval:
         cmd = shlex.join([sys.executable, str(Path(__file__).resolve()), '--launch', str(launch)])
         self.tmux('respawn-pane', '-k', '-t', 'flow:' + side, cmd)
 
+    def retain(self):
+        config = {'env': self.env, 'team': self.team_name, 'socket': self.socket,
+                  'binary': str(self.binary), 'repo': str(REPO),
+                  'people': {side: {'env': info['env'], 'project': str(info['project'])}
+                             for side, info in self.sides.items()}}
+        write_json(self.root / 'review-runtime.json', config)
+        refresh_browser_signins(self.root)
+        command = shlex.join([sys.executable, str(Path(__file__).resolve()),
+                              '--cleanup', str(self.root)])
+        print('Cleanup: ' + command)
+        print('Refresh one-time browser sign-ins: ' + shlex.join(
+            [sys.executable, str(Path(__file__).resolve()), '--browser-signin', str(self.root)]))
+
+    def round3(self):
+        members = json.loads((self.root / 'members.json').read_text()) or {}
+        groups = members.get('people', [])
+        names = {side: [a['name'] for p in groups if p.get('handle') == side
+                       for a in p.get('agents', [])] for side in ('leo', 'maya')}
+        if not all(names.values()):
+            return False
+        if not self.round3_started:
+            for side in names:
+                self.prompt(side, 'On qa, create a task titled "Round 3 ' + side +
+                            '" and start it. Work on a short board note about the onboarding flow. '
+                            'While working, check incoming board messages and reply to them. '
+                            'Finish the task when the note is posted. ' +
+                            ('Also send a message addressed directly to @leo.' if side == 'leo' else ''))
+            self.round3_started = True
+        for side, other in (('leo', 'maya'), ('maya', 'leo')):
+            if side not in self.round3_sent:
+                working = any(a.get('presence') == 'working' for p in groups
+                              if p.get('handle') == other for a in p.get('agents', []))
+                if working:
+                    self.person(side, 'say', 'Round 3: please include what felt unclear.',
+                                '--to', '@' + names[other][0], '--board', 'qa', '--server', self.team_name)
+                    self.round3_sent.add(side)
+        tasks = self.person('leo', 'task', 'list', '--all', '--board', 'qa',
+                            '--server', self.team_name, check=False) or {}
+        write_json(self.root / 'tasks.json', tasks)
+        board = json.loads((self.root / 'board.json').read_text()) or {}
+        result = round3_observed(board.get('messages', []), tasks.get('tasks', []),
+                                 names['leo'], self.round3_sent)
+        write_json(self.root / 'round3.json', result)
+        return all(result.values())
+
     def finish(self, failure=None):
         self.collect()
         for side in self.sides:
@@ -511,10 +570,14 @@ class Eval:
                     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
                     shutil.copyfile(path, target)
                     target.chmod(0o600)
-        if self.started:
+        if self.started and self.args.keep:
+            self.retain()
+        elif self.started:
             if shutil.which('tmux'):
                 self.run(['tmux', '-S', self.socket, 'kill-server'], check=False)
             for side in self.sides:
+                self.run(['python3', str(REPO / 'scripts/stop-sandbox-codex.py'),
+                          str(self.sides[side]['env']['CODEX_HOME'])], check=False)
                 self.run([str(self.binary), 'down'], env=self.sides[side]['env'], check=False)
             self.run(['sh', str(REPO / 'scripts/sandbox'), 'team-stop', self.team_name], check=False)
         changed = [path for path, before in self.before.items() if checksum(Path(path)) != before]
@@ -531,6 +594,41 @@ class Eval:
             raise RuntimeError('Protected source files changed; see the private report.')
 
 
+def refresh_browser_signins(root):
+    config = json.loads((root / 'review-runtime.json').read_text())
+    for side, info in config['people'].items():
+        env = dict(info['env'], BROWSER='/usr/bin/false')
+        for key in list(env):
+            if key.startswith(('ABOARD_SESSION', 'ABOARD_AGENT', 'CODEX_THREAD', 'CLAUDE_SESSION')):
+                del env[key]
+        path = root / (side + '-browser.json')
+        path.unlink(missing_ok=True)
+        result = subprocess.run([config['binary'], 'open', '--board', 'qa', '--server',
+                                 config['team'], '--json'], env=env, cwd=info['project'],
+                                capture_output=True, text=True, timeout=60)
+        if result.returncode:
+            print(side + ': browser sign-in unavailable (account may not be created yet).')
+            continue
+        access = json.loads(result.stdout)
+        write_json(path, access)
+        print(side + ': ' + access['ui_url'] + '; one-time sign-in in ' + str(path))
+
+
+def cleanup_retained(root):
+    config = json.loads((root / 'review-runtime.json').read_text())
+    if shutil.which('tmux'):
+        subprocess.run(['tmux', '-S', config['socket'], 'kill-server'],
+                       capture_output=True, check=False)
+    for info in config['people'].values():
+        subprocess.run([config['binary'], 'down'], env=info['env'], cwd=info['project'],
+                       capture_output=True, timeout=60, check=False)
+    subprocess.run(['sh', str(Path(config['repo']) / 'scripts/sandbox'),
+                    'team-stop', config['team']], env=config['env'],
+                   capture_output=True, timeout=60, check=True)
+    for side in config['people']:
+        (root / (side + '-browser.json')).unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--scenario', choices=SCENARIOS, default='invite')
@@ -539,10 +637,19 @@ def main():
     parser.add_argument('--output')
     parser.add_argument('--timeout', type=int, default=600)
     parser.add_argument('--prepare-only', action='store_true')
+    parser.add_argument('--keep', action='store_true', help='leave the private team and sessions for browser review')
+    parser.add_argument('--cleanup', metavar='OUTPUT')
+    parser.add_argument('--browser-signin', metavar='OUTPUT')
     parser.add_argument('--launch')
     parser.add_argument('--codex', default=os.environ.get('FLOW_CODEX', 'codex'))
     parser.add_argument('--claude', default=os.environ.get('FLOW_CLAUDE', 'claude'))
     args = parser.parse_args()
+    if args.cleanup:
+        cleanup_retained(Path(args.cleanup))
+        return 0
+    if args.browser_signin:
+        refresh_browser_signins(Path(args.browser_signin))
+        return 0
     if args.launch:
         config = json.loads(Path(args.launch).read_text())
         env = dict(clean_env(), **config['env'])

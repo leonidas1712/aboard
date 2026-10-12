@@ -15,7 +15,7 @@
 #                   omp/, ...): the profile's config_dir.env points at it, and the files
 #                   its login_files name are linked from the person's own folder
 #   project/        a git project set up with aboard init --yes --scope project,
-#                   where the shell starts
+#                   where the shell starts (FRESH leaves it unconfigured)
 #   shell/          the shell start-up files that put the sandbox's name in the prompt
 #
 # Everything about a harness comes from its profile, so a new harness needs only
@@ -206,13 +206,18 @@ stop_aboard() {
 	fi
 }
 
+stop_private_codex() {
+    python3 "$repo/scripts/stop-sandbox-codex.py" "$dir/codex"
+}
+
 clean() {
 	if [ ! -d "$dir" ]; then
 		echo "There is no sandbox named $name in $root."
 		return 0
 	fi
 	drop_markers
-	# Best effort on purpose: whatever is still running goes away with its folder.
+	# Stop private harness processes before removing the paths that identify them.
+	stop_private_codex
 	stop_aboard || true
 	rm -rf "$dir"
 	rmdir "$root" 2>/dev/null || true
@@ -455,7 +460,7 @@ open_sandbox() {
 	if [ "$fresh" != 1 ] && [ ! -d .git ] && command -v git >/dev/null 2>&1; then
 		git init -q .
 	fi
-	if [ "$fresh" != 1 ] || command -v aboard >/dev/null 2>&1; then
+	if [ "$fresh" != 1 ]; then
 		aboard init --yes --scope project
 	fi
 	if [ -n "$team" ]; then
@@ -563,6 +568,11 @@ team-start)
 	echo "Run aboard commands only in the (aboard:<person>@$team) shells; other terminals may use the installed binary."
 	;;
 team-stop)
+    for person in "$team_dir"/people/*; do
+        [ -d "$person" ] || continue
+        dir=$person
+        stop_private_codex
+    done
 	team_tool stop
 	echo "Stopped team $team (data kept)."
 	;;
@@ -572,6 +582,7 @@ team-clean)
 		[ -d "$person" ] || continue
 		dir=$person
 		drop_markers
+        stop_private_codex
 		stop_aboard || true
 	done
 	rm -rf "$team_dir"

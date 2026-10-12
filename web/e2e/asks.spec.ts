@@ -23,7 +23,7 @@ function freePort(): Promise<number> {
   });
 }
 test.beforeAll(async () => {
-  execFileSync("go", ["build", "-tags", "ui", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-tags", "ui,webtest", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
   env = { NODE_ENV: "test", PATH: process.env.PATH, HOME: home, USER: "alex", XDG_CONFIG_HOME: join(home, ".config"), XDG_DATA_HOME: join(home, ".local/share"), XDG_STATE_HOME: join(home, ".local/state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}`, BROWSER: "true" };
 });
 test.afterAll(() => {
@@ -391,4 +391,83 @@ test("a phone gets a Back to Inbox link on the board, and the board's keys list 
   await expect(sheet).toBeHidden();
   await page.keyboard.press("i");
   await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
+});
+
+test("the Inbox hint on a board is a keyboard key that shows on hover or focus", async ({ page }) => {
+  await openBoard(page, "hint-board");
+  const row = page.getByRole("link", { name: /^Inbox/ });
+  const key = row.locator("kbd");
+  await expect(key).toHaveText("I");
+  await expect(key).toHaveAttribute("aria-label", "Shortcut: I");
+  await expect(key).toHaveAttribute("title", "Shortcut: I");
+  await expect(key).toHaveCSS("opacity", "0");
+  await row.hover();
+  await expect(key).toHaveCSS("opacity", "1");
+  await page.mouse.move(600, 400);
+  await expect(key).toHaveCSS("opacity", "0");
+  await row.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(key).toHaveCSS("opacity", "1");
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog").getByText("Go to the Inbox.")).toBeVisible();
+});
+
+test("Escape leaves a text field and keeps its text, so the keys work again", async ({ page }) => {
+  await openBoard(page, "esc-board");
+  const field = page.locator(".composer textarea");
+  await field.click();
+  await field.fill("half a thought");
+  await page.keyboard.press("i");
+  await expect(field).toHaveValue("half a thoughti");
+  await page.keyboard.press("Escape");
+  await expect(field).not.toBeFocused();
+  await expect(field).toHaveValue("half a thoughti");
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Keys on a board" })).toBeVisible();
+});
+
+test("[ and ] move through the Inbox and the boards in the sidebar order", async ({ page }) => {
+  await openBoard(page, "walk-one");
+  aboard("pair", "general", "--board", "walk-two", "--name", "writer", "--new");
+  await page.goto(`${base()}/?inbox`);
+  const links = page.locator("[aria-label=Boards] a[href^='/?board=']:visible");
+  await expect(links.nth(1)).toBeVisible();
+  const first = await links.nth(0).getAttribute("href");
+  const second = await links.nth(1).getAttribute("href");
+  await page.keyboard.press("]");
+  await expect(page).toHaveURL(`${base()}${first}`);
+  await expect(links.first()).toBeVisible();
+  await page.keyboard.press("]");
+  await expect(page).toHaveURL(`${base()}${second}`);
+  await expect(links.first()).toBeVisible();
+  await page.keyboard.press("[");
+  await expect(page).toHaveURL(`${base()}${first}`);
+  await expect(links.first()).toBeVisible();
+  await page.keyboard.press("[");
+  await expect(page.getByRole("heading", { name: /^Inbox\b/ })).toBeVisible();
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog", { name: "Keys in the Inbox" }).getByText(/previous item in the sidebar/)).toBeVisible();
+});
+
+test("a draft survives a board switch and a reload, and is cleared once sent", async ({ page }) => {
+  await openBoard(page, "draft-one");
+  aboard("pair", "general", "--board", "draft-two", "--name", "writer", "--new");
+  const field = page.locator(".composer textarea");
+  await field.click();
+  await field.fill("not sent yet");
+  await page.goto(`${base()}/?board=draft-two`);
+  await expect(field).toHaveValue("");
+  await page.goto(`${base()}/?inbox`);
+  await page.goto(`${base()}/?board=draft-one`);
+  await expect(field).toHaveValue("not sent yet");
+  expect(await field.evaluate((el: HTMLTextAreaElement) => [el.selectionStart, el.selectionEnd])).toEqual([12, 12]);
+  await page.reload();
+  await expect(field).toHaveValue("not sent yet");
+  await field.press("Enter");
+  await expect(page.getByText("not sent yet").first()).toBeVisible();
+  await expect(field).toHaveValue("");
+  await page.reload();
+  await expect(field).toHaveValue("");
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith("aboard.draft.")))).toEqual([]);
 });

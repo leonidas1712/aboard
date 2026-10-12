@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openPanelSections } from "./panel-open";
 
 // The board view screenshots in the README and the docs, only when DOCS_SHOTS names a
 // folder, at 1440x900 in light and dark:
@@ -36,7 +37,7 @@ function freePort(): Promise<number> {
 }
 test.beforeAll(async () => {
   if (!dir) return;
-  execFileSync("go", ["build", "-tags", "ui", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-tags", "ui,webtest", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
   env = { NODE_ENV: "test", PATH: process.env.PATH, HOME: home, USER: "alex", XDG_CONFIG_HOME: join(home, ".config"), XDG_DATA_HOME: join(home, ".local/share"), XDG_STATE_HOME: join(home, ".local/state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}`, BROWSER: "true" };
 });
 test.afterAll(() => {
@@ -71,6 +72,10 @@ async function shot(page: Page, path: string) {
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path, animations: "disabled" });
 }
+
+test.beforeEach(async ({ page }) => {
+  await openPanelSections(page);
+});
 
 test("the board view screenshots for the README and the docs", async ({ page }) => {
   test.skip(!dir, "Set DOCS_SHOTS to a folder to take the docs' screenshots.");

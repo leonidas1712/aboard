@@ -47,6 +47,7 @@ func TestFreshTeamSandboxInstallsTheLocalBuild(t *testing.T) {
 			t.Fatalf("missing %q: %s", want, out)
 		}
 	}
+	sandboxScript(t, home, append(extra, "TEAM=qa", "FRESH=1", "SANDBOX_CMD=test -z \"$(ls -A .)\" || { echo 'fresh project was preconfigured after install'; exit 44; }"), "open", "maya")
 	if _, err := os.Stat(filepath.Join(home, ".local", "bin", "aboard")); !os.IsNotExist(err) {
 		t.Fatalf("installer wrote original HOME: %v", err)
 	}

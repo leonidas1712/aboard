@@ -88,7 +88,8 @@ type app struct {
 	daemonReplaced *replacement
 	localReplaced  *replacement
 	// homeAddr is the local server address read from ABOARD_HOME, once looked up.
-	homeAddr string
+	statusReads *statusReads
+	homeAddr    string
 	// harnesses are the harnesses Aboard knows, once listed.
 	harnesses harness.Set
 	// deadline, when set, replaces the timeout one request gets, and askLine replaces
@@ -332,7 +333,11 @@ func (a *app) emitChecked(v any, text string) error {
 		}
 		if !boardNamed && a.explainServer(selection) {
 			why := map[string]string{"flag": "an explicit server", "project": "this folder's .aboard", "default": "this machine's default", "only": "the only known server", "local": "the local fallback"}[selection.Source]
-			text += fmt.Sprintf("Server: %s (%s), from %s. For your local server, use --server local.\n", selection.Server.Name, hostOf(selection.Server), why)
+			text += fmt.Sprintf("Server: %s (%s), from %s.", selection.Server.Name, hostOf(selection.Server), why)
+			if selection.Server.URL != a.localServer().URL {
+				text += " For your local server, use --server local."
+			}
+			text += "\n"
 		}
 	}
 	if a.json {

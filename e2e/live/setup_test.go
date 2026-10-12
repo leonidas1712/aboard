@@ -99,13 +99,23 @@ func invitedSetupProof(t *testing.T, name string, held, wakeOnly bool) {
 		var waiting struct {
 			State  string          `json:"state"`
 			Person json.RawMessage `json:"person"`
-			Next   struct {
+			Error  struct {
+				Code string `json:"code"`
+				Hint string `json:"hint"`
+			} `json:"error"`
+			Next struct {
 				Command string `json:"command"`
 			} `json:"next"`
 		}
 		newcomer.waitFor(2*time.Minute, "a secret-free saved setup continuation", func() bool {
 			data, err := os.ReadFile(filepath.Clean(waitingPath))
-			return err == nil && json.Unmarshal(data, &waiting) == nil && waiting.State == "pending"
+			if err != nil || json.Unmarshal(data, &waiting) != nil {
+				return false
+			}
+			if waiting.Error.Code != "" {
+				t.Fatalf("initial newcomer setup refused: code=%s hint=%s", waiting.Error.Code, waiting.Error.Hint)
+			}
+			return waiting.State == "pending"
 		})
 		if len(waiting.Person) != 0 && string(waiting.Person) != "null" || !strings.HasPrefix(waiting.Next.Command, "aboard setup --continue --handle ") || strings.Contains(waiting.Next.Command, invitation.Invite.Secret) {
 			t.Fatal("setup spent the invite or omitted its secret-free continuation")

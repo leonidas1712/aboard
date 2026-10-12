@@ -13,6 +13,7 @@ import type { Member } from "./api";
 import type { BoardAddNotice, InviteArrivalNotice } from "./onboarding-api";
 import { AgentMark, Command, Fields } from "./onboarding-ui";
 import { harnessName, relativeTime } from "./words";
+import { startDraft } from "./composer";
 
 export const addedKey = (a: BoardAddNotice) => `add:${a.board.id}:${a.added.seq}`;
 export const arrivalKey = (a: InviteArrivalNotice) => `arrival:${a.invite_id}`;
@@ -90,21 +91,48 @@ export function BoardAddDetail({ n, agents, now, onDismiss }: { n: BoardAddNotic
   );
 }
 
-export function ArrivalDetail({ n, now, onDismiss }: { n: InviteArrivalNotice; now: number; onDismiss: () => void }) {
+/** ArrivalDetail is someone arriving with an invite; made says who made the invite and how it was allowed. */
+export function ArrivalDetail({ n, made, now, onDismiss }: { n: InviteArrivalNotice; made: string; now: number; onDismiss: () => void }) {
+  const first = n.boards[0]?.board;
+  const href = first ? `/?board=${encodeURIComponent(first.name)}` : null;
+  // Say hello opens the board's composer with the person already addressed, unless a draft is there.
+  const sayHello = () => {
+    if (!first) return;
+    startDraft(first.name, `@${n.handle} `);
+    window.location.href = `${href}&compose`;
+  };
   return (
     <article className="ob-arrival flex max-w-[640px] flex-col gap-5" data-arrival={n.invite_id}>
       <p className="text-meta text-muted">Arrived · {relativeTime(n.at, now)}</p>
       <h2 className="text-headline font-bold break-words">{arrivalTitle(n)}</h2>
       <Fields
-        rows={n.boards.map((b): [string, ReactNode] => [
-          "Board",
-          <span key={b.board.id} className="flex flex-col">
-            <a href={`/?board=${encodeURIComponent(b.board.name)}`}>{b.board.title || b.board.name}</a>
-            <span className="text-meta text-muted">{b.agents.length > 0 ? b.agents.map((a) => `${a.name} · ${harnessName(a.harness) ?? "agent"}`).join(", ") : "no agents yet"}</span>
-          </span>,
-        ])}
+        rows={[
+          ...n.boards.map((b): [string, ReactNode] => [
+            "Board",
+            <span key={b.board.id} className="flex flex-col">
+              <a href={`/?board=${encodeURIComponent(b.board.name)}`}>{b.board.title || b.board.name}</a>
+              <span className="text-meta text-muted">{b.agents.length > 0 ? b.agents.map((a) => `${a.name} · ${harnessName(a.harness) ?? "agent"}`).join(", ") : "no agents yet"}</span>
+            </span>,
+          ]),
+          ["Invite", made],
+
+        ]}
       />
-      <Dismiss onDismiss={onDismiss} />
+      <div className="flex flex-wrap items-center gap-2">
+        {first && href && (
+          <>
+            <Button variant="primary" asChild>
+              <a href={href} className="no-underline">Open {first.name}</a>
+            </Button>
+            <Button variant="secondary" onClick={sayHello}>
+              Say hello
+            </Button>
+          </>
+        )}
+        <Button variant="quiet" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
     </article>
   );
 }

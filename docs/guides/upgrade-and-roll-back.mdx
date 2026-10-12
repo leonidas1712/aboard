@@ -63,7 +63,7 @@ aboard doctor
 `aboard status` stops the old local server and starts the new one, and the database is
 migrated then. The old delivery daemon stops with its server, and the new one starts in
 its place. Running sessions don't need `aboard resume`. Later releases install with
-`aboard upgrade`.
+`aboard upgrade`, which an agent may also run in its session.
 
 ## Check it worked
 
@@ -89,9 +89,8 @@ Paste your access key when asked. Your default stays the local server: commands 
 `--server` act on local boards, and `--server https://team.example.com` reaches the
 team server. `aboard servers use https://team.example.com` makes it the default.
 
-Join team boards from a project folder of their own: a join links its folder to the
-board, and person commands in that folder then act on the team board. If the team
-server's certificate comes from your team's own authority, set `SSL_CERT_FILE` in your
+A folder never picks the server: person commands use `--server` or your default, and
+say which server they chose. If the team server's certificate comes from your team's own authority, set `SSL_CERT_FILE` in your
 shell, then run `aboard down` so the delivery daemon starts again with it.
 
 ## If something breaks

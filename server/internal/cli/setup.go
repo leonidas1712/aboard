@@ -227,7 +227,7 @@ func runSetup(ctx context.Context, a *app, args []string) (result error) {
 	out.Steps[3].Message = "Harness configuration needs trust or restart confirmation."
 	out.commandsAllowed = a.setupAllowsCommands()
 	out.Steps[4].Message = "This invite has no boards to join."
-	out.Steps[5].Message = "Waiting for a reply from the inviting person's agents."
+	out.Steps[5].Message = setupWelcomeGuidance("the inviting person")
 	out.Next = next
 	out.skillInstalled = next != nil && strings.Contains(next.Resume, "Run aboard skill now")
 	out.continueCommand = a.setupContinueCommand(srv, invite)
@@ -497,7 +497,7 @@ func (a *app) setupHarness(ctx context.Context, exe string) (*api.NextStep, erro
 		trust = "Run /hooks, approve Aboard's hooks, then restart Claude Code."
 	}
 	if key.Harness == "codex" {
-		trust = "Approve Aboard's global hooks in Codex, then restart Codex."
+		trust = "Run /hooks, approve Aboard's global hooks, then restart Codex (codex resume --last)."
 	}
 	return &api.NextStep{Command: "aboard init --harness " + commandWord(key.Harness), Resume: "Run aboard skill now; it loads automatically in your next session. " + trust + " Continue Aboard setup."}, nil
 }

@@ -30,7 +30,7 @@ function freePort(): Promise<number> {
 const base = () => `http://${env.ABOARD_LOCAL_ADDR}`;
 
 test.beforeAll(async () => {
-  execFileSync("go", ["build", "-tags", "ui", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-tags", "ui,webtest", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
   env = { NODE_ENV: "test", PATH: process.env.PATH, HOME: home, USER: "alex", XDG_CONFIG_HOME: join(home, ".config"), XDG_DATA_HOME: join(home, ".local/share"), XDG_STATE_HOME: join(home, ".local/state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}`, BROWSER: "true" };
   aboard("pair", "general", "--board", "inbox-items-setup", "--name", "writer", "--new");
 });
@@ -92,7 +92,8 @@ test("an arrival names the person and their agents, links to the board, and both
   await list.getByRole("button", { name: /@maya joined launch with @claude-maya/ }).click();
   const card = page.locator('[data-arrival="inv_1"]');
   await expect(card.getByRole("heading", { name: "@maya joined launch with @claude-maya" })).toBeVisible();
-  await expect(card.getByRole("link", { name: "Launch" })).toHaveAttribute("href", "/?board=launch");
+  await expect(card.getByRole("link", { name: "Launch", exact: true })).toHaveAttribute("href", "/?board=launch");
+  await expect(card.getByRole("link", { name: "Open launch" })).toHaveAttribute("href", "/?board=launch");
   await card.getByRole("button", { name: "Dismiss" }).click();
   await expect(list.getByRole("button", { name: /@maya joined/ })).toHaveCount(0);
   // Dismissed on this browser: it stays hidden after a reload.
@@ -113,4 +114,72 @@ test("an invite notice shows the suggested handle when it has one", async ({ pag
   await expect(page.locator('[data-notice="inv_with"]').getByRole("button", { name: "Edit handle" })).toBeVisible();
   await page.goto(`${base()}/?inbox&item=inv_without`);
   await expect(page.locator('[data-notice="inv_without"]')).toContainText("No suggested handle");
+});
+
+// One invite, told once: claude's invite for @maya was allowed and used, and maya arrived
+// on the setup board; a second invite for @sam waits for approval.
+const at = () => new Date().toISOString();
+const later = () => new Date(Date.now() + 86_400_000).toISOString();
+const display = { agent_name: "claude", agent_harness: "claude-code", requested_on: { id: "brd_setup", name: "inbox-items-setup", title: "" }, boards: [] };
+const used = { id: "inv_01M4MZJTM1VBAK8M74RJ7AVFP5", issuing_agent_id: "mem_claude", message: "Your agent invited someone", suggested_handle: "maya" as string | undefined, created_at: at(), expires_at: later(), state: "redeemed", next: { command: "aboard invite revoke inv_01M4MZJTM1VBAK8M74RJ7AVFP5", resume: "" }, display };
+const allowed = { id: "apr_01M4MZJNPHX08FRHZ84P73TNF9", person_id: "hum_alex", agent_id: "mem_claude", action: { kind: "invite_people", invite: { suggested_handle: "maya" } }, state: "executed", created_at: at(), decided_at: at(), execution: { at: at(), invite_id: used.id, authorization: { kind: "invited", person_id: "hum_alex", agent_id: "mem_claude", via: "approval" } }, display };
+const waiting = { id: "apr_01M4MZPPQYJTKKEBM4ZH4WGNHW", person_id: "hum_alex", agent_id: "mem_claude", action: { kind: "invite_people", invite: { suggested_handle: "sam" } }, state: "pending", created_at: at(), expires_at: later(), display };
+const arrived = { invite_id: used.id, person_id: "hum_maya", handle: "maya", at: at(), boards: [{ board: { id: "brd_setup", name: "inbox-items-setup", title: "" }, agents: [{ id: "mem_codex", name: "codex", harness: "codex" }] }] };
+
+async function openInviteStory(page: Page, notices: unknown[] = [used]) {
+  await page.route("**/v1/me/approvals*", (route) => route.fulfill({ json: { approvals: [waiting, allowed] } }));
+  await page.route("**/v1/me/invite-notices", (route) => route.fulfill({ json: { notices } }));
+  await openInbox(page, { board_adds: [], arrivals: [arrived] });
+}
+
+test("an invite reads as one story: handles in every title, and the used invite folded into the arrival", async ({ page }) => {
+  await openInviteStory(page);
+  // The approvals name the handle, waiting or decided.
+  await expect(page.getByRole("list", { name: "Needs you" }).getByRole("button", { name: /Your agent claude wants to invite @sam to the server as a member/ })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Decided" }).getByRole("button", { name: /Your agent claude wants to invite @maya to the server as a member/ })).toBeVisible();
+  await expect(page.getByText(/invite someone|invited someone|someone joined/)).toHaveCount(0);
+  // The used invite has no row of its own: the arrival tells it.
+  await expect(page.getByRole("list", { name: "Invites your agents made" })).toHaveCount(0);
+  const arrival = page.getByRole("list", { name: "Added and arrived" }).getByRole("button", { name: /@maya joined inbox-items-setup with @codex/ });
+  await expect(arrival).toContainText("invited by your agent claude");
+
+  // The decided approval shows no ids, and leads to the arrival.
+  await page.getByRole("list", { name: "Decided" }).getByRole("button").click();
+  const decided = page.locator(`[data-approval="${allowed.id}"]`);
+  await expect(decided.getByRole("heading", { name: /wants to invite @maya/ })).toBeVisible();
+  await expect(decided).not.toContainText("apr_");
+  await expect(decided).not.toContainText("This changes the whole server");
+  await decided.getByRole("button", { name: "See @maya join" }).click();
+
+  // The arrival says who made the invite, and offers the next step.
+  const card = page.locator(`[data-arrival="${used.id}"]`);
+  await expect(card).toContainText("Made by your agent claude, approved by you");
+  await expect(card).not.toContainText("inv_");
+  await expect(card.getByRole("link", { name: "Open inbox-items-setup" })).toHaveAttribute("href", "/?board=inbox-items-setup");
+  await card.getByRole("button", { name: "Say hello" }).click();
+  await expect(page).toHaveURL(/\?board=inbox-items-setup&compose$/);
+  const field = page.getByRole("combobox", { name: /^Message/ });
+  await expect(field).toBeFocused();
+  await expect(field).toHaveValue("@maya ");
+});
+
+test("a used, revoked or expired invite's card drops its expiry, its link note and its id", async ({ page }) => {
+  // With the arrival dismissed, the used invite shows again, resolved and named.
+  const revoked = { ...used, id: "inv_01M4MZJTM1VBAK8M74RJ7AVFP6", suggested_handle: "sam", state: "revoked" };
+  const expired = { ...used, id: "inv_01M4MZJTM1VBAK8M74RJ7AVFP7", suggested_handle: undefined, state: "expired" };
+  await openInviteStory(page, [used, revoked, expired]);
+  await page.getByRole("list", { name: "Added and arrived" }).getByRole("button").click();
+  await page.locator(`[data-arrival="${used.id}"]`).getByRole("button", { name: "Dismiss" }).click();
+  const invites = page.getByRole("list", { name: "Invites your agents made" });
+  await expect(invites.getByRole("button", { name: /Your agent claude invited @maya/ })).toContainText("Used: @maya joined with it");
+  await expect(invites.getByRole("button", { name: /Your agent claude invited @sam/ })).toBeVisible();
+  await expect(invites.getByRole("button", { name: /Your agent claude invited someone/ })).toBeVisible();
+  for (const [n, done] of [[used, "@maya joined the server with this invite"], [revoked, "Revoked. Nobody can join with it."], [expired, "Expired before anyone used it."]] as const) {
+    await page.goto(`${base()}/?inbox&item=${n.id}`);
+    const card = page.locator(`[data-notice="${n.id}"]`);
+    await expect(card).toContainText(done);
+    await expect(card).not.toContainText("Works until");
+    await expect(card).not.toContainText("can collect it");
+    await expect(card).not.toContainText("inv_");
+  }
 });

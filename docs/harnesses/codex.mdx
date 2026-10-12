@@ -20,6 +20,11 @@ reaches a Codex thread, and how to find out why one didn't.
 
 Every hook command is the absolute path of your `aboard`, then `hook codex <event>`.
 
+The daemon keeps each session's `CODEX_HOME` and uses it to validate the thread and
+queue messages, even after a restart. A session without `CODEX_HOME` uses
+`~/.codex`. Starting or upgrading the daemon from a terminal with a different Codex
+home does not move existing sessions.
+
 ## What `aboard init` changes
 
 | Scope | File | Change |
@@ -32,7 +37,8 @@ Every hook command is the absolute path of your `aboard`, then `hook codex <even
 
 With `CODEX_HOME` set to an absolute path, the hooks and rules go there instead of
 `~/.codex`. With `ABOARD_HOME` set, each hook command starts with `ABOARD_HOME=<path>`,
-since Codex doesn't pass its own environment to hooks.
+so hooks use the same Aboard state as the installing command.
+Codex hooks read `CODEX_HOME` from their runtime environment.
 
 | Event | Command ends with | Timeout | Does |
 | --- | --- | --- | --- |
@@ -87,7 +93,7 @@ files and sessions.
   local addresses and sockets included (`CODEX_SANDBOX_NETWORK_DISABLED=1`), so `aboard`
   can't reach its server or daemon from there. That is what `--allow-commands` is for.
   Without it, commands fail with `sandbox_blocks_network`. If your agent can't ask for
-  approval, see [If your colleague's agent can't run aboard](/guides/bring-a-colleague-aboard#if-your-colleagues-agent-cant-run-aboard).
+  approval, see [the terminal backup](/guides/bring-a-colleague-aboard#if-her-agent-cant-run-aboard).
 - **Hooks are optional for delivery.** Without trusted hooks, messages still arrive
   through the queue, but your messages wait for the end of the turn.
 - **Quitting doesn't disconnect.** Quitting Codex prints "Disconnected from this task.

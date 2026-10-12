@@ -27,7 +27,7 @@ export type Display = {
 };
 
 export type AdminAction =
-  | { kind: "invite_people"; invite: { ttl_seconds?: number; boards?: string[]; pairing?: { initiating_agent_id: string; work: string } } }
+  | { kind: "invite_people"; invite: { suggested_handle?: string; ttl_seconds?: number; boards?: string[]; pairing?: { initiating_agent_id: string; work: string } } }
   | { kind: "add_people"; board_id: string; person_id: string }
   | { kind: "set_server_role"; person_id: string; role: "admin" | "member" }
   | { kind: "set_board_role"; board_id: string; person_id: string; role: string }
@@ -158,7 +158,13 @@ export const editInviteHandle = (id: string, suggested_handle: string) =>
 export const renameSelf = (current: string, handle: string) =>
   post<{ person: Person; changed: boolean }>(`/v1/people/${encodeURIComponent(current)}/rename`, { handle });
 
-export const listPairing = () => get<{ requests: PairingRequest[] }>("/v1/pairing-requests");
+/**
+ * listPairing reads the person's pairing requests. A request that carries an invite_id
+ * belongs to an invite, whose own notices say how it went, so it never shows as a
+ * pairing request, even if the server still lists it.
+ */
+export const listPairing = () =>
+  get<{ requests: PairingRequest[] }>("/v1/pairing-requests").then((r) => ({ ...r, requests: r.requests.filter((p) => !p.invite_id) }));
 export const choosePairingAgent = (id: string, agent: string, generation: number, key?: string) =>
   post<PairingRequest>(`/v1/pairing-requests/${encodeURIComponent(id)}/choose`, { agent_id: agent, generation }, key);
 export const declinePairing = (id: string) => send<PairingRequest>("POST", `/v1/pairing-requests/${encodeURIComponent(id)}/decline`);

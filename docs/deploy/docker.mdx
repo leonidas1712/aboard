@@ -15,7 +15,7 @@ plain HTTP server is reachable from this machine and nowhere else:
 
 ```bash
 docker run -d --name aboard --restart unless-stopped -v aboard-data:/data -p 127.0.0.1:7400:7400 \
-  -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:0.1.3
+  -e ABOARD_PUBLIC_URL=https://aboard.example.com ghcr.io/leonidas1712/aboard:0.1.4
 ```
 
 Put a proxy that ends HTTPS for `aboard.example.com` on the same machine, in front of
@@ -68,7 +68,7 @@ database:
 
 ```bash
 docker stop aboard && docker rm aboard
-docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh ghcr.io/leonidas1712/aboard:0.1.3
+docker run --rm -it --user 10001:10001 -v aboard-data:/data --entrypoint sh ghcr.io/leonidas1712/aboard:0.1.4
 # in that shell:
 ls /data/aboard/backups
 cp /data/aboard/backups/aboard-<time>-schema-<n>.db /data/aboard/aboard.db && rm -f /data/aboard/aboard.db-wal /data/aboard/aboard.db-shm

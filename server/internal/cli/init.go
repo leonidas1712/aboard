@@ -20,16 +20,18 @@ import (
 )
 
 // withHome makes each hook command set ABOARD_HOME when this command runs with it set,
-// so hooks use the same folder as the commands that installed them. Codex doesn't pass
-// the environment it was started with to its hooks.
+// so hooks use the same folder as the commands that installed them. Codex runs hooks
+// from an app server whose environment outlives the launching terminal.
 func (a *app) withHome(specs []harness.Hook) []harness.Hook {
 	p, err := a.paths()
-	if err != nil || p.home == "" {
+	if err != nil {
 		return specs
 	}
 	out := slices.Clone(specs)
 	for i := range out {
-		out[i].Handler.Command = "ABOARD_HOME=" + shellWord(p.home) + " " + out[i].Handler.Command
+		if p.home != "" {
+			out[i].Handler.Command = "ABOARD_HOME=" + shellWord(p.home) + " " + out[i].Handler.Command
+		}
 	}
 	return out
 }
@@ -190,6 +192,9 @@ func runInit(ctx context.Context, a *app, args []string) error {
 		}
 	}
 	text := list + a.allowAdvice(c, setups, interactive) + a.initEnding(c, setups, pending, apply, st)
+	if apply {
+		text += hookChangesText(changedHookHarnesses(setups))
+	}
 	if interactive && apply {
 		text += nextSteps(setups, st)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
@@ -57,6 +58,30 @@ func TestOrdinaryAgentBoardInviteKeepsItsExactInvitingSeat(t *testing.T) {
 	mustStatus(t, connected, err, 200)
 	if len(connected.JSON200.Onboarding.Boards) != 2 || connected.JSON200.Onboarding.PairingRequestId == nil || *connected.JSON200.Onboarding.PairingRequestId != r.JSON200.Id {
 		t.Fatal("redemption lost memberships or the original hidden check")
+	}
+	for _, auth := range []string{s.owner, token, agent} {
+		listed, e := s.client(auth).ListPairingRequestsWithResponse(ctx)
+		mustStatus(t, listed, e, 200)
+		if strings.Contains(string(listed.Body), r.JSON200.Id) {
+			t.Fatalf("hidden invitation became a pairing card: %s", listed.Body)
+		}
+	}
+	// Joining another bundled board must not close the source-board bookkeeping.
+	joined, e := s.client(token).JoinWithResponse(ctx, nil, api.JoinRequest{Board: &otherName, Role: ptr("member"), Session: ptr("codex:newcomer")})
+	mustStatus(t, joined, e, 201)
+	current, e := s.client(token).GetPairingRequestWithResponse(ctx, r.JSON200.Id)
+	mustStatus(t, current, e, 200)
+	if current.JSON200.State != api.PairingStateAwaitingSession {
+		t.Fatalf("wrong-board join changed request: %s", current.Body)
+	}
+	delegated := s.delegate(token)
+	s.want(s.joinSession(delegated, first.JSON200.Id, "codex:newcomer", map[string]any{"role": "writer"}), 201, "")
+	s.want(s.joinSession(delegated, first.JSON200.Id, "codex:newcomer", map[string]any{"role": "writer"}), 200, "")
+	s.restart()
+	current, e = s.client(token).GetPairingRequestWithResponse(ctx, r.JSON200.Id)
+	mustStatus(t, current, e, 200)
+	if current.JSON200.State != api.PairingStateCancelled {
+		t.Fatalf("recipient join left hidden request open: %s", current.Body)
 	}
 }
 

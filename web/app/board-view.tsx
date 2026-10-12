@@ -28,7 +28,7 @@ import { Sheet, useWide } from "./sheet";
 import { usePref } from "./prefs";
 import { Kbd, KeysSheet } from "./keys-sheet";
 import { keyLabel, pressed, typing } from "./keys";
-import { BoardNav, BoardPanel, type Reveal } from "./sidebars";
+import { BoardNav, BoardPanel, type Reveal, useSidebarKeys } from "./sidebars";
 import { type Entry, type Thread, Timeline, showMessage } from "./timeline";
 import { threadsOf, useThreadPrefs } from "./threads";
 import { type Filter, filterActive, useBoard } from "./use-board";
@@ -158,7 +158,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const colours = useMemo(() => {
     const members = s.members ?? [];
     const out = new Map<string, number>();
-    for (const p of members.filter((m) => m.kind === "human")) out.set(`human:${p.name}`, personIdentity(p.name, s.me));
+    for (const p of members.filter((m) => m.kind === "human")) out.set(`human:${p.name}`, personIdentity(p.name));
     const agentIds = members.filter((m) => m.kind === "agent");
     const byId = identitiesOf(
       agentIds.map((a) => a.id),
@@ -166,7 +166,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     );
     for (const a of agentIds) out.set(`agent:${a.name}`, byId.get(a.id) ?? 1);
     return out;
-  }, [s.members, s.me]);
+  }, [s.members]);
   const identity = useCallback(
     (from: MemberRef) => colours.get(`${from.kind}:${from.name}`) ?? identityOf(`${from.kind}:${from.name}`),
     [colours],
@@ -433,6 +433,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     Date.now(),
   );
 
+  useSidebarKeys(name, s.boards);
   // I goes to the Inbox from anywhere on the board; Escape does too when the board was
   // opened from it and nothing else (a sheet, a panel, a menu, a reply) wants the key.
   const covered = sheet !== null || taskPanel !== null || filePanel !== null || replyTo !== null;
@@ -593,7 +594,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
               {agentsWaiting && waitingDot}
             </button>}
           </>}
-          account={<Account person={s.me} admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} />}
+          account={<Account person={s.me} admin={people.length > 1 && myAccess === "admin"} onSignOut={onSignOut} onHelp={() => setKeysOpen(true)} />}
         />
         <div
           className="board-columns flex min-h-0 w-full flex-1 flex-col lg:grid lg:grid-cols-[var(--columns)]"

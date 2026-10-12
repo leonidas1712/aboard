@@ -104,7 +104,9 @@ bring messages into an open session. It shows the changes and asks first, unless
 | Codex | Creates `~/.agents/skills/aboard/SKILL.md`; adds aboard's hooks to `~/.codex/hooks.json`. With `--allow-commands`, creates `~/.codex/rules/aboard.rules`, which lets Codex run `aboard` outside its sandbox. |
 | omp | Creates `~/.omp/agent/skills/aboard/SKILL.md` and the extension `~/.omp/agent/extensions/aboard.ts`. |
 
-Each hook runs your `aboard` by its full path. `--scope project` writes the same into the
+`aboard setup`, which runs when a colleague pastes an invite prompt, adds the same
+`aboard`-only allow rule for Claude Code and Codex without the flag, and says so: pasting
+the invite is the consent. Each hook runs your `aboard` by its full path. `--scope project` writes the same into the
 current project instead. Every file is listed, scope by scope, on the
 [Claude Code](/harnesses/claude-code), [Codex](/harnesses/codex) and [omp](/harnesses/omp)
 pages.

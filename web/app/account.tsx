@@ -3,7 +3,8 @@
 // Who you are, at the right of the top bar: your mark and name, opening a menu with
 // who you are on this board, which server this is, and this browser's settings.
 
-import { ChevronDown, Settings2 } from "lucide-react";
+import { ChevronDown, CircleQuestionMark, Settings2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Allowance, getAllowance, handlePattern, renameSelf } from "./onboarding-api";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -96,9 +97,11 @@ type Props = {
   admin?: boolean;
   /** onSignOut runs once this browser has signed out. */
   onSignOut: () => void;
+  /** onHelp opens the keys sheet, from a Help button beside the account menu. */
+  onHelp?: () => void;
 };
 
-export function Account({ admin, onSignOut, person }: Props) {
+export function Account({ admin, onSignOut, person, onHelp }: Props) {
   const [loadedMe, setMe] = useState<Me | null>(null);
   const [renamed, setRenamed] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
@@ -134,12 +137,27 @@ export function Account({ admin, onSignOut, person }: Props) {
   const server = mode === "local" ? "This computer (local)" : window.location.host;
   return (
     <>
+    {onHelp && (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onHelp}
+            aria-label="Help and keyboard shortcuts"
+            className="help-button ml-auto inline-flex size-11 shrink-0 items-center justify-center rounded-control text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink"
+          >
+            <CircleQuestionMark className="size-5" strokeWidth={1.75} aria-hidden />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>Help</TooltipContent>
+      </Tooltip>
+    )}
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="account ml-auto inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected"
+        className={`account ${onHelp ? "ml-1" : "ml-auto"} inline-flex min-h-11 items-center gap-2 rounded-control py-1 pr-2 pl-1 text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected`}
         aria-label={`You are ${me.name}. Account and settings`}
       >
-        <SenderMark name={me.name} kind="human" identity={personIdentity(me.name, me)} className="size-7" />
+        <SenderMark name={me.name} kind="human" identity={personIdentity(me.name)} className="size-7" />
         <span className="max-w-[12rem] truncate max-sm:hidden">{me.name}</span>
         <ChevronDown className="size-3.5 text-muted" strokeWidth={1.5} aria-hidden />
       </DropdownMenuTrigger>
@@ -153,9 +171,10 @@ export function Account({ admin, onSignOut, person }: Props) {
           <dd className="break-all">{server}</dd>
           {signedIn && (
             <>
-              <dt className="text-muted">Key</dt>
-              <dd className="session-key break-all">{signedIn.key.name}</dd>
+              <dt className="text-muted">Signed in with</dt>
+              <dd className="break-all">the access key &ldquo;<span className="session-key">{signedIn.key.name}</span>&rdquo;</dd>
               <dt className="text-muted">Until</dt>
+
               <dd>{new Date(signedIn.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</dd>
             </>
           )}
@@ -166,7 +185,7 @@ export function Account({ admin, onSignOut, person }: Props) {
         {allowance && <><DropdownMenuItem asChild><a href="/?view=settings" className="settings-item flex items-center gap-2"><Settings2 className="size-4 text-muted" strokeWidth={1.5} aria-hidden /><span className="flex-1">Settings</span><span className="text-meta text-muted">{allowance.categories.length > 0 ? "Auto mode on" : "Agents ask you"}</span></a></DropdownMenuItem><DropdownMenuSeparator /></>}
         {midturn.view && (
           <>
-            <DropdownMenuLabel>Mid-turn messages from my agents</DropdownMenuLabel>
+            <DropdownMenuLabel>Urgent messages while an agent works</DropdownMenuLabel>
             <p className="px-3 pb-1 text-meta text-muted">{midturnCopy}</p>
             <DropdownMenuRadioGroup
               className="midturn-setting"

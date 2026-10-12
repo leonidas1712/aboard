@@ -105,8 +105,15 @@ export function useOnboarding({ follows = true }: { follows?: boolean } = {}): O
       me: me ? { id: me.id, name: me.name } : null,
       person: (id) => (id ? (people.find((x) => x.id === id)?.handle ?? (me?.id === id ? me.name : null)) : null),
       board: (id) => (id ? (boards.find((x) => x.id === id)?.name ?? null) : null),
+      invitee: (id) => {
+        if (!id) return null;
+        const arrived = inbox.arrivals.find((r) => r.invite_id === id);
+        if (arrived) return { handle: arrived.handle, joined: true };
+        const suggested = notices.find((n) => n.id === id)?.suggested_handle;
+        return suggested ? { handle: suggested, joined: false } : null;
+      },
     }),
-    [people, boards, me],
+    [people, boards, me, inbox, notices],
   );
   return { approvals, notices, inbox, pairing, allowance, agents, names, loaded, error, refresh: () => void load() };
 }

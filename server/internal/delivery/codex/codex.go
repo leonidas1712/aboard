@@ -12,7 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -46,6 +48,7 @@ func (a *Adapter) Hand(ctx context.Context, h delivery.Handover) (bool, error) {
 	// The bundle is one element of the argument vector; no shell sees it.
 	cmd := &exec.Cmd{
 		Path:   path,
+		Env:    sessionEnvironment(h.CodexHome),
 		Args:   []string{"codex", "queue", "--thread", h.SessionID, "--message", h.Bundle},
 		Stdout: io.Discard,
 		Stderr: &limited{buf: &stderr, max: 4096},
@@ -110,7 +113,12 @@ func (l *limited) Write(p []byte) (int, error) {
 // Validate reads the exact thread through the app server and refuses a thread that
 // doesn't exist or that a parent thread spawned, saying so in Codex's words.
 func (a *Adapter) Validate(ctx context.Context, threadID string) error {
-	err := a.validate(ctx, threadID)
+	return a.ValidateSession(ctx, threadID, "")
+}
+
+// ValidateSession checks the thread in its session's Codex home.
+func (a *Adapter) ValidateSession(ctx context.Context, threadID, home string) error {
+	err := a.validate(ctx, threadID, home)
 	switch {
 	case errors.Is(err, delivery.ErrSubAgent):
 		return &delivery.SessionError{
@@ -128,8 +136,8 @@ func (a *Adapter) Validate(ctx context.Context, threadID string) error {
 	return err
 }
 
-func (a *Adapter) validate(ctx context.Context, threadID string) error {
-	thread, err := a.readThread(ctx, threadID)
+func (a *Adapter) validate(ctx context.Context, threadID, home string) error {
+	thread, err := a.readThread(ctx, threadID, home)
 	if err != nil {
 		return err
 	}
@@ -179,10 +187,11 @@ type rpcError struct {
 // readThread starts `codex app-server`, initializes the connection and reads one thread.
 // The app server writes one JSON message per line, with notifications in between and
 // without a "jsonrpc" field.
-func (a *Adapter) readThread(ctx context.Context, threadID string) (*thread, error) {
+func (a *Adapter) readThread(ctx context.Context, threadID, home string) (*thread, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "codex", "app-server")
+	cmd.Env = sessionEnvironment(home)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("codex app-server: %w", err)
@@ -259,6 +268,20 @@ func (a *Adapter) readThread(ctx context.Context, threadID string) (*thread, err
 		return nil, fmt.Errorf("codex app-server thread/read: unexpected answer %.200s", resp.Result)
 	}
 	return result.Thread, nil
+}
+
+func sessionEnvironment(home string) []string {
+	if home == "" {
+		personHome, _ := os.UserHomeDir()
+		home = filepath.Join(personHome, ".codex")
+	}
+	env := make([]string, 0, len(os.Environ())+1)
+	for _, value := range os.Environ() {
+		if !strings.HasPrefix(value, "CODEX_HOME=") {
+			env = append(env, value)
+		}
+	}
+	return append(env, "CODEX_HOME="+home)
 }
 
 // Version returns what `codex --version` prints, such as "codex-cli 0.159.3".

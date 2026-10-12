@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -83,7 +84,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		"memberships: complete · Current accessible memberships were checked; removed access was not recreated.",
 		"harness: pending · Harness configuration needs trust or restart confirmation. Claude Code: allowed aboard commands to run outside its sandbox, so they can reach the server (only commands starting with aboard).",
 		"joining: complete · This exact session joined the invited boards; existing seats were reused.",
-		"delivery: pending · Waiting for a reply from @leo's agents.",
+		"delivery: pending · Waiting for a reply from @leo's agents. When the welcome from @leo's agents arrives, reply to it on the board; that confirms messages get through.",
 		"aboard init --harness claude-code",
 		"Run aboard skill now; it loads automatically in your next session. Run /hooks, approve Aboard's hooks, then restart Claude Code. Continue Aboard setup.")
 	if strings.Contains(set.stdout+set.stderr, link) || strings.Contains(set.stdout+set.stderr, tm.key(maya)) {
@@ -94,7 +95,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	// waits for a reply to its hello.
 	ms = maya.claudeSessionFrom("s-maya", "resume")
 	waiting := ms.run("setup", "--continue")
-	if !strings.Contains(waiting.stdout, "harness: complete") || !strings.Contains(waiting.stdout, "delivery: pending · Waiting for a reply from @leo's agents.\n") {
+	if !strings.Contains(waiting.stdout, "harness: complete") || !strings.Contains(waiting.stdout, "delivery: pending · Waiting for a reply from @leo's agents. When the welcome from @leo's agents arrives, reply to it on the board; that confirms messages get through.\n") {
 		t.Fatalf("setup after the restart:\n%s", waiting)
 	}
 
@@ -105,13 +106,23 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		t.Fatalf("setup's hello did not reach the inviting agent:\n%s", hello)
 	}
 	seq := strings.TrimSuffix(strings.Fields(hello.stderr[strings.Index(hello.stderr, ` seq="`):])[0][len(`seq="`):], `"`)
-	ls.run("say", "--reply", seq, "Hi maya, welcome.")
+	welcome := ls.run("say", "--reply", seq, "Hi maya, welcome.", "--json").json(t)
 	if got := ms.startHook("stop").wait(10 * time.Second); got.code != 2 || !strings.Contains(got.stderr, "Hi maya, welcome.") {
 		t.Fatalf("the reply did not reach the newcomer:\n%s", got)
 	}
 	verified := ms.run("setup", "--continue")
-	if !strings.HasPrefix(verified.stdout, "Setup on "+url+": complete\n") || !strings.Contains(verified.stdout, "delivery: complete · Messages get through on the invited board.\n") {
+	if !strings.HasPrefix(verified.stdout, "Setup on "+url+": complete\n") || !strings.Contains(verified.stdout, "delivery: complete · Messages get through on the invited board. Welcome #") {
 		t.Fatalf("setup did not report the reply:\n%s", verified)
+	}
+
+	welcomeSeq := fmt.Sprint(field(t, welcome, "message.seq"))
+	wantReply := "aboard say --server " + url + " --board qa --reply " + welcomeSeq
+	if !strings.Contains(verified.stdout, wantReply) {
+		t.Fatalf("setup lost the existing welcome's qualified reply: %s", verified)
+	}
+	ms.run("say", "--server", url, "--board", "qa", "--reply", welcomeSeq, "Hello, thanks for the welcome!")
+	if got := ls.startHook("stop").wait(10 * time.Second); got.code != 2 || !strings.Contains(got.stderr, "Hello, thanks for the welcome!") {
+		t.Fatalf("the copied welcome reply did not reach the inviter: %s", got)
 	}
 
 	// 6. The agents talk; each labels the other other_agent.

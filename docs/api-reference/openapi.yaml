@@ -4564,6 +4564,8 @@ paths:
 
         Authenticate first, then resolve only currently visible resources (hidden/missing targets are uniform 404). Recheck credential, parent key, person, ownership, membership, lifecycle and operation permissions in the transaction, including idempotent replay. Browser writes require the existing Origin and CSRF checks. D197 delegation tokens have no new powers.
 
+        D224 invitation-linked requests are internal setup bookkeeping and are omitted from this list in every state; clients must not render them as pairing cards. Their existing id-based read remains available to setup. Joining the invited board closes the matching recipient's invitation-linked requests as cancelled, without claiming an endpoint verification or changing memberships. Standalone pairing requests are unchanged.
+
       responses:
         "200":
           description: "Success"
@@ -7668,7 +7670,7 @@ components:
         posts_without_task:
           type: integer
           minimum: 0
-          description: Messages the agent posted in a row, most recent last, about no task while it had no current task.
+          description: Messages the agent posted in a row, most recent last, about no task while it had no current task. An own task done note or own task drop ends that run; neither counts as an untagged message.
         asks_waiting:
           type: integer
           minimum: 0

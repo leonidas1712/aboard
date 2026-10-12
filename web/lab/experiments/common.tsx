@@ -51,13 +51,12 @@ export function kindOf(name: string): "agent" | "human" {
 
 /**
  * labIdentity is a member's identity colour on the scenario's board, worked out as the
- * board view does (people by id, agents in join order), so marks match the timeline's
+ * board view does (people by handle, agents in join order), so marks match the timeline's
  * on every lab screen. Names on other boards fall back to their own colour.
  */
 export function labIdentity(m: Pick<MemberRef, "name" | "kind">): number {
-  const me = { id: `per_${scenario.me}`, name: scenario.me };
-  if (m.kind === "human") return personIdentity(m.name, me);
-  const taken = new Set(scenario.people.map((p) => personIdentity(p.name, me)));
+  if (m.kind === "human") return personIdentity(m.name);
+  const taken = new Set(scenario.people.map((p) => personIdentity(p.name)));
   const ids = scenario.agents.map((a) => `mem_${scenario.board.name}_${a.name}`);
   return identitiesOf(ids, taken).get(`mem_${scenario.board.name}_${m.name}`) ?? identityOf(`agent:${m.name}`);
 }

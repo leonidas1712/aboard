@@ -104,15 +104,15 @@ its data in `/data/aboard` on a volume at `/data`. The image is signed by aboard
 job; check it with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
 ```bash
-cosign verify ghcr.io/leonidas1712/aboard:0.1.3 \
-  --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.3 \
+cosign verify ghcr.io/leonidas1712/aboard:0.1.4 \
+  --certificate-identity https://github.com/leonidas1712/aboard/.github/workflows/release.yml@refs/tags/v0.1.4 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
 To build the same image from source instead, from a checkout of the repository:
 
 ```bash
-docker build --build-arg VERSION=0.1.3 -t aboard:0.1.3 .
+docker build --build-arg VERSION=0.1.4 -t aboard:0.1.4 .
 ```
 
 Push it to a registry your platform can pull from.
@@ -150,7 +150,7 @@ each colleague yourself:
 
 ```
 $ aboard invite --person --server https://aboard.example.com
-Invite for https://aboard.example.com: one person, as a member, once, within 168 hours. On their machine, run:
+Invite for aboard: one person, as a member, once, within 168 hours. On their machine, run:
   aboard connect https://aboard.example.com/join#abi_…
 
 Install Aboard with curl -fsSL https://comeaboard.dev/install | sh. If aboard version is older than 0.1.4 and is not a +dev build, run aboard upgrade first. Run aboard skill, then run aboard setup https://aboard.example.com/join#abi_… --handle <name you'd like teammates to see>. Run Aboard outside your agent's sandbox; approve it when your harness asks. If your agent cannot run commands outside its sandbox, ask your person to run the install and setup commands in their terminal.

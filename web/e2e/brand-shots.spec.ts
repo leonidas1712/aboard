@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { openPanelSections } from "./panel-open";
 
 // Screenshots of the board view in the brand (D220), for review, only when BRAND_SHOTS
 // names a folder: a board with agents of three harnesses, tasks in every state, asks,
@@ -31,7 +32,7 @@ function freePort(): Promise<number> {
 }
 test.beforeAll(async () => {
   if (!dir) return;
-  execFileSync("go", ["build", "-tags", "ui", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-tags", "ui,webtest", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
   env = { NODE_ENV: "test", PATH: process.env.PATH, HOME: home, USER: "alex", XDG_CONFIG_HOME: join(home, ".config"), XDG_DATA_HOME: join(home, ".local/share"), XDG_STATE_HOME: join(home, ".local/state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}`, BROWSER: "true" };
 });
 test.afterAll(() => {
@@ -81,6 +82,10 @@ async function scheme(page: Page, name: RegExp) {
   await page.getByRole("menuitemradio", { name }).click();
   await page.keyboard.press("Escape");
 }
+
+test.beforeEach(async ({ page }) => {
+  await openPanelSections(page);
+});
 
 test("the board view in the brand, every screen and scheme", async ({ page }) => {
   test.skip(!dir, "Set BRAND_SHOTS to a folder to take screenshots.");

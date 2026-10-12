@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { type AskList, type Member, type MemberRef, type Message, type Task, type TaskList, type TaskTag, ApiError, get, getTask, listTasks, post } from "./api";
 import { AgentMark, SenderMark } from "./agent-mark";
 import { AskAnswers } from "./ask-ui";
+import { usePref } from "./prefs";
 import { Problem } from "./chrome";
 import { LineText, type Status, StatusWord, agentStatus, blocksOf } from "./status";
 import { count, harnessName, relativeTime } from "./words";
@@ -247,6 +248,84 @@ export function WorkTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) 
  * appear only when a task has one.
  */
 export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) => void }) {
+  const [by, setBy] = usePref<TaskOrder>("aboard.tasksOrder", "recent");
+  const order = by === "status" ? "status" : "recent";
+  return <div className="task-view quiet-scroll min-h-0 flex-1 overflow-y-auto">
+    <div className="px-4 pt-4 pb-10 sm:px-6">
+      <TaskOrderSwitch by={order} setBy={setBy} />
+      {order === "recent" ? <RecentTasks tasks={tasks} open={open} /> : <TasksByStatus tasks={tasks} open={open} />}
+    </div>
+  </div>;
+}
+
+/** TaskOrder is how the Tasks tab lists work: newest activity first, or grouped by status. */
+type TaskOrder = "recent" | "status";
+
+function TaskOrderSwitch({ by, setBy }: { by: TaskOrder; setBy: (o: TaskOrder) => void }) {
+  return <div role="group" aria-label="Order tasks" className="task-order mb-4 inline-flex gap-0.5 rounded-[8px] border border-rule p-0.5 text-meta">
+    {([["recent", "Recent"], ["status", "By status"]] as const).map(([o, label]) => (
+      <button
+        key={o}
+        type="button"
+        aria-pressed={by === o}
+        onClick={() => setBy(o)}
+        className={cn("tap min-h-7 rounded-[6px] px-2.5 transition-colors duration-[140ms] ease-out", by === o ? "bg-selected font-bold text-ink" : "text-muted hover:bg-hover hover:text-ink")}
+      >
+        {label}
+      </button>
+    ))}
+  </div>;
+}
+
+/** recentFirst sorts by last update, newest first, then by task number, highest first. */
+export function recentFirst(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0) || b.number - a.number);
+}
+
+function RecentTasks({ tasks, open }: { tasks: Task[]; open: (ref: string) => void }) {
+  const who = useWho();
+  const { me } = useContext(Tasks);
+  const sorted = recentFirst(tasks);
+  if (sorted.length === 0) return <p className="text-meta text-muted">No tasks yet.</p>;
+  return <ul aria-label="Tasks, newest activity first" className="task-recent flex flex-col gap-2">
+    {sorted.map((t) => {
+      const done = !isLive(t);
+      const waiting = waitsOnMe(t, me);
+      const w = t.owner ? who(t.owner) : null;
+      return <li key={t.id}>
+        <article
+          data-task={t.ref}
+          data-needs-you={waiting || undefined}
+          className={cn(
+            "task-row relative flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-box border px-4 py-2.5 transition-colors duration-[140ms] ease-out hover:border-field-border hover:bg-hover has-[.card-open:focus-visible]:outline-2 has-[.card-open:focus-visible]:outline-accent-strong",
+            waiting ? "border-accent-strong bg-attention-soft" : t.state === "cancelled" ? "border-dashed border-field-border bg-transparent" : done ? "border-rule bg-transparent" : "border-rule bg-surface",
+          )}
+        >
+          <button type="button" aria-label={`Open task ${t.ref}`} onClick={() => open(t.ref)} className="card-open flex min-w-0 flex-1 basis-60 items-baseline gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-box after:content-['']">
+            <span className="shrink-0 text-meta tabular-nums text-muted">{t.ref}</span>
+            <span className={cn("min-w-0 truncate leading-snug", done ? "font-normal text-muted" : "font-bold", t.state === "cancelled" && "line-through decoration-field-border")}>{t.title}</span>
+          </button>
+          <span className="task-meta flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-meta">
+            <span className="task-state inline-flex shrink-0 items-center gap-1.5 rounded-[4px] border border-rule px-1.5 text-ink" data-state={t.state}>
+              <span aria-hidden className={cn("size-2 shrink-0 rounded-full", t.state === "in_progress" ? "bg-status-working" : t.state === "open" ? "border border-dashed border-muted" : "bg-muted")} />
+              {taskState(t)}
+            </span>
+            {!done && t.blocked && <span className="task-blocked shrink-0 rounded-[4px] bg-attention-soft px-1.5 font-bold text-ink">{waiting ? "Needs you" : "Blocked"}</span>}
+            {t.owner && w ? <span className="flex max-w-full min-w-0 items-center gap-1.5 text-muted" data-on-task={t.owner.name}>
+              <AgentMark member={{ ...t.owner, harness: w.harness }} identity={w.identity} status={done ? undefined : w.status?.tone} />
+              <span className="min-w-0 truncate">{t.owner.name}</span>
+              {!done && w.status && <StatusWord status={w.status} className="shrink-0" />}
+            </span> : <span className="text-muted">No owner</span>}
+            {t.message_count > 0 && <span className="task-threads inline-flex shrink-0 items-center gap-1 text-muted"><MessagesSquare className="size-3.5" strokeWidth={1.75} aria-hidden />{t.message_count} in conversation</span>}
+            <span className="shrink-0 text-muted">{done && t.closed_at ? `closed ${relativeTime(t.closed_at, Date.now())}` : relativeTime(t.updated_at, Date.now())}</span>
+          </span>
+        </article>
+      </li>;
+    })}
+  </ul>;
+}
+
+function TasksByStatus({ tasks, open }: { tasks: Task[]; open: (ref: string) => void }) {
   const { members, me } = useContext(Tasks);
   const [done, setDone] = useState(false);
   const live = tasks.filter(isLive);
@@ -262,8 +341,7 @@ export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) 
   const busy = new Set(live.flatMap((t) => onTask(t).map((m) => `${m.kind}:${m.name}`)));
   const idle = members.filter((m) => m.kind === "agent" && (m.status ?? "active") === "active" && !busy.has(`agent:${m.name}`) && (m.presence === "idle" || m.presence === "no_session" || m.presence === null));
   const finished = tasks.filter((t) => !isLive(t));
-  return <div className="task-view quiet-scroll min-h-0 flex-1 overflow-y-auto">
-    <div className="px-4 pt-4 pb-10 sm:px-6">
+  return <>
       <div className="task-board grid gap-x-4 gap-y-6 sm:grid-cols-2 lg:max-w-[calc(var(--cols)*320px)] lg:grid-cols-[repeat(var(--cols),minmax(0,1fr))]" style={{ "--cols": columns.length } as CSSProperties}>
         {columns.map((c) => <section key={c.key} aria-label={c.title} className="task-column flex min-w-0 flex-col gap-3">
           <h2 id={`tasks-${c.key}`} className="flex min-h-7 items-center gap-2 text-meta font-bold text-ink">
@@ -284,8 +362,7 @@ export function TaskBoard({ tasks, open }: { tasks: Task[]; open: (ref: string) 
         <button type="button" aria-expanded={done} onClick={() => setDone(!done)} className="min-h-11 self-start text-meta text-muted hover:text-ink hover:underline">{closedSummary(finished)} · {done ? "hide" : "show"}</button>
         {done && <ul className="grid animate-fade-in gap-2 sm:grid-cols-2 lg:grid-cols-4">{finished.map((t) => <li key={t.id}><TaskCard task={t} open={open} needs={false} /></li>)}</ul>}
       </section>}
-    </div>
-  </div>;
+  </>;
 }
 
 /** closedSummary counts finished tasks by how they ended: "3 tasks done, 1 cancelled". */

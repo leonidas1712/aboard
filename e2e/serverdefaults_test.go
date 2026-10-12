@@ -85,11 +85,16 @@ func TestDefaultServerIgnoresLegacyFolderAndChoosesOnlyBoard(t *testing.T) {
 	}
 	person.run("status", "--board", "same", "--json")
 	person.run("board", "new", "another", "--server", second.url())
-	ambiguous := person.runExit("status", "--json")
-	if ambiguous.code != 1 || errorCode(t, ambiguous.json(t)) != "board_ambiguous" {
-		t.Fatalf("multiple boards must require a choice: %s", ambiguous)
+	overview := person.run("status", "--json").json(t)
+	matchesCLISpec(t, "StatusOutput", overview)
+	if field(t, overview, "server.url") != second.url() || overview["board"] != nil || overview["agent"] != nil ||
+		len(field(t, overview, "boards").([]any)) != 2 || field(t, overview, "boards.0.name") != "another" || field(t, overview, "boards.1.name") != "same" {
+		t.Fatalf("multiple-board overview ignored the selected server: %v", overview)
 	}
-	person.run("status", "--server", second.url(), "--board", "same", "--json")
+	narrow := person.run("status", "--server", second.url(), "--board", "same", "--json").json(t)
+	if narrow["board"] != "same" || narrow["boards"] != nil {
+		t.Fatalf("explicit board did not narrow the overview: %v", narrow)
+	}
 }
 
 func TestKnownServerWithoutDefaultRequiresSelection(t *testing.T) {

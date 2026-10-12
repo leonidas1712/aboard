@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -20,7 +21,7 @@ type setupHello struct {
 }
 
 func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id string, pending *setupPending) error {
-	out.Steps[5].Message = "Waiting for a reply from the inviting person's agents."
+	out.Steps[5].Message = setupWelcomeGuidance("the inviting person")
 	key, ok := a.sessionKey()
 	if !ok {
 		return nil
@@ -41,7 +42,7 @@ func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id st
 	if command == "" {
 		command = "aboard setup " + commandWord(id) + " --server " + commandWord(out.Server.URL)
 	}
-	out.Steps[5].Message = "Waiting for a reply from " + inviter + "'s agents."
+	out.Steps[5].Message = setupWelcomeGuidance(inviter)
 	if out.Steps[3].State != "complete" {
 		return nil
 	}
@@ -89,19 +90,28 @@ func (a *app) continueSetupGreeting(ctx context.Context, out *setupOutput, id st
 		rd := a.startInboxRead(ctx, agent, true)
 		received := len(rd.received) > 0 && (a.env.Getenv("ABOARD_BOOT") == "" || rd.boot == a.env.Getenv("ABOARD_BOOT"))
 		rd.done()
-		answered, err := setupGreetingAnswered(ctx, c, hello, resp.Pairing.InviterID)
+		welcomeSeq, err := setupGreetingAnswered(ctx, c, hello, resp.Pairing.InviterID)
 		if err != nil {
 			return err
 		}
-		if received || answered {
+		if received || welcomeSeq > 0 {
 			out.Steps[5].State = "complete"
 			out.Steps[5].Message = "Messages get through on the invited board."
 			out.State = "complete"
 			out.Next = nil
+			if welcomeSeq > 0 {
+				command := fmt.Sprintf("aboard say --server %s --board %s --reply %d %s", commandWord(out.Server.URL), commandWord(agent.Board), welcomeSeq, commandWord("Hello, thanks for the welcome!"))
+				out.Steps[5].Message += fmt.Sprintf(" Welcome #%d is waiting; reply to it on the board.", welcomeSeq)
+				out.Next = &api.NextStep{Command: command, Resume: "Reply to the welcome; that confirms messages get through."}
+			}
 		}
 		return nil
 	}
 	return nil
+}
+
+func setupWelcomeGuidance(inviter string) string {
+	return "Waiting for a reply from " + inviter + "'s agents. When the welcome from " + inviter + "'s agents arrives, reply to it on the board; that confirms messages get through."
 }
 
 func (a *app) setupGreeting(ctx context.Context, c *client, agent delivery.AgentRef, boardID, requestID string, pending *setupPending, srv serverRef) (*setupHello, error) {
@@ -145,20 +155,20 @@ func (a *app) setupGreeting(ctx context.Context, c *client, agent delivery.Agent
 	return hello, nil
 }
 
-func setupGreetingAnswered(ctx context.Context, c *client, hello *setupHello, inviterID string) (bool, error) {
+func setupGreetingAnswered(ctx context.Context, c *client, hello *setupHello, inviterID string) (int, error) {
 	thread, err := c.thread(ctx, hello.MessageID)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 	if thread.Root == nil || thread.Root.Id != hello.MessageID || thread.Root.Seq != hello.Seq {
-		return false, nil
+		return 0, nil
 	}
 	members, err := c.api.ListMembersWithResponse(ctx, thread.Root.Board, nil)
 	if err != nil {
-		return false, c.unreachable(err)
+		return 0, c.unreachable(err)
 	}
 	if members.JSON200 == nil {
-		return false, apiError(members.StatusCode(), members.Body)
+		return 0, apiError(members.StatusCode(), members.Body)
 	}
 	eligible := map[string]bool{}
 	for _, member := range members.JSON200.Members {
@@ -172,13 +182,13 @@ func setupGreetingAnswered(ctx context.Context, c *client, hello *setupHello, in
 		}
 		page, err := c.eventsPage(ctx, thread.Root.Board, reply.Seq-1)
 		if err != nil {
-			return false, err
+			return 0, err
 		}
 		for _, event := range page.Events {
 			if event.Seq == int64(reply.Seq) && event.BoardID == hello.BoardID && event.Actor.Kind == "agent" && event.Actor.MemberID != nil && eligible[*event.Actor.MemberID] {
-				return true, nil
+				return reply.Seq, nil
 			}
 		}
 	}
-	return false, nil
+	return 0, nil
 }

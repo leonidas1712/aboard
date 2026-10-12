@@ -4,6 +4,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { devices, expect, test, type Page } from "@playwright/test";
+import { openPanelSections } from "./panel-open";
 
 // The board view on a phone (D219) and each agent's status (D218), at a phone's size with
 // touch. ABOARD_MOBILE_SHOTS=<dir> also saves the screenshots the maintainer reviews.
@@ -30,7 +31,7 @@ function freePort(): Promise<number> {
   });
 }
 test.beforeAll(async () => {
-  execFileSync("go", ["build", "-tags", "ui", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
+  execFileSync("go", ["build", "-tags", "ui,webtest", "-o", bin, "./server/cmd/aboard"], { cwd: repo, stdio: "inherit" });
   env = { NODE_ENV: "test", PATH: process.env.PATH, HOME: home, USER: "alex", XDG_CONFIG_HOME: join(home, ".config"), XDG_DATA_HOME: join(home, ".local/share"), XDG_STATE_HOME: join(home, ".local/state"), ABOARD_LOCAL_ADDR: `127.0.0.1:${await freePort()}`, BROWSER: "true" };
 });
 test.afterAll(() => {
@@ -73,6 +74,10 @@ async function theme(page: Page, which: "Light" | "Dark") {
   await page.getByRole("menuitemradio", { name: which, exact: true }).click();
   await page.keyboard.press("Escape");
 }
+
+test.beforeEach(async ({ page }) => {
+  await openPanelSections(page);
+});
 
 test("a phone shows the board in one column, its panel as a sheet, and each agent's status", async ({ page }) => {
   const board = "mobile-board";
@@ -340,7 +345,77 @@ test("the brief reads, edits and shows a newer version on a phone", async ({ pag
   await expect(page.getByRole("combobox", { name: "Message everyone" })).toBeVisible();
 });
 
+type Box = { x: number; y: number; width: number; height: number };
+const apart = (a: Box, b: Box) => a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+async function box(l: import("@playwright/test").Locator): Promise<Box> {
+  const b = await l.boundingBox();
+  if (!b) throw new Error("The element has no box.");
+  return b;
+}
+
+test("on a phone, nothing draws over a task row's words, a message's header or the newest messages", async ({ page }) => {
+  const board = "mobile-overlap";
+  // A full phone screen, as the board view is reviewed at, without the sign-in notice.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openBoard(page, board);
+  await page.getByRole("button", { name: "Dismiss", exact: true }).click();
+  const writer = seatToken(board, "writer");
+  const task = await api(writer, "POST", `/v1/boards/${board}/tasks`, { title: "Write the release QA checklist", start: true });
+  await api(writer, "POST", `/v1/boards/${board}/messages`, { body: "The checklist draft is up.", to: ["all"], about: [task.ref] });
+  await api(writer, "POST", `/v1/boards/${board}/messages`, { body: "I will read the API section next, then the CLI flags.", to: ["@alex"] });
+
+  // The task row's owner, with its status, and its conversation count each keep their own place.
+  await page.getByRole("tab", { name: /^Tasks/ }).click();
+  const row = page.locator(`[data-task="${task.ref}"]`);
+  await expect(row.locator('[data-on-task="writer"]')).toContainText("disconnected");
+  await expect(row.locator(".task-threads")).toContainText(/\d+ in conversation/);
+  expect(apart(await box(row.locator('[data-on-task="writer"] .status')), await box(row.locator(".task-threads")))).toBe(true);
+  expect(apart(await box(row.locator('[data-on-task="writer"]')), await box(row.locator(".task-threads")))).toBe(true);
+  const rowBox = await box(row);
+  const threads = await box(row.locator(".task-threads"));
+  expect(threads.x + threads.width).toBeLessThanOrEqual(rowBox.x + rowBox.width);
+  await noSideScroll(page);
+  await shot(page, "phone-task-row");
+
+  // A message's react and Reply wait for a tap, then sit in a row under the message.
+  await page.getByRole("tab", { name: "Conversation" }).click();
+  const message = page.locator(".message").filter({ hasText: "I will read the API section next" });
+  await expect(message).toBeVisible();
+  await expect(message.getByRole("button", { name: "Reply to writer" })).toHaveCount(0);
+  await expect(message.getByRole("button", { name: /^React to writer/ })).toHaveCount(0);
+  await message.locator(".body").tap();
+  const reply = message.getByRole("button", { name: "Reply to writer" });
+  await expect(reply).toBeVisible();
+  const actions = await box(message.locator(".message-actions"));
+  const body = await box(message.locator(".body"));
+  expect(actions.y).toBeGreaterThanOrEqual(body.y + body.height - 1);
+  expect(apart(actions, await box(message.locator("time").first()))).toBe(true);
+  await shot(page, "phone-message-actions");
+  // Reply still works from there.
+  await reply.tap();
+  await expect(page.getByText(/^Replying to/)).toBeVisible();
+  await page.getByRole("button", { name: "Cancel the reply" }).tap();
+
+  // Jump to newest takes a strip of its own under the timeline, never a place over a message.
+  for (let i = 1; i <= 24; i++) await api(writer, "POST", `/v1/boards/${board}/messages`, { body: `Step ${i} of the checklist.`, to: ["all"] });
+  await expect(page.getByText("Step 24 of the checklist.")).toBeVisible();
+  await page.locator(".timeline").evaluate((el) => {
+    el.scrollTop = 0;
+    el.dispatchEvent(new Event("scroll"));
+  });
+  const jump = page.getByRole("button", { name: /Jump to newest/ });
+  await expect(jump).toBeVisible();
+  const log = await box(page.getByRole("log", { name: "Timeline" }));
+  expect((await box(jump)).y).toBeGreaterThanOrEqual(log.y + log.height - 1);
+  await shot(page, "phone-jump-to-newest");
+  await jump.tap();
+  await expect(jump).toHaveCount(0);
+  await expect(page.getByText("Step 24 of the checklist.")).toBeInViewport();
+  await noSideScroll(page);
+});
+
 test.describe("on a wide screen", () => {
+
   const { defaultBrowserType: _d, ...desktop } = devices["Desktop Chrome"];
   test.use({ ...desktop, viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 
