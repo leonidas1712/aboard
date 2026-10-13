@@ -13,6 +13,14 @@
 #   whether the error came from the server or the CLI. CLI-only codes are listed below.
 #   Without --json the error goes to stderr as "Error (<code>): <message>", then
 #   "Hint: <hint>" on its own line when there is one.
+# - Free-text fields accept exactly `-` to read UTF-8 text from stdin through EOF.
+#   This includes say/reply/answer bodies; ask questions, options, going-with and
+#   withdrawal text; task titles, about, notes, done and drop reasons; pair/board
+#   titles; and pairing request work. Names, selectors and paths are never expanded.
+#   Read once, before writes, preserving newlines and literal shell characters.
+#   Existing validation and redaction still apply. At most one field per invocation
+#   can read stdin. Reject read failures, invalid UTF-8 and more than 1 MiB without
+#   sending a write; stdin_text_ambiguous exits 2, other stdin_text_* errors exit 1.
 # - Exit codes: 0 ok · 1 error · 2 usage error · 3 a check ran and failed.
 # - Text output is colored only when it goes to a terminal, NO_COLOR is unset, --no-color
 #   (accepted by every command) wasn't given, TERM
@@ -188,6 +196,9 @@ $defs:
     $ref: openapi.yaml#/components/schemas/Error
     description: |
       CLI-only codes, in addition to the API's:
+      stdin_text_ambiguous (more than one free-text field is `-`, exit 2) ·
+      stdin_text_read_failed · stdin_text_invalid_utf8 · stdin_text_too_large
+      (more than 1 MiB; all exit 1, without writes) ·
       server_not_running · server_unreachable · server_unknown (join line names a server
       this machine hasn't accepted) · login_required (team mode: run aboard connect) ·
       invite_link_invalid (aboard connect was given something that isn't an invite link) ·
