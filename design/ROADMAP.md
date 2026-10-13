@@ -523,4 +523,4 @@ boards, using recorded recipient ids and clearing only on the person's later thr
 reply. The newest request from each sender replaces their older requests in the same
 thread. The read includes the unpaged count for the Inbox badge.
 The existing board needs_reply count retains its direct-reply semantics.
-Server building; board-view section belongs to the UI lane.
+Server merged with this change; board-view section belongs to the UI lane.

@@ -163,6 +163,10 @@ type ReadTx interface {
 	CountUnread(reader Member, addressedOnly, mentions bool) (int64, error)
 	// CountNeedsReply counts recorded questions to this person without their direct reply.
 	CountNeedsReply(reader Member) (int64, error)
+	// RepliesWaiting returns newest ordinary requests addressed to reader and their
+	// total before limit. Only the newest request per sender/thread remains, until
+	// a later thread reply from reader. Recorded recipient ids determine eligibility.
+	RepliesWaiting(reader Member, limit int) ([]Message, int64, error)
 	// MessageByID finds a message, with its sender and the seq of the message it replies to.
 	MessageByID(id string) (Message, error)
 	// MessagesBySeq returns the board's messages among seqs, keyed by seq.
