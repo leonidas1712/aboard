@@ -19,6 +19,10 @@ func TestPendingApprovalKeepsDistinctServerAndBoardNames(t *testing.T) {
 	if !strings.HasSuffix(held.lines()[0], " on local · qa") {
 		t.Fatalf("distinct approval labels lost:\n%s", held)
 	}
+	approval := strings.Fields(held.lines()[0])[2]
+	if shown := s.run("approvals", "show", approval); !strings.HasSuffix(shown.lines()[0], " on local · qa") {
+		t.Fatalf("distinct outcome labels lost:\n%s", shown)
+	}
 	person.run("servers", "name", "local", "qa")
 	out := s.run("invite", "--person", "--handle", "sam", "--board", "qa", "--json").json(t)
 	matchesCLISpec(t, "HeldAdminOutput", out)
@@ -79,7 +83,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		t.Fatalf("the agent's notice:\n%s", notice)
 	}
 	collected := ls.run("approvals", "show", approval).lines()
-	if len(collected) != 3 || !strings.HasPrefix(collected[0], approval+" · executed on ") || !strings.HasSuffix(collected[0], " · qa") ||
+	if len(collected) != 3 || collected[0] != approval+" · executed on qa" ||
 		collected[1] != "Invite: "+link || collected[2] != shown[2] {
 		t.Fatalf("approvals show:\n%s", strings.Join(collected, "\n"))
 	}

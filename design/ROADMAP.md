@@ -486,6 +486,10 @@ warning and Inbox integration are owned by the UI lane.
 
 ### Onboarding QA fixes (GEN-49)
 
+Pre-tag CLI fixes: approval outcome labels suppress matching names, drop reason
+refusals use the documented form, and task text/selector handling covers `#N` and
+padding: in review (GEN-77); acceptance regressions failed first.
+
 CLI task text guards against a bare task ID being used as a note or completion
 note: in review (GEN-76); lifecycle acceptance regression failed first.
 Pending approval notices suppress matching server and board names: in review

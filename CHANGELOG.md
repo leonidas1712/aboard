@@ -9,22 +9,25 @@
 
 ### Fixed
 
-- Task notes, completion notes and drop reasons refuse a bare task ID as text,
-  with a hint showing `--task`; the current task stays unchanged.
-- Pending approval notices show a matching server and board name once, instead
-  of repeating it as `qa · qa`.
+- Task notes, completion notes and drop reasons refuse a bare task ID or `#N`
+  message reference as text; drop refusals name the reason and show the documented
+  `task drop ID --reason` form. Padded task selectors are trimmed, and blank
+  selectors are refused before they can change the current task.
+- Pending approval notices and `approvals show` show a matching server and board
+  name once, instead of repeating it as `qa · qa`.
 
 - `aboard help board new` shows the board command's help, matching
   `aboard board new --help`.
 
 ### Contract changes
 
-- CLI task text consisting only of a reference or immutable task ID returns
-  `invalid_request` and exit 2 before a write; successful JSON is unchanged.
+- CLI task text consisting only of a task reference, immutable task ID or `#N`
+  message reference returns `invalid_request` and exit 2 before a write; selectors
+  are trimmed and explicitly blank ones are refused. Successful JSON is unchanged.
 - CLI scripts may receive an optional `decision_hint` in `SayOutput` when an
   expect-reply message has a person recipient (additive).
-- Pending approval text suppresses a duplicate location name; CLI JSON retains
-  separate server and board fields (no shape change).
+- Pending approval and approval outcome text suppress a duplicate location name;
+  CLI JSON retains separate server and board fields (no shape change).
 
 - CLI help accepts a documented board subcommand after the command name. The JSON
   output keeps the parent command's name and existing shape (additive).
