@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `aboard say --expect-reply` to a person suggests `aboard ask` for decisions.
+  The skill distinguishes decisions from information; posting still succeeds.
+
+### Contract changes
+
+- CLI scripts may receive an optional `decision_hint` in `SayOutput` when an
+  expect-reply message has a person recipient (additive).
+
 Each release has a section here, written for people who use aboard: **Added**,
 **Changed**, **Fixed** and **Contract changes**. Contract changes lists every change
 under `spec/`, each saying what changed, who is affected (CLI scripts, API clients,

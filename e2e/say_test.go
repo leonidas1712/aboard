@@ -11,6 +11,40 @@ import (
 	"time"
 )
 
+func TestSaySuggestsAskForPersonDecisionsWithoutChangingTheMessage(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	threeAgents(t, e)
+	me := field(t, e.run("board", "people", "--json").json(t), "people.0.name").(string)
+	const hint = "For a decision, use aboard ask so the answer is recorded. Use aboard say for information."
+	out := e.asAgent("writer", "say", "--to", "@"+me, "--expect-reply", "Can we proceed?", "--json").json(t)
+	matchesCLISpec(t, "SayOutput", out)
+	if out["decision_hint"] != hint || field(t, out, "message.expects_reply") != true {
+		t.Fatalf("person advice or message changed: %v", out)
+	}
+	for _, target := range []string{"@" + me + ",@reviewer"} {
+		out := e.asAgent("writer", "say", "--to", target, "--expect-reply", "Can we proceed?", "--json").json(t)
+		if out["decision_hint"] != hint {
+			t.Fatalf("missing advice for %s: %v", target, out)
+		}
+	}
+	text := e.asAgent("writer", "say", "--to", "@"+me, "--expect-reply", "Can we proceed?")
+	if !strings.Contains(text.stdout, "Hint: "+hint) {
+		t.Fatalf("missing person advice:\n%s", text)
+	}
+	for _, args := range [][]string{
+		{"--to", "@" + me, "Information."},
+		{"--to", "@reviewer", "--expect-reply", "Please review."},
+		{"--to", "owner:" + me, "--expect-reply", "My agents, please review."},
+		{"--expect-reply", "Anyone can reply."},
+	} {
+		out := e.asAgent("writer", append([]string{"say"}, append(args, "--json")...)...).json(t)
+		if _, ok := out["decision_hint"]; ok {
+			t.Fatalf("unexpected person advice: %v", out)
+		}
+	}
+}
+
 // start runs an aboard command inside the session in the background.
 func (s *session) start(args ...string) *proc {
 	s.e.t.Helper()

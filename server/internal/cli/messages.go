@@ -197,6 +197,9 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	}
 	recipients := recipientsOf(ctx, c, m)
 	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients, Warning: wakeWarning(m, recipients)}
+	if m.ExpectsReply {
+		out.DecisionHint = decisionHint(ctx, c, m)
+	}
 	text := fmt.Sprintf("Sent #%d to %s on %s", m.Seq, targetsText(m.To), m.Board)
 	if m.About != nil && len(*m.About) > 0 {
 		refs := []string{}
@@ -206,6 +209,9 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		text += " · about " + strings.Join(refs, ", ")
 	}
 	text += "\n" + unreadText(m.Board, unread) + recipientsText(recipients)
+	if out.DecisionHint != "" {
+		text += "Hint: " + out.DecisionHint + "\n"
+	}
 	if w := out.Warning; w != nil {
 		text += a.out().warn("Warning ("+w.Code+"): "+w.Message+" "+w.Hint) + "\n"
 	}
@@ -238,11 +244,12 @@ func runSay(ctx context.Context, a *app, args []string) error {
 
 // sayOutput is aboard say's --json output (SayOutput in spec/cli.yaml).
 type sayOutput struct {
-	Message    cliMessage           `json:"message"`
-	Unread     *unreadNote          `json:"unread"`
-	Recipients []recipientNote      `json:"recipients"`
-	Warning    *sayWarning          `json:"warning"`
-	Nudges     []deliverytext.Nudge `json:"nudges"`
+	DecisionHint string               `json:"decision_hint,omitempty"`
+	Message      cliMessage           `json:"message"`
+	Unread       *unreadNote          `json:"unread"`
+	Recipients   []recipientNote      `json:"recipients"`
+	Warning      *sayWarning          `json:"warning"`
+	Nudges       []deliverytext.Nudge `json:"nudges"`
 	// The rest are set only with --wait-reply.
 	Outcome       *string       `json:"outcome,omitempty"`
 	Reply         **cliMessage  `json:"reply,omitempty"`
