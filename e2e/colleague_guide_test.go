@@ -9,6 +9,24 @@ import (
 	"time"
 )
 
+func TestPendingApprovalKeepsDistinctServerAndBoardNames(t *testing.T) {
+	t.Parallel()
+	person := newPersonHome(t, "alex")
+	person.run("up")
+	s := person.claudeSession("s-approval-location")
+	s.run("board", "new", "qa")
+	held := s.run("invite", "--person", "--handle", "maya", "--board", "qa")
+	if !strings.HasSuffix(held.lines()[0], " on local · qa") {
+		t.Fatalf("distinct approval labels lost:\n%s", held)
+	}
+	person.run("servers", "name", "local", "qa")
+	out := s.run("invite", "--person", "--handle", "sam", "--board", "qa", "--json").json(t)
+	matchesCLISpec(t, "HeldAdminOutput", out)
+	if field(t, out, "server.name") != "qa" || out["board"] != "qa" {
+		t.Fatalf("matching JSON labels lost: %v", out)
+	}
+}
+
 // The guide "Bring a colleague aboard" (docs/guides/bring-a-colleague-aboard.mdx),
 // command by command, with stand-in Claude Code sessions: leo's agent makes a board and
 // an invite for maya that waits for leo's approval; leo allows it; the agent collects
@@ -22,6 +40,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	leo.run("up")
 	tm := &team{t: t, admin: leo}
 	url := tm.url()
+	leo.run("servers", "name", url, "qa")
 
 	// 1. leo asks his agent to make the board and invite maya to it.
 	ls := leo.claudeSession("s-leo")
@@ -31,8 +50,8 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	}
 	held := ls.run("invite", "--person", "--handle", "maya", "--board", "qa")
 	lines := held.lines()
-	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on local · qa") ||
-		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server local") ||
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "Pending approval apr_") || !strings.HasSuffix(lines[0], " on qa") || strings.Contains(lines[0], "qa · qa") ||
+		!strings.HasPrefix(lines[1], "aboard approvals allow apr_") || !strings.HasSuffix(lines[1], " --server qa") ||
 		lines[2] != "Continue after your person allows or declines this exact action." {
 		t.Fatalf("the held invite:\n%s", held)
 	}
@@ -44,7 +63,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 	}
 	allowed := leo.run("approvals", "allow", approval, "--server", url)
 	shown := allowed.lines()
-	if len(shown) != 3 || shown[0] != approval+" · executed on local" || !strings.HasPrefix(shown[1], "Invite: "+url+"/join#abi_") {
+	if len(shown) != 3 || shown[0] != approval+" · executed on qa" || !strings.HasPrefix(shown[1], "Invite: "+url+"/join#abi_") {
 		t.Fatalf("approvals allow:\n%s", allowed)
 	}
 	link := strings.TrimPrefix(shown[1], "Invite: ")
@@ -65,8 +84,8 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		t.Fatalf("approvals show:\n%s", strings.Join(collected, "\n"))
 	}
 	if again := ls.run("approvals", "show", approval); !strings.HasPrefix(again.stdout, collected[0]+"\naboard invite revoke inv_") ||
-		!strings.Contains(again.stdout, " --server local\nAlready collected, revoked or expired.") ||
-		!strings.Contains(again.stdout, "aboard invite --person --server local --board qa") || strings.Contains(again.stdout, "abi_") {
+		!strings.Contains(again.stdout, " --server qa\nAlready collected, revoked or expired.") ||
+		!strings.Contains(again.stdout, "aboard invite --person --server qa --board qa") || strings.Contains(again.stdout, "abi_") {
 		t.Fatalf("a second approvals show:\n%s", again)
 	}
 
@@ -162,7 +181,7 @@ func TestGuideBringAColleagueAboard(t *testing.T) {
 		"Allowance on "+url+": invite-people",
 		"Agents allowed to invite people can let outsiders read every open board.")
 	auto := ls.run("invite", "--person", "--handle", "sam-2", "--board", "qa")
-	if !strings.Contains(auto.stdout, " · executed on local · qa\n") {
+	if !strings.Contains(auto.stdout, " · executed on qa · qa\n") {
 		t.Fatalf("an invite under the allowance:\n%s", auto)
 	}
 	invites := ls.run("invite", "list")

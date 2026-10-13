@@ -256,7 +256,7 @@ func requestAdmission(ctx context.Context, a *app, c *client, srv serverRef, boa
 			out["board"] = board
 		}
 		text := "Pending approval " + held.Approval.Id + " on " + srv.Name
-		if board != "" {
+		if board != "" && board != srv.Name {
 			text += " · " + board
 		}
 		text += "\n" + held.Next.Command + "\n"
