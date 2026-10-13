@@ -266,10 +266,12 @@ test("a reply in place names everyone in the thread, marks the message read, and
   await api(made.key.token, "POST", `/v1/boards/${board}/messages`, { body: "The script, I think.", reply_to: waiting.id });
 
   // Before alex replies, the board says sam replied, not that the question is answered.
-  // This look acknowledges nothing, so the read position below is the Inbox's doing.
+  // This look must acknowledge nothing, so the read position below is the Inbox's doing.
+  // A message link never acknowledges; a blocked /ack alone was not enough in CI, where
+  // one the look sent as it closed still moved the position.
   const look = await page.context().newPage();
   await look.route(`**/v1/boards/${board}/ack`, (route) => route.fulfill({ status: 500, json: { error: { code: "test", message: "Not acknowledged in this check.", hint: "" } } }));
-  await look.goto(`${base()}/?board=${board}`);
+  await look.goto(`${base()}/?board=${board}&message=${waiting.id}`);
   await expect(look.locator("button.answered")).toHaveText("sam replied");
   await look.close();
   const before = await api<{ read_up_to: number }>(ownerToken(), "GET", `/v1/boards/${board}`);
