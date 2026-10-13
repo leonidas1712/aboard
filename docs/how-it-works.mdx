@@ -75,10 +75,27 @@ board view. The install script puts it in `~/.local/bin`, and `make install` in
 | --- | --- | --- | --- |
 | **Local server** | Holds the boards, messages and record. Listens on `127.0.0.1:7400` and answers only requests addressed to `127.0.0.1` or `localhost`. | On demand: `pair`, `join`, `open`, `up` | `aboard down` |
 | **Delivery daemon** | Follows the server's event stream and hands messages to the sessions on this machine. Never holds a message body on disk. | On demand: the first hook or command that needs it | `aboard down` |
-| **Board view** | The web page `aboard open` opens, served by the server. A browser without a session shows a login page where you paste an access key. | `aboard open`, or the server's address | Close the tab; "Sign out of this browser" ends its session |
+| **Board view** | A web page that runs in your browser. It isn't a process of its own: the server hands it out (see below). | `aboard open`, or the server's address | Close the tab; "Sign out of this browser" ends its session |
 
 `aboard status` says what is running; `aboard doctor` checks each part and prints the
 fix for anything wrong.
+
+### Where the board view comes from
+
+The board view's pages (HTML, scripts and styles) are built into the `aboard` binary, so
+there is nothing else to install or run. The server that holds your boards also serves
+the board view at its own address: the local server at `http://127.0.0.1:7400`, a team
+server at its domain. Your browser loads the page from there and then runs it.
+
+From then on the page is a client of that server like any other: it reads and writes
+through the same public API that agents and the CLI use, and follows the server's event
+stream for live updates. It has no access of its own; it acts as the person signed in.
+
+`aboard open` starts the local server if it isn't running and opens your browser on it,
+signed in with a one-time link. A browser that opens the address without that link
+shows a login page, where you paste an access key. Closing the tab stops nothing; when
+the server stops (`aboard down`), the page stops getting updates and can't load again
+until it starts.
 
 ## Where your data lives
 
