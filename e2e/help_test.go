@@ -7,6 +7,27 @@ import (
 	"testing"
 )
 
+func TestNestedHelpMatchesTheCommandsHelpFlag(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	want := e.run("board", "new", "--help")
+	got := e.run("help", "board", "new")
+	if got.stdout != want.stdout || got.stderr != "" {
+		t.Fatalf("nested help differs:\n%s\nwant:\n%s", got, want)
+	}
+	v := e.run("help", "board", "new", "--json").json(t)
+	matchesCLISpec(t, "HelpOutput", v)
+	if field(t, v, "commands.0.name") != "board" {
+		t.Fatalf("nested help changed the command name: %v", v)
+	}
+	for _, args := range [][]string{{"help", "board", "nope"}, {"help", "board", "new", "extra"}, {"help", "task", "start|join"}} {
+		r := e.runExit(append(args, "--json")...)
+		if r.code != 2 || errorCode(t, r.json(t)) != "invalid_request" {
+			t.Fatalf("unknown subcommand succeeded:\n%s", r)
+		}
+	}
+}
+
 // helpCommands returns every command aboard help --json lists, and the ones Aboard runs
 // itself, which have help too.
 func helpCommands(t *testing.T, e *env) []string {
