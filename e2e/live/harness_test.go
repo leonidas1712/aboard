@@ -802,18 +802,35 @@ func (l *lab) trustCodexHooks(dir, home string, env []string, sources ...string)
 	if err := json.Unmarshal(raw, &list); err != nil {
 		l.t.Fatalf("codex app-server hooks/list: %v\n%s", err, raw)
 	}
-	var cfg strings.Builder
+	path := filepath.Join(home, "config.toml")
+	config := string(readFile(l.t, path))
+	trusted := 0
 	for _, d := range list.Data {
 		for _, h := range d.Hooks {
-			if slices.Contains(sources, h.Source) && h.CurrentHash != "" {
-				fmt.Fprintf(&cfg, "[hooks.state.%q]\ntrusted_hash = %q\n", h.Key, h.CurrentHash)
+			if !slices.Contains(sources, h.Source) || h.CurrentHash == "" {
+				continue
 			}
+			header := fmt.Sprintf("[hooks.state.%q]", h.Key)
+			var kept []string
+			remove := false
+			for _, line := range strings.Split(config, "\n") {
+				if strings.HasPrefix(strings.TrimSpace(line), "[") {
+					remove = strings.TrimSpace(line) == header
+				}
+				if !remove {
+					kept = append(kept, line)
+				}
+			}
+			config = strings.TrimRight(strings.Join(kept, "\n"), "\n") + fmt.Sprintf("\n%s\ntrusted_hash = %q\n", header, h.CurrentHash)
+			trusted++
 		}
 	}
-	if cfg.Len() == 0 {
+	if trusted == 0 {
 		l.t.Fatalf("codex app-server lists no %v hooks for %s:\n%s", sources, dir, raw)
 	}
-	appendFile(l.t, filepath.Join(home, "config.toml"), cfg.String())
+	if err := os.WriteFile(path, []byte(config), 0o600); err != nil {
+		l.t.Fatal(err)
+	}
 }
 
 // codexHome is the test's CODEX_HOME, which newLab adds to every command the lab runs,

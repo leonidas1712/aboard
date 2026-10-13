@@ -53,6 +53,12 @@ type Harness interface {
 	Adapter(clientVersion string) delivery.Adapter
 }
 
+// HookTrustChecker reads a harness's approval state for Aboard's installed commands.
+// It never approves or changes a hook.
+type HookTrustChecker interface {
+	HookTrustChecks(context.Context, Env, []string, []string) []CheckResult
+}
+
 // Scopes aboard init installs in: under the home directory for every project, or under
 // the working directory for that project only.
 const (

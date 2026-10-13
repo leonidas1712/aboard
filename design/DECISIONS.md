@@ -216,6 +216,21 @@ Settled while building it: a build is its release `version` (set with `-ldflags 
 
 Settled after it shipped: at equal versions, a daemon or server that reports no commit time is older than a build that reports one, because it predates commit reporting; without this, a server from before commit reporting was never replaced and the new CLI met endpoints it didn't have. Two builds that both lack a commit time are still the same build. When a server answers `not_found` or `not_implemented` for an operation in the spec and its build is older than the CLI's, or unreadable, the CLI reports `server_outdated` with the fix (`aboard down` for the local server) instead of the server's "There is no …" error; the check sits in the CLI's HTTP client, so every command gets it.
 
+**D68 refinement: upgrades must not silently break open sessions (maintainer,
+2026-10-12, GEN-68).** Hook content can change when necessary. Init and upgrade name
+each affected harness and the approval and resume steps. Doctor keeps showing required
+recovery until it has evidence that the session can use the changed hooks. A successful
+file write alone is not evidence of approval. Ordinary binary replacement keeps hook
+content stable, session bindings, and delivery state. Daemon replacement uses each
+session's harness home and discards harness-specific environment from the upgrading
+terminal.
+
+Before a release, prove continuity with real Claude Code and Codex sessions started
+against the previous released Aboard binary. Replace it with the candidate while both
+sessions remain open. Messages must still arrive without a restart or approval when
+hooks have not changed. Check hook bytes and delivery acknowledgements, so a binary
+restamped with an older version cannot stand in for the released implementation.
+
 **D69. One read interface serves agents, the CLI and the UI. The timeline API takes filters: sender, role, messages addressed to the reader, after or around a sequence number, and a limit (plain-text search later). Reading never moves a read position; only the inbox acknowledges. `aboard read` takes the same filters; `aboard watch` follows a board live in the terminal from the event stream; `aboard read --markdown` prints a transcript to paste as context.**
 Why: agents need to look back freely, without relying on read positions being right, and one interface keeps what the UI, the terminal and agents see the same.
 

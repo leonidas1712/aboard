@@ -80,6 +80,7 @@ func runDoctor(ctx context.Context, a *app, args []string) error {
 		}
 	}
 	checks = append(checks, a.checkKeptModes(ctx)...)
+	checks = append(checks, a.checkHookReloads(ctx)...)
 
 	failed := false
 	var text strings.Builder
@@ -260,6 +261,15 @@ func (a *app) checkHarness(ctx context.Context, h harness.Harness) []doctorCheck
 		checks = append(checks, a.checkHooksCurrent(name, h, scopes, a.currentHooks(ctx, h),
 			okCheck(name, p.Harness+": "+installedText(scopes, files))))
 		checks = append(checks, a.checkHookVersion(ctx, h)...)
+		if checker, ok := h.(harness.HookTrustChecker); ok {
+			var commands []string
+			for _, hook := range a.currentHooks(ctx, h) {
+				commands = append(commands, hook.Handler.Command)
+			}
+			for _, check := range checker.HookTrustChecks(ctx, a.henv(), commands, files) {
+				checks = append(checks, fromHarness(check))
+			}
+		}
 		return append(checks, a.checkAllow(h, scopes)...)
 	}
 	level, effect := levelError, ""
