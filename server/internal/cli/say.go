@@ -26,6 +26,22 @@ type unreadFrom struct {
 	Sender string `json:"sender"`
 }
 
+func decisionHint(ctx context.Context, c *client, m *api.Message) string {
+	if slices.Contains(m.To, "all") {
+		return ""
+	}
+	r, err := c.api.GetReceiptsWithResponse(ctx, m.Board, m.Seq)
+	if err != nil || r.JSON200 == nil {
+		return ""
+	}
+	for _, receipt := range r.JSON200.Recipients {
+		if receipt.Member.Kind == api.MemberRefKindHuman {
+			return "For a decision, use aboard ask so the answer is recorded. Use aboard say for information."
+		}
+	}
+	return ""
+}
+
 // recipientNote says when one recipient, or one member the message mentions, will see
 // a message.
 type recipientNote struct {

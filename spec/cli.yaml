@@ -1557,6 +1557,9 @@ $defs:
       server: { $ref: "#/$defs/ServerRef", description: Selected canonical issuer (D223). }
       nudges: { $ref: "#/$defs/Nudges" }
       message: { $ref: "#/$defs/Message" }
+      decision_hint:
+        type: string
+        description: Advisory suggestion to use aboard ask for decisions; present when an expect-reply message has a recorded person recipient. Posting still succeeds. Absent for messages to everyone, agent-only recipients or unavailable receipt reads.
       unread:
         description: The sender's unread messages on the board, oldest first; null if they couldn't be read.
         type: [object, "null"]
