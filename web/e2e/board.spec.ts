@@ -2297,12 +2297,21 @@ test("Mark all as read moves the person's read position to the newest message, a
   expect(unreadOn(board)).toBe(1);
 
   // Another board offers it in the board list, on hover. A message posted while the
-  // request is on its way is newer than the click, and stays unread.
+  // request is on its way is newer than the click, and stays unread. The count can come
+  // from the stream before a reread of the list brings the board's head, so the list is
+  // held here: marking reads everything the count stood for, not only what the list knew.
   const other = await newBoard("Other catch up");
   const pat = await person("pat");
   await api(ownerKey(), "POST", `/v1/boards/${other.name}/people`, { handle: "pat" });
   const otherLink = nav.locator(`a[href="/?board=${other.name}"]`);
   await expect(otherLink).toBeVisible();
+  let listed: () => void = () => {};
+  const stale = new Promise<void>((done) => (listed = done));
+  const isList = (url: URL) => url.pathname === "/v1/boards";
+  await page.route(isList, async (route: Route) => {
+    await stale;
+    await route.continue();
+  });
   for (const body of ["One on the other board.", "Two on the other board."]) {
     await api(pat, "POST", `/v1/boards/${other.name}/messages`, { body, to: ["all"] });
   }
@@ -2325,6 +2334,12 @@ test("Mark all as read moves the person's read position to the newest message, a
   release();
   await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("1");
   await expect.poll(() => unreadOn(other.name)).toBe(1);
+  // The held rereads of the list, answered now, leave it at the newest position.
+  const reread = page.waitForResponse((r) => isList(new URL(r.url())));
+  listed();
+  await reread;
+  await page.unroute(isList);
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("1");
 });
 
 test("a board owner removes another person's agent from the panel, and Show removed lists it", async ({ page }) => {

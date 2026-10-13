@@ -111,6 +111,13 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const progress = useRef(new ReadProgress());
   // seenIds are the ids of every board this page has listed or shown.
   const seenIds = useRef<Set<string>>(new Set());
+  // heads is the newest head the stream announced for each board, by name. The stream
+  // can show a board's new messages (in its unread count) before a reread of the list
+  // brings its head_seq, so Mark all as read takes whichever is newer. headOf is the
+  // board each name belonged to when the list was last read, so a head kept for a
+  // renamed or deleted board is dropped once a new board takes its name.
+  const heads = useRef<Map<string, number>>(new Map());
+  const headOf = useRef<Map<string, string>>(new Map());
   // Threads read whole because a loaded reply's first message wasn't loaded.
   const [extra, setExtra] = useState<Message[]>([]);
   const [rootless, setRootless] = useState<Set<string>>(new Set());
@@ -153,7 +160,11 @@ export function useBoard(name: string, filter: Filter): BoardState {
     const gen = progress.current.next();
     const r = await get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" });
     if (!live.current) return;
-    for (const b of r.boards) seenIds.current.add(b.id);
+    for (const b of r.boards) {
+      seenIds.current.add(b.id);
+      if (headOf.current.has(b.name) && headOf.current.get(b.name) !== b.id) heads.current.delete(b.name);
+      headOf.current.set(b.name, b.id);
+    }
     const list = progress.current.list(r.boards, gen);
     if (list) setBoards(list);
   }, []);
@@ -297,7 +308,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
     reloadBoards();
     run(catchUp);
     const stop = follow({
-      head: (b) => {
+      head: (b, seq) => {
+        heads.current.set(b, Math.max(heads.current.get(b) ?? 0, seq));
         if (b === name) {
           run(catchUp);
           setActivity((n) => n + 1);
@@ -425,8 +437,9 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   const markAllRead = useCallback(async (b: Board) => {
     const here = b.id === boardId.current;
-    // The board on screen may show a message its last read of the board didn't count yet.
-    const upTo = here ? Math.max(b.head_seq, newest.current) : b.head_seq;
+    // The page may show a message its last read of the board didn't count yet: loaded on
+    // the board on screen, or counted as unread from the stream on any board.
+    const upTo = Math.max(b.head_seq, heads.current.get(b.name) ?? 0, here ? newest.current : 0);
     if (upTo <= (b.read_up_to ?? 0)) return;
     const gen = progress.current.next();
     const r = await ackBoard(b.name, upTo);
