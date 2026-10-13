@@ -14,6 +14,7 @@ import {
   type Member,
   type Message,
   type MessagePage,
+  type PresenceEvent,
   type ReplyPage,
   ackBoard,
   follow,
@@ -91,6 +92,11 @@ function isReaction(e: BoardEvent): boolean {
 
 type Page = { messages: Message[]; prevBefore: number | null };
 
+/** withPresence is the member with the fields a presence event carries. */
+function withPresence(m: Member, p: PresenceEvent): Member {
+  return { ...m, presence: p.presence, presence_since: p.presence_since, ...(p.delivery !== undefined && { delivery: p.delivery }), ...(p.state !== undefined && { state: p.state }), ...(p.line !== undefined && { line: p.line }), delivery_warning: p.delivery_warning };
+}
+
 export function useBoard(name: string, filter: Filter): BoardState {
   const path = `/v1/boards/${encodeURIComponent(name)}`;
   const [board, setBoard] = useState<Board | null>(null);
@@ -111,6 +117,13 @@ export function useBoard(name: string, filter: Filter): BoardState {
   const progress = useRef(new ReadProgress());
   // seenIds are the ids of every board this page has listed or shown.
   const seenIds = useRef<Set<string>>(new Set());
+  // heads is the newest head the stream announced for each board, by name. The stream
+  // can show a board's new messages (in its unread count) before a reread of the list
+  // brings its head_seq, so Mark all as read takes whichever is newer. headOf is the
+  // board each name belonged to when the list was last read, so a head kept for a
+  // renamed or deleted board is dropped once a new board takes its name.
+  const heads = useRef<Map<string, number>>(new Map());
+  const headOf = useRef<Map<string, string>>(new Map());
   // Threads read whole because a loaded reply's first message wasn't loaded.
   const [extra, setExtra] = useState<Message[]>([]);
   const [rootless, setRootless] = useState<Set<string>>(new Set());
@@ -128,6 +141,11 @@ export function useBoard(name: string, filter: Filter): BoardState {
   // Reads run one at a time, so a live update never races a first page. newest is the
   // seq of the newest message loaded, for the timeline and for the filter's matches;
   // chain is how far the record is verified.
+  // livePresence is each agent's newest presence event, numbered by tick. A members list
+  // asked for before an event arrived can answer after it with the older presence, so
+  // the list keeps the event's fields for any agent whose event came after the request.
+  const livePresence = useRef<Map<string, { tick: number; p: PresenceEvent }>>(new Map());
+  const tick = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const newest = useRef(0);
   const newestMatch = useRef(0);
@@ -153,7 +171,11 @@ export function useBoard(name: string, filter: Filter): BoardState {
     const gen = progress.current.next();
     const r = await get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" });
     if (!live.current) return;
-    for (const b of r.boards) seenIds.current.add(b.id);
+    for (const b of r.boards) {
+      seenIds.current.add(b.id);
+      if (headOf.current.has(b.name) && headOf.current.get(b.name) !== b.id) heads.current.delete(b.name);
+      headOf.current.set(b.name, b.id);
+    }
     const list = progress.current.list(r.boards, gen);
     if (list) setBoards(list);
   }, []);
@@ -203,6 +225,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   const catchUp = useCallback(async () => {
     const gen = progress.current.next();
+    const asked = ++tick.current;
     const [b, m, mine, who] = await Promise.all([
       get<Board>(path),
       get<{ members: Member[] }>(`${path}/members`),
@@ -213,7 +236,12 @@ export function useBoard(name: string, filter: Filter): BoardState {
     setBoard(progress.current.board(b, gen));
     boardId.current = b.id;
     seenIds.current.add(b.id);
-    setMembers(m.members);
+    setMembers(
+      m.members.map((x) => {
+        const seen = livePresence.current.get(x.name);
+        return seen && seen.tick > asked ? withPresence(x, seen.p) : x;
+      }),
+    );
     setMe(who);
     setToMe(new Set(mine.messages.map((x) => x.id)));
 
@@ -275,6 +303,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   useEffect(() => {
     live.current = true;
+    livePresence.current = new Map();
     run(async () => {
       // The head first: every reaction up to it is already on the messages read after it.
       const first = await get<Board>(path);
@@ -297,7 +326,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
     reloadBoards();
     run(catchUp);
     const stop = follow({
-      head: (b) => {
+      head: (b, seq) => {
+        heads.current.set(b, Math.max(heads.current.get(b) ?? 0, seq));
         if (b === name) {
           run(catchUp);
           setActivity((n) => n + 1);
@@ -323,13 +353,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
       },
       presence: (p) => {
         if (p.board !== name) return;
-        setMembers((ms) =>
-          ms?.map((m) =>
-            m.name === p.agent
-              ? { ...m, presence: p.presence, presence_since: p.presence_since, ...(p.delivery !== undefined && { delivery: p.delivery }), ...(p.state !== undefined && { state: p.state }), ...(p.line !== undefined && { line: p.line }) }
-              : m,
-          ) ?? ms,
-        );
+        livePresence.current.set(p.agent, { tick: ++tick.current, p });
+        setMembers((ms) => ms?.map((m) => (m.name === p.agent ? withPresence(m, p) : m)) ?? ms);
       },
       unavailable: (id) => {
         // Only a hint: read the list and, for this board, the board itself again, and
@@ -425,8 +450,9 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   const markAllRead = useCallback(async (b: Board) => {
     const here = b.id === boardId.current;
-    // The board on screen may show a message its last read of the board didn't count yet.
-    const upTo = here ? Math.max(b.head_seq, newest.current) : b.head_seq;
+    // The page may show a message its last read of the board didn't count yet: loaded on
+    // the board on screen, or counted as unread from the stream on any board.
+    const upTo = Math.max(b.head_seq, heads.current.get(b.name) ?? 0, here ? newest.current : 0);
     if (upTo <= (b.read_up_to ?? 0)) return;
     const gen = progress.current.next();
     const r = await ackBoard(b.name, upTo);

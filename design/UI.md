@@ -497,8 +497,8 @@ For ideas. Code is copied only from MIT or Apache 2.0 sources, with their notice
 
 ## Server people and board visibility
 
-The account menu links to People when there is more than one person on the server,
-or for a server admin. The page lists handles, display names and server roles.
+Settings has a People tab when there is more than one person on the server, or for a
+server admin; its old address, `/?view=people`, opens that tab. The page lists handles, display names and server roles.
 Agent counts and boards in common cover only boards the reader shares; a failed
 board read is shown as unavailable, not as zero. No last-active time is invented.
 
@@ -531,7 +531,10 @@ An archived board can be made private but not open. The view adds no creation fo
   Copy prompt (for any session) and Decline. Its progress is a short list of steps;
   only the ready state says delivery is verified. The board shows the same as one quiet
   line under the "Now:" line.
-- **Settings** (from the account menu) holds the allowance: Auto mode adds people to
+- **Settings** (from the account menu) has tabs down the left, each with its own address
+  (`?view=settings&tab=…`), and a list on a phone: Profile (handle, renamed in place,
+  server, sign-in), Agents (the mid-turn setting and the allowance), People and
+  Appearance (the theme). A tab shows only when it applies. The allowance: Auto mode adds people to
   boards without asking; inviting people to the server is a separate switch that warns
   and asks to confirm, and keeps the server's warning in view while on.
 - **The invite page** (`/join#abi_…`) previews the invite without using it and gives

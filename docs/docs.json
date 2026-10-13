@@ -80,6 +80,14 @@
             "pages": ["introduction", "quickstart", "install", "how-it-works", "compare"]
           },
           {
+            "group": "Use cases",
+            "pages": [
+              "use-cases/writer-and-reviewer",
+              "use-cases/coordinator",
+              "use-cases/claude-code-and-codex"
+            ]
+          },
+          {
             "group": "Work with your agents",
             "pages": [
               "guides/pairing",

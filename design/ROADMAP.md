@@ -146,6 +146,7 @@ the board.
 | Each person's read position per board kept on the server (bookkeeping, never an event), so unread counts match across the board view, the CLI and other machines: acknowledged only for a contiguous stretch of presented message rows (the board view, `aboard read --mark-read`), unread in `GET /v1/boards`, `aboard boards` and the stream | done | D102, D194 |
 | "Mark all as read" in the board view: in the header while the board has anything unread, and per board in the board list on hover, moving the person's read position to the newest message the page has, so what arrives after the click stays unread | in review | D194 |
 | The finder in the board view: `Ctrl+K`/`⌘K` or "Find or do anything" under the board list opens one box that finds boards, the tasks of the board on screen and places (the Inbox, Settings, People, the board's tabs and agents) from what the page already loaded, and goes there, with boards in the sidebar's order; it also runs actions the page already has (export, mark all as read, show keys), and opens from the Inbox and Settings; commands that act on agents ("hold codex") stay in the UI lab | in review | |
+| Settings as one page with tabs down the left (a list on a phone), each with its own address: Profile (rename in place, server, sign-in), Agents (urgent messages while an agent works, auto mode), People, Appearance; the account menu keeps the server, Settings, the theme and sign-out | in review | |
 | Browser sessions as `HttpOnly` cookies with Origin and CSRF checks, a strict content security policy, a login page to paste an access key, signing out, and `aboard keys sessions` to list and end one session | done (#92) | D179, D183, D189 |
 | The browser login on team servers: HTTPS, and the Host check for the server's domain | done (#118) | D89, D121, D199 |
 | `aboard open --server` signs a browser in to a team server with a one-time code; the board view's "Add an agent" there gives `aboard join --board … --server …`, and a guest gets none | in review | D204 |
@@ -169,8 +170,9 @@ the board.
 | The board features, designed in [board-features.md](board-features.md) with their contracts; built in five slices below | review (design PR) | D206–D213 |
 | Slice 1, tasks and tagging: `aboard task list · show · new · start · join · note · done · drop`, server ids with a board prefix (`CHK-17`), messages about tasks (`about`, the current task by default), `read --task`, the Work panel, the first nudges | done, #170 | D206, D207, D210 |
 | Slice 2, asks, the Inbox and decisions: `aboard ask` with options, blocking or `--going-with`, answers that wake the asker and are the decision, Blocked derived, `GET /v1/asks`, the Inbox (Needs you, Worth a look) | done, #180 | D208, D210 |
-| Replies waiting in the Inbox: a message to the person sent with `--expect-reply` and not yet answered is listed in their Inbox from every board, under the asks as "Replies waiting", with a reply box in place; their reply, or any later reply in that thread, clears it. Today it shows only on its board ("waiting for your reply"), so an agent waiting on the person is missing from the place meant to list everything that waits on them (maintainer, 2026-10-13) | planned for 0.1.6 | D208 |
+| Replies waiting in the Inbox: a message to the person sent with `--expect-reply` and not yet answered is listed in their Inbox from every board, under the asks as "Replies waiting", with a reply box in place; their reply, or any later reply in that thread, clears it. Today it shows only on its board ("waiting for your reply"), so an agent waiting on the person is missing from the place meant to list everything that waits on them (maintainer, 2026-10-13) | server done (#375), board view in review (0.1.6) | D208 |
 | Text from stdin: every command that takes free text (`say`, `ask`, `task new`/`note`/`done`/`drop`, replies and answers, and the like) reads it from standard input when given `-`, as `git commit -F -` does, so agents pass messages with backticks, `$` and quotes through a quoted heredoc without the shell running any of it. Today the text is only an argument, and an agent once ran a command by quoting a message badly (maintainer, 2026-10-13) | merged for 0.1.6 | |
+| The skill directs decisions to `ask` and information to `say`; an expect-reply message to a person suggests recording a decision with `ask` | in review (GEN-66); real-binary advice regression failed first | |
 | Slice 3, agent lines: `aboard working`, `aboard paused --until`, the state word (working, paused, late, idle, disconnected), Claude Code's todo list setting the line, late and stale reminders | later | D209, D210 |
 | Slice 4, files: versions with a base check, usable at once, maintained or one-off, links to tasks and messages, `file rm` and `mv`, approvals by any person tied to a version and approval asks (`aboard ask --file`), the blob-store port with the disk adapter, `ABOARD_DB` and `ABOARD_FILES`, `aboard storage check` | files API, disk storage and CLI done (#187), Files view done (#194); approvals and ABOARD_DB configuration remain pending | D211, D212 |
 | Slice 5, the brief: `brief.md` or `brief.html` with freshness facts, `aboard brief`, `brief get`, `brief put`, the keeper's nudge, the join output naming it, the sandboxed HTML preview after its security review | done: contracts (#199), backend, CLI, keeper reminder and board-view UI (#200) | D213, D214 |
@@ -484,6 +486,8 @@ warning and Inbox integration are owned by the UI lane.
 
 ### Onboarding QA fixes (GEN-49)
 
+CLI task text guards against a bare task ID being used as a note or completion
+note: in review (GEN-76); lifecycle acceptance regression failed first.
 Pending approval notices suppress matching server and board names: in review
 (GEN-74); colleague-guide regression failed first, JSON fields retained.
 
@@ -518,3 +522,12 @@ commit `f71f971be9727b69fc884759ece4bd4045488977`, on ubuntu-latest:
 The original failure reproduced locally under race detection. Expiry assertions and
 deadlines stay unchanged; the tests wait for the active credential timer at startup
 and after keepalive. This changes test synchronization only.
+
+### Replies waiting in the person Inbox (0.1.6 lane B)
+
+Contract proposal: a person-only GET /v1/me/replies-waiting read across active
+boards, using recorded recipient ids and clearing only on the person's later thread
+reply. The newest request from each sender replaces their older requests in the same
+thread. The read includes the unpaged count for the Inbox badge.
+The existing board needs_reply count retains its direct-reply semantics.
+Server merged with this change; board-view section belongs to the UI lane.

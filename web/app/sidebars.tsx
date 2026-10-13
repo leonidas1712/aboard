@@ -4,7 +4,7 @@
 // on. The right one is about the board on screen: its agents and people, its charter,
 // the rules Aboard enforces on it, and its details.
 
-import { CheckCheck, ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
+import { CheckCheck, ChevronDown, ChevronRight, CircleQuestionMark, TriangleAlert } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -17,10 +17,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type MidturnPolicy, type Member, type MemberRef, type Message, type Task, addedBy, isArchived, setDelivery } from "./api";
+import { ApiError, type Board, type DeliveryWarning, type MidturnPolicy, type Member, type MemberRef, type Message, type Task, addedBy, isArchived, setDelivery } from "./api";
 import { AgentMark } from "./agent-mark";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { attentionCount } from "./asks";
+import { useRepliesWaitingCount } from "./inbox-replies";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
@@ -80,6 +81,8 @@ export function useSidebarKeys(current: string, boards: Board[] | null) {
 export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
   // Approvals and pairing requests that wait on the person count toward the Inbox too.
   const onboarding = useOnboardingCount();
+  // So do messages waiting for the person's reply.
+  const replies = useRepliesWaitingCount(boards);
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
   const { archived, needs, others } = sidebarOrder(boards);
   return (
@@ -91,7 +94,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
         <FindRow />
         <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("group -mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
           <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd className="font-normal opacity-0 transition-opacity duration-[140ms] ease-out group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none" title={`Shortcut: ${keyLabel("inbox")}`} aria-label={`Shortcut: ${keyLabel("inbox")}`}>{keyLabel("inbox")}</Kbd>}</span>
-          {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding)}</span>}
+          {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding + replies) > 0 && <span className="inbox-count rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding + replies)}</span>}
         </a>
       </div>
       {needs.length > 0 && (
@@ -170,7 +173,7 @@ function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: 
             >
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className={cn("break-words", here && "font-bold")}>{boardLabel(b)}</span>
-                {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
+                {b.title && b.title.trim() !== b.name && <span className="text-meta break-all text-muted">{b.name}</span>}
               </span>
               {attentionCount(b) > 0 && (
                 <span className="needs-reply-count shrink-0 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums" title={count(attentionCount(b), "question needs your reply", "questions need your reply")}>
@@ -577,6 +580,7 @@ function AgentItem({
       </button>
       <LineText line={agent.line} late={agent.state === "late"} className="-mt-1 pb-1 pl-7" />
       {agent.presence === "waiting" && <p className="text-meta">Its session is waiting for a person, such as at a permission prompt.</p>}
+      {agent.delivery_warning && <DeliveryWarningLine reason={agent.delivery_warning} mine={mine} />}
       {tasks && (
         <p className="agent-tasks flex flex-wrap items-baseline gap-1 pb-2.5 pl-7">
           {tasks.length > 0 ? <TaskChips tags={tasks.map((t) => ({ id: t.id, ref: t.ref, how: "given" }))} /> : <span className="text-meta text-muted">on no task</span>}
@@ -627,6 +631,33 @@ function AgentItem({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * DeliveryWarningLine says that messages can't reach the agent's session on their own,
+ * as its session reported, in the CLI's words. Only the agent's person can fix it, so
+ * only they see the recovery step.
+ */
+function DeliveryWarningLine({ reason, mine }: { reason: DeliveryWarning; mine: boolean }) {
+  const step = !mine ? (
+    "Its person can fix this in their Codex setup."
+  ) : reason === "codex_no_daemon_orca" ? (
+    <>
+      Orca starts Codex with <code>--no-daemon</code>: set <code>export ORCA_CODEX_ISOLATE=0</code> in <code>~/.zshrc</code> or run <code>command codex</code>, then restart Codex.
+    </>
+  ) : (
+    <>
+      Codex is running with <code>--no-daemon</code>. Restart Codex without it.
+    </>
+  );
+  return (
+    <p className="delivery-warning flex items-start gap-2 pb-1.5 pl-7 text-meta [&_code]:whitespace-nowrap" data-reason={reason}>
+      <TriangleAlert className="mt-[3px] size-3.5 shrink-0 text-status-needs" strokeWidth={1.75} aria-hidden />
+      <span>
+        <span className="font-bold">Messages can&apos;t reach it on their own.</span> {step}
+      </span>
+    </p>
   );
 }
 

@@ -2,7 +2,7 @@
 
 // The finder is one box that goes anywhere: ⌘K (Ctrl+K off a Mac), or "Find or do
 // anything" in the board list, opens it. Typing narrows a list of places (the Inbox,
-// Settings, People and the tabs and panel of the board on screen), the person's boards
+// Settings and its tabs, and the tabs and panel of the board on screen), the person's boards
 // in the sidebar's order, things to do (export the board, mark it read, show the keys)
 // and the tasks of the board on screen; arrows pick one and Enter goes there or does it. Each
 // action is one the page already offers elsewhere. It reads only what the page has
@@ -106,8 +106,10 @@ function groupsOf(boards: Board[], here: Here | undefined, page: Page | undefine
     ...(page === "inbox" ? [] : [{ id: "inbox", label: "Inbox", note: "Asks to you, from every board", words: "inbox asks questions", go: () => goTo("/?inbox") }]),
     ...(here?.views ?? []).map((v) => ({ id: `view-${v}`, label: viewNames[v], note: "This board", words: viewNames[v], go: () => here!.setView(v) })),
     ...(here ? [{ id: "members", label: here.members.title, note: "This board", words: `${here.members.title} agents people members`, go: here.members.show }] : []),
-    { id: "people", label: "People", note: "Everyone on this server", words: "people members team users", go: () => goTo("/?view=people") },
-    ...(page === "settings" ? [] : [{ id: "settings", label: "Settings", note: "What your agents may do", words: "settings auto mode allowance preferences", go: () => goTo("/?view=settings") }]),
+    { id: "people", label: "People", note: "Everyone on this server", words: "people members team users", go: () => goTo("/?view=settings&tab=people") },
+    ...(page === "settings" ? [] : [{ id: "settings", label: "Settings", note: "Your profile, agents and theme", words: "settings profile rename handle preferences", go: () => goTo("/?view=settings") }]),
+    { id: "settings-agents", label: "Auto mode and urgent messages", note: "Settings", words: "settings auto mode allowance urgent messages mid-turn midturn agents", go: () => goTo("/?view=settings&tab=agents") },
+    { id: "settings-appearance", label: "Theme", note: "Settings", words: "settings theme appearance colour color dark light", go: () => goTo("/?view=settings&tab=appearance") },
   ];
   const actions: Item[] = [
     ...(here?.exportAs

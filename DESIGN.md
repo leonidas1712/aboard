@@ -380,7 +380,7 @@ panels' titles, their hide buttons and the "Now:" line share one line; a hidden 
 strip keeps its show button in that row. Sections in a panel are 16px apart whether
 open or closed. Who you are sits at the right of the top bar: your mark and name,
 opening a menu with your access on this board (only with a second person), the server,
-and the theme (Same as this computer, Light, Dark, Ember, Tide or High contrast, each
+Settings, and the theme (Same as this computer, Light, Dark, Ember, Tide or High contrast, each
 with a swatch, kept per browser). The left panel is navigation
 only (the boards); the right panel is the board on screen, headed by its title, and
 the record line sits in its Details section. A panel's header row stays in place while

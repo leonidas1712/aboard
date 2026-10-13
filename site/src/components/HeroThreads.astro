@@ -1,0 +1,238 @@
+---
+// Hero backdrop "Threads": a few fine lines cross the hero, one per agent's line of
+// work. They enter from both edges at different heights and gather at one point under
+// the text, where the board starts. Now and then a bead of light runs in along one
+// thread and leaves along another: work handed from one agent to the next. A person's
+// bead is the accent. The lines sway slowly.
+//
+// One canvas and one small script. It runs only while this backdrop is the chosen one
+// and on screen; under reduced motion it draws one still frame.
+---
+<div class="hero-bg hero-threads" data-variant="1" aria-hidden="true">
+  <canvas data-threads></canvas>
+</div>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-threads]");
+  if (canvas) start(canvas);
+
+  function start(canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+
+    type Thread = { y0: number; side: -1 | 1; amp: number; freq: number; phase: number; tint: number };
+    type Bead = { from: number; to: number; t0: number; dur: number; person: boolean; dir: 1 | -1 };
+
+    let W = 0;
+    let H = 0;
+    let dpr = 1;
+    let cx = 0;
+    let cy = 0;
+    let threads: Thread[] = [];
+    let beads: Bead[] = [];
+    let colors: Record<string, string> = {};
+    let raf = 0;
+    let visible = true;
+    let nextBead = 0;
+    let dark = false;
+
+    const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+    function readColors() {
+      const cs = getComputedStyle(document.documentElement);
+      const v = (n: string) => cs.getPropertyValue(n).trim();
+      dark = cs.colorScheme.includes("dark");
+      colors = { ink: v("--ink"), faint: v("--faint"), accent: v("--accent"), accentLine: v("--accent-strong"), bg: v("--background") };
+      for (let i = 1; i <= 8; i++) colors[`t${i}`] = v(`--id-${i}-fg`);
+    }
+
+    // A seeded random, so the threads sit in the same places on every visit.
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+    function layout() {
+      const rect = canvas.getBoundingClientRect();
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = rect.width;
+      H = rect.height;
+      canvas.width = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = W / 2;
+      cy = H - 8; // the threads gather at the foot of the hero, where the board begins
+      const small = W < 760;
+      const perSide = small ? 3 : 5;
+      const tints = [2, 5, 3, 6, 7, 4, 8, 1, 5, 2];
+      seed = 7;
+      threads = [];
+      for (const side of [-1, 1] as const) {
+        for (let i = 0; i < perSide; i++) {
+          const band = (i + 0.5) / perSide;
+          threads.push({
+            y0: H * (0.08 + band * 0.78) + (rnd() - 0.5) * 30,
+            side,
+            amp: (small ? 8 : 14) + rnd() * (small ? 8 : 18),
+            freq: 1.4 + rnd() * 1.6,
+            phase: rnd() * Math.PI * 2,
+            tint: tints[(threads.length) % tints.length],
+          });
+        }
+      }
+    }
+
+    // A thread's height at x and time t. Far from the centre it sits at its own height
+    // and sways; near the centre it bends down to the meeting point.
+    function yAt(th: Thread, x: number, t: number) {
+      const d = clamp(Math.abs(x - cx) / (W / 2)); // 0 at the centre, 1 at the edge
+      const pull = Math.pow(d, 1.6);
+      const sway = Math.sin(d * th.freq * Math.PI + th.phase + t * 0.00035) * th.amp * Math.sin(d * Math.PI);
+      return cy + (th.y0 - cy) * pull + sway;
+    }
+    // Which side of the centre a point on a thread is on decides which threads draw it.
+    function xOn(th: Thread, s: number) {
+      // s runs 0 (edge) to 1 (centre) along a thread's half.
+      return th.side < 0 ? s * cx : W - s * (W - cx);
+    }
+
+    function drawThreads(t: number) {
+      ctx!.lineWidth = 1;
+      for (const th of threads) {
+        const x0 = th.side < 0 ? 0 : W;
+        const g = ctx!.createLinearGradient(x0, 0, cx, 0);
+        const base = dark ? "rgba(237,238,231," : "rgba(15,16,13,";
+        g.addColorStop(0, base + "0)");
+        g.addColorStop(0.25, base + (dark ? "0.16)" : "0.13)"));
+        g.addColorStop(0.85, base + (dark ? "0.22)" : "0.18)"));
+        g.addColorStop(1, base + (dark ? "0.3)" : "0.26)"));
+        ctx!.strokeStyle = g;
+        ctx!.beginPath();
+        const steps = 90;
+        for (let k = 0; k <= steps; k++) {
+          const x = xOn(th, k / steps);
+          const y = yAt(th, x, t);
+          if (k === 0) ctx!.moveTo(x, y);
+          else ctx!.lineTo(x, y);
+        }
+        ctx!.stroke();
+      }
+    }
+
+    // A bead's position: u runs 0..1 over the whole trip, in along one thread and out
+    // along another.
+    function beadPoint(b: Bead, u: number, t: number) {
+      const inTh = threads[b.from];
+      const outTh = threads[b.to];
+      if (u < 0.5) {
+        const s = u * 2;
+        const x = xOn(inTh, s);
+        return { x, y: yAt(inTh, x, t) };
+      }
+      const s = 1 - (u - 0.5) * 2;
+      const x = xOn(outTh, s);
+      return { x, y: yAt(outTh, x, t) };
+    }
+
+    function drawBeads(t: number) {
+      for (const b of beads) {
+        const p = clamp((t - b.t0) / b.dur);
+        const u = easeInOut(p);
+        const color = b.person ? colors.accentLine : colors[`t${threads[b.from].tint}`];
+        // The tail: a run of points behind the head, fading out.
+        const TAIL = 18;
+        for (let k = TAIL; k >= 0; k--) {
+          const uk = u - k * 0.006;
+          if (uk < 0) continue;
+          const pt = beadPoint(b, uk, t);
+          const a = (1 - k / TAIL) * edgeFade(pt.x);
+          ctx!.globalAlpha = a * (k === 0 ? 1 : 0.55);
+          ctx!.fillStyle = color;
+          ctx!.beginPath();
+          ctx!.arc(pt.x, pt.y, k === 0 ? 3.2 : 2 * (1 - k / TAIL) + 0.4, 0, Math.PI * 2);
+          ctx!.fill();
+        }
+        // A soft halo round the head.
+        const head = beadPoint(b, u, t);
+        const halo = ctx!.createRadialGradient(head.x, head.y, 0, head.x, head.y, 14);
+        halo.addColorStop(0, color);
+        halo.addColorStop(1, "transparent");
+        ctx!.globalAlpha = 0.4 * edgeFade(head.x);
+        ctx!.fillStyle = halo;
+        ctx!.beginPath();
+        ctx!.arc(head.x, head.y, 14, 0, Math.PI * 2);
+        ctx!.fill();
+        ctx!.globalAlpha = 1;
+      }
+    }
+    const edgeFade = (x: number) => clamp(Math.min(x, W - x) / (W * 0.12));
+
+    // The meeting point glows a little when a bead passes through it.
+    function drawMeet(t: number) {
+      let glow = 0.18;
+      for (const b of beads) {
+        const p = (t - b.t0) / b.dur;
+        glow = Math.max(glow, 0.18 + 0.6 * Math.max(0, 1 - Math.abs(easeInOut(clamp(p)) - 0.5) * 8));
+      }
+      const r = 90;
+      const g = ctx!.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, colors.accent);
+      g.addColorStop(1, "transparent");
+      ctx!.globalAlpha = glow * (dark ? 0.55 : 0.5);
+      ctx!.fillStyle = g;
+      ctx!.beginPath();
+      ctx!.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.globalAlpha = 1;
+    }
+
+    function spawn(t: number) {
+      const left = threads.filter((th) => th.side < 0).length;
+      const dir: 1 | -1 = Math.random() < 0.5 ? 1 : -1;
+      const a = Math.floor(Math.random() * left);
+      const b = Math.floor(Math.random() * left);
+      const from = dir === 1 ? a : left + a;
+      const to = dir === 1 ? left + b : b;
+      beads.push({ from, to, t0: t, dur: 5200 + Math.random() * 1600, person: Math.random() < 0.2, dir });
+    }
+
+    function frame(t: number) {
+      ctx!.clearRect(0, 0, W, H);
+      if (t >= nextBead && beads.length < 3) {
+        spawn(t);
+        nextBead = t + 1500 + Math.random() * 1600;
+      }
+      beads = beads.filter((b) => t - b.t0 < b.dur);
+      drawThreads(t);
+      drawMeet(t);
+      drawBeads(t);
+      raf = requestAnimationFrame(frame);
+    }
+
+    function still() {
+      ctx!.clearRect(0, 0, W, H);
+      drawThreads(0);
+      drawMeet(0);
+    }
+
+    function run() {
+      cancelAnimationFrame(raf);
+      layout();
+      readColors();
+      if (reduced.matches || !visible) {
+        still();
+        return;
+      }
+      raf = requestAnimationFrame(frame);
+    }
+
+    new ResizeObserver(() => run()).observe(canvas);
+    new IntersectionObserver((e) => {
+      visible = e.some((x) => x.isIntersecting);
+      run();
+    }).observe(canvas);
+    new MutationObserver(run).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", run);
+    reduced.addEventListener("change", run);
+  }
+</script>

@@ -2,8 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- `aboard say --expect-reply` to a person suggests `aboard ask` for decisions.
+  The skill distinguishes decisions from information; posting still succeeds.
+
 ### Fixed
 
+- Task notes, completion notes and drop reasons refuse a bare task ID as text,
+  with a hint showing `--task`; the current task stays unchanged.
 - Pending approval notices show a matching server and board name once, instead
   of repeating it as `qa · qa`.
 
@@ -12,11 +19,16 @@
 
 ### Contract changes
 
+- CLI task text consisting only of a reference or immutable task ID returns
+  `invalid_request` and exit 2 before a write; successful JSON is unchanged.
+- CLI scripts may receive an optional `decision_hint` in `SayOutput` when an
+  expect-reply message has a person recipient (additive).
 - Pending approval text suppresses a duplicate location name; CLI JSON retains
   separate server and board fields (no shape change).
 
 - CLI help accepts a documented board subcommand after the command name. The JSON
   output keeps the parent command's name and existing shape (additive).
+
 
 Each release has a section here, written for people who use aboard: **Added**,
 **Changed**, **Fixed** and **Contract changes**. Contract changes lists every change

@@ -3,8 +3,48 @@
 package e2e
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 )
+
+func TestTaskReferenceAsTextNeverChangesCurrentWork(t *testing.T) {
+	t.Parallel()
+	for _, op := range []string{"note", "done", "drop"} {
+		t.Run(op, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			s := e.claudeSession("s-task-text")
+			s.run("pair", "general")
+			created := s.run("task", "new", "Keep this work", "--json").json(t)
+			ref := field(t, created, "task.ref").(string)
+			id := field(t, created, "task.id").(string)
+			for _, text := range []string{ref, strings.ToLower(ref), id} {
+				before := s.run("task", "show", ref, "--json").json(t)
+				args := []string{"task", op, text, "--json"}
+				if op == "drop" {
+					args = []string{"task", "drop", "--reason", text, "--json"}
+				}
+				r := s.e.exec(s.vars, "", args...)
+				if r.code != 2 || errorCode(t, r.json(t)) != "invalid_request" || !strings.Contains(field(t, r.json(t), "error.hint").(string), "--task "+text) {
+					t.Fatalf("task ID used as text:\n%s", r)
+				}
+				shown := s.run("task", "show", ref, "--json").json(t)
+				if !reflect.DeepEqual(shown["task"], before["task"]) {
+					t.Fatalf("refusal changed work: before %v, after %v", before, shown)
+				}
+				if got := field(t, s.run("say", "Still working", "--json").json(t), "message.about.0.ref"); got != ref {
+					t.Fatalf("refusal cleared current work: %v", got)
+				}
+			}
+			if op == "drop" {
+				s.run("task", "drop", ref, "--reason", "Finished reviewing "+ref)
+			} else {
+				s.run("task", op, "Checked "+ref, "--task", ref)
+			}
+		})
+	}
+}
 
 func TestTasksTagMessagesAndClearCurrentWorkFromTheCLI(t *testing.T) {
 	t.Parallel()

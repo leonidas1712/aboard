@@ -7,6 +7,7 @@
 import { Copy, Download, FileArchive, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type ExportFormat, exportBoard } from "./api";
 
@@ -70,12 +71,35 @@ async function copyText(get: () => Promise<string>) {
   }
 }
 
-/** ExportMenu sits in the board's action row. Its status line is a live region, so a copy, a save or a failure is announced as well as shown. */
-export function ExportMenu({ board }: { board: string }) {
+/** ExportMessage is what the last export did: a confirmation, which fades, or an error, which stays. */
+export type ExportMessage = { text: string; error: boolean };
+
+/**
+ * ExportNotice shows the last export's message in the flow of the header, so it never
+ * lies over a control: beside the Export button on a wide screen, and on the line of the
+ * board's labels on a phone. The menu's live region announces it, so this copy is hidden
+ * from screen readers.
+ */
+export function ExportNotice({ message, className }: { message: ExportMessage | null; className?: string }) {
+  if (!message) return null;
+  return (
+    <span aria-hidden title={message.text} className={cn("export-notice min-w-0 truncate text-meta animate-fade-in max-lg:max-w-full lg:max-w-[20rem]", message.error ? "export-error text-ink" : "export-toast text-muted", className)}>
+      {message.text}
+    </span>
+  );
+}
+
+/**
+ * ExportMenu sits in the board's action row. Its status line is a live region, so a
+ * copy, a save or a failure is announced, and shown beside the button on a wide screen;
+ * onMessage hands the same words to the header, which shows them on a phone.
+ */
+export function ExportMenu({ board, onMessage }: { board: string; onMessage?: (m: ExportMessage | null) => void }) {
   const [busy, setBusy] = useState<Action | null>(null);
-  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [message, setMessage] = useState<ExportMessage | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => onMessage?.(message), [message, onMessage]);
 
   const say = (text: string, error = false) => {
     clearTimeout(timer.current);
@@ -114,18 +138,27 @@ export function ExportMenu({ board }: { board: string }) {
   const icon = "pointer-events-none absolute left-3 size-4 text-muted";
   const icons = { copy: Copy, md: Download, zip: FileArchive };
   return (
-    <div className="export-menu relative flex shrink-0">
+    <div className="export-menu flex shrink-0 items-center gap-x-4">
       <DropdownMenu>
-        <DropdownMenuTrigger
-          disabled={busy !== null}
-          aria-busy={busy !== null}
-          aria-label={busy ? "Exporting…" : "Export"}
-          title={busy ? "Exporting…" : "Export"}
-          className="export-trigger inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink transition-colors duration-[140ms] ease-out hover:bg-hover data-[state=open]:bg-selected disabled:text-muted"
-        >
-          {busy ? <LoaderCircle className="size-4 motion-safe:animate-spin" strokeWidth={1.5} aria-hidden /> : <Download className="size-4" strokeWidth={1.5} aria-hidden />}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[14rem]">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger
+              disabled={busy !== null}
+              aria-busy={busy !== null}
+              aria-label={busy ? "Exporting…" : "Export"}
+              className="export-trigger inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-control text-meta text-muted transition-colors duration-[140ms] ease-out hover:bg-hover hover:text-ink data-[state=open]:bg-selected data-[state=open]:text-ink disabled:text-muted max-sm:size-11 max-sm:text-ink sm:-mx-2 sm:px-2"
+            >
+              {busy ? <LoaderCircle className="size-4 shrink-0 motion-safe:animate-spin" strokeWidth={1.5} aria-hidden /> : <Download className="size-4 shrink-0" strokeWidth={1.5} aria-hidden />}
+              <span className="max-sm:hidden" aria-hidden>
+                {busy ? "Exporting…" : "Export"}
+              </span>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" align="start">
+            Export this board: copy it as Markdown, or download it as .md or .zip
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="start" className="min-w-[14rem]">
           {exportActions.map(({ action, label }) => {
             const Icon = icons[action];
             return (
@@ -137,19 +170,9 @@ export function ExportMenu({ board }: { board: string }) {
           })}
         </DropdownMenuContent>
       </DropdownMenu>
-      {/* The status floats under the button so a message never changes the row's height. */}
-      <span
-        role="status"
-        aria-live="polite"
-        className={
-          message
-            ? cn(
-                "absolute top-full right-0 z-20 w-max max-w-[min(20rem,calc(100vw-1.5rem))] rounded-control border border-rule bg-surface px-3 py-2 text-meta shadow-float animate-fade-in",
-                message.error ? "export-error" : "export-toast text-muted",
-              )
-            : "sr-only"
-        }
-      >
+      <ExportNotice message={message} className="max-lg:hidden" />
+      {/* Announced here; shown by ExportNotice. */}
+      <span role="status" aria-live="polite" className="sr-only">
         {message?.text}
       </span>
     </div>

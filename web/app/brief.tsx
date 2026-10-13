@@ -101,7 +101,7 @@ function summary(text: string, format: Format): string {
  * marks dropped, a link or image as its words, escapes undone. An underscore or star
  * inside a word (snake_case, 2*3) stays, as Markdown keeps it.
  */
-function plainInline(md: string): string {
+export function plainInline(md: string): string {
   return md
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")

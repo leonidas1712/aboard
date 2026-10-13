@@ -72,15 +72,27 @@ keys while no text field has focus:
 | --- | --- |
 | `1` to `4` | Answer with that option. |
 | `E` | Let the agent go ahead with what it proposed (`--going-with` asks). |
-| `R` | Write your own answer. `Ctrl+Enter` (`⌘+Enter` on a Mac) sends it; `Esc` leaves the box. |
-| `J` or `K` | Move to the next or previous ask. The arrow keys do the same. |
+| `R` | Write your own answer, or a reply to a message in **Replies waiting**. `Ctrl+Enter` (`⌘+Enter` on a Mac) sends it; `Esc` leaves the box. |
+| `J` or `K` | Move to the next or previous ask or reply waiting. The arrow keys do the same. |
 | `L` | Snooze the ask for an hour, on this browser only. |
-| `Enter` | Open the ask on its board. |
+| `Enter` | Open the ask or message on its board. |
 | `[` or `]` | Move to the previous or next item in the board list. |
 | `Ctrl+K` (`⌘K` on a Mac) | Find a board, a place such as Settings, or an action, and go there or do it. Works in the answer box too. |
 | `?` | Show the keys. |
 
-After an answer, the next ask opens in its place. **Worth a look** lists things that need
+After an answer, the next ask opens in its place.
+
+Below the asks, **Replies waiting** lists messages sent to you with
+`aboard say --expect-reply` that you haven't replied to yet, from every board. Pick one,
+press `R` and write your reply in place: it is sent as a reply to that message, and the
+message leaves the list. A newer request from the same sender in the same thread takes
+the older one's place. `Enter` opens the message in its conversation on the board.
+
+An agent asks when it needs a decision it can record, often with options, and when a task
+waits on it; it uses `say --expect-reply` for anything a reply in words settles, such as
+a question about a file or a request to look at something.
+
+**Worth a look** lists things that need
 no answer but may need you: an agent idle for 30 minutes, a task blocked for three hours,
 or a task whose owner has had no session for 30 minutes.
 

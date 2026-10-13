@@ -96,11 +96,11 @@ async function openLink(page: Page, url: string): Promise<Response | null> {
 }
 
 // agentToken reads an agent's token from the isolated home's saved credentials, to act
-// as that agent's delivery daemon would.
-function agentToken(name: string): string {
+// as that agent's delivery daemon would. board picks among agents of the same name.
+function agentToken(name: string, board?: string): string {
   const found = execFileSync("find", [home, "-name", "credentials.json"], { encoding: "utf8" }).trim().split("\n")[0];
-  const creds = JSON.parse(readFileSync(found, "utf8")) as { agents: { name: string; token: string }[] };
-  const agent = creds.agents.find((a) => a.name === name);
+  const creds = JSON.parse(readFileSync(found, "utf8")) as { agents: { name: string; board: string; token: string }[] };
+  const agent = creds.agents.find((a) => a.name === name && (board === undefined || a.board === board));
   if (!agent) throw new Error(`no saved token for ${name}`);
   return agent.token;
 }
@@ -411,6 +411,66 @@ test("the board panel's sections start closed, keep what the person opens across
   await expect(panel.locator('[data-agent="writer"]')).toBeVisible();
 });
 
+test("an agent whose session reports a delivery warning shows it on its row, with the step that fixes it", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Warning check", "--json"));
+  aboard("join", pair.join.line);
+  const board: string = pair.board.name;
+  const report = async (body: Record<string, string>) => {
+    const resp = await fetch(`${base()}/v1/me/presence`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${agentToken("reviewer", board)}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(resp.status).toBe(200);
+  };
+  // Reported before the page opens: the members list carries it.
+  await report({ presence: "idle", delivery_warning: "codex_no_daemon" });
+  await openLink(page, JSON.parse(aboard("open", "--board", board, "--json")).url);
+  const panel = page.getByRole("complementary", { name: "Warning check" });
+  const warning = panel.locator('[data-agent="reviewer"] .delivery-warning');
+  await expect(warning).toContainText("Messages can't reach it on their own.");
+  await expect(warning).toContainText("Codex is running with --no-daemon. Restart Codex without it.");
+  await expect(panel.locator('[data-agent="writer"] .delivery-warning')).toHaveCount(0);
+
+  // A later report changes it live: under Orca, the step names Orca's setting. The page
+  // rereads the members on each new head; a reread the server answered before the report
+  // and that reaches the page after it must not bring the old warning back. The test
+  // holds one such answer until the report's live update has shown.
+  const orca = "set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc or run command codex, then restart Codex.";
+  let answered: () => void = () => {};
+  const read = new Promise<void>((done) => (answered = done));
+  let release: () => void = () => {};
+  const held = new Promise<void>((done) => (release = done));
+  await page.route(
+    `**/v1/boards/${board}/members`,
+    async (route) => {
+      const stale = await route.fetch();
+      answered();
+      await held;
+      await route.fulfill({ response: stale });
+    },
+    { times: 1 },
+  );
+  const posted = await fetch(`${base()}/v1/boards/${board}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${agentToken("writer", board)}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ body: "A new head, so the page rereads the members." }),
+  });
+  expect(posted.status).toBe(201);
+  await read;
+  await report({ presence: "idle", delivery_warning: "codex_no_daemon_orca" });
+  await expect(warning).toContainText(orca);
+  release();
+  // The reread is done once the message it brought shows.
+  await expect(page.getByText("A new head, so the page rereads the members.")).toBeVisible();
+  await expect(warning).toContainText(orca);
+  await page.unroute(`**/v1/boards/${board}/members`);
+
+  // A report without a warning clears it.
+  await report({ presence: "idle" });
+  await expect(warning).toHaveCount(0);
+});
+
 test("the board panel shows the board's details and adds an agent with a prompt the CLI can join with", async ({ page, context }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Invite check", "--json"));
   const board: string = pair.board.name;
@@ -424,7 +484,8 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   const details = panel.locator(".board-facts");
   await expect(details).toBeInViewport();
   await expect(details).toContainText(board);
-  await expect(details).toContainText(pair.board.id);
+  // The board's raw id isn't a fact a person needs: commands name the board.
+  await expect(details).not.toContainText(pair.board.id);
   await expect(details).toContainText(new URL(open.url).origin);
   await expect(details).toContainText("Starter policy");
 
@@ -433,7 +494,7 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   await expect(details.locator(".copy-status")).toContainText("Copied");
   const facts = await page.evaluate(() => navigator.clipboard.readText());
   expect(facts).toContain(`Board: Invite check (${board})`);
-  expect(facts).toContain(`ID: ${pair.board.id}`);
+  expect(facts).not.toContain(pair.board.id);
   expect(facts).toContain("Agents: 1\nPeople: 1");
 
   // Add an agent, at the top of the agents section, makes a code for the member role and
@@ -820,9 +881,11 @@ test("a browser without a session signs in with a pasted key it never keeps, and
   expect(cookies[0].httpOnly).toBe(true);
   expect(cookies[0].value).not.toContain(secret);
 
-  // The menu says which key the session came from, and signs this browser out.
+  // The menu says until when this browser is signed in, without the key's name, and
+  // signs this browser out.
   await page.getByRole("button", { name: /^You are alex/ }).click();
-  await expect(page.locator(".session-key")).toHaveText("web-browser");
+  await expect(page.locator(".account-menu .signed-in-until")).toHaveText(/^until /);
+  await expect(page.locator(".account-menu")).not.toContainText("web-browser");
   await page.getByRole("menuitem", { name: "Sign out of this browser" }).click();
   await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
   await expect(page.locator(".signed-out")).toContainText("You signed out of this browser");
@@ -1362,9 +1425,11 @@ test("each agent shows its delivery mode and its mid-turn setting, and its perso
   await page.getByRole("menuitemradio", { name: /^off/ }).click();
   await expect(writer.getByRole("button", { name: "Delivery mode of writer: off. Change it" })).toBeVisible();
 
-  // The server holds it: the CLI reads the same mode, and the record says who changed it.
-  expect(JSON.parse(aboard("delivery", "--as", "writer", "--board", board, "--json")).mode).toBe("off");
+  // The server holds it: the record says who changed it, and then the CLI reads the same
+  // mode. The menu shows the change at once, before the server has answered, so the record
+  // comes first.
   await expect(page.locator(".board-event", { hasText: "alex set writer's delivery mode to off" })).toBeVisible();
+  expect(JSON.parse(aboard("delivery", "--as", "writer", "--board", board, "--json")).mode).toBe("off");
 
   // A change made elsewhere shows live.
   aboard("delivery", "humans", "--as", "writer", "--board", board);
@@ -1379,26 +1444,26 @@ test("each agent shows its delivery mode and its mid-turn setting, and its perso
   expect(refused.status).toBe(403);
   expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("agent_owner_required");
 
-  // The mid-turn setting (D221): the person's default is my-agents, changed from the account menu
-  // and held by the server; the agent follows it, carries an override, and kim's agent has no control.
+  // The mid-turn setting (D221): the person's default is my-agents, changed in Settings, under
+  // Agents, and held by the server; the agent follows it, carries an override, and kim's agent has no control.
   const policy = async () =>
     (await (await fetch(`http://${env.ABOARD_LOCAL_ADDR}/v1/me/midturn`, { headers: { Authorization: `Bearer ${owner}` } })).json()) as {
       policy: string;
       overrides?: { policy: string }[];
     };
   expect((await policy()).policy).toBe("my-agents");
-  for (const theme of ["Dark", "Light"]) {
-    await page.getByRole("button", { name: /^You are alex/ }).click();
-    await page.getByRole("menuitemradio", { name: theme }).click();
-    await page.getByRole("button", { name: /^You are alex/ }).click();
-    const menu = page.locator(".account-menu");
-    await expect(menu).toContainText("An urgent message from you reaches your agent at its next step, without waiting for its turn to end.");
-    await expect(menu.getByRole("menuitemradio", { name: "You and your agents", exact: true })).toHaveAttribute("aria-checked", "true");
-    await page.keyboard.press("Escape");
-  }
+  const boardAddress = page.url();
   await page.getByRole("button", { name: /^You are alex/ }).click();
-  await page.getByRole("menuitemradio", { name: "Only you", exact: true }).click();
+  await expect(page.locator(".account-menu")).not.toContainText("Urgent messages while an agent works");
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  await page.getByRole("tab", { name: "Agents" }).click();
+  await expect(page).toHaveURL(/[?&]tab=agents\b/);
+  const midturnSetting = page.locator(".midturn-setting");
+  await expect(midturnSetting).toContainText("An urgent message from you reaches your agent at its next step, without waiting for its turn to end.");
+  await expect(midturnSetting.getByRole("radio", { name: "You and your agents", exact: true })).toBeChecked();
+  await midturnSetting.getByRole("radio", { name: "Only you", exact: true }).check();
   await expect.poll(async () => (await policy()).policy).toBe("owner-only");
+  await page.goto(boardAddress);
 
   await details(writer);
   const follows = /^Mid-turn messages for writer: only you, from your setting/;
@@ -2262,12 +2327,21 @@ test("Mark all as read moves the person's read position to the newest message, a
   expect(unreadOn(board)).toBe(1);
 
   // Another board offers it in the board list, on hover. A message posted while the
-  // request is on its way is newer than the click, and stays unread.
+  // request is on its way is newer than the click, and stays unread. The count can come
+  // from the stream before a reread of the list brings the board's head, so the list is
+  // held here: marking reads everything the count stood for, not only what the list knew.
   const other = await newBoard("Other catch up");
   const pat = await person("pat");
   await api(ownerKey(), "POST", `/v1/boards/${other.name}/people`, { handle: "pat" });
   const otherLink = nav.locator(`a[href="/?board=${other.name}"]`);
   await expect(otherLink).toBeVisible();
+  let listed: () => void = () => {};
+  const stale = new Promise<void>((done) => (listed = done));
+  const isList = (url: URL) => url.pathname === "/v1/boards";
+  await page.route(isList, async (route: Route) => {
+    await stale;
+    await route.continue();
+  });
   for (const body of ["One on the other board.", "Two on the other board."]) {
     await api(pat, "POST", `/v1/boards/${other.name}/messages`, { body, to: ["all"] });
   }
@@ -2290,6 +2364,12 @@ test("Mark all as read moves the person's read position to the newest message, a
   release();
   await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("1");
   await expect.poll(() => unreadOn(other.name)).toBe(1);
+  // The held rereads of the list, answered now, leave it at the newest position.
+  const reread = page.waitForResponse((r) => isList(new URL(r.url())));
+  listed();
+  await reread;
+  await page.unroute(isList);
+  await expect(otherLink.locator(".unread-count [aria-hidden]")).toHaveText("1");
 });
 
 test("a board owner removes another person's agent from the panel, and Show removed lists it", async ({ page }) => {
@@ -2593,7 +2673,10 @@ test("People shows shared boards and terminal-only server administration", async
   page.on("request", (r) => { if (r.url().includes("/v1/boards/")) boardReads.push(r.url()); });
   await openLink(page, JSON.parse(aboard("open", "--json")).url);
   await page.getByRole("button", { name: /^You are alex/ }).click();
-  await page.getByRole("menuitem", { name: "People", exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "People", exact: true })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  await page.getByRole("tab", { name: "People" }).click();
+  await expect(page).toHaveURL(/[?&]view=settings&tab=people\b/);
   await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: "@people-check" });
   await expect(row).toContainText("Member");
@@ -2617,24 +2700,26 @@ test("People shows shared boards and terminal-only server administration", async
   await expect(page.getByRole("alertdialog")).toContainText(`aboard invite --server ${base()}`);
   await page.getByRole("button", { name: "Close", exact: true }).click();
   expect(writes).toBe(0);
-  // Rename yourself: a handle held by someone else is refused in the server's words; a free one updates the page.
-  await page.getByRole("button", { name: /^You are alex/ }).click();
-  await page.getByRole("menuitem", { name: "Rename yourself" }).click();
-  const rename = page.getByRole("alertdialog");
-  await rename.getByLabel("New handle").fill("people-check");
-  await rename.getByRole("button", { name: "Rename", exact: true }).click();
-  await expect(rename.getByRole("alert")).toContainText(/taken|already/i);
-  await rename.getByLabel("New handle").fill("Bad Name");
-  await rename.getByRole("button", { name: "Rename", exact: true }).click();
-  await expect(rename.getByRole("alert")).toContainText("lowercase letters, digits and hyphens");
-  await rename.getByLabel("New handle").fill("alex-renamed");
-  await rename.getByRole("button", { name: "Rename", exact: true }).click();
+  // Rename yourself, in Settings under Profile: a handle held by someone else is refused in
+  // the server's words; a free one updates the page.
+  await page.getByRole("tab", { name: "Profile" }).click();
+  const profile = page.locator(".profile");
+  await profile.getByRole("button", { name: "Rename yourself" }).click();
+  await profile.getByLabel("New handle").fill("people-check");
+  await profile.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(profile.getByRole("alert")).toContainText(/taken|already/i);
+  await profile.getByLabel("New handle").fill("Bad Name");
+  await profile.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(profile.getByRole("alert")).toContainText("lowercase letters, digits and hyphens");
+  await profile.getByLabel("New handle").fill("alex-renamed");
+  await profile.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(profile.locator(".handle")).toHaveText("alex-renamed");
   await expect(page.getByRole("button", { name: /^You are alex-renamed/ })).toBeVisible();
-  await page.getByRole("button", { name: /^You are alex-renamed/ }).click();
-  await page.getByRole("menuitem", { name: "Rename yourself" }).click();
-  await page.getByRole("alertdialog").getByLabel("New handle").fill("alex");
-  await page.getByRole("alertdialog").getByRole("button", { name: "Rename", exact: true }).click();
+  await profile.getByRole("button", { name: "Rename yourself" }).click();
+  await profile.getByLabel("New handle").fill("alex");
+  await profile.getByRole("button", { name: "Rename", exact: true }).click();
   await expect(page.getByRole("button", { name: /^You are alex$|^You are alex\./ })).toBeVisible();
+  await page.getByRole("tab", { name: "People" }).click();
   await captureAdmin(page, "people");
   await page.route(`**/v1/boards/${b.name}/members`, (route) => route.fulfill({ status: 503, json: { error: { code: "server_unreachable", message: "Unavailable", hint: "Try again." } } }));
   await page.reload();
@@ -2649,8 +2734,9 @@ test("a server member sees People without admin commands or owner controls", asy
   await page.getByLabel("Access key").fill(key);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("button", { name: /^You are people-member/ })).toBeVisible();
-  await page.getByRole("button", { name: /^You are people-member/ }).click();
-  await page.getByRole("menuitem", { name: "People", exact: true }).click();
+  // People's old address opens Settings at People.
+  await page.goto(`${base()}/?view=people`);
+  await expect(page.getByRole("tab", { name: "People" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("heading", { name: "People", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /Invite command|Role command|Remove command/ })).toHaveCount(0);
   await page.goto(`${base()}/?board=${b.name}`);
@@ -2689,7 +2775,8 @@ async function captureAdmin(page: Page, surface: string) {
     await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
     for (const [device, width] of [["desktop", 1440], ["mobile", 390]] as const) {
       await page.setViewportSize({ width, height: 900 });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      // Settings redraws for a phone once the page sees the new width.
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: join(directory, `${surface}-${theme}-${device}.png`), fullPage: surface === "people", animations: "disabled" });
     }
   }

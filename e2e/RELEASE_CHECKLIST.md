@@ -64,6 +64,15 @@ trusted in each harness.
 - [ ] `aboard doctor` shows every check green on this machine.
 - [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. **Automated**, `TestHumansModeWakesOnlyForPeople`. Running `aboard delivery off` from inside that session refuses with `human_command_in_session`: covered by e2e.
 
+## Use cases ([docs/use-cases/](../docs/use-cases))
+
+The commands each page shows its agents running, with the output it shows, are covered
+by e2e with stand-in Claude Code and Codex sessions: `TestGuideUseCaseWriterAndReviewer`,
+`TestGuideUseCaseCoordinator` and `TestGuideUseCaseClaudeCodeAndCodex`
+(`e2e/usecases_guide_test.go`).
+
+- [ ] With real sessions set up by `aboard init --yes --allow-commands`, each page's prompts, pasted in order, lead the agents to the commands the page shows: two Claude Code sessions pair as writer and reviewer and go back and forth until "approve"; a coordinator opens tasks that a Claude Code and a Codex agent take and finish; Claude Code sends a diff to Codex, which replies with a review. A question asked by an agent waits in the Inbox and the answer wakes it.
+
 ## Start a board with agents ([docs/swarm.mdx](../docs/swarm.mdx))
 
 `aboard swarm up`, `ps` and `down` through tmux, headless and the herdr launcher, the
@@ -238,7 +247,7 @@ Codex sessions:
 - [ ] The same in a Codex session, restarting with `codex resume <id>` after approving the hooks.
 - [ ] Backup for an agent that can't run aboard: in a Codex session with approvals off (`codex --ask-for-approval never`) on a machine with no aboard, the pasted prompt makes the agent stop at the sandbox error, with no retries and no `sudo`, and give its person `curl -fsSL https://comeaboard.dev/install | sh` and `aboard init --harness codex --allow-commands`. After running them in a terminal, restarting Codex and saying "Continue Aboard setup", setup finishes. (`init --allow-commands` itself: `e2e/codexsandbox_test.go`.)
 - [ ] Setup's hello wakes the inviting agent, which replies with no one typing; the inviting agent is also told the colleague arrived, and the inviter's Inbox shows the arrival. "Continue Aboard setup" then reports every step complete. With the inviter's agents offline, setup finishes with delivery waiting for a reply.
-- [ ] **Rename yourself** in the account menu, and "rename me to <new>" told to an agent (`aboard people rename`), change the person's handle; the old handle stays reserved.
+- [ ] **Rename yourself** in Settings, under Profile, and "rename me to <new>" told to an agent (`aboard people rename`), change the person's handle; the old handle stays reserved.
 - [ ] `aboard board add @<them> --board <board>` shows the board in their Inbox with a prompt to join; pasted into a session of theirs, the agent runs `aboard join --board <board>`. None of their agents is woken by the add.
 - [ ] Auto mode in **Settings**: the switch turns on adding people only; turning on **Invite people to the server** shows the warning that outsiders could read every open board, and **Allow always** on an invite card shows the same. With it on, the inviter's agent invites with no card to allow, and the invite shows in the Inbox with **Revoke the invite**, which revokes it.
 - [ ] Asked "make <them> an admin", an agent gives its person `aboard people role @<them> admin` to run, and changes nothing.

@@ -277,6 +277,10 @@ withdraw with the reason, or have the asked member answer the original ask.
 
 ## Talk
 
+Use `aboard ask` for decisions and `aboard say` for information. An ask records the
+question, choices and answer together in the board's record. A message with
+`--expect-reply` requests a reply; it does not record a decision as an ask does.
+
 - `aboard say "text"` posts to everyone on the board. Address someone with
   `--to @name`, several with `--to @codex,@omp`, or a role with `--to role:reviewer`.
   Address a message to those who need it. Whether it wakes an agent depends on that

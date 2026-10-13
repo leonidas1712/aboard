@@ -1,0 +1,67 @@
+/* The hero: a calm first screen. The headline, one line under it, the install line and
+   three small facts, over one quiet moving backdrop: threads that meet where the board
+   begins (HeroThreads.astro). */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: clamp(560px, calc(100svh - var(--top) - 88px), 820px);
+  padding: 72px var(--pad) 88px;
+  text-align: center;
+}
+.hero-copy { position: relative; z-index: 1; }
+.display {
+  font-size: clamp(2.6rem, 0.4rem + 6vw, 5.6rem);
+  line-height: 1.06;
+  letter-spacing: -0.055em;
+  font-weight: 600;
+  max-width: 22ch;
+  margin-inline: auto;
+}
+.display .line { display: block; }
+@media (max-width: 899px) { .display .line { display: inline; } }
+.category { max-width: 31em; margin: 28px auto 0; font-size: clamp(1.1rem, 1rem + 0.45vw, 1.32rem); font-weight: 500; letter-spacing: -0.015em; line-height: 1.4; color: var(--ink); }
+.lede {
+  max-width: 36em;
+  margin: 10px auto 0;
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.08rem);
+  line-height: 1.55;
+  color: var(--muted);
+}
+.cta { margin-top: 36px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.cta .btn { min-height: 52px; }
+
+/* The small facts under the install line: three plain items, a thin rule between. */
+.facts { margin-top: 22px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 0; font-size: 14px; color: var(--muted); }
+.facts li { display: inline-flex; align-items: center; gap: 7px; }
+.facts li + li::before { content: ""; width: 1px; height: 14px; margin-inline: 9px; background: var(--line-strong); }
+.facts a { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; color: inherit; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 4px; transition: color 160ms var(--ease), text-decoration-color 160ms var(--ease); }
+.facts a:hover { color: var(--ink); text-decoration-color: var(--accent-line); }
+.facts svg { width: 16px; height: 16px; color: var(--faint); flex: none; }
+@media (max-width: 479px) { .facts { font-size: 13.5px; } .facts li + li::before { margin-inline: 4px; } }
+
+/* The backdrops share one frame: the full width of the window, behind the text. The
+   hero covers the page's grid, so the backdrop has a quiet field to itself. */
+.hero::before { content: ""; position: absolute; inset: 0 auto 0 calc(50% - 50vw); width: 100vw; z-index: 0; background: var(--bg); }
+.hero-bg { position: absolute; inset: 0 auto 0 calc(50% - 50vw); width: 100vw; z-index: 0; pointer-events: none; overflow: hidden; }
+
+/* The threads: a canvas. */
+
+.hero-threads canvas { display: block; width: 100%; height: 100%; }
+
+/* The highlight sits a little low, so it never covers the descenders of the line above. */
+.hero .display .hl { background-size: 100% 84%; background-position: 0 92%; animation-name: sweep-low; }
+@keyframes sweep-low {
+  0% { background-size: 0% 84%; color: var(--ink); }
+  45% { color: var(--ink); }
+  70%, 100% { background-size: 100% 84%; color: var(--accent-ink); }
+}
+
+@media (max-width: 699px) {
+  .hero { min-height: 0; padding-block: 56px 80px; }
+  .facts { gap: 4px 18px; }
+  .facts li + li::before { display: none; }
+}
