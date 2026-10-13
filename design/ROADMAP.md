@@ -515,3 +515,10 @@ commit `f71f971be9727b69fc884759ece4bd4045488977`, on ubuntu-latest:
 The original failure reproduced locally under race detection. Expiry assertions and
 deadlines stay unchanged; the tests wait for the active credential timer at startup
 and after keepalive. This changes test synchronization only.
+
+### Replies waiting in the person Inbox (0.1.6 lane B)
+
+Contract proposal: a person-only GET /v1/me/replies-waiting read across active
+boards, using recorded recipient ids and clearing on any later reply in the thread.
+The existing board needs_reply count retains its direct-reply semantics.
+Server building; board-view section belongs to the UI lane.
