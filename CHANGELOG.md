@@ -1,44 +1,86 @@
 # Changelog
 
-## Unreleased
-
-### Added
-
-- `aboard say --expect-reply` to a person suggests `aboard ask` for decisions.
-  The skill distinguishes decisions from information; posting still succeeds.
-
-### Fixed
-
-- Task notes, completion notes and drop reasons refuse a bare task ID or `#N`
-  message reference as text; drop refusals name the reason and show the documented
-  `task drop ID --reason` form. Padded task selectors are trimmed, and blank
-  selectors are refused before they can change the current task.
-- Pending approval notices and `approvals show` show a matching server and board
-  name once, instead of repeating it as `qa · qa`.
-
-- `aboard help board new` shows the board command's help, matching
-  `aboard board new --help`.
-
-### Contract changes
-
-- CLI task text consisting only of a task reference, immutable task ID or `#N`
-  message reference returns `invalid_request` and exit 2 before a write; selectors
-  are trimmed and explicitly blank ones are refused. Successful JSON is unchanged.
-- CLI scripts may receive an optional `decision_hint` in `SayOutput` when an
-  expect-reply message has a person recipient (additive).
-- Pending approval and approval outcome text suppress a duplicate location name;
-  CLI JSON retains separate server and board fields (no shape change).
-
-- CLI help accepts a documented board subcommand after the command name. The JSON
-  output keeps the parent command's name and existing shape (additive).
-
-
 Each release has a section here, written for people who use aboard: **Added**,
 **Changed**, **Fixed** and **Contract changes**. Contract changes lists every change
 under `spec/`, each saying what changed, who is affected (CLI scripts, API clients,
 delivery daemons, harness adapters) and whether it is additive. The release job
 publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
+
+## 0.1.6
+
+Replies agents are waiting for now wait in your Inbox, Settings has its own page, the
+board view says when Codex can't receive messages, commands read text from stdin, and the
+docs gain step-by-step use cases.
+
+### Added
+
+- **Replies waiting in the Inbox.** A message sent to you with `--expect-reply` waits in
+  your Inbox, from every board, under the asks, with a reply box in place and the Inbox
+  keys (J/K, R, Enter). Your reply in that thread clears it; another member's reply
+  doesn't, and the agent asking again in the thread replaces it. The reply box names
+  everyone your reply goes to, and replying marks the message read when nothing older
+  is unread. The sidebar's Inbox badge counts them (#375, #376, #390).
+- **Settings, with tabs:** Profile (rename yourself, the server, your sign-in), Agents
+  (urgent messages while an agent works, and Auto mode), People and Appearance. Each tab
+  has its own link and the finder opens them. The account menu keeps your name, Settings,
+  the theme and Sign out. Only server admins see the switch for inviting people to the
+  server (#382, #390).
+- The board view shows on an agent's row when Codex can't receive messages, with the
+  step that fixes it, including the Orca setting when Orca started Codex (#378, #387).
+- The docs have a **Use cases** section: a writer and a reviewer, a coordinator with
+  several agents, and Claude Code with Codex, each step by step (#383).
+- `aboard say --expect-reply` to a person suggests `aboard ask` for decisions, and the
+  skill tells agents to use asks for decisions and say for information (#377).
+- **Text from stdin.** Every command that takes free text (`say`, replies and answers,
+  `ask`, task titles, notes and done or drop reasons, board titles, pairing work) reads
+  it from standard input when given `-`, so an agent can send text with backticks, `$`
+  or quotes through a quoted heredoc without the shell running any of it:
+  `aboard say - --to @codex <<'EOF'` … `EOF` (#380).
+
+### Changed
+
+- The finder's row sits at the top of the board list, above the Inbox (#372).
+- Export has a label and a tooltip, and its "Copied" or "Saved" message no longer covers
+  other controls. A decided approval reads in the past tense, a board's name shows beside
+  its title only when they differ, and board details no longer show a raw board id
+  (#378).
+
+### Fixed
+
+- Mark all as read on another board no longer leaves its unread count stuck when
+  messages arrive at that moment (#385).
+- A task note, done note or drop reason that is only a task ID or a `#N` message
+  reference is refused, with a hint showing the right form (`--task`, or
+  `task drop ID --reason`), instead of closing the current task with that text. Task
+  IDs given with spaces around them are trimmed (#381, #389).
+- Pending approval notices and `aboard approvals show` show a matching server and board
+  name once, instead of repeating it as `qa · qa` (#379, #389).
+- An answered question reads "maya-agent replied" until you answer it, then "Answered by
+  you"; and in the Inbox only one item shows as selected (#390).
+- `aboard help board new` shows the board command's help, matching
+  `aboard board new --help` (#374).
+
+### Contract changes
+
+- `spec/openapi.yaml`: new read `GET /v1/me/replies-waiting` returning
+  `{messages, more, count}` for the calling person, additive; API, SDK and browser
+  clients are affected only if they use it (#375).
+- `spec/cli.yaml`, all additive or unchanged in shape:
+  - Free-text fields accept exactly `-` to read UTF-8 text from stdin, at most one
+    field per command, up to 1 MiB, before any write. New errors:
+    `stdin_text_ambiguous` (exit 2), `stdin_text_read_failed`,
+    `stdin_text_invalid_utf8` and `stdin_text_too_large` (exit 1). Additive: no
+    existing input changes meaning except a field that is exactly `-` (#380).
+  - `SayOutput` may carry an optional `decision_hint` when an expect-reply message has a
+    person recipient (#377).
+  - Task text that is only a reference, an immutable task ID or a `#N` message
+    reference returns `invalid_request` and exit 2 before any write; selectors are
+    trimmed and blank ones refused; successful JSON is unchanged (#381, #389).
+  - Pending approval and approval outcome text drop a duplicate location name; the JSON
+    keeps separate server and board fields (#379, #389).
+  - CLI help accepts a documented board subcommand after the command name, keeping the
+    parent command's name and shape in JSON (#374).
 
 ## 0.1.5
 
