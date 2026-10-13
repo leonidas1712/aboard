@@ -72,7 +72,7 @@ func helpTopics() []commandHelp {
 		// Lists are never null in --json output.
 		h := &topics[i]
 		switch h.Name {
-		case "say", "ask", "task", "pair", "board", "pairing":
+		case "say", "ask", "task", "pair", "board", "pairing", "invite":
 			h.Description += "\n\nUse - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation."
 		}
 		switch h.Name {

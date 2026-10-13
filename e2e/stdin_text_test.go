@@ -165,3 +165,32 @@ func TestBoardTitlesReadFromStdinAndBadTextDoesNotWrite(t *testing.T) {
 		t.Fatal("bad stdin wrote to the board")
 	}
 }
+
+func TestInvitePairingWorkReadsFromStdinAndStillNeedsApproval(t *testing.T) {
+	t.Parallel()
+	tm := newTeam(t)
+	board := tm.newBoard(tm.admin, "private")
+	s := tm.admin.claudeSession("stdin-invite-work")
+	s.run("join", "--board", board, "--server", tm.url(), "--json")
+	text := "Review `parse($input)` together\nKeep the next steps written down."
+	r := tm.admin.exec(s.vars, text, "invite", "--person", "--board", board, "--server", tm.url(), "--pairing", "-", "--json")
+	if r.code != 0 {
+		t.Fatal(r)
+	}
+	held := r.json(t)
+	if field(t, held, "approval.state") != "pending" {
+		t.Fatalf("stdin bypassed invite approval: %v", held)
+	}
+	id := field(t, held, "approval.id").(string)
+	tm.admin.run("approvals", "allow", id, "--server", tm.url(), "--json")
+	collected := s.run("approvals", "show", id, "--board", board, "--server", tm.url(), "--json").json(t)
+	matchesCLISpec(t, "ApprovalOutcomeOutput", collected)
+	pairingID, ok := collected["pairing_request_id"].(string)
+	if !ok {
+		t.Fatalf("no pairing outcome after owner approval: %v", collected)
+	}
+	status, request := tm.call("GET", "/v1/pairing-requests/"+pairingID, tm.key(tm.admin), nil)
+	if status != 200 || field(t, request, "work") != text {
+		t.Fatalf("pairing work changed: %d %v", status, request)
+	}
+}

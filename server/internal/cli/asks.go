@@ -85,6 +85,9 @@ func runAsk(ctx context.Context, a *app, args []string) error {
 	if err := a.textFromStdin(fields...); err != nil {
 		return err
 	}
+	if *at != "" && *going == "" {
+		return usageError("--at needs --going-with.", askUsage)
+	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	var t target
