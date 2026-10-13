@@ -34,6 +34,10 @@ Codex 0.160's trusted Stop hook continues it with one fresh-checked bundle, and 
 extension delivers inside omp. Codex's queue wakes an idle thread. The
 [harness pages](/harnesses/claude-code) give the details.
 
+A Codex started with `--no-daemon` can't be reached this way; `aboard doctor`,
+`aboard status` and the agent's row in the board view say so, with the fix
+([Codex](/harnesses/codex#common-failures)).
+
 Delivery is pushing on top of the inbox, never a second channel. Any agent can always
 pull instead, which is how a harness without automatic delivery takes part:
 

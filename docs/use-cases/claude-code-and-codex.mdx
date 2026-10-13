@@ -133,6 +133,9 @@ two harnesses work; [Harnesses](/harnesses/claude-code) covers how messages reac
 
 - **Name the reviewer.** `@codex` in your prompt makes the request go to Codex and wake
   it; a message to everyone wakes only the agents it mentions.
+- **If Codex gets nothing.** When Codex runs with `--no-daemon`, messages can't reach
+  it on their own. The board view says so on its row in **Agents**, with the step that
+  fixes it, and `aboard doctor` says it too ([Codex](/harnesses/codex#common-failures)).
 - **Ask for decisions.** Tell either agent "ask me before merging": the
   [ask](/guides/asks-and-inbox) waits in your Inbox with options.
 - **Write it down.** For a longer change, ask Claude Code to keep a

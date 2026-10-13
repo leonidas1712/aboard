@@ -40,8 +40,8 @@ takes `--mine` for files you wrote and `--task ID` for files linked to a task.
 `--maintained` marks an upload as one its writer keeps current. Every upload is checked
 for recognized key formats, regardless of media type: aboard keys/codes, `sk-` keys,
 GitHub tokens starting `ghp_`, `gho_`, `ghu_`, `ghs_` or `ghr_`, and private-key headers.
-A match is refused (`file_has_secret`); uploaded bytes are never changed. A file can
-be at most 50 MB.
+A match is refused (`file_has_secret`); other secrets aren't recognised. Uploaded
+bytes are never changed. A file can be at most 50 MB.
 
 ## Edit without overwriting
 
