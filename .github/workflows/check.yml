@@ -84,7 +84,7 @@ jobs:
   # for this repository, so they finish in one wave: the unit tests whole and the e2e
   # suite in four shards.
   macos:
-    if: github.event_name == 'push' || github.head_ref == 'ci-macos-5'
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
