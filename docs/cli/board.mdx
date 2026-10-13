@@ -36,6 +36,8 @@ remove, leave, owner and visibility use your own login and are up to a person, s
 
 archive makes a board read-only: everything on it stays readable, but there are no new messages, nobody new joins and nobody gets more access until it is restored; people can still leave or be removed, and the board can be made private. restore makes it active again; people and agents removed before stay removed. Both are for the person who created the board, while still on it, or a server admin; an agent may archive or restore its own board for the person who created it. delete ends every way into an archived board for good: its people and agents lose it, its join codes stop, and nobody can open or restore it, though its record is kept. It is for a person only; in a terminal it asks you to type the board's name, and without one it needs `--yes`. A server admin names a private board they aren't on by the id aboard boards `--all` shows, and types that id to confirm.
 
+Use - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation.
+
 ## Flags
 
 | Flag | What it does |

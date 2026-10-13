@@ -13,6 +13,8 @@ aboard ask --open [--as AGENT] [--board NAME] [--server NAME|URL] [--json]
 
 With no @name, an agent asks its person. A person names who should answer. Extra arguments are up to four options. Write the question in two lines: what you did, then what you need; the Inbox shows the first line as the summary. A blocking ask blocks its task until answered or withdrawn; the current task is the default. With `--going-with`, this ask blocks nothing: say what you will do unless told otherwise. An answer is recorded as a decision and wakes the asker. Withdraw only your own asks; `--open` shows asks waiting for answers. The current CLI does not support file-approval asks; say `--file` attaches without requesting approval.
 
+Use - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation.
+
 ## Flags
 
 | Flag | What it does |
