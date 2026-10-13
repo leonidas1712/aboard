@@ -59,6 +59,11 @@ func runPairing(ctx context.Context, a *app, args []string) error {
 	if (action == "accept" || action == "select") && (*as != "" || *board != "") {
 		return usageError("Endpoint selection uses this exact session and the request id; do not pass --as or --board.", pairingUsage)
 	}
+	if action == "request" {
+		if err := a.textFromStdin(&pos[1]); err != nil {
+			return err
+		}
+	}
 	a.agentServerFlag = *server
 	key, inSession, err := a.checkSession(ctx)
 	if err != nil {

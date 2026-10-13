@@ -60,6 +60,9 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		if len(pos) != 2 || *as != "" || *boardFlag != "" || *yes {
 			return usageError("Name the new board, and only that: aboard board new payments [--title T] [--private] [--server URL].", boardUsage)
 		}
+		if err := a.textFromStdin(newTitle); err != nil {
+			return err
+		}
 		return runBoardNew(ctx, a, pos[1], *newTitle, *private, *serverFlag)
 	}
 	if *newTitle != "" || *private {
@@ -155,7 +158,11 @@ func runBoard(ctx context.Context, a *app, args []string) error {
 		if len(pos) < 2 {
 			return usageError("Give the new title, or \"\" to remove it.", boardUsage)
 		}
-		return runBoardTitle(ctx, a, *boardFlag, *as, strings.Join(pos[1:], " "))
+		title := strings.Join(pos[1:], " ")
+		if err := a.textFromStdin(&title); err != nil {
+			return err
+		}
+		return runBoardTitle(ctx, a, *boardFlag, *as, title)
 	}
 	return usageError(fmt.Sprintf("%q is not a board command; use new, people, add, remove, leave, owner, visibility, policy, title, archive, restore or delete.", pos[0]), boardUsage)
 }

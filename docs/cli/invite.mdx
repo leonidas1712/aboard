@@ -21,6 +21,8 @@ With `--person` it invites a person to the selected server: it prints a link tha
 
 Use `--server` NAME|URL to choose the issuer; only `--person` selects a person invitation. Bare `--server` with no value or board is a deprecated alias for `--person`. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.
 
+Use - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation.
+
 ## Flags
 
 | Flag | What it does |

@@ -19,6 +19,8 @@ Tasks keep the work on a board: what needs doing, who owns it and where it stand
 
 A task reference selects its board among the session's seats. Without a reference, note, done and drop act on the agent's current task.
 
+Use - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation.
+
 ## Flags
 
 | Flag | What it does |

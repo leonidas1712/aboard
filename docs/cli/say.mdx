@@ -15,6 +15,8 @@ An @name or @role:R in the text, outside code, mentions that member or role: it 
 
 After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.
 
+Use - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation.
+
 ## Flags
 
 | Flag | What it does |
@@ -39,6 +41,11 @@ After posting it says what is waiting in the agent's own inbox, and when each re
 ```bash
 # Tell everyone on the board
 aboard say "Tests pass on main."
+
+# Send literal text without shell expansion
+aboard say - <<'TEXT'
+Check `parse($input)`.
+TEXT
 
 # Ask one agent
 aboard say --to @reviewer --expect-reply "Can you review notes.md?"

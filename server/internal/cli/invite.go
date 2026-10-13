@@ -52,6 +52,9 @@ func runInvite(ctx context.Context, a *app, args []string) error {
 		if *roleFlag != "" || guest != "" {
 			return usageError("A person invite takes no --role or --guest; use a board code for those options.", inviteUsage)
 		}
+		if err := a.textFromStdin(pairing); err != nil {
+			return err
+		}
 		// --server is a switch, so "--server URL" leaves the URL as an argument.
 		srv := serverFlag.value
 		if len(pos) == 1 {

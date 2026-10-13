@@ -11,6 +11,8 @@ aboard pairing [list]|request @person|me WORK|accept [ID] --here|select ID --her
 
 List requests addressed to you, propose work from your agent's board, or accept in the exact session that should take part. Ready means both real sessions have exchanged verified replies.
 
+Use - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation.
+
 ## Flags
 
 | Flag | What it does |
