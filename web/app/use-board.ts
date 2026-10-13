@@ -14,6 +14,7 @@ import {
   type Member,
   type Message,
   type MessagePage,
+  type PresenceEvent,
   type ReplyPage,
   ackBoard,
   follow,
@@ -91,6 +92,11 @@ function isReaction(e: BoardEvent): boolean {
 
 type Page = { messages: Message[]; prevBefore: number | null };
 
+/** withPresence is the member with the fields a presence event carries. */
+function withPresence(m: Member, p: PresenceEvent): Member {
+  return { ...m, presence: p.presence, presence_since: p.presence_since, ...(p.delivery !== undefined && { delivery: p.delivery }), ...(p.state !== undefined && { state: p.state }), ...(p.line !== undefined && { line: p.line }), delivery_warning: p.delivery_warning };
+}
+
 export function useBoard(name: string, filter: Filter): BoardState {
   const path = `/v1/boards/${encodeURIComponent(name)}`;
   const [board, setBoard] = useState<Board | null>(null);
@@ -135,6 +141,11 @@ export function useBoard(name: string, filter: Filter): BoardState {
   // Reads run one at a time, so a live update never races a first page. newest is the
   // seq of the newest message loaded, for the timeline and for the filter's matches;
   // chain is how far the record is verified.
+  // livePresence is each agent's newest presence event, numbered by tick. A members list
+  // asked for before an event arrived can answer after it with the older presence, so
+  // the list keeps the event's fields for any agent whose event came after the request.
+  const livePresence = useRef<Map<string, { tick: number; p: PresenceEvent }>>(new Map());
+  const tick = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const newest = useRef(0);
   const newestMatch = useRef(0);
@@ -214,6 +225,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   const catchUp = useCallback(async () => {
     const gen = progress.current.next();
+    const asked = ++tick.current;
     const [b, m, mine, who] = await Promise.all([
       get<Board>(path),
       get<{ members: Member[] }>(`${path}/members`),
@@ -224,7 +236,12 @@ export function useBoard(name: string, filter: Filter): BoardState {
     setBoard(progress.current.board(b, gen));
     boardId.current = b.id;
     seenIds.current.add(b.id);
-    setMembers(m.members);
+    setMembers(
+      m.members.map((x) => {
+        const seen = livePresence.current.get(x.name);
+        return seen && seen.tick > asked ? withPresence(x, seen.p) : x;
+      }),
+    );
     setMe(who);
     setToMe(new Set(mine.messages.map((x) => x.id)));
 
@@ -286,6 +303,7 @@ export function useBoard(name: string, filter: Filter): BoardState {
 
   useEffect(() => {
     live.current = true;
+    livePresence.current = new Map();
     run(async () => {
       // The head first: every reaction up to it is already on the messages read after it.
       const first = await get<Board>(path);
@@ -335,13 +353,8 @@ export function useBoard(name: string, filter: Filter): BoardState {
       },
       presence: (p) => {
         if (p.board !== name) return;
-        setMembers((ms) =>
-          ms?.map((m) =>
-            m.name === p.agent
-              ? { ...m, presence: p.presence, presence_since: p.presence_since, ...(p.delivery !== undefined && { delivery: p.delivery }), ...(p.state !== undefined && { state: p.state }), ...(p.line !== undefined && { line: p.line }), delivery_warning: p.delivery_warning }
-              : m,
-          ) ?? ms,
-        );
+        livePresence.current.set(p.agent, { tick: ++tick.current, p });
+        setMembers((ms) => ms?.map((m) => (m.name === p.agent ? withPresence(m, p) : m)) ?? ms);
       },
       unavailable: (id) => {
         // Only a hint: read the list and, for this board, the board itself again, and
