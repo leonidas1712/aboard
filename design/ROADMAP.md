@@ -486,6 +486,10 @@ warning and Inbox integration are owned by the UI lane.
 
 ### Onboarding QA fixes (GEN-49)
 
+Docs-audit code text fixes: invite-edit help, omp init summary and upload secret
+error wording: in review (GEN-78); help/upload regressions failed first, detector
+unchanged and generated references updated.
+
 Pre-tag CLI fixes: approval outcome labels suppress matching names, drop reason
 refusals use the documented form, and task text/selector handling covers `#N` and
 padding: in review (GEN-77); acceptance regressions failed first.
