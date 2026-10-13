@@ -151,10 +151,14 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
     return ids;
   }, [known, s.toMe, repliesTo]);
 
+  // The person's own reply is the answer once there is one; until then, the first reply
+  // from someone other than the sender.
   const answer = useCallback(
-    (m: Message) => m.ask
-      ? (repliesTo.get(m.id) ?? []).find((r) => r.seq === m.ask!.answer_seq) ?? null
-      : (repliesTo.get(m.id) ?? []).find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null,
+    (m: Message) => {
+      const replies = repliesTo.get(m.id) ?? [];
+      if (m.ask) return replies.find((r) => r.seq === m.ask!.answer_seq) ?? null;
+      return replies.find((r) => r.sender === "self") ?? replies.find((r) => r.from.name !== m.from.name || r.from.kind !== m.from.kind) ?? null;
+    },
     [repliesTo],
   );
 

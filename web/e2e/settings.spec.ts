@@ -146,6 +146,30 @@ test("the account menu opens Settings, whose tabs have their own addresses and a
   await expect(page.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
 });
 
+test("inviting people to the server is offered only to a server admin", async ({ page, browser }) => {
+  await signIn(page, "settings-member");
+  await page.goto(`${base()}/?view=settings&tab=agents`);
+  await expect(page.getByRole("switch", { name: "Invite people to the server" })).toBeVisible();
+  // A plain member may let agents add people, but never invite them: the server refuses it.
+  const invite = JSON.parse(aboard("invite", "--server", "--json"));
+  const connected = await fetch(`${base()}/v1/connect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invite: new URL(invite.link).hash.slice(1), handle: "maya", key_name: "settings-member" }),
+  });
+  const maya = (await connected.json()) as { key: { token: string } };
+  const context = await browser.newContext();
+  const hers = await context.newPage();
+  await hers.goto(`${base()}/`);
+  await hers.getByLabel("Access key").fill(maya.key.token);
+  await hers.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(hers.getByRole("button", { name: /^You are maya/ })).toBeVisible();
+  await hers.goto(`${base()}/?view=settings&tab=agents`);
+  await expect(hers.getByRole("switch", { name: "Auto mode" })).toBeVisible();
+  await expect(hers.getByRole("switch", { name: "Invite people to the server" })).toHaveCount(0);
+  await context.close();
+});
+
 test.describe("on a phone", () => {
   const { defaultBrowserType: _, ...phone } = devices["iPhone 13"];
   test.use({ ...phone, colorScheme: "light" });

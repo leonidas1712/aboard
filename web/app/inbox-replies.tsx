@@ -7,7 +7,7 @@
 import { CornerDownLeft } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { type Board, type Message, post, repliesWaiting } from "./api";
+import { type Board, type Message, type MessagePage, type ReplyPage, ackBoard, get, post, repliesWaiting } from "./api";
 import { askSummary } from "./asks";
 import { Attachments } from "./attachments";
 import { Problem } from "./chrome";
@@ -16,7 +16,7 @@ import { Kbd } from "./keys-sheet";
 import { SenderMark } from "./agent-mark";
 import { plainInline } from "./brief";
 import { Markdown } from "./markdown";
-import { identityOf, relativeTime } from "./words";
+import { andList, identityOf, relativeTime } from "./words";
 
 /** repliesChanged is the event a sent reply raises, so every count of replies waiting reads again. */
 export const repliesChanged = "aboard:replies-changed";
@@ -24,6 +24,44 @@ export const repliesChanged = "aboard:replies-changed";
 /** whoWaits names the sender and, for an agent, the person it works for. */
 export function whoWaits(m: Message): string {
   return m.from.kind === "agent" && m.from.owner ? `${m.from.name} (${m.from.owner}'s agent)` : m.from.name;
+}
+
+/**
+ * threadRecipients is who a reply to m that names no one goes to, worked out as the
+ * server does: the author of every message in its thread, m's author first, and every
+ * member they addressed by name, leaving out the person and anyone not on the board.
+ */
+export async function threadRecipients(m: Message, me: string, onBoard: (name: string) => boolean): Promise<string[]> {
+  const root = m.thread_root ?? m.id;
+  const page = await get<ReplyPage>(`/v1/messages/${encodeURIComponent(root)}/replies`, { limit: 200 });
+  const names: string[] = [];
+  const add = (name: string) => { if (name !== me && !names.includes(name) && onBoard(name)) names.push(name); };
+  for (const x of [m, ...(page.root ? [page.root] : []), ...page.replies]) {
+    if (x.sender !== "self") add(x.from.name);
+    for (const t of x.to) if (t.startsWith("@") && t.length > 1) add(t.slice(1));
+  }
+  return names;
+}
+
+/**
+ * markReadThrough moves the person's read position on m's board past m and their own
+ * reply, once they answered m in place. The position is cumulative, so it moves only
+ * over a stretch that holds nothing else unread: an older message they haven't seen
+ * holds it back.
+ */
+export async function markReadThrough(m: Message, reply: Message): Promise<void> {
+  const board = encodeURIComponent(m.board!);
+  const at = (await get<Board>(`/v1/boards/${board}`)).read_up_to;
+  if (at === undefined || at >= reply.seq) return;
+  const page = await get<MessagePage>(`/v1/boards/${board}/messages`, { after: at, before: reply.seq + 1, limit: 200 });
+  let through = at;
+  for (const x of page.messages) {
+    if (x.id !== m.id && x.sender !== "self") break;
+    through = x.seq;
+  }
+  // Every message up to the reply was m or the person's own: nothing in the page's gap was skipped.
+  if (through === page.messages.at(-1)?.seq && page.next_after === null) through = reply.seq;
+  if (through > at) await ackBoard(m.board!, through);
 }
 
 /** ReplyRow is one message waiting for a reply in the Inbox list. */
@@ -41,7 +79,7 @@ export function ReplyRow({ m, board, age, selected, onRead }: { m: Message; boar
  * ReplyDetail shows a message waiting for a reply, whole, with a box to reply in place.
  * R moves to the box, the send key sends, and Escape leaves the box keeping the text.
  */
-export function ReplyDetail({ m, boardTitle, boardHref, status, now, onLeave, onSent, keys }: { m: Message; boardTitle: string; boardHref: string; status: ReactNode; now: number; onLeave: () => void; onSent: (reply: Message) => void; keys: ReactNode }) {
+export function ReplyDetail({ m, me, onBoard, boardTitle, boardHref, status, now, onLeave, onSent, keys }: { m: Message; me: string; onBoard: (name: string) => boolean; boardTitle: string; boardHref: string; status: ReactNode; now: number; onLeave: () => void; onSent: (reply: Message) => void; keys: ReactNode }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -49,6 +87,16 @@ export function ReplyDetail({ m, boardTitle, boardHref, status, now, onLeave, on
   const inFlight = useRef(false);
   const attempt = useRef<{ body: string; key: string } | null>(null);
   const board = m.board!;
+  // The reply goes to everyone in the thread; until the thread is read, its sender.
+  const [to, setTo] = useState<string[]>([m.from.name]);
+  const onBoardNow = useRef(onBoard);
+  onBoardNow.current = onBoard;
+  useEffect(() => {
+    let live = true;
+    threadRecipients(m, me, (name) => onBoardNow.current(name)).then((names) => { if (live && names.length > 0) setTo(names); }, () => { /* The sender stays named. */ });
+    return () => { live = false; };
+  }, [m, me]);
+  const toWords = andList(to);
   const send = async () => {
     const body = text.trim();
     if (inFlight.current || !body) return;
@@ -60,6 +108,8 @@ export function ReplyDetail({ m, boardTitle, boardHref, status, now, onLeave, on
     try {
       const reply = await post<Message>(`/v1/boards/${encodeURIComponent(board)}/messages`, { body, reply_to: m.id }, attempt.current.key);
       window.dispatchEvent(new CustomEvent(repliesChanged));
+      // Answered here, the message has been read; a failure leaves it unread on the board, and nothing else.
+      await markReadThrough(m, reply).catch(() => {});
       onSent(reply);
     } catch (e) { setError(e); }
     finally { inFlight.current = false; setBusy(false); }
@@ -78,13 +128,13 @@ export function ReplyDetail({ m, boardTitle, boardHref, status, now, onLeave, on
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1"><SenderMark name={m.from.name} kind={m.from.kind} harness={m.from.harness} identity={identityOf(`${m.from.kind}:${m.from.name}`)} /><strong>{m.from.name}</strong><span className="text-meta text-muted">{m.from.kind === "agent" && m.from.owner && `(${m.from.owner}'s agent) `}waits for your reply · {relativeTime(m.at, now)}</span>{status}</p>
     <div className="flex flex-col gap-2"><Markdown text={m.body} className="reply-waiting-body text-now" /><Attachments board={board} files={m.files} /></div>
     <form className="flex max-w-[640px] flex-col gap-2 rounded-control border border-field-border bg-surface p-2.5" onSubmit={(e) => { e.preventDefault(); void send(); }}>
-      <label htmlFor={`reply-${m.id}`} className="flex items-center gap-2 text-meta text-muted">Your reply, sent to {m.from.name}<Kbd>{keyLabel("reply")}</Kbd></label>
+      <label htmlFor={`reply-${m.id}`} className="flex items-center gap-2 text-meta text-muted">Your reply, sent to {toWords}<Kbd>{keyLabel("reply")}</Kbd></label>
       <textarea id={`reply-${m.id}`} ref={box} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => {
         if (pressed("send", e)) { e.preventDefault(); void send(); }
         else if (pressed("leave", e)) { e.preventDefault(); box.current?.blur(); }
       }} rows={3} className="w-full resize-y rounded-control border border-field-border bg-surface px-2.5 py-1.5 text-ink" disabled={busy} />
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={busy || !text.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-control border border-accent-strong bg-accent px-3.5 font-bold text-on-accent disabled:border-rule disabled:bg-selected disabled:text-muted">{busy ? "Sending…" : `Send to ${m.from.name}`}{!busy && <span aria-hidden className="font-normal opacity-80 pointer-coarse:hidden">{keyLabel("send")}</span>}</button>
+        <button type="submit" disabled={busy || !text.trim()} className="inline-flex min-h-11 items-center gap-2 rounded-control border border-accent-strong bg-accent px-3.5 font-bold text-on-accent disabled:border-rule disabled:bg-selected disabled:text-muted">{busy ? "Sending…" : `Send to ${toWords}`}{!busy && <span aria-hidden className="font-normal opacity-80 pointer-coarse:hidden">{keyLabel("send")}</span>}</button>
         <span className="text-meta text-muted pointer-coarse:hidden">{keyLabel("leave")} leaves the box</span>
       </div>
     </form>

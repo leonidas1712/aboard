@@ -221,3 +221,81 @@ test("other members' replies leave a message waiting, a newer request replaces i
   expect(after.messages).toEqual([]);
   expect(after.count).toBe(0);
 });
+
+// A decided approval, as the server lists it; only the Inbox's list reads it here.
+const at = () => new Date().toISOString();
+const decided = { id: "apr_01M4MZJNPHX08FRHZ84P73TNF9", person_id: "hum_alex", agent_id: "mem_claude", action: { kind: "invite_people", invite: { suggested_handle: "maya" } }, state: "executed", created_at: at(), decided_at: at(), execution: { at: at(), invite_id: "inv_01M4MZJTM1VBAK8M74RJ7AVFP5", authorization: { kind: "invited", person_id: "hum_alex", agent_id: "mem_claude", via: "approval" } }, display: { agent_name: "claude", agent_harness: "claude-code", requested_on: { id: "brd_setup", name: "replies-approval", title: "" }, boards: [] } };
+
+test("opening an approval leaves one row selected, and K walks back into the replies waiting", async ({ page }) => {
+  const board = "replies-approval";
+  addBoard(board);
+  await page.route("**/v1/me/approvals*", (route) => route.fulfill({ json: { approvals: [decided] } }));
+  await signIn(page, board);
+  await inbox(page).click();
+  await waitFor(board, "Approval neighbour waiting");
+  await replyRows(page).filter({ hasText: "Approval neighbour waiting" }).click();
+  await expect(selected(page)).toContainText("Approval neighbour waiting");
+  await page.getByRole("list", { name: "Decided" }).getByRole("button").click();
+  await expect(page.locator(`[data-approval="${decided.id}"]`)).toBeVisible();
+  await expect(page.locator("button[aria-current=true]")).toHaveCount(1);
+  await expect(selected(page)).toHaveCount(0);
+  // The Decided group sits below the list: K goes to its last row.
+  await page.keyboard.press("k");
+  const last = await page.locator("button:is([data-ask], [data-reply])").last().getAttribute("data-reply");
+  await expect(selected(page)).toHaveAttribute("data-reply", last!);
+  await expect(page.locator(`[data-approval="${decided.id}"]`)).toHaveCount(0);
+});
+
+test("a reply in place names everyone in the thread, marks the message read, and the board credits the right person", async ({ page }) => {
+  const board = "replies-thread";
+  addBoard(board);
+  await signIn(page, board);
+  const invite = await api(ownerToken(), "POST", "/v1/invites", {});
+  const made = await api<{ key: { token: string } }>("", "POST", "/v1/connect", { invite: invite.invite, handle: "sam", key_name: "web-fixture" });
+  await api(ownerToken(), "POST", `/v1/boards/${board}/people`, { handle: "sam" });
+  // Posted while alex is in the Inbox, so no board view has shown them.
+  await inbox(page).click();
+  const waiting = await waitFor(board, "Which install path should the docs lead with?");
+  await api(made.key.token, "POST", `/v1/boards/${board}/messages`, { body: "The script, I think.", reply_to: waiting.id });
+
+  // Before alex replies, the board says sam replied, not that the question is answered.
+  // This look acknowledges nothing, so the read position below is the Inbox's doing.
+  const look = await page.context().newPage();
+  await look.route(`**/v1/boards/${board}/ack`, (route) => route.fulfill({ status: 500, json: { error: { code: "test", message: "Not acknowledged in this check.", hint: "" } } }));
+  await look.goto(`${base()}/?board=${board}`);
+  await expect(look.locator("button.answered")).toHaveText("sam replied");
+  await look.close();
+
+  const rows = replyRows(page).filter({ hasText: "Which install path" });
+  await rows.click();
+  const box = page.getByLabel("Your reply, sent to writer and sam");
+  await expect(box).toBeVisible();
+  await box.fill("The script.");
+  await expect(page.getByRole("button", { name: "Send to writer and sam" })).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(page.getByRole("status").filter({ hasText: "Sent to @writer and @sam" })).toContainText("The script.");
+  await expect(rows).toHaveCount(0);
+  const messages = await api<{ messages: Msg[] }>(ownerToken(), "GET", `/v1/boards/${board}/messages`);
+  const reply = messages.messages.find((m) => m.body === "The script.")!;
+  expect([...reply.to].sort()).toEqual(["@sam", "@writer"]);
+  // The question is read; sam's reply, which alex never saw, holds the position there.
+  const seen = await api<{ read_up_to: number }>(ownerToken(), "GET", `/v1/boards/${board}`);
+  expect(seen.read_up_to).toBe(waiting.seq);
+
+  await page.goto(`${base()}/?board=${board}`);
+  await expect(page.locator("button.answered")).toHaveText("Answered by you");
+});
+
+test("a reply in place with nothing else unread marks the board read through the reply", async ({ page }) => {
+  const board = "replies-read";
+  addBoard(board);
+  await signIn(page, board);
+  await inbox(page).click();
+  await waitFor(board, "Is the changelog ready?");
+  await replyRows(page).filter({ hasText: "Is the changelog ready?" }).click();
+  await page.getByLabel("Your reply, sent to writer").fill("Yes.");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(replyRows(page).filter({ hasText: "Is the changelog ready?" })).toHaveCount(0);
+  const seen = await api<{ read_up_to: number; unread: number; head_seq: number }>(ownerToken(), "GET", `/v1/boards/${board}`);
+  expect(seen.unread).toBe(0);
+});
