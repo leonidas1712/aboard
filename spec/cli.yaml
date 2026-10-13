@@ -3770,6 +3770,10 @@ $defs:
   # ---------- aboard task new|start|join|note|done|drop ----------
   TaskOutput:
     description: |
+      A note, completion note or drop reason consisting only of a task reference
+      (such as CHK-17, any case) or immutable tsk_ ID fails with invalid_request
+      and exit 2 before writing. The hint shows text plus --task ID. task drop ID
+      remains a valid selector, and references inside longer prose remain text.
       Task done and task drop return an empty nudges array; finishing work does not immediately prompt more work.
       The task after the command, the acting agent's line after it, and, for done, the
       next task not picked up. The first line of text output names the task and the board.
