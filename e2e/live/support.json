@@ -197,10 +197,10 @@
         }
       },
       "handover": {
-        "aboard_ms": 2800,
-        "harness_ms": 2518,
-        "deliveries": 2,
-        "date": "2026-10-13"
+        "aboard_ms": 2022,
+        "harness_ms": 2777,
+        "deliveries": 41,
+        "date": "2026-10-10"
       }
     },
     "codex": {
