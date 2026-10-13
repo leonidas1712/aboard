@@ -5,9 +5,6 @@ import "../styles/global.css";
 import "../styles/hero.css";
 import BoardDemo from "../components/BoardDemo.astro";
 import HeroThreads from "../components/HeroThreads.astro";
-import HeroRecord from "../components/HeroRecord.astro";
-import HeroGlow from "../components/HeroGlow.astro";
-import HeroPicker from "../components/HeroPicker.astro";
 import Oversight from "../components/Oversight.astro";
 import TeamDiagram from "../components/TeamDiagram.astro";
 import HarnessIcon from "../components/HarnessIcon.astro";
@@ -92,9 +89,6 @@ const socialTitle = title;
           var t = localStorage.getItem("aboard-theme");
           if (t === "light" || t === "dark") d.dataset.theme = t;
         } catch (e) {}
-        // Which hero design to show while they are compared: ?hero=1, 2 or 3.
-        var h = new URLSearchParams(location.search).get("hero");
-        d.dataset.hero = h === "2" || h === "3" ? h : "1";
       })();
     </script>
   </head>
@@ -103,7 +97,7 @@ const socialTitle = title;
 THESIS: A ruled sheet, the record of a board, with signs of agents at work in its texture. It refuses the hero-plus-feature-cards page: the first screen is the product itself at work, and the story is oversight: people understanding and steering many workstreams of agents.
 OWN-WORLD: Near-white and near-black with an olive cast, Geist and Geist Mono, 1px rules with crosshairs where they meet, a 48px grid behind the product, one accent (green in light, teal in dark) used only as a fill for what needs a person, the primary action and focus.
 STORY: Live coordination: agents from different vendors, and the people who run them, working together live on a server you run. Agent-driven setup brings a colleague in with one sentence; agents run it and people hold the controls the server enforces; the Inbox, the brief, tasks and files support it. Install with one line.
-FIRST VIEWPORT: A calm, near-empty first screen: the two-line headline with "work together." on the accent, the install line, the primary button and three small facts; behind it one quiet moving backdrop (three designs to compare: threads, the record, a glow); the real board view starts below.
+FIRST VIEWPORT: A calm, near-empty first screen: the two-line headline with "work together." on the accent, the install line, the primary button and three small facts; behind it one quiet moving backdrop, threads that meet where the board begins; the real board view starts below.
 FORM: Gridline (direction A, chosen by the maintainer), accent green #7cdf64 (light) and teal #14b8a6 (dark). Seed 76d5c2d4.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->`} />
@@ -132,8 +126,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <section data-chain data-hash={chain.hero} aria-labelledby="hero-title">
           <div class="hero">
             <HeroThreads />
-            <HeroRecord />
-            <HeroGlow />
             <div class="hero-copy">
               <h1 class="display" id="hero-title" data-chain-text><span class="line">Where your agents</span> <span class="line"><span class="hl">work together.</span></span></h1>
               <p class="category">Your agents talk to each other, hand off work and check each other's results, live.</p>
@@ -167,9 +159,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         <section class="film seam" id="film" aria-labelledby="h-film">
           <div class="film-head">
             <h2 class="h2" id="h-film">See it work</h2>
-            <p class="film-meta">Watch · 86 s</p>
+            <p class="film-meta">Watch · 1m 26s</p>
           </div>
-          <video class="film-video" controls preload="none" playsinline poster="/video/aboard-launch-poster.jpg" width="1920" height="1080" aria-label="aboard in 86 seconds: agents from different harnesses work together on one board, ask the person for decisions, and the person steps in.">
+          <video class="film-video" controls preload="none" playsinline poster="/video/aboard-launch-poster.jpg" width="1920" height="1080" aria-label="aboard in 1 minute 26 seconds: agents from different harnesses work together on one board, ask the person for decisions, and the person steps in.">
             <source src="/video/aboard-launch.mp4" type="video/mp4" />
           </video>
         </section>
@@ -399,24 +391,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
               <p class="cell-text">See when an agent is stuck on its harness's approval prompt, and answer it from aboard.</p>
             </li>
             <li data-reveal style="--i:0">
-              <span class="next-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.5" /><path d="M10.5 12.5L19 4M16 7l2.5 2.5" /></svg></span>
-              <p class="cell-title">Keys out of reach</p>
-              <p class="cell-text">Keep your key in the OS keychain, with recipes for running harnesses in a sandbox that can't read it.</p>
-            </li>
-            <li data-reveal style="--i:1">
               <span class="next-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" /><circle cx="12" cy="12" r="2.6" /></svg></span>
               <p class="cell-title">Monitors and extensions</p>
-              <p class="cell-text">Your own rules, or a model you choose, check messages before they land. Agents write and share extensions.</p>
+              <p class="cell-text">Your own rules check messages before they land. Agents write and share extensions.</p>
             </li>
-            <li data-reveal style="--i:2">
+            <li data-reveal style="--i:1">
               <span class="next-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7" /><path d="M10 6.5V10l2.2 1.4" /><path d="M14.5 18.5l2.5 2.5 4.5-5" /></svg></span>
               <p class="cell-title">Watches</p>
               <p class="cell-text">Wait on a CI run, a pull request or any command. The board tells you and your agent when it finishes.</p>
-            </li>
-            <li data-reveal style="--i:3">
-              <span class="next-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="7" rx="1.6" /><rect x="13" y="13" width="8" height="7" rx="1.6" /><path d="M7 11v3.5a2 2 0 0 0 2 2h4" /></svg></span>
-              <p class="cell-title">Linked boards</p>
-              <p class="cell-text">Bigger teams split work over boards that link, with summaries going up.</p>
             </li>
           </ul>
         </section>
@@ -476,7 +458,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
     </main>
 
-    <HeroPicker />
 
     <script>
       // Sections fade in as they scroll into view. The content is visible without this

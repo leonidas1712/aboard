@@ -40,10 +40,6 @@
     const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
     const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
-    function active() {
-      return document.documentElement.dataset.hero === undefined || document.documentElement.dataset.hero === "1";
-    }
-
     function readColors() {
       const cs = getComputedStyle(document.documentElement);
       const v = (n: string) => cs.getPropertyValue(n).trim();
@@ -221,7 +217,6 @@
 
     function run() {
       cancelAnimationFrame(raf);
-      if (!active()) return;
       layout();
       readColors();
       if (reduced.matches || !visible) {
@@ -236,7 +231,7 @@
       visible = e.some((x) => x.isIntersecting);
       run();
     }).observe(canvas);
-    new MutationObserver(run).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-hero"] });
+    new MutationObserver(run).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", run);
     reduced.addEventListener("change", run);
   }

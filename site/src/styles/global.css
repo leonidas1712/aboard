@@ -957,7 +957,7 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 /* Eight short items in a ruled grid, no boxes: lighter than the shipped sections. */
 .next-list { margin-top: 32px; display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--line); }
 @media (min-width: 640px) { .next-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; } }
-@media (min-width: 1100px) { .next-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .next-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .next-list li { padding: 22px 0 24px; border-bottom: 1px solid var(--line); }
 .next-list .cell-title { margin-top: 14px; font-size: 16.5px; }
 .next-list .cell-text { margin-top: 4px; font-size: 14.5px; }

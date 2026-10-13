@@ -1,8 +1,6 @@
 /* The hero: a calm first screen. The headline, one line under it, the install line and
-   three small facts, over one quiet moving backdrop. Three backdrops are kept while they
-   are compared (1 Threads, 2 Record, 3 Glow); :root[data-hero] picks one, set from
-   ?hero= by the script in the page's head. Once one is chosen, delete the other two
-   blocks below, their components and the switcher. */
+   three small facts, over one quiet moving backdrop: threads that meet where the board
+   begins (HeroThreads.astro). */
 
 .hero {
   position: relative;
@@ -48,102 +46,11 @@
 /* The backdrops share one frame: the full width of the window, behind the text. The
    hero covers the page's grid, so the backdrop has a quiet field to itself. */
 .hero::before { content: ""; position: absolute; inset: 0 auto 0 calc(50% - 50vw); width: 100vw; z-index: 0; background: var(--bg); }
-.hero-bg { position: absolute; inset: 0 auto 0 calc(50% - 50vw); width: 100vw; z-index: 0; pointer-events: none; display: none; overflow: hidden; }
-:root[data-hero="1"] .hero-bg[data-variant="1"],
-:root[data-hero="2"] .hero-bg[data-variant="2"],
-:root[data-hero="3"] .hero-bg[data-variant="3"],
-:root:not([data-hero]) .hero-bg[data-variant="1"] { display: block; }
+.hero-bg { position: absolute; inset: 0 auto 0 calc(50% - 50vw); width: 100vw; z-index: 0; pointer-events: none; overflow: hidden; }
 
-/* ---------- 1 · Threads: a canvas ---------- */
+/* The threads: a canvas. */
 
 .hero-threads canvas { display: block; width: 100%; height: 100%; }
-
-/* ---------- 2 · Record: the board's log, leaning back beside the text ---------- */
-
-.hero-record {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 24%, #000 70%, transparent 100%);
-}
-.rec-sheet { position: absolute; top: 50%; left: 50%; width: min(760px, 120vw); transform: translate(-50%, -50%); }
-.rec-list { font-family: var(--mono); font-size: 12px; line-height: 1; color: var(--faint); }
-.rec-list li { display: grid; grid-template-columns: 3.6em 12.5em 9.5em minmax(0, 1fr) 6em; gap: 14px; align-items: center; height: 34px; padding-inline: 12px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); white-space: nowrap; border-radius: 6px; }
-.rec-list li > span { overflow: hidden; text-overflow: ellipsis; }
-.rec-list .r-seq, .rec-list .r-type { color: var(--muted); }
-.rec-list .r-hash { color: var(--accent-line); text-align: right; }
-.rec-list .r-new { animation: rec-new 2.6s var(--ease) both; }
-@keyframes rec-new {
-  0% { background: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--ink); opacity: 0; }
-  10% { opacity: 1; }
-  45% { background: color-mix(in srgb, var(--accent) 26%, transparent); color: var(--ink); }
-  100% { background: transparent; }
-}
-:root[data-hero="2"] .display .line { display: block; }
-@media (min-width: 1000px) {
-  :root[data-hero="2"] .hero { text-align: left; }
-  :root[data-hero="2"] .hero-copy { max-width: 720px; }
-  :root[data-hero="2"] .display { margin-inline: 0; font-size: clamp(3rem, 0.4rem + 4.2vw, 4.6rem); }
-  :root[data-hero="2"] .category,
-  :root[data-hero="2"] .lede { margin-inline: 0; max-width: 30em; }
-  :root[data-hero="2"] .cta,
-  :root[data-hero="2"] .facts { justify-content: flex-start; }
-  .hero-record {
-    -webkit-mask-image: linear-gradient(to right, transparent 46%, #000 70%);
-    mask-image: linear-gradient(to right, transparent 46%, #000 70%);
-  }
-  .rec-sheet {
-    left: calc(50% + 80px);
-    width: 820px;
-    transform: translateY(-50%) perspective(1600px) rotateY(-18deg) rotateX(3deg);
-    transform-origin: left center;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 72%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 72%, transparent 100%);
-  }
-  .rec-list { font-size: 13px; }
-}
-@media (max-width: 999px) {
-  /* On a narrow screen the record sits behind the text, quieter. */
-  .hero-record { opacity: 0.4; }
-}
-
-/* ---------- 3 · Glow: light from under the text, gradients only ---------- */
-
-.glow-grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 48px 48px;
-  background-position: center bottom;
-  -webkit-mask-image: radial-gradient(ellipse 55% 75% at 50% 100%, #000 15%, transparent 80%);
-  mask-image: radial-gradient(ellipse 55% 75% at 50% 100%, #000 15%, transparent 80%);
-}
-.glow-orb { position: absolute; left: 50%; bottom: -320px; width: 1100px; height: 640px; margin-left: -550px; border-radius: 50%; opacity: var(--glow-o, 0.55); will-change: transform; }
-.glow-orb.o1 { background: radial-gradient(closest-side, var(--accent), transparent); animation: drift-a 16s ease-in-out infinite alternate; }
-.glow-orb.o2 { width: 760px; height: 520px; margin-left: -720px; background: radial-gradient(closest-side, var(--id-6-bg), transparent); animation: drift-b 19s ease-in-out infinite alternate; }
-.glow-orb.o3 { width: 760px; height: 520px; margin-left: -40px; background: radial-gradient(closest-side, var(--id-5-bg), transparent); animation: drift-c 22s ease-in-out infinite alternate; }
-@keyframes drift-a { from { transform: translate(-4%, 0) scale(1); } to { transform: translate(4%, -8%) scale(1.08); } }
-@keyframes drift-b { from { transform: translate(0, 0) scale(1); } to { transform: translate(10%, -12%) scale(1.12); } }
-@keyframes drift-c { from { transform: translate(0, -4%) scale(1.05); } to { transform: translate(-10%, 4%) scale(0.95); } }
-.glow-ring { position: absolute; left: 50%; bottom: 0; width: 1600px; height: 1600px; margin: 0 0 -800px -800px; border-radius: 50%; border: 1px solid var(--accent-line); opacity: 0; transform: scale(0.06); animation: ring 9s cubic-bezier(0.2, 0.6, 0.3, 1) infinite; }
-.glow-ring.r2 { animation-delay: 3s; }
-.glow-ring.r3 { animation-delay: 6s; }
-@keyframes ring { 0% { opacity: 0; transform: scale(0.06); } 8% { opacity: 0.45; } 100% { opacity: 0; transform: scale(1); } }
-:root[data-theme="dark"] .hero-glow { --glow-o: 0.45; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero-glow { --glow-o: 0.45; } }
-:root[data-hero="3"] .display { font-size: clamp(2.8rem, 0.4rem + 6.6vw, 6.2rem); }
-@media (max-width: 699px) {
-  .glow-orb { width: 700px; height: 480px; margin-left: -350px; bottom: -260px; }
-  .glow-orb.o2 { width: 460px; margin-left: -400px; }
-  .glow-orb.o3 { width: 460px; margin-left: -60px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .glow-orb, .rec-list .r-new { animation: none; }
-  .glow-ring { animation: none; }
-  .glow-ring.r1 { transform: scale(0.25); opacity: 0.25; }
-  .glow-ring.r2 { transform: scale(0.5); opacity: 0.15; }
-  .glow-ring.r3 { transform: scale(0.75); opacity: 0.08; }
-}
 
 /* The highlight sits a little low, so it never covers the descenders of the line above. */
 .hero .display .hl { background-size: 100% 84%; background-position: 0 92%; animation-name: sweep-low; }
@@ -157,17 +64,4 @@
   .hero { min-height: 0; padding-block: 56px 80px; }
   .facts { gap: 4px 18px; }
   .facts li + li::before { display: none; }
-  :root[data-hero="3"] .display { font-size: clamp(2.6rem, 0.4rem + 6vw, 5.6rem); }
-  .hero-record { opacity: 0.16; }
-  .rec-list li { grid-template-columns: 3.6em 9.5em minmax(0, 1fr); }
-  .rec-list .r-type, .rec-list .r-hash { display: none; }
 }
-
-/* ---------- The switcher for comparing the designs (dev, or ?hero=) ---------- */
-
-.hero-picker { position: fixed; z-index: 60; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 4px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--float-shadow); font-size: 13px; }
-.hero-picker[hidden] { display: none; }
-.hero-picker > span { padding: 0 8px 0 6px; color: var(--muted); font-weight: 600; }
-.hero-picker button { min-height: 34px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
-.hero-picker button:hover { background: var(--side); }
-.hero-picker button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
