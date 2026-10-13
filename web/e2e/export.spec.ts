@@ -133,11 +133,17 @@ test("Export says what it is, and its confirmation sits in the header without co
   // Beside the button on a wide screen, on the line of the board's labels on a phone.
   for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
+    const before = await trigger.boundingBox();
     const download = page.waitForEvent("download");
     await choose(page, "Download .md");
     await download;
     const notice = page.locator("header .export-notice:visible");
     await expect(notice).toHaveText("Saved export-place-2026-10-13.md");
+    // The notice comes after the button and moves nothing.
+    const after = (await trigger.boundingBox())!;
+    expect(after).toEqual(before);
+    const placed = (await notice.boundingBox())!;
+    expect(placed.x > after.x || placed.y > after.y).toBe(true);
     // No control on the page lies under the notice.
     const box = (await notice.boundingBox())!;
     const covered = await page.evaluate(({ x, y, width, height }) =>
