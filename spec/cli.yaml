@@ -677,6 +677,10 @@ $defs:
       for one command (its summary, usage, description, flags, examples and related
       commands), to stdout, exit 0. "aboard <command> help" is not a command: it fails
       with invalid_request and exit 2, and its hint names aboard help <command>.
+      A documented subcommand may follow the command, such as "aboard help board
+      new". It prints the parent command's help, like "aboard board new --help",
+      and keeps the parent command name in the JSON output. Unknown subcommands
+      fail with invalid_request and exit 2.
     type: object
     required: [commands]
     properties:
