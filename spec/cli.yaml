@@ -16,7 +16,8 @@
 # - Free-text fields accept exactly `-` to read UTF-8 text from stdin through EOF.
 #   This includes say/reply/answer bodies; ask questions, options, going-with and
 #   withdrawal text; task titles, about, notes, done and drop reasons; pair/board
-#   titles; and pairing request work. Names, selectors and paths are never expanded.
+#   titles; pairing request work; and invite --pairing work. Names, selectors and
+#   paths are never expanded.
 #   Read once, before writes, preserving newlines and literal shell characters.
 #   Existing validation and redaction still apply. At most one field per invocation
 #   can read stdin. Reject read failures, invalid UTF-8 and more than 1 MiB without
