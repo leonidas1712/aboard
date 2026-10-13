@@ -7,10 +7,18 @@
 - `aboard say --expect-reply` to a person suggests `aboard ask` for decisions.
   The skill distinguishes decisions from information; posting still succeeds.
 
+### Fixed
+
+- `aboard help board new` shows the board command's help, matching
+  `aboard board new --help`.
+
 ### Contract changes
 
 - CLI scripts may receive an optional `decision_hint` in `SayOutput` when an
   expect-reply message has a person recipient (additive).
+- CLI help accepts a documented board subcommand after the command name. The JSON
+  output keeps the parent command's name and existing shape (additive).
+
 
 Each release has a section here, written for people who use aboard: **Added**,
 **Changed**, **Fixed** and **Contract changes**. Contract changes lists every change

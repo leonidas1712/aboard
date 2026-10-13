@@ -434,7 +434,7 @@ that is already approved.
 | `aboard uninstall` and the install manifest: `aboard init` records what it wrote, `doctor` tells outdated from edited; docs page "Install, update and remove" (#22) | D145, D159 |
 | Board view layout: the left panel lists boards (with message counts); the right panel is this board (Agents with "Add an agent", Charter, Rules Aboard enforces, Details with the record check); the title opens Details (#23) | D143, D157, D161 |
 | Reconnect the same harness session automatically when it resumes; call agents with no session "disconnected" (#24) | D157 |
-| The CLI for people: per-command help (`aboard help <command>`, `--help`, `--json`), color and selectors only for a person at a terminal, a guided `aboard init` that shows what is already set up (#25) | D162 |
+| The CLI for people: per-command help (`aboard help <command>`, `--help`, `--json`), color and selectors only for a person at a terminal, a guided `aboard init` that shows what is already set up (#25); documented board subcommand help aliases | D162; board subcommand help in review (GEN-72), failing real-binary regression first |
 | Browser logins survive server restarts and upgrades (kept as digests in the database); `aboard logout --browsers` (#26) | D88, D89, D121, D163 |
 | Threads: the board view folds replies under the message that starts each thread (one level, remembered, "N new"), `aboard read --thread`, `GET /v1/messages/{message}/replies` (#30) | D158 |
 

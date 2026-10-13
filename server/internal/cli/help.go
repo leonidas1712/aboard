@@ -1028,9 +1028,9 @@ func helpText(templates string) []commandHelp {
 		{
 			Name: "help", Group: groupMaintain,
 			Summary: "Show the commands, or one command's usage, flags and examples",
-			Usage:   []string{"aboard help [command] [--json]"},
+			Usage:   []string{"aboard help [command [subcommand]] [--json]"},
 			Description: "Without a command, lists every command by group. With one, shows its usage, what it does, its flags and examples. " +
-				"aboard <command> --help and -h show the same.",
+				"A board subcommand, such as aboard help board new, shows the board command's help. aboard <command> --help and -h show the same.",
 			Flags:    []helpFlag{{"--json", "", "Print the help as one JSON object, for scripts and agents."}},
 			Examples: []helpExample{{"aboard help init", "Everything about aboard init"}},
 		},
@@ -1210,7 +1210,7 @@ func visibleLen(s string) int {
 // runHelp prints the overview of the commands, or one command's help.
 func runHelp(_ context.Context, a *app, args []string) error {
 	fs := a.flags("help")
-	pos, err := a.parse(fs, args, usageOf("help"), 0, 1)
+	pos, err := a.parse(fs, args, usageOf("help"), 0, 2)
 	if err != nil {
 		return err
 	}
@@ -1224,6 +1224,18 @@ func runHelp(_ context.Context, a *app, args []string) error {
 		}
 		_, _ = io.WriteString(a.env.Stdout, overviewText(a.out()))
 		return nil
+	}
+	if len(pos) == 2 {
+		h, ok := helpFor(pos[0])
+		if !ok {
+			return a.showHelp(pos[0])
+		}
+		prefix := "aboard " + strings.Join(pos, " ")
+		if pos[0] != "board" || !slices.ContainsFunc(h.Usage, func(line string) bool {
+			return line == prefix || strings.HasPrefix(line, prefix+" ")
+		}) {
+			return usageError(fmt.Sprintf("%q is not a documented subcommand of %s.", pos[1], pos[0]), usageOf(pos[0]))
+		}
 	}
 	return a.showHelp(pos[0])
 }
