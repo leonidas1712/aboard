@@ -3784,8 +3784,10 @@ paths:
         `details` `{version, by, at}` (the current version, its writer and when), and
         nothing is stored. Top-level `brief.md` and `brief.html` need `brief=true` (409
         `brief_path_reserved` otherwise). More than the board's limit (50 MB) is 413
-        `file_too_large`; a text file that contains a credential is 422
-        `file_has_secret`. A new `brief.md` while the board has `brief.html`, or the
+        `file_too_large`. Every upload is checked, regardless of media type, for
+        recognized aboard keys or codes, `sk-` keys, `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`
+        GitHub tokens and private-key headers; a match is 422 `file_has_secret`.
+        Uploaded bytes are never changed. A new `brief.md` while the board has `brief.html`, or the
         reverse, is 409 `brief_exists` unless `replace_format` is given: a board has one
         brief. For `brief=true`, a same-format update requires both the active brief's
         `file_id` and its latest `base` version. Missing, stale or replaced identity
