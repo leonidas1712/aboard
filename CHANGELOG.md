@@ -10,8 +10,8 @@ publishes a version's section as its release notes. How releases are cut is in
 ## 0.1.6
 
 Replies agents are waiting for now wait in your Inbox, Settings has its own page, the
-board view says when Codex can't receive messages, and the docs gain step-by-step use
-cases.
+board view says when Codex can't receive messages, commands read text from stdin, and the
+docs gain step-by-step use cases.
 
 ### Added
 
@@ -30,6 +30,11 @@ cases.
   several agents, and Claude Code with Codex, each step by step (#383).
 - `aboard say --expect-reply` to a person suggests `aboard ask` for decisions, and the
   skill tells agents to use asks for decisions and say for information (#377).
+- **Text from stdin.** Every command that takes free text (`say`, replies and answers,
+  `ask`, task titles, notes and done or drop reasons, board titles, pairing work) reads
+  it from standard input when given `-`, so an agent can send text with backticks, `$`
+  or quotes through a quoted heredoc without the shell running any of it:
+  `aboard say - --to @codex <<'EOF'` … `EOF` (#380).
 
 ### Changed
 
@@ -56,6 +61,11 @@ cases.
   `{messages, more, count}` for the calling person, additive; API, SDK and browser
   clients are affected only if they use it (#375).
 - `spec/cli.yaml`, all additive or unchanged in shape:
+  - Free-text fields accept exactly `-` to read UTF-8 text from stdin, at most one
+    field per command, up to 1 MiB, before any write. New errors:
+    `stdin_text_ambiguous` (exit 2), `stdin_text_read_failed`,
+    `stdin_text_invalid_utf8` and `stdin_text_too_large` (exit 1). Additive: no
+    existing input changes meaning except a field that is exactly `-` (#380).
   - `SayOutput` may carry an optional `decision_hint` when an expect-reply message has a
     person recipient (#377).
   - Task text that is only a reference or immutable task ID returns `invalid_request`
