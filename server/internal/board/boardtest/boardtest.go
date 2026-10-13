@@ -56,6 +56,7 @@ func Run(t *testing.T, open func(t *testing.T) board.Store) {
 		{"InboxHoldsMessagesThatMentionTheReader", inboxHoldsMessagesThatMentionTheReader},
 		{"CountUnreadCountsWhatInboxOrTheTimelineHasLeft", countUnreadCountsWhatInboxOrTheTimelineHasLeft},
 		{"QuestionsUseRecordedRecipientsAndOnlyTheirDirectReply", questionsUseRecordedRecipientsAndOnlyTheirDirectReply},
+		{"RepliesWaitingUseRecordedRecipientsAndLatestRequests", repliesWaitingUseRecordedRecipientsAndLatestRequests},
 		{"MessageRecipientsRoundTrip", messageRecipientsRoundTrip},
 		{"MessageByIDFillsSenderAndReply", messageByIDFillsSenderAndReply},
 		{"MessagesBySeq", messagesBySeq},

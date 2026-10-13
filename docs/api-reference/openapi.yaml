@@ -4153,6 +4153,43 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
 
+  /v1/me/replies-waiting:
+    get:
+      tags: [messages]
+      operationId: listRepliesWaiting
+      summary: Read messages waiting for a reply from you
+      description: |
+        Own person key or browser session only. Lists ordinary messages with
+        expects_reply addressed to the caller's immutable member id on their current
+        active boards. Structured asks remain in GET /v1/asks; broadcasts and messages
+        without recorded recipient ids are not included. A reused name or a new
+        membership never inherits an earlier membership's requests.
+        Only the addressed person's later reply in the thread clears a request,
+        including replies to replies and replies made through any of their logins.
+        Replies from other members do not clear it. For each original sender and
+        thread, only their newest matching expects_reply message is the request.
+        Earlier replies do not clear a later request. Reads and read-position changes
+        do not clear requests. This is a read of existing messages, not a new event
+        or stored state, and never acknowledges a message or wakes an agent.
+        Results use the normal Message shape, newest first by at, then id. Board
+        narrows to one board the caller is currently on. Access and credentials are
+        checked in the same transaction as the read. Existing Board.needs_reply
+        keeps its direct-reply semantics.
+      parameters:
+        - name: board
+          in: query
+          schema: { $ref: "#/components/schemas/BoardName" }
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Messages currently waiting for a reply
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RepliesWaiting" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
   /v1/me/onboarding-inbox:
     get:
       tags: [onboarding]
@@ -8806,6 +8843,22 @@ components:
     AllowanceCategory:
       type: "string"
       enum: ["invite-people", "add-people"]
+    RepliesWaiting:
+      type: object
+      required: [messages, more, count]
+      properties:
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/Message" }
+        more:
+          type: boolean
+          description: More matching messages exist beyond this limit.
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total waiting requests for this filter, before the limit; for the Inbox badge.
+
     OnboardingInbox:
       type: object
       additionalProperties: false
