@@ -519,6 +519,8 @@ and after keepalive. This changes test synchronization only.
 ### Replies waiting in the person Inbox (0.1.6 lane B)
 
 Contract proposal: a person-only GET /v1/me/replies-waiting read across active
-boards, using recorded recipient ids and clearing on any later reply in the thread.
+boards, using recorded recipient ids and clearing only on the person's later thread
+reply. The newest request from each sender replaces their older requests in the same
+thread. The read includes the unpaged count for the Inbox badge.
 The existing board needs_reply count retains its direct-reply semantics.
 Server building; board-view section belongs to the UI lane.

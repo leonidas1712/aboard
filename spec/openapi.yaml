@@ -4164,9 +4164,11 @@ paths:
         active boards. Structured asks remain in GET /v1/asks; broadcasts and messages
         without recorded recipient ids are not included. A reused name or a new
         membership never inherits an earlier membership's requests.
-        A message stops waiting when any later reply in its thread exists, including
-        replies to replies and replies from another member. Earlier replies do not
-        clear a later request in the same thread. Reads and read-position changes
+        Only the addressed person's later reply in the thread clears a request,
+        including replies to replies and replies made through any of their logins.
+        Replies from other members do not clear it. For each original sender and
+        thread, only their newest matching expects_reply message is the request.
+        Earlier replies do not clear a later request. Reads and read-position changes
         do not clear requests. This is a read of existing messages, not a new event
         or stored state, and never acknowledges a message or wakes an agent.
         Results use the normal Message shape, newest first by at, then id. Board
@@ -8843,7 +8845,7 @@ components:
       enum: ["invite-people", "add-people"]
     RepliesWaiting:
       type: object
-      required: [messages, more]
+      required: [messages, more, count]
       properties:
         messages:
           type: array
@@ -8851,6 +8853,11 @@ components:
         more:
           type: boolean
           description: More matching messages exist beyond this limit.
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total waiting requests for this filter, before the limit; for the Inbox badge.
 
     OnboardingInbox:
       type: object
