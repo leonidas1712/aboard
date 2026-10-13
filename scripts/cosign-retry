@@ -1,0 +1,16 @@
+#!/bin/sh
+# cosign-retry ARGS...: runs cosign with ARGS, and again up to twice more if it fails.
+# The release job signs with the workflow's OIDC identity, and GitHub's token endpoint
+# fails now and then (v0.1.6's first run got a response that wasn't JSON). Signing a
+# blob writes the same bundle again, and signing an image adds a signature, so a retry
+# is safe.
+set -u
+for wait in 10 30 0; do
+	cosign "$@" && exit 0
+	status=$?
+	if [ "$wait" -eq 0 ]; then
+		exit "$status"
+	fi
+	echo "cosign failed (exit $status); trying again in ${wait}s" >&2
+	sleep "$wait"
+done

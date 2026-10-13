@@ -63,7 +63,7 @@ sboms:
 # checks it when cosign is installed.
 signs:
   - id: checksums
-    cmd: cosign
+    cmd: scripts/cosign-retry
     artifacts: checksum
     signature: "${artifact}.sigstore.json"
     args: [sign-blob, "--bundle=${signature}", "--yes", "${artifact}"]
@@ -89,7 +89,7 @@ dockers_v2:
 
 docker_signs:
   - id: server
-    cmd: cosign
+    cmd: scripts/cosign-retry
     artifacts: manifests
     args: [sign, "${artifact}@${digest}", "--yes"]
 
