@@ -304,7 +304,7 @@ test("L snoozes an ask on this browser and ? lists the keys", async ({ page }) =
   const sheet = page.getByRole("dialog", { name: "Keys in the Inbox" });
   await expect(sheet.getByText("Go to the Inbox.", { exact: true })).toHaveCount(0);
   await expect(sheet).toBeVisible();
-  for (const sentence of ["Move to the next ask. The down arrow does the same.", "Answer with that option.", "Let the agent go ahead with what it proposed.", "Write your own answer.", "Send the answer you wrote.", "Leave the answer box without sending.", "Snooze the ask for an hour, on this browser only."]) await expect(sheet.getByText(sentence, { exact: true })).toBeVisible();
+  for (const sentence of ["Move to the next ask or reply waiting. The down arrow does the same.", "Answer with that option.", "Let the agent go ahead with what it proposed.", "Write your own answer, or go to the reply box of a message waiting for your reply.", "Send the answer or reply you wrote.", "Leave the answer or reply box without sending.", "Snooze the ask for an hour, on this browser only."]) await expect(sheet.getByText(sentence, { exact: true })).toBeVisible();
   await page.keyboard.press("j");
   await expect(sheet).toBeVisible();
   await page.keyboard.press("Escape");

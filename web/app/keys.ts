@@ -8,15 +8,15 @@ export type Place = "inbox" | "board";
 type Key = { id: KeyId; keys: string[]; label: string; what: string; places: Place[] };
 
 export const allKeys: Key[] = [
-  { id: "next", keys: ["j", "ArrowDown"], label: "J", what: "Move to the next ask. The down arrow does the same.", places: ["inbox"] },
-  { id: "previous", keys: ["k", "ArrowUp"], label: "K", what: "Move to the previous ask. The up arrow does the same.", places: ["inbox"] },
+  { id: "next", keys: ["j", "ArrowDown"], label: "J", what: "Move to the next ask or reply waiting. The down arrow does the same.", places: ["inbox"] },
+  { id: "previous", keys: ["k", "ArrowUp"], label: "K", what: "Move to the previous ask or reply waiting. The up arrow does the same.", places: ["inbox"] },
   { id: "option", keys: ["1", "2", "3", "4"], label: "1–4", what: "Answer with that option.", places: ["inbox"] },
   { id: "accept", keys: ["e"], label: "E", what: "Let the agent go ahead with what it proposed.", places: ["inbox"] },
-  { id: "reply", keys: ["r"], label: "R", what: "Write your own answer.", places: ["inbox"] },
-  { id: "send", keys: ["mod+Enter"], label: "mod+↵", what: "Send the answer you wrote.", places: ["inbox"] },
-  { id: "leave", keys: ["Escape"], label: "Esc", what: "Leave the answer box without sending.", places: ["inbox"] },
+  { id: "reply", keys: ["r"], label: "R", what: "Write your own answer, or go to the reply box of a message waiting for your reply.", places: ["inbox"] },
+  { id: "send", keys: ["mod+Enter"], label: "mod+↵", what: "Send the answer or reply you wrote.", places: ["inbox"] },
+  { id: "leave", keys: ["Escape"], label: "Esc", what: "Leave the answer or reply box without sending.", places: ["inbox"] },
   { id: "snooze", keys: ["l"], label: "L", what: "Snooze the ask for an hour, on this browser only.", places: ["inbox"] },
-  { id: "open", keys: ["Enter"], label: "↵", what: "Open the ask on its board.", places: ["inbox"] },
+  { id: "open", keys: ["Enter"], label: "↵", what: "Open the ask or message on its board.", places: ["inbox"] },
   { id: "inbox", keys: ["i"], label: "I", what: "Go to the Inbox.", places: ["board"] },
   { id: "back", keys: ["Escape"], label: "Esc", what: "Go back to the Inbox, when you opened this board from it.", places: ["board"] },
   { id: "blur", keys: ["Escape"], label: "Esc", what: "Leave the message box or any field, keeping its text, so these keys work again.", places: ["board"] },
