@@ -1,4 +1,4 @@
-// The colour schemes a person can choose in the account menu (D220). Light and dark are
+// The colour schemes a person can choose in the account menu or Settings (D220). Light and dark are
 // in tokens.css, the rest in schemes.css; each id is a data-theme on <html>. A swatch is
 // the scheme drawn small for the menu: its page (left and right halves) and its accent.
 

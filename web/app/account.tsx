@@ -1,15 +1,11 @@
 "use client";
 
-// Who you are, at the right of the top bar: your mark and name, opening a menu with
-// who you are on this board, which server this is, and this browser's settings.
+// Who you are, at the right of the top bar: your mark and name, opening a short menu with
+// who you are on this board, which server this is, Settings, the theme and sign-out.
 
 import { ChevronDown, CircleQuestionMark, Settings2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { type Allowance, getAllowance, handlePattern, renameSelf } from "./onboarding-api";
-import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Problem } from "./chrome";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,17 +16,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ApiError, type Me, type MidturnPolicy, get, session, signOut } from "./api";
+import { type Me, get, session, signOut } from "./api";
 import { usePref } from "./prefs";
 import { type Theme, isTheme, themes } from "./themes";
 import { SenderMark } from "./agent-mark";
 import { personIdentity } from "./words";
-import { changeMidturn, midturnCopy, midturnLabels, midturnPolicies, useMidturn } from "./midturn";
 
-/** useTheme is the colour scheme this browser chose, applied to the page. */
+const themeEvent = "aboard:theme";
+
+/** useTheme is the colour scheme this browser chose, applied to the page; every chooser on the page follows a change. */
 export function useTheme(): [Theme, (t: Theme) => void] {
-  const [stored, setTheme] = usePref<string>("aboard.theme", "system");
+  const [stored, setStored] = usePref<string>("aboard.theme", "system");
   const theme: Theme = isTheme(stored) ? stored : "system";
+  useEffect(() => {
+    const follow = (e: Event) => setStored((e as CustomEvent<Theme>).detail);
+    window.addEventListener(themeEvent, follow);
+    return () => window.removeEventListener(themeEvent, follow);
+  }, [setStored]);
+  const setTheme = useCallback((t: Theme) => window.dispatchEvent(new CustomEvent(themeEvent, { detail: t })), []);
   useEffect(() => {
     const root = document.documentElement;
     if (theme !== "system") root.dataset.theme = theme;
@@ -39,55 +42,31 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   return [theme, setTheme];
 }
 
+/** useServerName names the server this browser talks to: "This computer (local)" or its host. */
+export function useServerName(): string {
+  const [mode, setMode] = useState<"local" | "team" | null>(null);
+  useEffect(() => {
+    let live = true;
+    get<{ mode: "local" | "team" }>("/v1/info").then((i) => live && setMode(i.mode), () => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  return mode === "local" ? "This computer (local)" : typeof window === "undefined" ? "" : window.location.host;
+}
+
+/** signedInUntil is the day this browser's sign-in ends, or null without one. */
+export function signedInUntil(): string | null {
+  const s = session();
+  return s ? new Date(s.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
+}
+
 /** Swatch is a scheme drawn small: its page, split for "Same as this computer", and its accent. */
-function Swatch({ colours: [left, right, accent] }: { colours: readonly [string, string, string] }) {
+export function Swatch({ colours: [left, right, accent] }: { colours: readonly [string, string, string] }) {
   return (
     <span aria-hidden className="ml-auto flex size-5 shrink-0 overflow-hidden rounded-[6px] border border-field-border" style={{ background: `linear-gradient(90deg, ${left} 50%, ${right} 50%)` }}>
       <span className="m-auto h-1.5 w-2.5 rounded-full" style={{ background: accent }} />
     </span>
-  );
-}
-
-/** RenameSelf asks for a new handle for the signed-in person; the server's refusal is shown as it words it. */
-function RenameSelf({ current, open, onClose, onRenamed }: { current: string; open: boolean; onClose: () => void; onRenamed: (handle: string) => void }) {
-  const [draft, setDraft] = useState(current);
-  const [error, setError] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) setDraft(current); }, [open, current]);
-  const save = async () => {
-    const value = draft.trim();
-    if (!handlePattern.test(value)) {
-      setError(new ApiError(400, "invalid_request", "A handle uses lowercase letters, digits and hyphens, up to 40, and starts with a letter or digit.", ""));
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await renameSelf(current, value);
-      onRenamed(r.person.handle);
-      onClose();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <AlertDialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setError(null); } }}>
-      <AlertDialogContent>
-        <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-          <AlertDialogTitle>Rename yourself</AlertDialogTitle>
-          <AlertDialogDescription>Your new handle shows on every board you are on. Your agents, keys and history stay yours.</AlertDialogDescription>
-          <label htmlFor="rename-self" className="text-meta text-muted">New handle</label>
-          <input id="rename-self" className="min-h-11 rounded-control border border-field-border bg-surface px-3 text-ink" value={draft} maxLength={40} autoCapitalize="none" spellCheck={false} onChange={(e) => setDraft(e.target.value)} />
-          {error !== null && <Problem error={error} />}
-          <AlertDialogFooter>
-            <Button type="submit" disabled={busy}>{busy ? "Renaming…" : "Rename"}</Button>
-            <AlertDialogCancel asChild><Button type="button" variant="secondary">Cancel</Button></AlertDialogCancel>
-          </AlertDialogFooter>
-        </form>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }
 
@@ -103,38 +82,21 @@ type Props = {
 
 export function Account({ admin, onSignOut, person, onHelp }: Props) {
   const [loadedMe, setMe] = useState<Me | null>(null);
-  const [renamed, setRenamed] = useState<string | null>(null);
-  const [renaming, setRenaming] = useState(false);
-  const base = person ?? loadedMe;
-  const me = base && renamed ? { ...base, name: renamed } : base;
-  const [showPeople, setShowPeople] = useState(false);
-  // Settings shows once the server answers for the person's allowance (auto mode).
-  const [allowance, setAllowance] = useState<Allowance | null>(null);
-  useEffect(() => {
-    let live = true;
-    getAllowance().then((a) => live && setAllowance(a), () => {});
-    return () => {
-      live = false;
-    };
-  }, []);
-  const [mode, setMode] = useState<"local" | "team" | null>(null);
+  const me = person ?? loadedMe;
   const [theme, setTheme] = useTheme();
-  const signedIn = session();
-  const midturn = useMidturn();
-  const [midturnProblem, setMidturnProblem] = useState<string | null>(null);
+  const server = useServerName();
+  const until = signedInUntil();
   // A sign-out the server didn't confirm leaves the session on; the page says so.
   const [signOutProblem, setSignOutProblem] = useState<string | null>(null);
   useEffect(() => {
+    if (person) return;
     let live = true;
-    get<Me>("/v1/me").then((m) => { if (live) { setMe(m); if (m.server_role === "admin") setShowPeople(true); } }, () => {});
-    get<{ people: unknown[] }>("/v1/people").then((r) => { if (live && r.people.length > 1) setShowPeople(true); }, () => {});
-    get<{ mode: "local" | "team" }>("/v1/info").then((i) => live && setMode(i.mode), () => {});
+    get<Me>("/v1/me").then((m) => live && setMe(m), () => {});
     return () => {
       live = false;
     };
-  }, []);
+  }, [person]);
   if (!me) return null;
-  const server = mode === "local" ? "This computer (local)" : window.location.host;
   return (
     <>
     {onHelp && (
@@ -169,40 +131,21 @@ export function Account({ admin, onSignOut, person, onHelp }: Props) {
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 px-3 pb-2 text-meta">
           <dt className="text-muted">Server</dt>
           <dd className="break-all">{server}</dd>
-          {signedIn && (
+          {until && (
             <>
               <dt className="text-muted">Signed in</dt>
-              <dd className="signed-in-until">until {new Date(signedIn.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</dd>
+              <dd className="signed-in-until">until {until}</dd>
             </>
           )}
         </dl>
         <DropdownMenuSeparator />
-        {me.kind === "human" && <><DropdownMenuItem onSelect={() => setTimeout(() => setRenaming(true))}>Rename yourself</DropdownMenuItem><DropdownMenuSeparator /></>}
-        {showPeople && <><DropdownMenuItem asChild><a href="/?view=people">People</a></DropdownMenuItem><DropdownMenuSeparator /></>}
-        {allowance && <><DropdownMenuItem asChild><a href="/?view=settings" className="settings-item flex items-center gap-2"><Settings2 className="size-4 text-muted" strokeWidth={1.5} aria-hidden /><span className="flex-1">Settings</span><span className="text-meta text-muted">{allowance.categories.length > 0 ? "Auto mode on" : "Agents ask you"}</span></a></DropdownMenuItem><DropdownMenuSeparator /></>}
-        {midturn.view && (
-          <>
-            <DropdownMenuLabel>Urgent messages while an agent works</DropdownMenuLabel>
-            <p className="px-3 pb-1 text-meta text-muted">{midturnCopy}</p>
-            <DropdownMenuRadioGroup
-              className="midturn-setting"
-              value={midturn.view.policy}
-              onValueChange={(v) => {
-                setMidturnProblem(null);
-                changeMidturn(v as MidturnPolicy).catch((e: unknown) =>
-                  setMidturnProblem(e instanceof ApiError ? e.message : "Couldn't change the mid-turn setting."),
-                );
-              }}
-            >
-              {midturnPolicies.map((p) => (
-                <DropdownMenuRadioItem key={p} value={p}>
-                  {midturnLabels[p]}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-          </>
-        )}
+        <DropdownMenuItem asChild>
+          <a href="/?view=settings&tab=profile" className="settings-item flex items-center gap-2">
+            <Settings2 className="size-4 text-muted" strokeWidth={1.5} aria-hidden />
+            Settings
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as Theme)}>
           {themes.map((t) => (
@@ -229,12 +172,6 @@ export function Account({ admin, onSignOut, person, onHelp }: Props) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-    <RenameSelf current={me.name} open={renaming} onClose={() => setRenaming(false)} onRenamed={setRenamed} />
-    {midturnProblem && (
-      <p role="alert" className="midturn-problem basis-full rounded-box border border-field-border bg-selected px-3 py-2 text-ink">
-        {midturnProblem}
-      </p>
-    )}
     {signOutProblem && (
       <p role="alert" className="sign-out-problem basis-full rounded-box border border-field-border bg-selected px-3 py-2 text-ink">
         {signOutProblem}
