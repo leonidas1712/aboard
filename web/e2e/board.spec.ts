@@ -432,9 +432,39 @@ test("an agent whose session reports a delivery warning shows it on its row, wit
   await expect(warning).toContainText("Codex is running with --no-daemon. Restart Codex without it.");
   await expect(panel.locator('[data-agent="writer"] .delivery-warning')).toHaveCount(0);
 
-  // A later report changes it live: under Orca, the step names Orca's setting.
+  // A later report changes it live: under Orca, the step names Orca's setting. The page
+  // rereads the members on each new head; a reread the server answered before the report
+  // and that reaches the page after it must not bring the old warning back. The test
+  // holds one such answer until the report's live update has shown.
+  const orca = "set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc or run command codex, then restart Codex.";
+  let answered: () => void = () => {};
+  const read = new Promise<void>((done) => (answered = done));
+  let release: () => void = () => {};
+  const held = new Promise<void>((done) => (release = done));
+  await page.route(
+    `**/v1/boards/${board}/members`,
+    async (route) => {
+      const stale = await route.fetch();
+      answered();
+      await held;
+      await route.fulfill({ response: stale });
+    },
+    { times: 1 },
+  );
+  const posted = await fetch(`${base()}/v1/boards/${board}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${agentToken("writer", board)}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ body: "A new head, so the page rereads the members." }),
+  });
+  expect(posted.status).toBe(201);
+  await read;
   await report({ presence: "idle", delivery_warning: "codex_no_daemon_orca" });
-  await expect(warning).toContainText("set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc or run command codex, then restart Codex.");
+  await expect(warning).toContainText(orca);
+  release();
+  // The reread is done once the message it brought shows.
+  await expect(page.getByText("A new head, so the page rereads the members.")).toBeVisible();
+  await expect(warning).toContainText(orca);
+  await page.unroute(`**/v1/boards/${board}/members`);
 
   // A report without a warning clears it.
   await report({ presence: "idle" });
