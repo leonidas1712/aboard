@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -13,6 +14,8 @@ import (
 )
 
 const taskUsage = "aboard task list|show|new|start|join|note|done|drop [--as AGENT] [--board NAME] [--json]"
+
+var taskTextIDPattern = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9]{1,5}-[1-9][0-9]*|tsk_[0-9A-HJKMNP-TV-Z]{26})$`)
 
 type taskOutput struct {
 	Board  string               `json:"board"`
@@ -164,6 +167,31 @@ func runTask(ctx context.Context, a *app, args []string) error {
 	}
 	if *limit < 0 {
 		return usageError("--limit can't be negative.", taskUsage)
+	}
+	noteText := ""
+	switch op {
+	case "note", "done":
+		noteText = strings.TrimSpace(strings.Join(rest, " "))
+	case "drop":
+		noteText = strings.TrimSpace(*reason)
+	}
+	if taskTextIDPattern.MatchString(noteText) {
+		e := usageError(noteText+" looks like a task ID, not a note.", taskUsage)
+		command := "aboard task " + op
+		if op == "drop" {
+			command += " --reason \"reason\""
+		} else {
+			command += " \"note\""
+		}
+		command += " --task " + commandWord(noteText) + boardArg(*board)
+		if *as != "" {
+			command += " --as " + commandWord(*as)
+		}
+		if a.agentServerFlag != "" {
+			command += " --server " + commandWord(a.agentServerFlag)
+		}
+		e.Hint = "Write a note and select that task with: " + command
+		return e
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()

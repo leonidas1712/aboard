@@ -485,6 +485,8 @@ warning and Inbox integration are owned by the UI lane.
 
 ### Onboarding QA fixes (GEN-49)
 
+CLI task text guards against a bare task ID being used as a note or completion
+note: in review (GEN-76); lifecycle acceptance regression failed first.
 Pending approval notices suppress matching server and board names: in review
 (GEN-74); colleague-guide regression failed first, JSON fields retained.
 
