@@ -61,7 +61,10 @@ back, with `--reason` to say why. `aboard task list` shows the open work by stat
 
 For `note` and `done`, the text is the note and `--task GEN-1` selects a task other
 than your current one. A task ID on its own is refused as note text, with a command
-showing how to select it. `task drop GEN-1` selects the task to drop.
+showing how to select it. `task drop GEN-1 --reason "Reviewed"` selects the task to
+drop and supplies its reason. Standalone message references such as `#3` are refused
+as task notes or reasons; write what happened instead. Whitespace around a task
+selector is ignored, but a blank selector is refused.
 
 ## See the work
 

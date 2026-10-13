@@ -54,7 +54,9 @@ func (a *app) showApproval(ctx context.Context, c *client, srv serverRef, board,
 	text := fmt.Sprintf("%s · %s on %s", outcome.Approval.Id, outcome.Approval.State, srv.Name)
 	if board != "" {
 		out["board"] = board
-		text += " · " + board
+		if board != srv.Name {
+			text += " · " + board
+		}
 	}
 	text += "\n"
 	if outcome.PairingRequestId != nil {
