@@ -214,6 +214,27 @@ func (t *tx) CountNeedsReply(reader board.Member) (int64, error) {
 	return n, err
 }
 
+// RepliesWaiting keeps the newest recorded request per sender and thread that the
+// addressed person has not answered, irrespective of their read position.
+func (t *tx) RepliesWaiting(reader board.Member, limit int) ([]board.Message, int64, error) {
+	where := `m.board_id = ? AND m.expects_reply AND m.ask_json = 'null'
+		AND EXISTS (SELECT 1 FROM json_each(m.recipients_json) WHERE value = ?)
+		AND NOT EXISTS (SELECT 1 FROM messages r
+			WHERE r.thread_root = COALESCE(m.thread_root, m.id) AND r.seq > m.seq AND r.sender_id = ?)
+		AND NOT EXISTS (SELECT 1 FROM messages newer
+			WHERE newer.board_id = m.board_id AND newer.sender_id = m.sender_id
+			AND newer.expects_reply AND newer.ask_json = 'null' AND newer.seq > m.seq
+			AND COALESCE(newer.thread_root, newer.id) = COALESCE(m.thread_root, m.id)
+			AND EXISTS (SELECT 1 FROM json_each(newer.recipients_json) WHERE value = ?))`
+	args := []any{reader.BoardID, reader.ID, reader.ID, reader.ID}
+	var count int64
+	if err := t.tx.QueryRowContext(t.ctx, "SELECT COUNT(*) FROM messages m WHERE "+where, args...).Scan(&count); err != nil {
+		return nil, 0, err
+	}
+	msgs, err := t.queryMessages(where+" ORDER BY m.at DESC, m.id DESC LIMIT ?", append(args, limit)...)
+	return msgs, count, err
+}
+
 // visibleTo returns the condition and arguments that keep the messages reader may see.
 func visibleTo(reader board.Member, readAll bool) (cond string, args []any) {
 	return visibleAs("m", reader, readAll)

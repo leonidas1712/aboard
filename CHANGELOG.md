@@ -9,6 +9,9 @@
 
 ### Fixed
 
+- Pending approval notices show a matching server and board name once, instead
+  of repeating it as `qa · qa`.
+
 - `aboard help board new` shows the board command's help, matching
   `aboard board new --help`.
 
@@ -16,6 +19,9 @@
 
 - CLI scripts may receive an optional `decision_hint` in `SayOutput` when an
   expect-reply message has a person recipient (additive).
+- Pending approval text suppresses a duplicate location name; CLI JSON retains
+  separate server and board fields (no shape change).
+
 - CLI help accepts a documented board subcommand after the command name. The JSON
   output keeps the parent command's name and existing shape (additive).
 

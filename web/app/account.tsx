@@ -161,7 +161,7 @@ export function Account({ admin, onSignOut, person, onHelp }: Props) {
         <span className="max-w-[12rem] truncate max-sm:hidden">{me.name}</span>
         <ChevronDown className="size-3.5 text-muted" strokeWidth={1.5} aria-hidden />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="account-menu min-w-[16rem]">
+      <DropdownMenuContent align="end" className="account-menu w-[22rem] max-w-[calc(100vw-1.5rem)]">
         <div className="px-3 pt-2 pb-2">
           <p className="font-bold">{me.name}</p>
           {admin && <p className="text-meta text-muted">Admin of this board</p>}
@@ -171,11 +171,8 @@ export function Account({ admin, onSignOut, person, onHelp }: Props) {
           <dd className="break-all">{server}</dd>
           {signedIn && (
             <>
-              <dt className="text-muted">Signed in with</dt>
-              <dd className="break-all">the access key &ldquo;<span className="session-key">{signedIn.key.name}</span>&rdquo;</dd>
-              <dt className="text-muted">Until</dt>
-
-              <dd>{new Date(signedIn.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</dd>
+              <dt className="text-muted">Signed in</dt>
+              <dd className="signed-in-until">until {new Date(signedIn.expires_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</dd>
             </>
           )}
         </dl>

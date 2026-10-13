@@ -115,6 +115,52 @@ test("Download .md saves under the server's filename", async ({ page }) => {
   await expect(page.getByRole("status").filter({ hasText: "Saved export-md-2026-10-11.md" })).toBeVisible();
 });
 
+test("Export says what it is, and its confirmation sits in the header without covering a control", async ({ page }) => {
+  await openBoard(page, "export-place");
+  const trigger = page.getByRole("button", { name: "Export", exact: true });
+  await expect(trigger).toHaveText("Export");
+  await trigger.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Export this board: copy it as Markdown, or download it as .md or .zip");
+  await page.mouse.move(0, 0);
+  await page.route("**/v1/boards/export-place/export*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/markdown; charset=utf-8",
+      headers: { "Content-Disposition": 'attachment; filename="export-place-2026-10-13.md"', "Cache-Control": "no-store" },
+      body: markdown,
+    }),
+  );
+  // Beside the button on a wide screen, on the line of the board's labels on a phone.
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    const before = await trigger.boundingBox();
+    const download = page.waitForEvent("download");
+    await choose(page, "Download .md");
+    await download;
+    const notice = page.locator("header .export-notice:visible");
+    await expect(notice).toHaveText("Saved export-place-2026-10-13.md");
+    // The notice comes after the button and moves nothing.
+    const after = (await trigger.boundingBox())!;
+    expect(after).toEqual(before);
+    const placed = (await notice.boundingBox())!;
+    expect(placed.x > after.x || placed.y > after.y).toBe(true);
+    // No control on the page lies under the notice.
+    const box = (await notice.boundingBox())!;
+    const covered = await page.evaluate(({ x, y, width, height }) =>
+      [...document.querySelectorAll<HTMLElement>("button, a, input, textarea, select, [role='tab']")]
+        .filter((el) => el.offsetParent !== null)
+        .filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.left < x + width && r.right > x && r.top < y + height && r.bottom > y;
+        })
+        .map((el) => el.getAttribute("aria-label") ?? el.textContent),
+    box);
+    expect(covered).toEqual([]);
+    // A confirmation fades.
+    await expect(page.locator("header .export-notice")).toHaveCount(0, { timeout: 6000 });
+  }
+});
+
 test("Download .zip saves the archive's bytes, and names it itself when the server gives no name", async ({ page }) => {
   await openBoard(page, "export-zip");
   const bytes = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0xff, 0x10, 0x80]);
