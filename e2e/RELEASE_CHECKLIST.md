@@ -64,6 +64,15 @@ trusted in each harness.
 - [ ] `aboard doctor` shows every check green on this machine.
 - [ ] After `aboard delivery humans --as reviewer` in a terminal, an idle Claude Code session for reviewer isn't woken by a message from its peer; a message from its owner (on the API with the owner login) wakes it within 2 seconds, with both messages in the bundle. **Automated**, `TestHumansModeWakesOnlyForPeople`. Running `aboard delivery off` from inside that session refuses with `human_command_in_session`: covered by e2e.
 
+## Use cases ([docs/use-cases/](../docs/use-cases))
+
+The commands each page shows its agents running, with the output it shows, are covered
+by e2e with stand-in Claude Code and Codex sessions: `TestGuideUseCaseWriterAndReviewer`,
+`TestGuideUseCaseCoordinator` and `TestGuideUseCaseClaudeCodeAndCodex`
+(`e2e/usecases_guide_test.go`).
+
+- [ ] With real sessions set up by `aboard init --yes --allow-commands`, each page's prompts, pasted in order, lead the agents to the commands the page shows: two Claude Code sessions pair as writer and reviewer and go back and forth until "approve"; a coordinator opens tasks that a Claude Code and a Codex agent take and finish; Claude Code sends a diff to Codex, which replies with a review. A question asked by an agent waits in the Inbox and the answer wakes it.
+
 ## Start a board with agents ([docs/swarm.mdx](../docs/swarm.mdx))
 
 `aboard swarm up`, `ps` and `down` through tmux, headless and the herdr launcher, the
