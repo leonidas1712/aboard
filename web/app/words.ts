@@ -174,7 +174,8 @@ function roleNamesWith(board: Board, permission: string): string[] {
     .sort();
 }
 
-function list(words: string[]): string {
+/** andList joins words as a sentence does: "a, b and c". */
+export function andList(words: string[]): string {
   if (words.length <= 1) return words.join("");
   return `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`;
 }
@@ -194,7 +195,7 @@ export function rules(board: Board): string[] {
     const roles = roleNamesWith(board, "broadcast");
     out.push(
       roles.length > 0
-        ? `Only agents with the ${list(roles)} ${roles.length === 1 ? "role" : "roles"} can message everyone; the rest message names or roles.`
+        ? `Only agents with the ${andList(roles)} ${roles.length === 1 ? "role" : "roles"} can message everyone; the rest message names or roles.`
         : "Agents message names or roles; only people can message everyone.",
     );
   }

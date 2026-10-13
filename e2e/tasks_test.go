@@ -19,15 +19,28 @@ func TestTaskReferenceAsTextNeverChangesCurrentWork(t *testing.T) {
 			created := s.run("task", "new", "Keep this work", "--json").json(t)
 			ref := field(t, created, "task.ref").(string)
 			id := field(t, created, "task.id").(string)
-			for _, text := range []string{ref, strings.ToLower(ref), id} {
+			for _, text := range []string{ref, strings.ToLower(ref), id, "#3"} {
 				before := s.run("task", "show", ref, "--json").json(t)
 				args := []string{"task", op, text, "--json"}
 				if op == "drop" {
 					args = []string{"task", "drop", "--reason", text, "--json"}
 				}
 				r := s.e.exec(s.vars, "", args...)
-				if r.code != 2 || errorCode(t, r.json(t)) != "invalid_request" || !strings.Contains(field(t, r.json(t), "error.hint").(string), "--task "+text) {
+				if r.code != 2 || errorCode(t, r.json(t)) != "invalid_request" {
 					t.Fatalf("task ID used as text:\n%s", r)
+				}
+				err := r.json(t)["error"].(map[string]any)
+				hint := err["hint"].(string)
+				if text == "#3" {
+					if !strings.Contains(err["message"].(string), "message reference") || strings.Contains(hint, "--task #3") {
+						t.Fatalf("message reference treated as a task:\n%s", r)
+					}
+				} else if op == "drop" {
+					if !strings.Contains(err["message"].(string), "not a reason") || !strings.Contains(hint, "aboard task drop "+text+" --reason") {
+						t.Fatalf("drop hint doesn't match documented syntax:\n%s", r)
+					}
+				} else if !strings.Contains(hint, "--task "+text) {
+					t.Fatalf("missing task selector hint:\n%s", r)
 				}
 				shown := s.run("task", "show", ref, "--json").json(t)
 				if !reflect.DeepEqual(shown["task"], before["task"]) {
@@ -41,6 +54,41 @@ func TestTaskReferenceAsTextNeverChangesCurrentWork(t *testing.T) {
 				s.run("task", "drop", ref, "--reason", "Finished reviewing "+ref)
 			} else {
 				s.run("task", op, "Checked "+ref, "--task", ref)
+			}
+		})
+	}
+}
+
+func TestTaskSelectorsTrimSpaceWithoutFallingBackToCurrentWork(t *testing.T) {
+	t.Parallel()
+	for _, op := range []string{"note", "done", "drop"} {
+		t.Run(op, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			s := e.claudeSession("s-task-padding")
+			s.run("pair", "general")
+			created := s.run("task", "new", "Keep this work", "--json").json(t)
+			ref := field(t, created, "task.ref").(string)
+			for _, blank := range []string{"", " \t"} {
+				args := []string{"task", op, "Checked", "--task", blank}
+				if op == "drop" {
+					args = []string{"task", "drop", blank}
+				}
+				r := s.e.exec(s.vars, "", append(args, "--json")...)
+				if r.code != 2 || errorCode(t, r.json(t)) != "invalid_request" {
+					t.Fatalf("blank task selector was not refused:\n%s", r)
+				}
+				if got := field(t, s.run("task", "show", ref, "--json").json(t), "task.state"); got != "in_progress" {
+					t.Fatalf("blank selector changed current task: %v", got)
+				}
+			}
+			args := []string{"task", op, "Checked", "--task", " \t" + ref + " "}
+			if op == "drop" {
+				args = []string{"task", "drop", " \t" + ref + " ", "--reason", "Checked"}
+			}
+			out := s.run(append(args, "--json")...).json(t)
+			if field(t, out, "task.ref") != ref {
+				t.Fatalf("padded selector picked another task: %v", out)
 			}
 		})
 	}

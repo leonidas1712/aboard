@@ -3787,8 +3787,13 @@ $defs:
     description: |
       A note, completion note or drop reason consisting only of a task reference
       (such as CHK-17, any case) or immutable tsk_ ID fails with invalid_request
-      and exit 2 before writing. The hint shows text plus --task ID. task drop ID
-      remains a valid selector, and references inside longer prose remain text.
+      and exit 2 before writing. For note/done the hint shows text plus --task ID;
+      for a drop reason it shows task drop ID --reason "reason" and calls it a reason.
+      Standalone #N message references in those text fields are refused with a hint
+      to write text, never interpreted as a task selector. Task selectors are trimmed
+      before requests; an explicitly whitespace-only selector is invalid_request,
+      never a fallback to the current task. task drop ID remains a valid selector,
+      and references inside longer prose remain text.
       Task done and task drop return an empty nudges array; finishing work does not immediately prompt more work.
       The task after the command, the acting agent's line after it, and, for done, the
       next task not picked up. The first line of text output names the task and the board.
@@ -4261,6 +4266,8 @@ $defs:
 
   ApprovalOutcomeOutput:
     description: |
+      Text shows matching server and board labels once, as "executed on qa";
+      distinct names remain "executed on local · qa". JSON keeps both fields.
       aboard approvals show ID [--server SERVER] [--board BOARD] [--json] reads
       one own approval. In an agent session it uses only the exact requesting
       seat token and collects the issued invite outcome once. The first collection

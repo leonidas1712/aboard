@@ -18,12 +18,14 @@ docs gain step-by-step use cases.
 - **Replies waiting in the Inbox.** A message sent to you with `--expect-reply` waits in
   your Inbox, from every board, under the asks, with a reply box in place and the Inbox
   keys (J/K, R, Enter). Your reply in that thread clears it; another member's reply
-  doesn't, and the agent asking again replaces it. The sidebar's Inbox badge counts
-  them (#375, #376).
+  doesn't, and the agent asking again in the thread replaces it. The reply box names
+  everyone your reply goes to, and replying marks the message read when nothing older
+  is unread. The sidebar's Inbox badge counts them (#375, #376, #390).
 - **Settings, with tabs:** Profile (rename yourself, the server, your sign-in), Agents
   (urgent messages while an agent works, and Auto mode), People and Appearance. Each tab
   has its own link and the finder opens them. The account menu keeps your name, Settings,
-  the theme and Sign out (#382).
+  the theme and Sign out. Only server admins see the switch for inviting people to the
+  server (#382, #390).
 - The board view shows on an agent's row when Codex can't receive messages, with the
   step that fixes it, including the Orca setting when Orca started Codex (#378, #387).
 - The docs have a **Use cases** section: a writer and a reviewer, a coordinator with
@@ -48,10 +50,14 @@ docs gain step-by-step use cases.
 
 - Mark all as read on another board no longer leaves its unread count stuck when
   messages arrive at that moment (#385).
-- A task note, done note or drop reason that is only a task ID is refused, with a hint
-  showing `--task`, instead of closing the current task with that text (#381).
-- Pending approval notices show a matching server and board name once, instead of
-  repeating it as `qa · qa` (#379).
+- A task note, done note or drop reason that is only a task ID or a `#N` message
+  reference is refused, with a hint showing the right form (`--task`, or
+  `task drop ID --reason`), instead of closing the current task with that text. Task
+  IDs given with spaces around them are trimmed (#381, #389).
+- Pending approval notices and `aboard approvals show` show a matching server and board
+  name once, instead of repeating it as `qa · qa` (#379, #389).
+- An answered question reads "maya-agent replied" until you answer it, then "Answered by
+  you"; and in the Inbox only one item shows as selected (#390).
 - `aboard help board new` shows the board command's help, matching
   `aboard board new --help` (#374).
 
@@ -68,10 +74,11 @@ docs gain step-by-step use cases.
     existing input changes meaning except a field that is exactly `-` (#380).
   - `SayOutput` may carry an optional `decision_hint` when an expect-reply message has a
     person recipient (#377).
-  - Task text that is only a reference or immutable task ID returns `invalid_request`
-    and exit 2 before any write; successful JSON is unchanged (#381).
-  - Pending approval text drops a duplicate location name; the JSON keeps separate server
-    and board fields (#379).
+  - Task text that is only a reference, an immutable task ID or a `#N` message
+    reference returns `invalid_request` and exit 2 before any write; selectors are
+    trimmed and blank ones refused; successful JSON is unchanged (#381, #389).
+  - Pending approval and approval outcome text drop a duplicate location name; the JSON
+    keeps separate server and board fields (#379, #389).
   - CLI help accepts a documented board subcommand after the command name, keeping the
     parent command's name and shape in JSON (#374).
 
