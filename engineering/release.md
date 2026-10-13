@@ -334,7 +334,7 @@ gate, checks with read-only permissions that:
   this repository ([which runs count](#which-ci-runs-count)). `scripts/ci-status --event
   push --branch main` reads the runs from GitHub's API (`actions/workflows/check.yml/runs`
   filtered by the commit) and checks each field itself. A run still going is waited
-  for, up to 20 minutes. A commit with no such run fails at once: tag a commit that was
+  for, up to 45 minutes. A commit with no such run fails at once: tag a commit that was
   `main`'s head when it was pushed, such as a PR's merge commit;
 - the code builds (`go build ./...`).
 

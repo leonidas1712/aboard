@@ -7,25 +7,117 @@ delivery daemons, harness adapters) and whether it is additive. The release job
 publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
 
-## Unreleased
+## 0.1.5
+
+Codex delivery keeps working when a terminal app sets its own Codex home, and says why
+when it can't; upgrading needs no Codex hook re-approval; `aboard status` never hangs and
+shows all your boards; the board view gains a finder and board export; and the docs and
+site are rewritten for launch.
 
 ### Added
 
-- `aboard export` and the board view's export menu save the board content you can
-  see as Markdown or a zip; file bytes in the zip are unchanged.
+- The board view has a finder: `⌘K` (`Ctrl+K` off a Mac), or **Find or do anything**
+  under the board list, opens one box to go to a board, a task on the board on screen
+  (by reference such as `PAY-12` or by title), the Inbox, Settings, People, or the
+  board's Conversation, Tasks and Files, and to do a few things: export the board, mark
+  it read, show the keys. Boards come in the sidebar's order. It works from the message
+  box, the Inbox and Settings too, and the keys sheet lists it (#359, #363).
+- `aboard export` and the board view's Export menu (copy as Markdown, download `.md` or
+  `.zip`) save the board content you can see, as a document that reads well: the brief
+  and messages as Markdown, readable times and states, who each message was to. File
+  bytes in the zip are unchanged, and `aboard export` never replaces an existing local
+  file (#327, #364).
+- `aboard status` without `--board` shows an overview of your boards: unread counts,
+  policy and your own agents on each, with where they last ran (#354).
+- `aboard doctor` and `aboard status` say when Codex can't receive automatic delivery:
+  Codex started with `--no-daemon` (with the Orca setting to change when Orca added it),
+  or no shared Codex app-server for the session. The warning is kept until a healthy
+  check clears it (#355).
+- When an upgrade or `aboard init` changed the hooks of a Claude Code or Codex session
+  that is still open, `aboard doctor` says so until that session is restarted, and for
+  Codex it reads whether the changed hooks are approved and gives the `/hooks` and
+  `codex resume --last` steps when they aren't. Doctor never approves hooks itself
+  (#356).
+
+### Changed
+
+- When an upgrade or `aboard init` changes a harness's hooks, the output names the
+  harness and the exact approval or restart step; it says nothing about harnesses whose
+  hooks did not change (#354).
+- A person command rejected as unauthorized names the server and says to sign in again
+  or switch servers. Agents keep the rejoin hint (#354).
+- An unknown `--board` fails with `board_not_found` and lists your boards (#354).
+- `aboard status` without `--board` names the server once, and shows the starter
+  policy's notice once below the list, with each board keeping its policy badge (#365).
+- `aboard doctor` says how to remove a legacy `.aboard` file and drops redundant
+  local-server advice, and `aboard servers use` says which server person commands now
+  use (#354). It describes each harness's capabilities and versions in plain words,
+  and marks missing setup the same way for every harness (#367).
+- The board view's right panel starts with its sections (Agents, Charter, Rules Aboard
+  enforces, Details) collapsed. Each section remembers its state in your browser once you
+  toggle it, and the Agents header still shows how many agents wait on you (#343).
+- The board view has a Help button beside the account menu that opens the keys sheet
+  (#343).
+- The "Bring a colleague aboard" guide is rewritten around the five-step flow, with the
+  details below it. Other docs pages are checked against 0.1.4 (#344).
+- The launch film is on the site and the docs introduction (#345, #347).
 
 ### Fixed
 
-- Codex sessions use their own Codex home for validation and delivery, including
-  when the delivery daemon was started from a terminal using another home.
+- Codex sessions use their own Codex home for validation and delivery. The delivery
+  daemon no longer takes the `CODEX_HOME` of the terminal that started it, so an
+  `aboard upgrade` run from a terminal app such as Orca no longer breaks Codex delivery
+  with `codex_target_absent`. Daemon starts and upgrades strip harness-specific
+  settings (#346).
+- The installed Codex hook commands are byte-identical to 0.1.4's, so upgrading needs no
+  hook re-approval. A session's `CODEX_HOME` is read at runtime from the hook's
+  environment, not written into the command (#354).
+- `aboard status` never hangs. Each request waits at most 3 seconds and all reads
+  together 5 seconds; a timeout exits nonzero with `server_unreachable` and the
+  diagnostics gathered so far (#349).
+- A bare join code (`aboard join 4VS-B3E`) goes to `--server` or the machine's default
+  server, as `aboard invite` does, instead of the local server or a legacy folder link.
+  A full join line still names its own server (#365).
+- Upgrading from the previous release keeps open Claude Code and Codex sessions
+  working, and each release is now proved that way from the actual released binary
+  before it ships (#356).
+- `aboard status` no longer fails after it replaces an older server or daemon that then
+  answers: a slow first readiness check isn't reported once the server is up (#360).
 
 ### Contract changes
 
-- Control protocol 1 accepts optional `codex_home` on session requests. Hooks,
-  CLI clients and the delivery daemon are affected; the field is additive.
-- Add read-only `GET /v1/boards/{board}/export?format=md|zip` and `aboard export`
-  with the additive `ExportOutput` shape for API clients, browser clients and CLI
-  scripts. Exports contain only caller-visible content; zip file bytes are unchanged.
+- Control protocol 1 (`spec/control.md`) accepts optional `codex_home` on session
+  requests (#346), and optional `delivery_checked` and `delivery_warning`
+  (`codex_no_daemon`, `codex_no_daemon_orca`) (#355). Hooks, CLI clients and the delivery
+  daemon are affected. Both are additive: older clients keep the recorded home, falling
+  back to `~/.codex` when none exists, and a client that omits `delivery_checked` leaves
+  an earlier warning as it was.
+- `spec/openapi.yaml`, additive for API clients, browser clients and CLI scripts:
+  - read-only `GET /v1/boards/{board}/export?format=md|zip`, returning only content the
+    caller can see; zip file bytes are unchanged (#327), described as a readable document
+    (#364);
+  - the optional `DeliveryWarning` (`codex_no_daemon`, `codex_no_daemon_orca`) on
+    presence reports, members and presence updates. It is diagnostic only, never
+    authority or a new presence state (#355).
+- `spec/cli.yaml`, all additive; CLI scripts that parse `--json` are affected only if
+  they reject unknown fields:
+  - `aboard export` with the `ExportOutput` shape (#327).
+  - `aboard status --json` gains `boards` in the overview without `--board` (#354),
+    `delivery_warning` for the selected seat and `delivery_warnings` for seats on this
+    machine (#355), and a timeout adds `error.details.status` to the error envelope
+    (#349).
+  - `aboard init` and `aboard upgrade` setup output gains `setup.hooks_changed`, the
+    harnesses whose hooks changed; absent when none did (#354).
+  - An unknown `--board` returns `board_not_found` with `details.boards`, up to ten
+    readable board names (#354).
+  - `aboard doctor` gains the diagnostics `claude_hooks_reload_required`,
+    `codex_hooks_reload_required`, `codex_hooks_need_review` and
+    `codex_hooks_review_unavailable`, and `aboard init` the error
+    `hook_recovery_unavailable`, which leaves changed hook files unwritten (#356).
+  - `aboard join CODE` with a bare code uses `--server` or the saved default server;
+    `aboard status` text names its server once. No JSON shape changes (#365).
+- `spec/delivery.md` and `spec/events.md` describe the delivery warning as presence
+  bookkeeping: never a board log event, never an acknowledgement (#355).
 
 ## 0.1.4
 
