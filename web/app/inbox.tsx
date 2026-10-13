@@ -4,7 +4,7 @@ import { ArrowLeft, Clock, CornerDownLeft, Menu } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { type AskList, type Board, type Me, type Member, type Message, ackBoard, follow, get, listTasks } from "./api";
+import { type AskList, type Board, type Me, type Member, type Message, type RepliesWaiting, ackBoard, follow, get, listTasks, repliesWaiting } from "./api";
 import { Account } from "./account";
 import { AskAnswers, askChanged } from "./ask-ui";
 import { Attachments } from "./attachments";
@@ -21,10 +21,16 @@ import { SenderMark } from "./agent-mark";
 import { clockTime, identityOf, relativeTime } from "./words";
 import { useOnboarding } from "./onboarding-data";
 import { type OnboardingItem, OnboardingDetail, OnboardingRow, inviteItem, onboardingGroups } from "./inbox-onboarding";
+import { ReplyDetail, ReplyRow } from "./inbox-replies";
 
 export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const [boards, setBoards] = useState<Board[] | null>(null);
   const [asks, setAsks] = useState<Message[] | null>(null);
+  // Messages waiting for the person's reply follow the asks; one replied to here leaves
+  // the list at once, before the Inbox reads again.
+  const [replies, setReplies] = useState<RepliesWaiting | null>(null);
+  const [repliesFailed, setRepliesFailed] = useState(false);
+  const [replied, setReplied] = useState<string[]>([]);
   const [facts, setFacts] = useState<BoardFacts[]>([]);
   const [me, setMe] = useState("");
   const [more, setMore] = useState(false);
@@ -68,8 +74,10 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const load = async () => {
       const gen = ++generation;
       try {
-        const [list, questions, person] = await Promise.all([get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }), get<AskList>("/v1/asks", { to_me: true, state: "open", limit: 200 }), get<Me>("/v1/me")]);
+        const [list, questions, person, waitingReplies] = await Promise.all([get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }), get<AskList>("/v1/asks", { to_me: true, state: "open", limit: 200 }), get<Me>("/v1/me"), repliesWaiting(50).catch(() => null)]);
         if (!live || gen !== generation) return;
+        setRepliesFailed(waitingReplies === null);
+        if (waitingReplies) { setReplies(waitingReplies); setReplied([]); }
         setBoards(list.boards);
         setFacts((previous) => previous.filter((f) => list.boards.some((b) => b.id === f.board.id && b.on_board && b.lifecycle !== "archived")));
         setAsks(orderedAsks(questions.asks));
@@ -103,12 +111,15 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const waiting = asks?.filter((a) => !(snoozed[a.id] > now)) ?? null;
   const resting = (asks?.length ?? 0) - (waiting?.length ?? 0);
   // Answering or snoozing an ask advances in place: the ask now at its index opens.
-  const current = waiting?.find((a) => a.id === picked) ?? waiting?.[Math.min(slot.current, waiting.length - 1)] ?? null;
-  const index = current ? waiting!.indexOf(current) : -1;
+  const replyList = replies?.messages.filter((m) => !replied.includes(m.id)) ?? [];
+  // J and K move through the asks, then the replies waiting, in the order listed.
+  const items = waiting === null ? null : [...waiting, ...replyList];
+  const current = items?.find((a) => a.id === picked) ?? items?.[Math.min(slot.current, items.length - 1)] ?? null;
+  const index = current ? items!.indexOf(current) : -1;
   const obGroups = onboardingGroups(ob, dismissed);
   const obAll = [...obGroups.needs, ...obGroups.news, ...obGroups.pairing, ...obGroups.invites, ...obGroups.decided];
   // What waits on the person opens first: an approval or request before an ask, unless an ask was picked.
-  const obItem = obAll.find((i) => i.id === obPicked) ?? (!askChosen && (obGroups.needs.length > 0 || (waiting?.length ?? 0) === 0) ? (obGroups.needs[0] ?? (waiting?.length === 0 ? obAll[0] : undefined) ?? null) : null);
+  const obItem = obAll.find((i) => i.id === obPicked) ?? (!askChosen && (obGroups.needs.length > 0 || (items?.length ?? 0) === 0) ? (obGroups.needs[0] ?? (items?.length === 0 ? obAll[0] : undefined) ?? null) : null);
   // The item on screen stays there when deciding it moves it to another group.
   useEffect(() => {
     if (obItem && obPicked !== obItem.id) setObPicked(obItem.id);
@@ -120,13 +131,13 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   }, [current, index, picked]);
   const restored = useRef(false);
   useEffect(() => {
-    if (!returned || restored.current || waiting === null) return;
+    if (!returned || restored.current || items === null) return;
     restored.current = true;
     if (listing.current && listing.current.scrollHeight > listing.current.clientHeight) listing.current.scrollTop = returned.scroll;
     else window.scrollTo({ top: returned.scroll });
-  }, [returned, waiting]);
+  }, [returned, items]);
   useEffect(() => {
-    if (current) document.querySelector(`[data-ask="${CSS.escape(current.id)}"]`)?.scrollIntoView({ block: "nearest" });
+    if (current) document.querySelector(`[data-ask="${CSS.escape(current.id)}"], [data-reply="${CSS.escape(current.id)}"]`)?.scrollIntoView({ block: "nearest" });
   }, [current]);
   useEffect(() => {
     if (!sent) return;
@@ -135,7 +146,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const gone = setTimeout(() => setSent(null), 4200);
     return () => { clearTimeout(fade); clearTimeout(gone); };
   }, [sent]);
-  const move = useCallback((n: number) => { setPicked(waiting?.[n]?.id ?? null); setSent(null); }, [waiting]);
+  const move = useCallback((n: number) => { setPicked(items?.[n]?.id ?? null); setSent(null); }, [items]);
   const snooze = useCallback((m: Message) => {
     const at = Date.now();
     const kept = Object.fromEntries(Object.entries(snoozed).filter(([, until]) => until > at));
@@ -157,22 +168,23 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       if (typing(e)) return;
       if (pressed("help", e)) setKeysOpen(true);
       else if (!current || obItem) return;
-      else if (pressed("next", e)) move(Math.min(waiting!.length - 1, index + 1));
+      else if (pressed("next", e)) move(Math.min(items!.length - 1, index + 1));
       else if (pressed("previous", e)) move(Math.max(0, index - 1));
-      else if (pressed("snooze", e)) snooze(current);
-      else if (pressed("open", e) && (e.target === document.body || (e.target as HTMLElement).closest("[data-ask]"))) { leave(); window.location.href = boardHref; }
+      else if (pressed("snooze", e) && current.ask) snooze(current);
+      else if (pressed("open", e) && (e.target === document.body || (e.target as HTMLElement).closest("[data-ask], [data-reply]"))) { leave(); window.location.href = boardHref; }
       else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [waiting, current, index, move, snooze, boardHref, leave, obItem]);
+  }, [items, current, index, move, snooze, boardHref, leave, obItem]);
   const notices = worthALook(facts, me, now);
   const working = facts.map((f) => ({ board: f.board, agents: f.members.filter((m) => m.kind === "agent" && (!m.status || m.status === "active") && m.presence === "working").length })).filter((f) => f.agents > 0);
   const busiest = working.reduce<(typeof working)[number] | null>((a, b) => (a && a.agents >= b.agents ? a : b), null);
   const workingCount = working.reduce((n, f) => n + f.agents, 0);
   const markRead = (b: Board) => { void ackBoard(b.name, b.head_seq).then(() => refresh.current(), setError); };
   const answered = (reply: Message) => { if (current) setSent({ to: current.from.name, body: reply.body, at: Date.now() }); setPicked(null); setReading(false); refresh.current(); };
+  const sentReply = (reply: Message) => { if (current) { setSent({ to: current.from.name, body: reply.body, at: Date.now() }); setReplied((r) => [...r, current.id]); } setPicked(null); setReading(false); refresh.current(); };
   const read = (m: Message) => { setPicked(m.id); setObPicked(null); setAskChosen(true); setSent(null); if (!wide) { setReading(true); window.scrollTo({ top: 0 }); } };
   const readOb = (id: string) => { setObPicked(id); setAskChosen(false); setSent(null); if (!wide) { setReading(true); window.scrollTo({ top: 0 }); } };
   // The asker's status on its board, from the same facts Worth a look reads.
@@ -208,6 +220,11 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     <ul aria-label={title} className="flex flex-col gap-1">{list.map((i) => <OnboardingRow key={i.id} item={i} ob={ob} now={now} selected={wide && obItem?.id === i.id} onRead={() => readOb(i.id)} />)}</ul>
   </>;
   const rest = current ? askDetail(current.body) : "";
+  const moveKeys = <>
+    <span className="inline-flex items-center gap-1.5 pointer-coarse:hidden"><Kbd>{keyLabel("next")}</Kbd><Kbd>{keyLabel("previous")}</Kbd>to move</span>
+    <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-link hover:underline pointer-coarse:hidden" onClick={() => setKeysOpen(true)}><Kbd>{keyLabel("help")}</Kbd>All keys</button>
+  </>;
+  const senderStatus = current && !current.ask ? (() => { const status = askerStatus(current); return status && <StatusWord status={status} dot className="asker-status" />; })() : null;
   const sentLine = sent && <p role="status" key={sent.at} className={cn("max-w-[640px] truncate text-meta text-muted", wide ? "mb-5" : "px-2.5 pb-1", fading ? "animate-fade-out" : "animate-fade-in")}>Sent to @{sent.to}: &ldquo;{sent.body}&rdquo;</p>;
   useSidebarKeys("", boards);
   const nav = <BoardNav current="" boards={boards} onMarkRead={markRead} />;
@@ -224,15 +241,21 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       {wide ? <aside aria-label="Boards" className="quiet-scroll border-rule bg-sidebar px-5 py-4 lg:overflow-y-auto lg:border-r">{nav}</aside>
         : <Sheet open={boardsOpen} onClose={() => setBoardsOpen(false)} side="left" title="Boards" back="Inbox">{nav}</Sheet>}
       <section ref={listing} aria-labelledby="inbox-title" className={cn("quiet-scroll flex flex-col gap-1 px-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:overflow-y-auto lg:border-r lg:border-rule", phoneReading && "hidden")}>
-        <h1 id="inbox-title" className="flex flex-wrap items-baseline gap-x-2 px-2.5 pt-6 pb-2 text-headline font-bold">Inbox<span className="text-meta font-normal text-muted tabular-nums">{waiting && `${waiting.length + obGroups.needs.length} ${waiting.length + obGroups.needs.length === 1 ? "needs" : "need"} you`}</span></h1>
+        <h1 id="inbox-title" className="flex flex-wrap items-baseline gap-x-2 px-2.5 pt-6 pb-2 text-headline font-bold">Inbox<span className="text-meta font-normal text-muted tabular-nums">{items && `${items.length + obGroups.needs.length} ${items.length + obGroups.needs.length === 1 ? "needs" : "need"} you`}</span></h1>
         {!wide && sentLine}
         {error !== null && <Problem error={error} />}
         {asks === null && error === null && <p role="status" className="px-2.5 text-muted">Loading asks…</p>}
         {obGroups.needs.length > 0 && <div role="group" aria-label="Needs you approvals and requests" className="flex flex-col gap-1">{obGroup("Needs you", obGroups.needs, true)}</div>}
         <div role="group" aria-label="Needs you asks" className="flex flex-col gap-1">
-          {blocking.length > 0 && going.length > 0 ? <>{group("Blocking", "Blocking asks", blocking, obGroups.needs.length === 0)}{group("Going ahead unless you say", "Asks going ahead unless you say", going, false)}</> : (waiting?.length ?? 0) > 0 || obGroups.needs.length === 0 ? group(obGroups.needs.length > 0 ? "Asks" : "Needs you", "Asks", waiting ?? [], obGroups.needs.length === 0) : null}
+          {blocking.length > 0 && going.length > 0 ? <>{group("Blocking", "Blocking asks", blocking, obGroups.needs.length === 0)}{group("Going ahead unless you say", "Asks going ahead unless you say", going, false)}</> : (waiting?.length ?? 0) > 0 || (obGroups.needs.length === 0 && replyList.length === 0) ? group(obGroups.needs.length > 0 ? "Asks" : "Needs you", "Asks", waiting ?? [], obGroups.needs.length === 0) : null}
         </div>
-        {waiting?.length === 0 && obGroups.needs.length === 0 && <p className="px-2.5 text-meta text-muted">Nothing waits on you.</p>}
+        {replyList.length > 0 && <div role="group" aria-label="Replies waiting" className="flex flex-col gap-1">
+          <h2 className={cn("glass glass-page z-[1] px-2.5 lg:sticky lg:top-0 pb-2 text-meta font-bold", obGroups.needs.length === 0 && (waiting?.length ?? 0) === 0 ? "pt-3" : "pt-7")}>Replies waiting</h2>
+          <ul aria-label="Messages waiting for your reply" className="flex flex-col gap-1">{replyList.map((m) => <ReplyRow key={m.id} m={m} board={boardTitle(m.board)} age={age(m.at, now)} selected={wide && m.id === current?.id} onRead={() => read(m)} />)}</ul>
+        </div>}
+        {replies?.more && <p className="px-2.5 pt-2 text-meta text-muted tabular-nums">Showing the newest {replies.messages.length} of {replies.count} replies waiting.</p>}
+        {repliesFailed && <p className="px-2.5 pt-2 text-meta text-muted">Replies waiting could not be read. They show again once the server answers.</p>}
+        {waiting?.length === 0 && obGroups.needs.length === 0 && replyList.length === 0 && <p className="px-2.5 text-meta text-muted">Nothing waits on you.</p>}
         {resting > 0 && <p className="px-2.5 pt-2 text-meta text-muted tabular-nums">{resting} snoozed on this browser · <button type="button" className="text-link hover:underline" onClick={() => setSnoozed({})}>Show {resting === 1 ? "it" : "them"} now</button></p>}
         {more && <p className="px-2.5 text-meta text-muted">Showing the first {asks?.length ?? 0} asks.</p>}
         {obGroup("Added and arrived", obGroups.news, false)}
@@ -246,7 +269,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       <section aria-label="The selected ask" className={cn("quiet-scroll px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:overflow-y-auto lg:px-10 lg:py-8", !wide && !phoneReading && "hidden")}>
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
-        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={(id) => readOb(inviteItem(obGroups, id))} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
+        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={(id) => readOb(inviteItem(obGroups, id))} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current && !current.ask ? <ReplyDetail key={current.id} m={current} boardTitle={boardTitle(current.board) ?? ""} boardHref={boardHref} status={senderStatus} now={now} onLeave={leave} onSent={sentReply} keys={moveKeys} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
           <p className="text-meta text-muted"><a href={boardHref} onClick={leave} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);
@@ -257,10 +280,9 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
           <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-meta text-muted">
             <a href={boardHref} onClick={leave} className="inline-flex min-h-11 items-center gap-1.5">Open on the board<CornerDownLeft className="size-3 pointer-coarse:hidden" aria-label="Enter" /></a>
             <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-link hover:underline" onClick={() => { snooze(current); setReading(false); }}>Snooze for an hour<span className="max-sm:hidden"> on this browser</span><Kbd>{keyLabel("snooze")}</Kbd></button>
-            <span className="inline-flex items-center gap-1.5 pointer-coarse:hidden"><Kbd>{keyLabel("next")}</Kbd><Kbd>{keyLabel("previous")}</Kbd>to move</span>
-            <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-link hover:underline pointer-coarse:hidden" onClick={() => setKeysOpen(true)}><Kbd>{keyLabel("help")}</Kbd>All keys</button>
+            {moveKeys}
           </p>
-        </article> : asks !== null && <div className="max-w-[560px]"><h2 className="text-title font-bold">Nothing waits on you.</h2><p className="mt-2 text-muted">Asks addressed to you appear here from every board.{busiest && <> · <a href={`/?board=${encodeURIComponent(busiest.board.name)}`} className="tabular-nums" title={`Open ${busiest.board.title ?? busiest.board.name}, where most of them are`}>{workingCount} {workingCount === 1 ? "agent" : "agents"} working on {working.length} {working.length === 1 ? "board" : "boards"}</a></>}</p></div>}
+        </article> : asks !== null && <div className="max-w-[560px]"><h2 className="text-title font-bold">Nothing waits on you.</h2><p className="mt-2 text-muted">Asks addressed to you, and messages waiting for your reply, appear here from every board.{busiest && <> · <a href={`/?board=${encodeURIComponent(busiest.board.name)}`} className="tabular-nums" title={`Open ${busiest.board.title ?? busiest.board.name}, where most of them are`}>{workingCount} {workingCount === 1 ? "agent" : "agents"} working on {working.length} {working.length === 1 ? "board" : "boards"}</a></>}</p></div>}
       </section>
     </div>
     <KeysSheet open={keysOpen} onClose={() => setKeysOpen(false)} />

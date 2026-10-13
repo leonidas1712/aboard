@@ -21,6 +21,7 @@ import { ApiError, type Board, type DeliveryWarning, type MidturnPolicy, type Me
 import { AgentMark } from "./agent-mark";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { attentionCount } from "./asks";
+import { useRepliesWaitingCount } from "./inbox-replies";
 import { AddAgent, Details } from "./board-details";
 import { LifecycleActions } from "./board-lifecycle";
 import { modeRules, type SettableMode, settableModes } from "./delivery-modes.gen";
@@ -80,6 +81,8 @@ export function useSidebarKeys(current: string, boards: Board[] | null) {
 export function BoardNav({ current, boards, onMarkRead }: { current: string; boards: Board[] | null; onMarkRead: (b: Board) => void }) {
   // Approvals and pairing requests that wait on the person count toward the Inbox too.
   const onboarding = useOnboardingCount();
+  // So do messages waiting for the person's reply.
+  const replies = useRepliesWaitingCount(boards);
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
   const { archived, needs, others } = sidebarOrder(boards);
   return (
@@ -91,7 +94,7 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
         <FindRow />
         <a href="/?inbox" aria-current={current === "" ? "page" : undefined} className={cn("group -mx-2.5 flex min-h-11 items-center justify-between rounded-control px-2.5 font-bold text-ink no-underline hover:bg-hover", current === "" && "bg-selected hover:bg-selected")}>
           <span className="flex items-center gap-2">Inbox{current !== "" && <Kbd className="font-normal opacity-0 transition-opacity duration-[140ms] ease-out group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none" title={`Shortcut: ${keyLabel("inbox")}`} aria-label={`Shortcut: ${keyLabel("inbox")}`}>{keyLabel("inbox")}</Kbd>}</span>
-          {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding) > 0 && <span className="rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding)}</span>}
+          {boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding + replies) > 0 && <span className="inbox-count rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums">{boards.reduce((n, b) => n + (b.asks_to_me?.blocking ?? 0), onboarding + replies)}</span>}
         </a>
       </div>
       {needs.length > 0 && (
