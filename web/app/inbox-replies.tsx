@@ -47,7 +47,8 @@ export async function threadRecipients(m: Message, me: string, onBoard: (name: s
  * markReadThrough moves the person's read position on m's board past m and their own
  * reply, once they answered m in place. The position is cumulative, so it moves only
  * over a stretch that holds nothing else unread: an older message they haven't seen
- * holds it back.
+ * holds it back. It never passes a message it didn't list and check, so it stops at
+ * the last listed message, never at a sequence number past it.
  */
 export async function markReadThrough(m: Message, reply: Message): Promise<void> {
   const board = encodeURIComponent(m.board!);
@@ -59,8 +60,6 @@ export async function markReadThrough(m: Message, reply: Message): Promise<void>
     if (x.id !== m.id && x.sender !== "self") break;
     through = x.seq;
   }
-  // Every message up to the reply was m or the person's own: nothing in the page's gap was skipped.
-  if (through === page.messages.at(-1)?.seq && page.next_after === null) through = reply.seq;
   if (through > at) await ackBoard(m.board!, through);
 }
 

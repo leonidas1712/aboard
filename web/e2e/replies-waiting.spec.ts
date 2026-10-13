@@ -222,6 +222,13 @@ test("other members' replies leave a message waiting, a newer request replaces i
   expect(after.count).toBe(0);
 });
 
+// inboxLoaded goes to the Inbox and waits until it has replaced the board view, so a
+// message posted next is never shown, and acknowledged, by the board view on its way out.
+async function inboxLoaded(page: Page) {
+  await inbox(page).click();
+  await expect(page.locator("#inbox-title")).toBeVisible();
+}
+
 // A decided approval, as the server lists it; only the Inbox's list reads it here.
 const at = () => new Date().toISOString();
 const decided = { id: "apr_01M4MZJNPHX08FRHZ84P73TNF9", person_id: "hum_alex", agent_id: "mem_claude", action: { kind: "invite_people", invite: { suggested_handle: "maya" } }, state: "executed", created_at: at(), decided_at: at(), execution: { at: at(), invite_id: "inv_01M4MZJTM1VBAK8M74RJ7AVFP5", authorization: { kind: "invited", person_id: "hum_alex", agent_id: "mem_claude", via: "approval" } }, display: { agent_name: "claude", agent_harness: "claude-code", requested_on: { id: "brd_setup", name: "replies-approval", title: "" }, boards: [] } };
@@ -231,7 +238,7 @@ test("opening an approval leaves one row selected, and K walks back into the rep
   addBoard(board);
   await page.route("**/v1/me/approvals*", (route) => route.fulfill({ json: { approvals: [decided] } }));
   await signIn(page, board);
-  await inbox(page).click();
+  await inboxLoaded(page);
   await waitFor(board, "Approval neighbour waiting");
   await replyRows(page).filter({ hasText: "Approval neighbour waiting" }).click();
   await expect(selected(page)).toContainText("Approval neighbour waiting");
@@ -254,7 +261,7 @@ test("a reply in place names everyone in the thread, marks the message read, and
   const made = await api<{ key: { token: string } }>("", "POST", "/v1/connect", { invite: invite.invite, handle: "sam", key_name: "web-fixture" });
   await api(ownerToken(), "POST", `/v1/boards/${board}/people`, { handle: "sam" });
   // Posted while alex is in the Inbox, so no board view has shown them.
-  await inbox(page).click();
+  await inboxLoaded(page);
   const waiting = await waitFor(board, "Which install path should the docs lead with?");
   await api(made.key.token, "POST", `/v1/boards/${board}/messages`, { body: "The script, I think.", reply_to: waiting.id });
 
@@ -265,6 +272,8 @@ test("a reply in place names everyone in the thread, marks the message read, and
   await look.goto(`${base()}/?board=${board}`);
   await expect(look.locator("button.answered")).toHaveText("sam replied");
   await look.close();
+  const before = await api<{ read_up_to: number }>(ownerToken(), "GET", `/v1/boards/${board}`);
+  expect(before.read_up_to).toBeLessThan(waiting.seq);
 
   const rows = replyRows(page).filter({ hasText: "Which install path" });
   await rows.click();
@@ -290,12 +299,14 @@ test("a reply in place with nothing else unread marks the board read through the
   const board = "replies-read";
   addBoard(board);
   await signIn(page, board);
-  await inbox(page).click();
+  await inboxLoaded(page);
   await waitFor(board, "Is the changelog ready?");
   await replyRows(page).filter({ hasText: "Is the changelog ready?" }).click();
   await page.getByLabel("Your reply, sent to writer").fill("Yes.");
   await page.keyboard.press("ControlOrMeta+Enter");
+  // The sent line shows once the read position has moved; the row can leave before it.
+  await expect(page.getByRole("status").filter({ hasText: "Sent to @writer" })).toContainText("Yes.");
   await expect(replyRows(page).filter({ hasText: "Is the changelog ready?" })).toHaveCount(0);
-  const seen = await api<{ read_up_to: number; unread: number; head_seq: number }>(ownerToken(), "GET", `/v1/boards/${board}`);
+  const seen = await api<{ unread: number }>(ownerToken(), "GET", `/v1/boards/${board}`);
   expect(seen.unread).toBe(0);
 });
