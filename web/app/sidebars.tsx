@@ -83,7 +83,9 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
   if (boards === null) return <div className="h-11 animate-pulse rounded-control bg-selected motion-reduce:animate-none" aria-label="Loading" />;
   const { archived, needs, others } = sidebarOrder(boards);
   return (
-    <div className="flex flex-col gap-6">
+    // Groups sit a short step apart; a group with a heading gets more room above it, so a
+    // list with no headings has no gap that reads as a missing one.
+    <div className="flex flex-col gap-3">
       {/* The finder sits first, where people look for search, with the Inbox under it. */}
       <div className="flex flex-col gap-1">
         <FindRow />
@@ -93,21 +95,23 @@ export function BoardNav({ current, boards, onMarkRead }: { current: string; boa
         </a>
       </div>
       {needs.length > 0 && (
-        <section aria-label="Needs you">
+        <section aria-label="Needs you" className="pt-3">
           <h3 className="mb-2 text-meta font-bold text-ink">Needs you</h3>
           <BoardLinks current={current} boards={needs} onMarkRead={onMarkRead} />
         </section>
       )}
       {others.length > 0 && (
-        <section aria-label={needs.length > 0 ? "Other boards" : "Your boards"}>
+        <section aria-label={needs.length > 0 ? "Other boards" : "Your boards"} className={cn(needs.length > 0 && "pt-3")}>
           {needs.length > 0 && <h3 className="mb-2 text-meta font-bold text-muted">Other boards</h3>}
           <BoardLinks current={current} boards={others} onMarkRead={onMarkRead} />
         </section>
       )}
       {archived.length > 0 && (
-        <ArchivedGroup count={archived.length} holdsCurrent={archived.some((b) => b.name === current)}>
-          <BoardLinks current={current} boards={archived} onMarkRead={onMarkRead} />
-        </ArchivedGroup>
+        <div className="pt-3">
+          <ArchivedGroup count={archived.length} holdsCurrent={archived.some((b) => b.name === current)}>
+            <BoardLinks current={current} boards={archived} onMarkRead={onMarkRead} />
+          </ArchivedGroup>
+        </div>
       )}
       {boards.length === 0 && <p className="text-meta text-muted">No boards yet.</p>}
     </div>
