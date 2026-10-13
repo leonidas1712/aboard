@@ -260,6 +260,17 @@ export type MessageAsk = {
 export type AskList = { asks: Message[]; more: boolean };
 
 /**
+ * RepliesWaiting is what GET /v1/me/replies-waiting returns: the messages waiting for the
+ * person's reply, newest first, and how many there are before the limit.
+ */
+export type RepliesWaiting = { messages: Message[]; more: boolean; count: number };
+
+/** repliesWaiting reads the messages waiting for the person's reply, from every board. */
+export function repliesWaiting(limit: number): Promise<RepliesWaiting> {
+  return get<RepliesWaiting>("/v1/me/replies-waiting", { limit });
+}
+
+/**
  * Mention is one member a message mentions: `text` is how it was written ("@codex" or
  * "@role:reviewer"), and `wakes` whether it counts as addressing the agent.
  */
