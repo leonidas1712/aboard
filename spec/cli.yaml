@@ -4296,6 +4296,8 @@ $defs:
     description: |
       An agent admin command outside its allowance returns this shape with exit 0:
       the request was held, not performed. Text says Pending approval and prints
+      the server name and board name once when they are equal; distinct names
+      appear as "on <server> · <board>". JSON retains both fields.
       next.command for the person's terminal, plus next.board_view and next.resume
       when present. The exact command includes the actual approval id and issuer,
       safely quoted, without placeholders or secrets. This is distinct from an
