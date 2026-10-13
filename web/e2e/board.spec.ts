@@ -1395,9 +1395,11 @@ test("each agent shows its delivery mode and its mid-turn setting, and its perso
   await page.getByRole("menuitemradio", { name: /^off/ }).click();
   await expect(writer.getByRole("button", { name: "Delivery mode of writer: off. Change it" })).toBeVisible();
 
-  // The server holds it: the CLI reads the same mode, and the record says who changed it.
-  expect(JSON.parse(aboard("delivery", "--as", "writer", "--board", board, "--json")).mode).toBe("off");
+  // The server holds it: the record says who changed it, and then the CLI reads the same
+  // mode. The menu shows the change at once, before the server has answered, so the record
+  // comes first.
   await expect(page.locator(".board-event", { hasText: "alex set writer's delivery mode to off" })).toBeVisible();
+  expect(JSON.parse(aboard("delivery", "--as", "writer", "--board", board, "--json")).mode).toBe("off");
 
   // A change made elsewhere shows live.
   aboard("delivery", "humans", "--as", "writer", "--board", board);
