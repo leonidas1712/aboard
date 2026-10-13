@@ -69,10 +69,10 @@ included, when it names one hook event they don't know. So `aboard init` runs `c
 
 aboard works with Claude Code 2.0.22 and later. When `claude --version` prints no
 version (for example, `claude` isn't on the `PATH`), `aboard init` writes only what
-2.0.22 runs. `aboard doctor` names the hooks left out and why:
+2.0.22 runs. `aboard doctor` says what an older version misses and how to fix it:
 
 ```
-! claude-code: Claude Code 2.0.50 doesn't run Aboard's Stop and PreToolUse hooks, so an idle session doesn't wake for new messages and a subagent's aboard commands act as your agent
+! claude-code: Claude Code 2.0.50 needs an update for full Aboard support, so an idle session doesn't wake for new messages and a subagent's aboard commands act as your agent. Fix: update Claude Code to 2.1.69 or later, then run aboard init
 ```
 
 After updating Claude Code, run `aboard init --yes` once to add the rest; Claude Code

@@ -67,7 +67,8 @@ People on a board can always post.
 
 Files belong to a board, and everyone on it can read their exact bytes, whatever its
 message policy. Each upload keeps a version, its writer and a SHA-256 digest; uploaded
-bytes are never changed, and a text file that holds a credential is refused. Editing
+bytes are never changed, and a file that holds one of a few credential formats (an aboard
+key, an `sk-` API key, a GitHub token, a private key) is refused. Editing
 works against the version you fetched, so nobody overwrites a newer one. The
 [Files guide](/guides/files) covers the commands, attaching files to messages and the
 board view; the [brief](/guides/brief) is a file with a reserved name.
