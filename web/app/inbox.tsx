@@ -18,7 +18,7 @@ import { usePref } from "./prefs";
 import { BoardNav, useSidebarKeys } from "./sidebars";
 import { Finder } from "./finder";
 import { SenderMark } from "./agent-mark";
-import { clockTime, identityOf, relativeTime } from "./words";
+import { andList, clockTime, identityOf, relativeTime } from "./words";
 import { useOnboarding } from "./onboarding-data";
 import { type OnboardingItem, OnboardingDetail, OnboardingRow, inviteItem, onboardingGroups } from "./inbox-onboarding";
 import { ReplyDetail, ReplyRow } from "./inbox-replies";
@@ -147,6 +147,8 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     return () => { clearTimeout(fade); clearTimeout(gone); };
   }, [sent]);
   const move = useCallback((n: number) => { setPicked(items?.[n]?.id ?? null); setSent(null); }, [items]);
+  const readItem = useCallback((m: Message) => { setPicked(m.id); setObPicked(null); setAskChosen(true); setSent(null); }, []);
+  const obNeeds = obGroups.needs;
   const snooze = useCallback((m: Message) => {
     const at = Date.now();
     const kept = Object.fromEntries(Object.entries(snoozed).filter(([, until]) => until > at));
@@ -167,6 +169,14 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const key = (e: KeyboardEvent) => {
       if (typing(e)) return;
       if (pressed("help", e)) setKeysOpen(true);
+      else if (obItem && items?.length) {
+        // From an approval or request, J and K walk back into the list: the Needs you
+        // items sit above the asks, the rest below the replies waiting.
+        const above = obNeeds.some((i) => i.id === obItem.id);
+        if (above && pressed("next", e)) readItem(items[0]);
+        else if (!above && pressed("previous", e)) readItem(items[items.length - 1]);
+        else return;
+      }
       else if (!current || obItem) return;
       else if (pressed("next", e)) move(Math.min(items!.length - 1, index + 1));
       else if (pressed("previous", e)) move(Math.max(0, index - 1));
@@ -177,14 +187,15 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [items, current, index, move, snooze, boardHref, leave, obItem]);
+  }, [items, current, index, move, snooze, boardHref, leave, obItem, obNeeds, readItem]);
   const notices = worthALook(facts, me, now);
   const working = facts.map((f) => ({ board: f.board, agents: f.members.filter((m) => m.kind === "agent" && (!m.status || m.status === "active") && m.presence === "working").length })).filter((f) => f.agents > 0);
   const busiest = working.reduce<(typeof working)[number] | null>((a, b) => (a && a.agents >= b.agents ? a : b), null);
   const workingCount = working.reduce((n, f) => n + f.agents, 0);
   const markRead = (b: Board) => { void ackBoard(b.name, b.head_seq).then(() => refresh.current(), setError); };
-  const answered = (reply: Message) => { if (current) setSent({ to: current.from.name, body: reply.body, at: Date.now() }); setPicked(null); setReading(false); refresh.current(); };
-  const sentReply = (reply: Message) => { if (current) { setSent({ to: current.from.name, body: reply.body, at: Date.now() }); setReplied((r) => [...r, current.id]); } setPicked(null); setReading(false); refresh.current(); };
+  const answered = (reply: Message) => { if (current) setSent({ to: `@${current.from.name}`, body: reply.body, at: Date.now() }); setPicked(null); setReading(false); refresh.current(); };
+  // The sent line names whom the server sent the reply to.
+  const sentReply = (reply: Message) => { if (current) { setSent({ to: andList(reply.to.length > 0 ? reply.to : [`@${current.from.name}`]), body: reply.body, at: Date.now() }); setReplied((r) => [...r, current.id]); } setPicked(null); setReading(false); refresh.current(); };
   const read = (m: Message) => { setPicked(m.id); setObPicked(null); setAskChosen(true); setSent(null); if (!wide) { setReading(true); window.scrollTo({ top: 0 }); } };
   const readOb = (id: string) => { setObPicked(id); setAskChosen(false); setSent(null); if (!wide) { setReading(true); window.scrollTo({ top: 0 }); } };
   // The asker's status on its board, from the same facts Worth a look reads.
@@ -194,13 +205,18 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     const agent = f?.members.find((x) => x.kind === "agent" && x.name === m.from.name);
     return f && agent ? agentStatus(agent, blocksOf(f.tasks).get(agent.name), me) : null;
   };
+  // Whether name is on the board, by the facts read; unknown until they are read.
+  const onBoardOf = (board: string | undefined, name: string) => {
+    const f = facts.find((x) => x.board.name === board);
+    return !f || f.members.some((x) => x.name === name && (!x.status || x.status === "active"));
+  };
   const phoneReading = !wide && reading && (current !== null || obItem !== null);
   const boardTitle = (name: string | null | undefined) => boards?.find((b) => b.name === name)?.title ?? name;
   const blocking = waiting?.filter((m) => m.ask?.blocking) ?? [];
   const going = waiting?.filter((m) => !m.ask?.blocking) ?? [];
   const row = (m: Message) => {
     // On a phone no row is selected: a tap reads the ask on its own.
-    const selected = wide && m.id === current?.id;
+    const selected = wide && !obItem && m.id === current?.id;
     const ask = m.ask!;
     return <li key={m.id}><button type="button" data-ask={m.id} onClick={() => read(m)} aria-current={selected ? "true" : undefined} className={cn("grid min-h-14 w-full grid-cols-[28px_minmax(0,1fr)] items-start gap-x-3 rounded-control px-2.5 py-3 text-left transition-colors duration-[140ms] ease-out hover:bg-hover active:bg-selected", selected && "bg-selected hover:bg-selected")}>
       <SenderMark name={m.from.name} kind={m.from.kind} harness={m.from.harness} identity={identityOf(`${m.from.kind}:${m.from.name}`)} className="mt-0.5 size-7" />
@@ -225,7 +241,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-link hover:underline pointer-coarse:hidden" onClick={() => setKeysOpen(true)}><Kbd>{keyLabel("help")}</Kbd>All keys</button>
   </>;
   const senderStatus = current && !current.ask ? (() => { const status = askerStatus(current); return status && <StatusWord status={status} dot className="asker-status" />; })() : null;
-  const sentLine = sent && <p role="status" key={sent.at} className={cn("max-w-[640px] truncate text-meta text-muted", wide ? "mb-5" : "px-2.5 pb-1", fading ? "animate-fade-out" : "animate-fade-in")}>Sent to @{sent.to}: &ldquo;{sent.body}&rdquo;</p>;
+  const sentLine = sent && <p role="status" key={sent.at} className={cn("max-w-[640px] truncate text-meta text-muted", wide ? "mb-5" : "px-2.5 pb-1", fading ? "animate-fade-out" : "animate-fade-in")}>Sent to {sent.to}: &ldquo;{sent.body}&rdquo;</p>;
   useSidebarKeys("", boards);
   const nav = <BoardNav current="" boards={boards} onMarkRead={markRead} />;
   const boardsWaiting = (boards ?? []).some((b) => attentionCount(b) > 0);
@@ -251,7 +267,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
         </div>
         {replyList.length > 0 && <div role="group" aria-label="Replies waiting" className="flex flex-col gap-1">
           <h2 className={cn("glass glass-page z-[1] px-2.5 lg:sticky lg:top-0 pb-2 text-meta font-bold", obGroups.needs.length === 0 && (waiting?.length ?? 0) === 0 ? "pt-3" : "pt-7")}>Replies waiting</h2>
-          <ul aria-label="Messages waiting for your reply" className="flex flex-col gap-1">{replyList.map((m) => <ReplyRow key={m.id} m={m} board={boardTitle(m.board)} age={age(m.at, now)} selected={wide && m.id === current?.id} onRead={() => read(m)} />)}</ul>
+          <ul aria-label="Messages waiting for your reply" className="flex flex-col gap-1">{replyList.map((m) => <ReplyRow key={m.id} m={m} board={boardTitle(m.board)} age={age(m.at, now)} selected={wide && !obItem && m.id === current?.id} onRead={() => read(m)} />)}</ul>
         </div>}
         {replies?.more && <p className="px-2.5 pt-2 text-meta text-muted tabular-nums">Showing the newest {replies.messages.length} of {replies.count} replies waiting.</p>}
         {repliesFailed && <p className="px-2.5 pt-2 text-meta text-muted">Replies waiting could not be read. They show again once the server answers.</p>}
@@ -269,7 +285,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       <section aria-label="The selected ask" className={cn("quiet-scroll px-4 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:overflow-y-auto lg:px-10 lg:py-8", !wide && !phoneReading && "hidden")}>
         {wide && sentLine}
         {!wide && <button type="button" onClick={() => setReading(false)} className="inbox-back -ml-2.5 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-link transition-colors duration-[140ms] ease-out hover:bg-hover"><ArrowLeft className="size-[18px]" strokeWidth={1.75} aria-hidden />Inbox</button>}
-        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={(id) => readOb(inviteItem(obGroups, id))} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current && !current.ask ? <ReplyDetail key={current.id} m={current} boardTitle={boardTitle(current.board) ?? ""} boardHref={boardHref} status={senderStatus} now={now} onLeave={leave} onSent={sentReply} keys={moveKeys} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
+        {obItem ? <OnboardingDetail key={obItem.id} item={obItem} ob={ob} now={now} onShowInvite={(id) => readOb(inviteItem(obGroups, id))} onDismiss={(id) => { setDismissed({ ...dismissed, [id]: true }); setReading(false); }} /> : current && !current.ask ? <ReplyDetail key={current.id} m={current} me={me} onBoard={(name) => onBoardOf(current.board, name)} boardTitle={boardTitle(current.board) ?? ""} boardHref={boardHref} status={senderStatus} now={now} onLeave={leave} onSent={sentReply} keys={moveKeys} /> : current ? <article className="flex max-w-[640px] flex-col gap-5" key={current.id}>
           <p className="text-meta text-muted"><a href={boardHref} onClick={leave} className="tap">{boardTitle(current.board)}</a>{current.ask?.task && ` · ${current.ask.task.ref} ${current.ask.task.title}`}</p>
           {(() => {
             const status = askerStatus(current);

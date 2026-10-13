@@ -120,7 +120,7 @@ export default function Settings({ onSignOut }: { onSignOut: () => void }) {
   const nav = <BoardNav current="" boards={boards} onMarkRead={(b) => void ackBoard(b.name, b.head_seq)} />;
   const panel = (t: SettingsTab) =>
     t === "profile" ? <ProfileSection me={facts.me} onRenamed={(name) => facts.setMe((m) => m && { ...m, name })} />
-    : t === "agents" ? <AgentsSection allowance={facts.allowance} midturn={facts.midturn} />
+    : t === "agents" ? <AgentsSection allowance={facts.allowance} midturn={facts.midturn} admin={facts.me?.server_role === "admin"} />
     : t === "people" ? <PeopleSection />
     : <AppearanceSection />;
   return (
@@ -319,12 +319,12 @@ function ProfileSection({ me, onRenamed }: { me: Me | null; onRenamed: (name: st
 }
 
 /** AgentsSection is how your agents work for you: urgent messages while they work, and auto mode. */
-function AgentsSection({ allowance, midturn }: { allowance: boolean; midturn: boolean }) {
+function AgentsSection({ allowance, midturn, admin }: { allowance: boolean; midturn: boolean; admin: boolean }) {
   return (
     <div className="flex flex-col gap-10">
       <h2 className="sr-only">Agents</h2>
       {midturn && <MidturnSection />}
-      {allowance && <AllowanceSection />}
+      {allowance && <AllowanceSection admin={admin} />}
     </div>
   );
 }
@@ -402,7 +402,7 @@ function AppearanceSection() {
   );
 }
 
-function AllowanceSection() {
+function AllowanceSection({ admin }: { admin: boolean }) {
   const id = useId();
   const [allowance, setCurrent] = useState<Allowance | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -458,7 +458,8 @@ function AllowanceSection() {
               <p className="text-meta text-muted">{add ? (invite ? "On. Turning it off also stops inviting." : "On. Your agents tell the board when they add someone.") : "Off. Your agents ask you each time."}</p>
             </Toggle>
           </div>
-          <div className={confirming ? "flex flex-col rounded-box border border-field-border bg-surface" : "flex flex-col rounded-box border border-rule bg-surface"}>
+          {/* Only a server admin may invite people; a switch left on otherwise can still be turned off. */}
+          {(admin || invite) && <div className={confirming ? "flex flex-col rounded-box border border-field-border bg-surface" : "flex flex-col rounded-box border border-rule bg-surface"}>
             <Toggle
               id="invite-people"
               title="Invite people to the server"
@@ -503,7 +504,7 @@ function AllowanceSection() {
                 <Warning>{allowance.warning}</Warning>
               </div>
             )}
-          </div>
+          </div>}
           {error !== null && <Problem error={error} />}
         </>
       )}

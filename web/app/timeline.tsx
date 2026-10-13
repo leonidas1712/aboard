@@ -586,7 +586,7 @@ function MessageEntry({
                     className="answered ml-2 text-meta text-link underline decoration-1 underline-offset-[3px] hover:no-underline"
                     onClick={() => onShow(answer.id)}
                   >
-                    Answered by {answer.sender === "self" ? "you" : answer.from.name}
+                    {answer.sender === "self" ? "Answered by you" : waiting ? `${answer.from.name} replied` : `Answered by ${answer.from.name}`}
                   </button>
                 ) : (
                   <span className="ml-2 text-meta text-muted">Asks for a reply</span>
