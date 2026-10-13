@@ -134,9 +134,9 @@ async function openInviteStory(page: Page, notices: unknown[] = [used]) {
 
 test("an invite reads as one story: handles in every title, and the used invite folded into the arrival", async ({ page }) => {
   await openInviteStory(page);
-  // The approvals name the handle, waiting or decided.
+  // The approvals name the handle, waiting or decided; a decided one reads in the past tense.
   await expect(page.getByRole("list", { name: "Needs you" }).getByRole("button", { name: /Your agent claude wants to invite @sam to the server as a member/ })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Decided" }).getByRole("button", { name: /Your agent claude wants to invite @maya to the server as a member/ })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Decided" }).getByRole("button", { name: /Your agent claude asked to invite @maya to the server as a member/ })).toBeVisible();
   await expect(page.getByText(/invite someone|invited someone|someone joined/)).toHaveCount(0);
   // The used invite has no row of its own: the arrival tells it.
   await expect(page.getByRole("list", { name: "Invites your agents made" })).toHaveCount(0);
@@ -146,7 +146,7 @@ test("an invite reads as one story: handles in every title, and the used invite 
   // The decided approval shows no ids, and leads to the arrival.
   await page.getByRole("list", { name: "Decided" }).getByRole("button").click();
   const decided = page.locator(`[data-approval="${allowed.id}"]`);
-  await expect(decided.getByRole("heading", { name: /wants to invite @maya/ })).toBeVisible();
+  await expect(decided.getByRole("heading", { name: /asked to invite @maya/ })).toBeVisible();
   await expect(decided).not.toContainText("apr_");
   await expect(decided).not.toContainText("This changes the whole server");
   await decided.getByRole("button", { name: "See @maya join" }).click();

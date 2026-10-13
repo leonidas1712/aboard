@@ -139,6 +139,8 @@ export type Member = MemberRef & {
   /** delivery_mode is the agent's delivery mode as its person set it, held by the server; null for people. */
   delivery_mode?: SettableMode | null;
   delivery_revision?: number | null;
+  /** delivery_warning is the last reported reason messages can't reach the agent's session on their own; absent when none. */
+  delivery_warning?: DeliveryWarning;
   /** location is where the agent's session last ran; sent only for the viewer's own agents, absent when never reported. */
   location?: { machine?: string; harness: string; session_id: string; folder: string; last_active: string };
   /** status is active for a member on the board now; removed or left for an agent whose seat ended. */
@@ -153,6 +155,9 @@ export type Member = MemberRef & {
   /** line is what the agent says it is on; absent from servers without lines. */
   line?: AgentLine | null;
 };
+
+/** DeliveryWarning is a reason an agent's session reported that delivery can't reach it (DeliveryWarning in the spec). */
+export type DeliveryWarning = "codex_no_daemon" | "codex_no_daemon_orca";
 
 /** AgentState is the server's word for an agent now (AgentState in the spec). */
 export type AgentState = "working" | "paused" | "late" | "waiting" | "idle" | "disconnected";
@@ -611,6 +616,8 @@ export type PresenceEvent = {
   /** line and state are the agent's now, as on the member; absent from servers without lines. */
   line?: AgentLine | null;
   state?: AgentState;
+  /** delivery_warning is sent while the session reports one; its absence clears it. */
+  delivery_warning?: DeliveryWarning;
 };
 
 export type StreamHandlers = {

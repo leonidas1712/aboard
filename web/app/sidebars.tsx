@@ -4,7 +4,7 @@
 // on. The right one is about the board on screen: its agents and people, its charter,
 // the rules Aboard enforces on it, and its details.
 
-import { CheckCheck, ChevronDown, ChevronRight, CircleQuestionMark } from "lucide-react";
+import { CheckCheck, ChevronDown, ChevronRight, CircleQuestionMark, TriangleAlert } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ApiError, type Board, type MidturnPolicy, type Member, type MemberRef, type Message, type Task, addedBy, isArchived, setDelivery } from "./api";
+import { ApiError, type Board, type DeliveryWarning, type MidturnPolicy, type Member, type MemberRef, type Message, type Task, addedBy, isArchived, setDelivery } from "./api";
 import { AgentMark } from "./agent-mark";
 import { RemoveAgent, RemovedAgents } from "./agent-removal";
 import { attentionCount } from "./asks";
@@ -170,7 +170,7 @@ function BoardLinks({ current, boards, onMarkRead }: { current: string; boards: 
             >
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className={cn("break-words", here && "font-bold")}>{boardLabel(b)}</span>
-                {b.title && <span className="text-meta break-all text-muted">{b.name}</span>}
+                {b.title && b.title.trim() !== b.name && <span className="text-meta break-all text-muted">{b.name}</span>}
               </span>
               {attentionCount(b) > 0 && (
                 <span className="needs-reply-count shrink-0 rounded-[6px] bg-attention px-2 py-0.5 text-meta font-bold text-on-accent tabular-nums" title={count(attentionCount(b), "question needs your reply", "questions need your reply")}>
@@ -577,6 +577,7 @@ function AgentItem({
       </button>
       <LineText line={agent.line} late={agent.state === "late"} className="-mt-1 pb-1 pl-7" />
       {agent.presence === "waiting" && <p className="text-meta">Its session is waiting for a person, such as at a permission prompt.</p>}
+      {agent.delivery_warning && <DeliveryWarningLine reason={agent.delivery_warning} mine={mine} />}
       {tasks && (
         <p className="agent-tasks flex flex-wrap items-baseline gap-1 pb-2.5 pl-7">
           {tasks.length > 0 ? <TaskChips tags={tasks.map((t) => ({ id: t.id, ref: t.ref, how: "given" }))} /> : <span className="text-meta text-muted">on no task</span>}
@@ -627,6 +628,33 @@ function AgentItem({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * DeliveryWarningLine says that messages can't reach the agent's session on their own,
+ * as its session reported, in the CLI's words. Only the agent's person can fix it, so
+ * only they see the recovery step.
+ */
+function DeliveryWarningLine({ reason, mine }: { reason: DeliveryWarning; mine: boolean }) {
+  const step = !mine ? (
+    "Its person can fix this in their Codex setup."
+  ) : reason === "codex_no_daemon_orca" ? (
+    <>
+      Orca starts Codex with <code>--no-daemon</code>: set <code>export ORCA_CODEX_ISOLATE=0</code> in <code>~/.zshrc</code> or run <code>command codex</code>, then restart Codex.
+    </>
+  ) : (
+    <>
+      Codex is running with <code>--no-daemon</code>. Restart Codex without it.
+    </>
+  );
+  return (
+    <p className="delivery-warning flex items-start gap-2 pb-1.5 pl-7 text-meta [&_code]:whitespace-nowrap" data-reason={reason}>
+      <TriangleAlert className="mt-[3px] size-3.5 shrink-0 text-status-needs" strokeWidth={1.75} aria-hidden />
+      <span>
+        <span className="font-bold">Messages can&apos;t reach it on their own.</span> {step}
+      </span>
+    </p>
   );
 }
 

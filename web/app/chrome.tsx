@@ -62,6 +62,8 @@ type HeaderProps = {
   lead?: ReactNode;
   /** tools come before the account (on a phone, the button that opens the board panel). */
   tools?: ReactNode;
+  /** notice is a short passing message, such as an export's, shown after the board's labels. */
+  notice?: ReactNode;
 };
 
 /**
@@ -69,13 +71,13 @@ type HeaderProps = {
  * it, whether it is on the starter policy, and who you are at the right once the
  * browser is logged in.
  */
-export function Header({ board, title, starter, visibility, shared = false, account, onTitle, onStarter, lead, tools }: HeaderProps) {
+export function Header({ board, title, starter, visibility, shared = false, account, onTitle, onStarter, lead, tools, notice }: HeaderProps) {
   const label = title?.trim();
   // On a phone the title keeps one line and the board's name gives way to it.
   const words = board && (
     <>
       <span className="text-title font-bold max-lg:min-w-0 max-lg:truncate lg:break-words">{label || board}</span>
-      {label && <span className="text-meta break-all text-muted max-sm:hidden">{board}</span>}
+      {label && label !== board && <span className="text-meta break-all text-muted max-sm:hidden">{board}</span>}
     </>
   );
   return (
@@ -111,7 +113,7 @@ export function Header({ board, title, starter, visibility, shared = false, acco
           </h1>
         )}
         {/* On a phone the board's labels take a second line under its title. */}
-        <div className="flex items-center gap-x-5 empty:hidden max-lg:order-last max-lg:basis-full max-lg:gap-x-4">
+        <div className="flex min-w-0 items-center gap-x-5 empty:hidden max-lg:order-last max-lg:basis-full max-lg:gap-x-4">
           {board && <VisibilityLabel visibility={visibility} shared={shared} />}
           {starter &&
             (onStarter ? (
@@ -126,6 +128,7 @@ export function Header({ board, title, starter, visibility, shared = false, acco
             ) : (
               <span className="starter text-meta text-muted">Starter policy</span>
             ))}
+          {notice}
         </div>
         {tools}
         {account}
