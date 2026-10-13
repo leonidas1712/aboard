@@ -153,6 +153,9 @@ func TestBoardTitlesReadFromStdinAndBadTextDoesNotWrite(t *testing.T) {
 		{string([]byte{0xff}), "stdin_text_invalid_utf8", []string{"say", "-", "--as", "member"}, 1},
 		{strings.Repeat("a", 1024*1024+1), "stdin_text_too_large", []string{"say", "-", "--as", "member"}, 1},
 		{"", "invalid_request", []string{"say", "-", "--as", "member"}, 2},
+		{"GEN-1\n", "invalid_request", []string{"task", "note", "-"}, 2},
+		{"GEN-1\n", "invalid_request", []string{"task", "done", "-"}, 2},
+		{"GEN-1\n", "invalid_request", []string{"task", "drop", "--reason", "-"}, 2},
 	} {
 		args := append(append([]string{}, tc.args...), "--board", "general", "--json")
 		r := e.exec(nil, tc.input, args...)
