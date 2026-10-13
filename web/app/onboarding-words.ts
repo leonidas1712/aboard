@@ -19,24 +19,29 @@ const someone = (n: string | null) => n ?? "someone";
 /** handleOf is "@sam", or "someone" when an invite names nobody. */
 export const handleOf = (handle: string | null | undefined) => (handle ? `@${handle}` : "someone");
 
-/** wantsRest is what an agent asks to do, after its name: "wants to invite @sam…". inviteId is the invite an allowed request made. */
-export function wantsRest(a: AdminAction, names: Names, boards: (id: string) => string | null, inviteId?: string): string {
+/**
+ * wantsRest is what an agent asks to do, after its name: "wants to invite @sam…" while
+ * the request waits, "asked to invite @sam…" once it is decided. inviteId is the invite
+ * an allowed request made.
+ */
+export function wantsRest(a: AdminAction, names: Names, boards: (id: string) => string | null, inviteId?: string, decided = false): string {
+  const verb = decided ? "asked to" : "wants to";
   const board = (id: string | undefined) => (id ? (boards(id) ?? names.board(id) ?? "a board") : "a board");
   switch (a.kind) {
     case "invite_people":
-      return `wants to invite ${handleOf(names.invitee(inviteId)?.handle ?? a.invite.suggested_handle)} to the server as a member`;
+      return `${verb} invite ${handleOf(names.invitee(inviteId)?.handle ?? a.invite.suggested_handle)} to the server as a member`;
     case "add_people":
-      return `wants to add ${someone(names.person(a.person_id))} to ${board(a.board_id)} as a member`;
+      return `${verb} add ${someone(names.person(a.person_id))} to ${board(a.board_id)} as a member`;
     case "set_server_role":
-      return a.role === "admin" ? `wants to make ${someone(names.person(a.person_id))} a server admin` : `wants to make ${someone(names.person(a.person_id))} an ordinary member of the server`;
+      return a.role === "admin" ? `${verb} make ${someone(names.person(a.person_id))} a server admin` : `${verb} make ${someone(names.person(a.person_id))} an ordinary member of the server`;
     case "set_board_role":
-      return a.role === "owner" ? `wants to make ${someone(names.person(a.person_id))} an owner of ${board(a.board_id)}` : `wants to make ${someone(names.person(a.person_id))} an ordinary member of ${board(a.board_id)}`;
+      return a.role === "owner" ? `${verb} make ${someone(names.person(a.person_id))} an owner of ${board(a.board_id)}` : `${verb} make ${someone(names.person(a.person_id))} an ordinary member of ${board(a.board_id)}`;
     case "remove_person":
-      return a.board_id ? `wants to remove ${someone(names.person(a.person_id))} from ${board(a.board_id)}` : `wants to remove ${someone(names.person(a.person_id))} from the server`;
+      return a.board_id ? `${verb} remove ${someone(names.person(a.person_id))} from ${board(a.board_id)}` : `${verb} remove ${someone(names.person(a.person_id))} from the server`;
     case "revoke_key":
-      return "wants to revoke an access key";
+      return `${verb} revoke an access key`;
     case "set_board_policy":
-      return `wants to change the rules of ${board(a.board_id)}`;
+      return `${verb} change the rules of ${board(a.board_id)}`;
   }
 }
 

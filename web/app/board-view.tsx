@@ -11,7 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ApiError, type Board, type MemberRef, type Message, type ReactionName, isArchived, react } from "./api";
 import { ArchivedNotice } from "./board-lifecycle";
-import { ExportMenu, exportAs } from "./export-menu";
+import { type ExportMessage, ExportMenu, ExportNotice, exportAs } from "./export-menu";
 import { Header, Problem } from "./chrome";
 import { TaskBoard, TaskContext, TaskDetail, type WorkBy, WorkTasks, WorkTitle, useTasks } from "./task-ui";
 import { FilePanel, FilesView, useFiles } from "./files";
@@ -50,6 +50,8 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
   const s = useBoard(name, filter);
   const [view, setView] = useState<View>("conversation");
   const [taskPanel, setTaskPanel] = useState<string | null>(null);
+  // The last export's message, which the header shows beside the board's labels.
+  const [exportMessage, setExportMessage] = useState<ExportMessage | null>(null);
   const taskState = useTasks(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
   const tasks = taskState.list?.tasks ?? [];
   const fileState = useFiles(name, s.activity, s.board?.head_seq, s.board !== null && !s.gone);
@@ -582,6 +584,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
           shared={people.length > 1}
           onTitle={s.board ? () => show("board-details") : undefined}
           onStarter={() => show("rules")}
+          notice={<ExportNotice message={exportMessage} className="lg:hidden" />}
           lead={!wide && (
             <button type="button" className={cn(sheetButton, "-ml-1.5")} aria-label={boardsWaiting ? "Boards and Inbox, something waits on you" : "Boards and Inbox"} aria-haspopup="dialog" onClick={() => setSheet("left")}>
               <Menu className="size-5" strokeWidth={1.75} aria-hidden />
@@ -589,7 +592,7 @@ export default function BoardView({ name, onSignOut }: { name: string; onSignOut
             </button>
           )}
           tools={<>
-            {s.board && <ExportMenu board={name} />}
+            {s.board && <ExportMenu board={name} onMessage={setExportMessage} />}
             {!wide && <button type="button" className={sheetButton} aria-label={agentsWaiting ? "Board panel: agents, tasks and rules, an agent waits on a person" : "Board panel: agents, tasks and rules"} aria-haspopup="dialog" onClick={() => { setReveal(null); setSheet("right"); }}>
               <PanelRight className="size-5" strokeWidth={1.75} aria-hidden />
               {agentsWaiting && waitingDot}

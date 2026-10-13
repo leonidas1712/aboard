@@ -176,7 +176,7 @@ function BoardRow({ board: b, facts: f, showPeople, now }: { board: Board; facts
         <a href={href} className="font-bold text-ink no-underline after:absolute after:inset-0 after:content-['']">
           {boardLabel(b)}
         </a>
-        {b.title && <span className="ml-2 text-meta break-all text-muted">{b.name}</span>}
+        {b.title && b.title.trim() !== b.name && <span className="ml-2 text-meta break-all text-muted">{b.name}</span>}
         <VisibilityLabel visibility={b.visibility} shared={(f?.people ?? 1) > 1} className="ml-2" />
         {b.charter && <p className="line-clamp-1 max-w-[42ch] text-meta text-muted">{b.charter}</p>}
         <ChevronRight className="absolute top-4 right-2 size-4 text-muted md:hidden" strokeWidth={1.5} aria-hidden />
