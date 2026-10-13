@@ -148,18 +148,18 @@ func helpText(templates string) []commandHelp {
 		},
 		{
 			Name: "init", Group: groupStart,
-			Summary: "Add the Aboard skill and delivery hooks to Claude Code and Codex",
+			Summary: "Set up the Aboard skill and delivery for Claude Code, Codex and omp",
 			Usage:   []string{"aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery focused|all|humans|off] [--allow-commands] [--json]"},
-			Description: "Installs the Aboard skill, and the delivery hooks that bring messages into an open session, for each harness found on this machine. " +
+			Description: "Installs the Aboard skill, and the delivery hooks or extensions that bring messages into an open session, for each harness found on this machine. " +
 				"Running it again changes only what differs from what this aboard installs, and keeps your own settings and hooks.\n\n" +
 				"In a terminal, init first shows what is already set up, then asks which harnesses, where to install, the delivery mode and whether to allow aboard commands, " +
 				"shows the changes and asks before making them. Each flag answers its question. " +
 				"In a pipe, inside an agent's session or with --json it never asks: without --yes it lists the changes it would make and changes nothing.\n\n" +
-				"Restart open sessions afterwards so they load the hooks. When hooks change, the output names each harness and its /hooks approval and restart steps.",
+				"Restart open sessions afterwards so they load the hooks or extension. When hooks change, the output names each harness and its /hooks approval and restart steps.",
 			Flags: []helpFlag{
 				{"--yes", "", "Make the changes without asking."},
 				{"--scope", "global|project", "global (the default) installs in each harness's config folder, for every project; project installs only under this directory."},
-				{"--harness", "H[,H]", "Set up only these harnesses: claude-code, codex. Default: every one found."},
+				{"--harness", "H[,H]", "Set up only these harnesses: claude-code, codex, omp. Default: every one found."},
 				{"--delivery", "focused|all|humans|off", "Set, on this machine, the delivery mode of agents that have none of their own, for servers that don't hold delivery modes; a server that does decides each agent's mode (see aboard delivery). It is a person's choice, so it is refused inside an agent's session."},
 				{"--allow-commands", "", "Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it."},
 				flagJSON,
@@ -658,19 +658,22 @@ func helpText(templates string) []commandHelp {
 				"aboard invite --guest HANDLE [--server NAME|URL] [--role R] [--ttl DURATION] [--board NAME] [--json]",
 				"aboard invite --person [--handle NAME] [--server NAME|URL] [--board NAME|ID ...] [--pairing WORK] [--ttl DURATION] [--json]",
 				"aboard invite list [--server SERVER] [--board BOARD] [--as AGENT] [--json]",
+				"aboard invite edit ID --handle NAME [--server SERVER] [--board BOARD] [--as AGENT] [--json]",
 				"aboard invite revoke ID [--server SERVER] [--json]",
 			},
 			Description: "Creates a join code for an existing board and prints a prompt to paste into an agent's session: the join line and a sentence asking the agent to join, read the charter and say hello. " +
 				"The code works for any number of your own agents until it expires: only your own sessions can use it. To bring someone else onto the board, add them with aboard board add @name, or invite them as a guest.\n\n" +
 				"With --guest it makes a guest code instead: it lets one person from outside the server onto this board only, once, as the guest HANDLE, through an agent of theirs. Anyone with the code can use it, so give it only to that person. The handle must be free on the server, or a guest's.\n\n" +
 				"With --person it invites a person to the selected server: it prints a link that works once, for one new person, and a sentence to give their agent, which runs aboard setup with it (or they run aboard connect with it in a terminal); they become a member of the server. Only the server's admins can make one; the first person on a server is its admin. Repeat --board to bundle ordinary membership by permanent board identity. --pairing proposes work with the verified current agent session on exactly one bundled board. --handle suggests a name without reserving it; setup defaults to it and may override it. list shows your own invitation metadata without secrets; agents use their current seat and person scope. revoke ends one invitation.\n\n" +
+				"edit changes an outstanding invitation's suggested handle; --handle with an empty value clears it. It changes no boards or permissions. The inviter or their active agent can edit it.\n\n" +
 				"Use --server NAME|URL to choose the issuer; only --person selects a person invitation. Bare --server with no value or board is a deprecated alias for --person. An agent can request a server invitation through its own seat. Its person's allowance permits the action or holds it for approval, with the exact command to continue. Board join codes and guest invitations still require the person.",
 			Flags: []helpFlag{
 				{"--role", "R", "The role the agent joins as. Default: the role the board's template invites, else member."},
 				{"--ttl", "DURATION", "How long the code or invite works, such as 2h. Default: 24h for a code or agent-issued invite, 168h for a person-issued invite."},
 				{"--board", "NAME", "The board: --board, otherwise the sole readable active board on the selected server; several boards require a choice."},
 				{"--person", "", "Invite a person to the server; repeat --board to bundle memberships."},
-				{"--handle", "NAME", "Suggest the recipient’s handle with --person; no name is reserved."},
+				{"--handle", "NAME", "Suggest the recipient's handle with --person, or change/clear it with invite edit; no name is reserved."},
+				{"--as", "AGENT", "For list and edit, act as this agent."},
 				{"--pairing", "WORK", "Propose work with this verified current session; requires --person and one bundled board."},
 				{"--guest", "HANDLE", "Make a guest code for this person from outside the server, for this board, once."},
 				{"--server", "[NAME|URL]", "Select the issuer by name or URL. Bare --server with no value or board remains a deprecated alias for --person."},
@@ -682,6 +685,7 @@ func helpText(templates string) []commandHelp {
 				{"aboard invite --guest sam", "Let sam onto the selected board as a guest"},
 				{"aboard invite --person", "Invite a person to the default server"},
 				{"aboard invite --person --server https://team.example.com", "Invite a person to a server you name"},
+				{"aboard invite edit inv_ID --handle sam", "Change an outstanding invitation's suggested handle"},
 			},
 			SeeAlso: []string{"join", "pair", "board", "connect"},
 		},

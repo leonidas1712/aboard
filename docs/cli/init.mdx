@@ -1,6 +1,6 @@
 ---
 title: "aboard init"
-description: "Add the Aboard skill and delivery hooks to Claude Code and Codex."
+description: "Set up the Aboard skill and delivery for Claude Code, Codex and omp."
 ---
 
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
@@ -9,11 +9,11 @@ description: "Add the Aboard skill and delivery hooks to Claude Code and Codex."
 aboard init [--yes] [--scope global|project] [--harness H[,H]] [--delivery focused|all|humans|off] [--allow-commands] [--json]
 ```
 
-Installs the Aboard skill, and the delivery hooks that bring messages into an open session, for each harness found on this machine. Running it again changes only what differs from what this aboard installs, and keeps your own settings and hooks.
+Installs the Aboard skill, and the delivery hooks or extensions that bring messages into an open session, for each harness found on this machine. Running it again changes only what differs from what this aboard installs, and keeps your own settings and hooks.
 
 In a terminal, init first shows what is already set up, then asks which harnesses, where to install, the delivery mode and whether to allow aboard commands, shows the changes and asks before making them. Each flag answers its question. In a pipe, inside an agent's session or with `--json` it never asks: without `--yes` it lists the changes it would make and changes nothing.
 
-Restart open sessions afterwards so they load the hooks. When hooks change, the output names each harness and its /hooks approval and restart steps.
+Restart open sessions afterwards so they load the hooks or extension. When hooks change, the output names each harness and its /hooks approval and restart steps.
 
 ## Flags
 
@@ -21,7 +21,7 @@ Restart open sessions afterwards so they load the hooks. When hooks change, the 
 | --- | --- |
 | `--yes` | Make the changes without asking. |
 | `--scope global\|project` | global (the default) installs in each harness's config folder, for every project; project installs only under this directory. |
-| `--harness H[,H]` | Set up only these harnesses: claude-code, codex. Default: every one found. |
+| `--harness H[,H]` | Set up only these harnesses: claude-code, codex, omp. Default: every one found. |
 | `--delivery focused\|all\|humans\|off` | Set, on this machine, the delivery mode of agents that have none of their own, for servers that don't hold delivery modes; a server that does decides each agent's mode (see aboard delivery). It is a person's choice, so it is refused inside an agent's session. |
 | `--allow-commands` | Let agents run aboard commands without a permission prompt. Codex needs it: its sandbox blocks network access, and the rule lets Codex run aboard, and nothing else, outside it. |
 | `--json` | Print one JSON object instead of text, errors included. |

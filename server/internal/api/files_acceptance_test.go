@@ -109,12 +109,15 @@ func TestFilesRejectSecretsTraversalAndForeignBoardReads(t *testing.T) {
 	ctx := context.Background()
 	name, _, _ := s.pair("starter")
 	c := s.client(s.owner)
-	for _, prefix := range []string{"abh_", "abi_", "abc_"} {
-		for _, media := range []string{"text/plain", "application/octet-stream", "application/json"} {
-			secret, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "secret.txt", MediaType: &media}, "application/octet-stream", strings.NewReader(prefix+strings.Repeat("X", 40)))
+	for _, prefix := range []string{"abh_", "abi_", "abc_", "sk-", "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "-----BEGIN PRIVATE KEY-----"} {
+		for _, media := range []string{"text/plain", "application/octet-stream", "application/json", "image/png"} {
+			secret, err := c.PutFileWithBodyWithResponse(ctx, name, &api.PutFileParams{Name: "secret.txt", MediaType: &media}, "application/octet-stream", strings.NewReader("\x00"+prefix+strings.Repeat("X", 40)+"\xff"))
 			mustStatus(t, secret, err, 422)
 			if secret.JSON422.Error.Code != "file_has_secret" {
 				t.Fatal("credential was not refused")
+			}
+			if got := secret.JSON422.Error.Message; got != "The file contains what looks like a key or token (an aboard key or code, an sk- key, a GitHub token or a private key)." {
+				t.Fatalf("upload error for %s named the wrong content: %q", media, got)
 			}
 		}
 	}

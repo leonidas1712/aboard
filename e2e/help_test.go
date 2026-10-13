@@ -7,6 +7,26 @@ import (
 	"testing"
 )
 
+func TestHelpIncludesInviteEditingAndOmpSetup(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	invite := e.run("help", "invite", "--json").json(t)
+	usage := field(t, invite, "commands.0.usage").([]any)
+	found := false
+	for _, line := range usage {
+		if strings.HasPrefix(line.(string), "aboard invite edit ID --handle NAME") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("invite editing absent from help: %v", invite)
+	}
+	init := e.run("help", "init", "--json").json(t)
+	if summary := field(t, init, "commands.0.summary").(string); !strings.Contains(summary, "omp") {
+		t.Fatalf("omp absent from init summary: %q", summary)
+	}
+}
+
 func TestNestedHelpMatchesTheCommandsHelpFlag(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

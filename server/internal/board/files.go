@@ -270,7 +270,7 @@ func (s *Service) PutFile(ctx context.Context, p Principal, name string, in NewF
 			return fileError(413, "file_too_large", "Files can be at most 50 MB.")
 		}
 		if fileCredential.Match(body) {
-			return fileError(422, "file_has_secret", "The text file contains a credential.")
+			return fileError(422, "file_has_secret", "The file contains what looks like a key or token (an aboard key or code, an sk- key, a GitHub token or a private key).")
 		}
 		if _, _, err := mime.ParseMediaType(media); err != nil {
 			return fileError(400, "invalid_request", "Use a valid media type.")

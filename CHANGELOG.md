@@ -48,6 +48,11 @@ docs gain step-by-step use cases.
 
 ### Fixed
 
+- CLI help includes `invite edit ID --handle NAME`, and init's summary and harness
+  list include omp. The generated CLI reference follows the help.
+- The `file_has_secret` error describes a file and the recognized key/token formats,
+  rather than calling every upload a text file. File checking is unchanged.
+
 - Mark all as read on another board no longer leaves its unread count stuck when
   messages arrive at that moment (#385).
 - A task note, done note or drop reason that is only a task ID or a `#N` message
@@ -62,6 +67,10 @@ docs gain step-by-step use cases.
   `aboard board new --help` (#374).
 
 ### Contract changes
+
+- `spec/openapi.yaml`: clarify that recognized key/code formats are checked in every
+  upload, regardless of media type; the `file_has_secret` code, status and error
+  shape are unchanged, with corrected message wording for API/CLI clients.
 
 - `spec/openapi.yaml`: new read `GET /v1/me/replies-waiting` returning
   `{messages, more, count}` for the calling person, additive; API, SDK and browser
