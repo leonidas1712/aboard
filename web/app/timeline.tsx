@@ -162,6 +162,21 @@ export function Timeline({
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
   }, []);
 
+  // holdDivider keeps "New since you last looked" whole at the top while the page opens at
+  // the newest message: when the divider would sit cut off at the top edge, the timeline
+  // stops a little short of the bottom (less than nearBottom, so it still counts as at the
+  // bottom). It ends once the person scrolls or a new message arrives.
+  const holdDivider = useRef(true);
+  const pin = useCallback((el: HTMLDivElement) => {
+    el.scrollTop = el.scrollHeight;
+    const divider = holdDivider.current ? el.querySelector<HTMLElement>(".new-divider") : null;
+    if (divider) {
+      const cut = el.getBoundingClientRect().top - divider.getBoundingClientRect().top;
+      if (cut > 0 && cut < divider.offsetHeight) el.scrollTop -= cut + 8;
+    }
+    pinned.current = el.scrollTop;
+  }, []);
+
   // A new filter shows another set of entries: start again at the newest.
   useLayoutEffect(() => {
     atBottom.current = true;
@@ -180,8 +195,9 @@ export function Timeline({
     if (prev.first !== 0 && first < prev.first && !atBottom.current) {
       el.scrollTop += el.scrollHeight - prev.height;
     } else if (atBottom.current) {
-      el.scrollTop = el.scrollHeight;
-      pinned.current = el.scrollTop;
+      // A message arriving after the page opened ends the hold on the divider.
+      if (prev.last !== 0 && newestSeq > prev.last) holdDivider.current = false;
+      pin(el);
     } else if (messageCount > prev.messages && newestSeq > prev.last) {
       setUnseen((n) => n + entries.filter((e) => e.kind === "message" && e.seq > prev.last).length);
     }
@@ -191,7 +207,7 @@ export function Timeline({
       height: el.scrollHeight,
       messages: messageCount,
     };
-  }, [entries, newestSeq, messageCount]);
+  }, [entries, newestSeq, messageCount, pin]);
 
   // At the bottom, stay there when the content grows after it was drawn (a receipt or a
   // reaction filling in) or the timeline changes height (the Jump strip, a resized window),
@@ -201,13 +217,12 @@ export function Timeline({
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       if (!atBottom.current) return;
-      el.scrollTop = el.scrollHeight;
-      pinned.current = el.scrollTop;
+      pin(el);
     });
     observer.observe(el);
     if (el.firstElementChild) observer.observe(el.firstElementChild);
     return () => observer.disconnect();
-  }, []);
+  }, [pin]);
 
   useEffect(() => {
     if (stick > 0) {
@@ -250,6 +265,7 @@ export function Timeline({
       if (atBottom.current) return;
     }
     pinned.current = null;
+    holdDivider.current = false;
     // Measured as if the Jump strip weren't there, so showing or hiding it never flips the
     // answer, and hiding it while there is room below moves nothing on screen.
     const strip = jumpStrip.current?.offsetHeight ?? 0;

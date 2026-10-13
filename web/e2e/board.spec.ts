@@ -96,11 +96,11 @@ async function openLink(page: Page, url: string): Promise<Response | null> {
 }
 
 // agentToken reads an agent's token from the isolated home's saved credentials, to act
-// as that agent's delivery daemon would.
-function agentToken(name: string): string {
+// as that agent's delivery daemon would. board picks among agents of the same name.
+function agentToken(name: string, board?: string): string {
   const found = execFileSync("find", [home, "-name", "credentials.json"], { encoding: "utf8" }).trim().split("\n")[0];
-  const creds = JSON.parse(readFileSync(found, "utf8")) as { agents: { name: string; token: string }[] };
-  const agent = creds.agents.find((a) => a.name === name);
+  const creds = JSON.parse(readFileSync(found, "utf8")) as { agents: { name: string; board: string; token: string }[] };
+  const agent = creds.agents.find((a) => a.name === name && (board === undefined || a.board === board));
   if (!agent) throw new Error(`no saved token for ${name}`);
   return agent.token;
 }
@@ -411,6 +411,36 @@ test("the board panel's sections start closed, keep what the person opens across
   await expect(panel.locator('[data-agent="writer"]')).toBeVisible();
 });
 
+test("an agent whose session reports a delivery warning shows it on its row, with the step that fixes it", async ({ page }) => {
+  const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Warning check", "--json"));
+  aboard("join", pair.join.line);
+  const board: string = pair.board.name;
+  const report = async (body: Record<string, string>) => {
+    const resp = await fetch(`${base()}/v1/me/presence`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${agentToken("reviewer", board)}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(resp.status).toBe(200);
+  };
+  // Reported before the page opens: the members list carries it.
+  await report({ presence: "idle", delivery_warning: "codex_no_daemon" });
+  await openLink(page, JSON.parse(aboard("open", "--board", board, "--json")).url);
+  const panel = page.getByRole("complementary", { name: "Warning check" });
+  const warning = panel.locator('[data-agent="reviewer"] .delivery-warning');
+  await expect(warning).toContainText("Messages can't reach it on their own.");
+  await expect(warning).toContainText("Codex is running with --no-daemon. Restart Codex without it.");
+  await expect(panel.locator('[data-agent="writer"] .delivery-warning')).toHaveCount(0);
+
+  // A later report changes it live: under Orca, the step names Orca's setting.
+  await report({ presence: "idle", delivery_warning: "codex_no_daemon_orca" });
+  await expect(warning).toContainText("set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc or run command codex, then restart Codex.");
+
+  // A report without a warning clears it.
+  await report({ presence: "idle" });
+  await expect(warning).toHaveCount(0);
+});
+
 test("the board panel shows the board's details and adds an agent with a prompt the CLI can join with", async ({ page, context }) => {
   const pair = JSON.parse(aboard("pair", "writer-reviewer", "--new", "--title", "Invite check", "--json"));
   const board: string = pair.board.name;
@@ -424,7 +454,8 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   const details = panel.locator(".board-facts");
   await expect(details).toBeInViewport();
   await expect(details).toContainText(board);
-  await expect(details).toContainText(pair.board.id);
+  // The board's raw id isn't a fact a person needs: commands name the board.
+  await expect(details).not.toContainText(pair.board.id);
   await expect(details).toContainText(new URL(open.url).origin);
   await expect(details).toContainText("Starter policy");
 
@@ -433,7 +464,7 @@ test("the board panel shows the board's details and adds an agent with a prompt 
   await expect(details.locator(".copy-status")).toContainText("Copied");
   const facts = await page.evaluate(() => navigator.clipboard.readText());
   expect(facts).toContain(`Board: Invite check (${board})`);
-  expect(facts).toContain(`ID: ${pair.board.id}`);
+  expect(facts).not.toContain(pair.board.id);
   expect(facts).toContain("Agents: 1\nPeople: 1");
 
   // Add an agent, at the top of the agents section, makes a code for the member role and
@@ -820,9 +851,11 @@ test("a browser without a session signs in with a pasted key it never keeps, and
   expect(cookies[0].httpOnly).toBe(true);
   expect(cookies[0].value).not.toContain(secret);
 
-  // The menu says which key the session came from, and signs this browser out.
+  // The menu says until when this browser is signed in, without the key's name, and
+  // signs this browser out.
   await page.getByRole("button", { name: /^You are alex/ }).click();
-  await expect(page.locator(".session-key")).toHaveText("web-browser");
+  await expect(page.locator(".account-menu .signed-in-until")).toHaveText(/^until /);
+  await expect(page.locator(".account-menu")).not.toContainText("web-browser");
   await page.getByRole("menuitem", { name: "Sign out of this browser" }).click();
   await expect(page.getByRole("heading", { name: "Sign in to Aboard" })).toBeVisible();
   await expect(page.locator(".signed-out")).toContainText("You signed out of this browser");

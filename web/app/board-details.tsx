@@ -48,14 +48,12 @@ export function Details({ board, agents, people, record }: DetailsProps) {
   const server = typeof window === "undefined" ? "" : window.location.origin;
   const facts: [string, string][] = [
     ["Name", board.name],
-    ["ID", board.id],
     ["Server", server],
     ["Policy", policyName(board.policy)],
     ["Created", `${new Date(board.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} by ${board.created_by.name}`],
   ];
   const plain = [
-    `Board: ${title ? `${title} (${board.name})` : board.name}`,
-    `ID: ${board.id}`,
+    `Board: ${title && title !== board.name ? `${title} (${board.name})` : board.name}`,
     `Server: ${server}`,
     `Policy: ${board.policy.preset}`,
     `Created: ${board.created_at} by ${board.created_by.name}`,

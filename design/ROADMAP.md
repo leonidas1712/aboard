@@ -486,6 +486,8 @@ warning and Inbox integration are owned by the UI lane.
 
 CLI task text guards against a bare task ID being used as a note or completion
 note: in review (GEN-76); lifecycle acceptance regression failed first.
+Pending approval notices suppress matching server and board names: in review
+(GEN-74); colleague-guide regression failed first, JSON fields retained.
 
 Setup defaults and harness next precedence, readable CLI labels, consistent invite prompts, skill/help, and agent role/policy approval requests: in review (#291) for 0.1.4. Existing API authority and person-only key/login boundaries stay unchanged.
 
@@ -518,3 +520,12 @@ commit `f71f971be9727b69fc884759ece4bd4045488977`, on ubuntu-latest:
 The original failure reproduced locally under race detection. Expiry assertions and
 deadlines stay unchanged; the tests wait for the active credential timer at startup
 and after keepalive. This changes test synchronization only.
+
+### Replies waiting in the person Inbox (0.1.6 lane B)
+
+Contract proposal: a person-only GET /v1/me/replies-waiting read across active
+boards, using recorded recipient ids and clearing only on the person's later thread
+reply. The newest request from each sender replaces their older requests in the same
+thread. The read includes the unpaged count for the Inbox badge.
+The existing board needs_reply count retains its direct-reply semantics.
+Server merged with this change; board-view section belongs to the UI lane.

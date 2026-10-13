@@ -240,7 +240,7 @@ export function ApprovalDetail({ a, names, now, settingsHref, onShowInvite }: { 
       <p className="text-meta text-muted">
         {a.state === "pending" ? "Asks you to approve" : "Asked you to approve"} · {ago(a.created_at, now)}
       </p>
-      <AgentTitle whose="Your agent" agent={agent} harness={a.display?.agent_harness} rest={wantsRest(act, names, boards, made)} />
+      <AgentTitle whose="Your agent" agent={agent} harness={a.display?.agent_harness} rest={wantsRest(act, names, boards, made, a.state !== "pending")} />
       <Fields rows={rows} />
       {a.state === "pending" && (
         <div className="flex flex-col gap-3">
@@ -400,7 +400,7 @@ export function InviteHandle({ id, initial }: { id: string; initial?: string }) 
 }
 
 /** approvalTitle is a row's first line for an approval. */
-export const approvalTitle = (a: Approval, names: Names) => `Your agent ${agentLabel(a)} ${wantsRest(a.action, names, (id) => a.display?.boards.find((b) => b.id === id)?.name ?? null, a.execution?.invite_id)}`;
+export const approvalTitle = (a: Approval, names: Names) => `Your agent ${agentLabel(a)} ${wantsRest(a.action, names, (id) => a.display?.boards.find((b) => b.id === id)?.name ?? null, a.execution?.invite_id, a.state !== "pending")}`;
 
 // ---------- invite notices ----------
 

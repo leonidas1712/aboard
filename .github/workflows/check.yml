@@ -43,9 +43,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
         part: ['api:1/2', 'api:2/2', board, rest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,9 +64,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest"]') }}
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,6 +79,36 @@ jobs:
         run: command -v tmux || { if [ "$RUNNER_OS" = macOS ]; then brew install tmux; else sudo apt-get update && sudo apt-get install -y tmux; fi; }
       - name: make e2e, shard ${{ matrix.shard }} of 8
         run: make e2e E2E_SHARD=${{ matrix.shard }}/8
+
+  # macOS, for pushes to main only: five jobs, since GitHub runs five macOS jobs at a time
+  # for this repository, so they finish in one wave: the unit tests whole and the e2e
+  # suite in four shards.
+  macos:
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [test, 'e2e:1/4', 'e2e:2/4', 'e2e:3/4', 'e2e:4/4']
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Install tmux
+        run: command -v tmux || brew install tmux
+      - name: make ${{ matrix.part }}
+        run: |
+          case "$PART" in
+          test) make test ;;
+          e2e:*) make e2e E2E_SHARD="${PART#e2e:}" ;;
+          esac
+        env:
+          PART: ${{ matrix.part }}
 
   # The web UI: install, build, typecheck, and a browser smoke test against aboard built
   # with the UI embedded. Separate from make check, which needs only Go. The browser tests

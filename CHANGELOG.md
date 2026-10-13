@@ -6,6 +6,8 @@
 
 - Task notes, completion notes and drop reasons refuse a bare task ID as text,
   with a hint showing `--task`; the current task stays unchanged.
+- Pending approval notices show a matching server and board name once, instead
+  of repeating it as `qa · qa`.
 
 - `aboard help board new` shows the board command's help, matching
   `aboard board new --help`.
@@ -14,6 +16,8 @@
 
 - CLI task text consisting only of a reference or immutable task ID returns
   `invalid_request` and exit 2 before a write; successful JSON is unchanged.
+- Pending approval text suppresses a duplicate location name; CLI JSON retains
+  separate server and board fields (no shape change).
 
 - CLI help accepts a documented board subcommand after the command name. The JSON
   output keeps the parent command's name and existing shape (additive).
