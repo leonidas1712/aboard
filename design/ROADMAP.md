@@ -506,8 +506,10 @@ descriptions and consistent missing-setup symbols. JSON levels and exit codes st
 
 ### Browser stream expiry test (GEN-44)
 
-Building: repair the fake-clock readiness wait in
+Merged: repair the fake-clock readiness wait in
 `TestABrowsersStreamEndsWhenItsLoginExpires`. It failed on docs-only PR #369,
 commit `f71f971be9727b69fc884759ece4bd4045488977`, on ubuntu-latest:
 [CI job](https://github.com/leonidas1712/aboard/actions/runs/38346664457/job/115129571973).
-Keep the expiry assertions and deadlines; wait for the stream's active credential timer.
+The original failure reproduced locally under race detection. Expiry assertions and
+deadlines stay unchanged; the tests wait for the active credential timer at startup
+and after keepalive. This changes test synchronization only.
