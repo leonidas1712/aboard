@@ -57,7 +57,9 @@ bump)
 		for f in $(files); do
 			grep -E "$(pattern "$v")" "$f" | grep -qvE 'older than [0-9.]+ and is not a|^## New in ' || continue
 			# Twice, since one pass can't rewrite two mentions that share a separator.
-			sed -E -i.bak "/older than [0-9.]+ and is not a/b; /^## New in /b; s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g; s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g" "$f"
+			# Separate -e expressions: BSD sed reads the rest of a line after b as its label.
+			sed -E -i.bak -e "/older than [0-9.]+ and is not a/b" -e "/^## New in /b" \
+				-e "s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g" -e "s/(^|[^0-9.])(v?)$re([^0-9]|\$)/\1\2$new\3/g" "$f"
 			rm -f "$f.bak"
 			echo "$f"
 		done
