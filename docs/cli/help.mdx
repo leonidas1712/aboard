@@ -6,10 +6,10 @@ description: "Show the commands, or one command's usage, flags and examples."
 {/* Written by make docs-cli from aboard help --json. Change the help in server/internal/cli/help.go, then run make docs-cli. */}
 
 ```text
-aboard help [command] [--json]
+aboard help [command [subcommand]] [--json]
 ```
 
-Without a command, lists every command by group. With one, shows its usage, what it does, its flags and examples. aboard \<command\> `--help` and -h show the same.
+Without a command, lists every command by group. With one, shows its usage, what it does, its flags and examples. A board subcommand, such as aboard help board new, shows the board command's help. aboard \<command\> `--help` and -h show the same.
 
 ## Flags
 
