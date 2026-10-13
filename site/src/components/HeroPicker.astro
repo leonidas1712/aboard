@@ -1,0 +1,40 @@
+---
+// A small switcher for comparing the hero designs. It shows only in `npm run dev` or
+// when the address has ?hero=1, ?hero=2 or ?hero=3; the published page without that
+// parameter never shows it. Remove it, and the designs not chosen, once one is picked.
+const dev = import.meta.env.DEV;
+---
+<div class="hero-picker" data-hero-picker data-dev={dev ? "" : undefined} hidden>
+  <span>Hero</span>
+  <button type="button" data-pick="1">1 Threads</button>
+  <button type="button" data-pick="2">2 Record</button>
+  <button type="button" data-pick="3">3 Glow</button>
+</div>
+
+<script>
+  const picker = document.querySelector<HTMLElement>("[data-hero-picker]");
+  if (picker) {
+    const root = document.documentElement;
+    const params = new URLSearchParams(location.search);
+    if (picker.hasAttribute("data-dev") || params.has("hero")) picker.hidden = false;
+    const mark = () => {
+      const v = root.dataset.hero ?? "1";
+      picker.querySelectorAll<HTMLButtonElement>("[data-pick]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.pick === v)));
+    };
+    picker.addEventListener("click", (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-pick]");
+      if (!b?.dataset.pick) return;
+      root.dataset.hero = b.dataset.pick;
+      const url = new URL(location.href);
+      url.searchParams.set("hero", b.dataset.pick);
+      history.replaceState(null, "", url);
+      mark();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (picker.hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+      if ((e.target as HTMLElement).closest("input, textarea, [contenteditable]")) return;
+      if (["1", "2", "3"].includes(e.key)) picker.querySelector<HTMLButtonElement>(`[data-pick="${e.key}"]`)?.click();
+    });
+    mark();
+  }
+</script>

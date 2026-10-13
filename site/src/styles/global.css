@@ -223,37 +223,7 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .rec .seq { color: var(--ink); font-weight: 500; }
 @media (max-width: 559px) { .rec.right { display: none; } }
 
-/* ---------- Hero ---------- */
-
-.hero { text-align: center; padding: 56px var(--pad) 56px; }
-@media (min-width: 1100px) { .hero { padding-block: 72px 64px; } }
-.display {
-  font-size: clamp(2.4rem, 0.6rem + 4.6vw, 4.35rem);
-  line-height: 1.1;
-  letter-spacing: -0.05em;
-  font-weight: 600;
-  max-width: 22ch;
-  margin-inline: auto;
-}
-@media (max-width: 899px) { .display .line { display: inline; } }
-.display .line { display: block; }
-.tiles { display: inline-flex; gap: 8px; margin-bottom: 30px; }
-.tiles .hmark { width: 46px; height: 46px; border-radius: 13px; box-shadow: 0 1px 0 rgb(15 16 13 / 0.06), 0 10px 22px -12px rgb(15 16 13 / 0.35); transition: transform 300ms var(--ease-expo); }
-.tiles .hmark:nth-child(1) { transform: rotate(-8deg) translateY(2px); }
-.tiles .hmark:nth-child(2) { transform: rotate(4deg) translateY(-3px); }
-.tiles .hmark:nth-child(3) { transform: rotate(-3deg); }
-.tiles .hmark:nth-child(4) { transform: rotate(7deg) translateY(3px); }
-.tiles:hover .hmark { transform: none; }
-@media (max-width: 599px) { .tiles .hmark { width: 38px; height: 38px; border-radius: 11px; } .tiles { margin-bottom: 22px; } }
-.lede {
-  max-width: 38em;
-  margin: 26px auto 0;
-  font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.22rem);
-  line-height: 1.55;
-  color: var(--muted);
-}
-.cta { margin-top: 34px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-.cta .btn { min-height: 52px; }
+/* The hero is in hero.css. */
 
 /* ---------- Install ---------- */
 
@@ -713,13 +683,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .band-col { padding-top: 104px; }
 @media (min-width: 1100px) { .band-col { padding-top: 136px; } }
 
-/* ---------- Hero texture ---------- */
-
-.hero { position: relative; isolation: isolate; }
-.hero > :not(.hero-field) { position: relative; z-index: 1; }
-.hero-field { position: absolute; top: 0; bottom: 0; left: calc(50% - 50vw); width: 100vw; z-index: 0; pointer-events: none; }
-.hero-field canvas { display: block; width: 100%; height: 100%; }
-
 /* ---------- Reveal on scroll ---------- */
 
 .js [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity 600ms var(--ease-expo), transform 700ms var(--ease-expo); transition-delay: calc(var(--i, 0) * 70ms); }
@@ -887,47 +850,35 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
   .tm-agents li.hit { animation: none; }
 }
 
-/* ---------- Governance ---------- */
+/* ---------- You hold the controls ---------- */
 
-.path { position: relative; margin-top: 48px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden; }
-.path-steps { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; counter-reset: s; }
-@media (min-width: 900px) { .path-steps { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; } }
-.path-steps li { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 10px; row-gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
-.path-steps li .path-n { grid-row: 1 / 3; margin-bottom: 0; align-self: start; }
-@media (min-width: 900px) { .path-steps li { grid-template-columns: minmax(0, 1fr); padding: 14px 14px 16px; } .path-steps li .path-n { grid-row: auto; margin-bottom: 6px; } }
-.path-steps b { font-size: 15.5px; font-weight: 600; letter-spacing: -0.015em; }
-.path-steps span:not(.path-n) { font-size: 13.5px; color: var(--muted); line-height: 1.4; }
-.path-n { width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line-strong); color: var(--muted); margin-bottom: 6px; }
-.path.in .path-steps li { animation: lit 5s var(--ease) infinite; animation-delay: calc(var(--i) * 0.6s); }
-@keyframes lit {
-  0% { border-color: var(--line); }
-  6% { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
-  20%, 100% { border-color: var(--line); box-shadow: none; }
+/* The colleague flow on one side, four points on the other. */
+.control-grid { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.control-grid > * { background: var(--surface); min-width: 0; }
+.control-flow { padding: 24px; }
+.control-flow .pair { margin-top: 14px; }
+@media (min-width: 1100px) {
+  .control-grid { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+  .control-flow .pair { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .control-flow .pair-arrow { flex-direction: row; }
+  .control-flow .pair-arrow svg { transform: rotate(90deg); }
 }
-.path-msg { display: none; }
-@media (min-width: 900px) {
-  .path-msg { display: block; position: absolute; top: 10px; left: 22px; padding: 1px 8px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font-family: var(--mono); font-size: 11px; z-index: 2; opacity: 0; }
-  .path.in .path-msg { animation: travel 5s var(--ease) infinite; }
-  @keyframes travel { 0% { opacity: 0; transform: translateX(0); } 4% { opacity: 1; } 60% { opacity: 1; transform: translateX(calc(80vw - 200px)); } 66%, 100% { opacity: 0; transform: translateX(calc(80vw - 200px)); } }
-}
-@media (prefers-reduced-motion: reduce) { .path.in .path-steps li, .path.in .path-msg { animation: none; } }
+.control-points { display: grid; }
+.control-points li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 16px; padding: 22px 24px; }
+.control-points li + li { border-top: 1px solid var(--line); }
+.control-points .cell-title { margin-top: 4px; font-size: 17px; }
+.control-points code { font-size: 12px; }
+.control-points .verify { margin-top: 14px; }
+.control-foot { margin-top: 20px; display: grid; gap: 4px; }
+.control-foot .aside { max-width: 52em; }
+.control-foot .footnote { margin-top: 10px; }
 
-.rules-grid { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-@media (min-width: 760px) { .rules-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1100px) { .rules-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .rules-grid .rg-record { grid-column: span 1; } }
-.rules-grid li { background: var(--surface); padding: 22px 24px 24px; min-width: 0; }
-.rules-grid .cell-title { margin-top: 14px; font-size: 17px; }
-.rules-grid code { font-size: 12px; }
 .rg-icon { display: inline-flex; width: 34px; height: 34px; border-radius: 10px; align-items: center; justify-content: center; }
 .rg-icon svg { width: 19px; height: 19px; }
 .rg-icon.t2 { background: var(--t2b); color: var(--t2f); } .rg-icon.t3 { background: var(--t3b); color: var(--t3f); }
 .rg-icon.t4 { background: var(--t4b); color: var(--t4f); } .rg-icon.t5 { background: var(--t5b); color: var(--t5f); }
 .rg-icon.t6 { background: var(--t6b); color: var(--t6f); } .rg-icon.t8 { background: var(--t8b); color: var(--t8f); }
-.rules-grid .term { margin-top: 14px; font-size: 11.5px; }
 
-.gov-foot { margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
-.gov-foot .aside { max-width: 52em; }
-.soon { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; color: var(--muted); padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: 12px; }
 .aside { font-size: 14.5px; color: var(--muted); padding: 14px 0 0; }
 .aside a { color: var(--ink); text-decoration-color: var(--accent-line); text-decoration-thickness: 2px; text-underline-offset: 4px; }
 .aside svg { width: 13px; height: 13px; margin-left: 3px; vertical-align: -1px; }
@@ -964,8 +915,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 
 /* ---------- Hero category line ---------- */
 
-.category { max-width: 34em; margin: 22px auto 0; font-size: clamp(1.1rem, 1rem + 0.45vw, 1.32rem); font-weight: 500; letter-spacing: -0.015em; line-height: 1.4; color: var(--ink); }
-.category + .lede { margin-top: 12px; }
 
 /* ---------- Built for agents: the comparison ---------- */
 
@@ -1005,31 +954,15 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .h3 { font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.2rem); line-height: 1.1; letter-spacing: -0.04em; font-weight: 600; }
 .next-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 500; text-decoration-color: var(--accent-line); text-decoration-thickness: 2px; text-underline-offset: 5px; }
 .next-link svg { width: 14px; height: 14px; }
-.next-cards { margin-top: 28px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-@media (min-width: 860px) { .next-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; } }
-.next-cards li { position: relative; padding: 20px 22px 22px; border: 1px dashed var(--line-strong); border-radius: 14px; background: transparent; }
-.next-cards .cell-title { margin-top: 14px; font-size: 17px; }
-.next-cards .cell-text { margin-top: 4px; }
+/* Eight short items in a ruled grid, no boxes: lighter than the shipped sections. */
+.next-list { margin-top: 32px; display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--line); }
+@media (min-width: 640px) { .next-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; } }
+@media (min-width: 1100px) { .next-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.next-list li { padding: 22px 0 24px; border-bottom: 1px solid var(--line); }
+.next-list .cell-title { margin-top: 14px; font-size: 16.5px; }
+.next-list .cell-text { margin-top: 4px; font-size: 14.5px; }
 .next-icon { display: inline-flex; width: 32px; height: 32px; border-radius: 9px; align-items: center; justify-content: center; border: 1px solid var(--line-strong); color: var(--muted); }
 .next-icon svg { width: 18px; height: 18px; }
-
-/* ---------- Pillar 1: the points as a few lines of a record ---------- */
-
-.log { margin-top: 16px; display: grid; border-top: 1px solid var(--line); }
-.log li { display: grid; grid-template-columns: 34px 46px minmax(0, 1fr); align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; color: var(--ink); }
-.log-seq, .log-hash { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
-.log-hash { color: var(--accent-line); }
-.js .log li { opacity: 0; transform: translateX(-6px); transition: opacity 400ms var(--ease), transform 500ms var(--ease-expo); }
-.in .log li, .log.in li { opacity: 1; transform: none; }
-.in .log li:nth-child(2) { transition-delay: 90ms; }
-.in .log li:nth-child(3) { transition-delay: 180ms; }
-.in .log li:nth-child(4) { transition-delay: 270ms; }
-@media (prefers-reduced-motion: reduce) { .js .log li { transform: none; } }
-
-/* ---------- The hero's small print ---------- */
-
-.meta-line { margin-top: 20px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
-.meta-dot { width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
 
 /* ---------- Pillar 3: the facts under the views, as grid cells ---------- */
 
@@ -1068,7 +1001,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .cells .rg-icon { margin-bottom: 0; }
 .inline-link { color: var(--ink); font-weight: 500; text-decoration-color: var(--accent-line); text-decoration-thickness: 2px; text-underline-offset: 4px; white-space: nowrap; }
 .inline-link:hover { text-decoration-color: var(--ink); }
-.gov-foot .footnote { margin-top: 0; max-width: 52em; }
 .team-note { margin-top: 22px; max-width: 34em; font-size: 15px; color: var(--muted); }
 .team-note b { color: var(--ink); font-weight: 600; }
 
@@ -1079,9 +1011,6 @@ code, kbd { font-family: var(--mono); font-size: 0.86em; }
 .waitlist .btn { min-height: 44px; }
 .waitlist .btn svg { width: 14px; height: 14px; }
 
-/* The small print wraps as text on a phone, with its mark at the start of the line. */
-.meta-line { display: inline-block; max-width: 100%; }
-.meta-line .meta-dot { display: inline-block; margin-right: 8px; vertical-align: 1px; }
 .waitlist-action { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .waitlist .btn:disabled { cursor: not-allowed; opacity: 0.55; }
 .waitlist .btn:disabled:hover { border-color: var(--line-strong); }

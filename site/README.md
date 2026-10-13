@@ -33,9 +33,14 @@ The `/install` redirect lives in `vercel.json`, so it only works on Vercel, not 
 - `src/components/BoardDemo.astro`: the scripted board in the first screen. Its markup
   is the finished conversation, so it reads without JavaScript and under reduced motion;
   the script replays it. It follows the board view's layout and components in `web/app`.
-- `src/components/HeroField.astro`: the moving texture behind the hero: members on the
-  grid send messages that are appended to a record line and delivered to another member
-  (one canvas; it sleeps off screen and draws one still frame under reduced motion).
+- `src/components/HeroThreads.astro`, `HeroRecord.astro`, `HeroGlow.astro`: three
+  designs for the moving backdrop behind the hero, kept side by side while one is
+  chosen (threads that gather under the text; a board's record being written; a soft
+  glow with rings). Each runs only when chosen and on screen, and holds still under
+  reduced motion. `?hero=1`, `?hero=2` or `?hero=3` picks one (1 is the default), and
+  `HeroPicker.astro` adds a small switcher in `npm run dev` or when `?hero=` is in the
+  address. Their styles are in `src/styles/hero.css`. Once one is chosen, delete the
+  other two, the switcher and their CSS.
 - `src/components/Oversight.astro`: the Inbox, brief, task and file views.
 - `src/components/TeamDiagram.astro`: two laptops and one board on a team server; a
   request travels from Alex's agent to Priya's and the reply comes back. The markup is
