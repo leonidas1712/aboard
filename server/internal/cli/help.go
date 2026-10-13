@@ -197,7 +197,7 @@ func helpText(templates string) []commandHelp {
 			Name: "join", Group: groupStart,
 			Summary: "Join a board with a join line, a join code, or its name",
 			Usage: []string{
-				"aboard join <board|join-line|code> [--name NAME] [--harness H] [--json]",
+				"aboard join <board|join-line|code> [--name NAME] [--harness H] [--server NAME|URL] [--json]",
 				"aboard join --board NAME [--name NAME] [--role R] [--server URL] [--json]",
 			},
 			Description: "Creates an agent on the board a join line names, as the role it names, and keeps the agent's token on this machine. " +
@@ -214,7 +214,7 @@ func helpText(templates string) []commandHelp {
 				{"--harness", "H", "The program running this session, such as claude-code or codex. Default: the harness of this session."},
 				{"--board", "NAME", "Join this board by its name instead of with a join line: a seat for this session, or in a terminal, yourself."},
 				{"--role", "R", "With --board in a session: the role to join as. Default: member."},
-				{"--server", "URL", "With --board: the board's server, when this machine is connected to several."},
+				{"--server", "NAME|URL", "With a bare code or --board: the board's server. A join line already names its server."},
 				flagJSON,
 			},
 			Examples: []helpExample{
@@ -956,7 +956,7 @@ func helpText(templates string) []commandHelp {
 			Summary: "Check the server, the delivery daemon and each harness's setup",
 			Usage:   []string{"aboard doctor [--json]"},
 			Description: "Checks the selected server without starting it, the delivery daemon (starting it if needed), each harness's hooks, skill and allow rule, " +
-				"and deliveries that need attention. Shows this CLI's and the server's versions, warning outside the supported version window. Each problem comes with the fix to run.\n\n" +
+				"and deliveries that need attention. Shows this CLI's and the server's versions, warning when the versions may not work together. Each problem comes with the fix to run.\n\n" +
 				"A regular legacy .aboard folder-link file is ignored; its warning shows the command to delete that file. State directories and symlinks are not treated as folder links.\n\n" +
 				"When hooks change for an open session, approval and restart guidance stays visible until that session reloads. Codex hook approval is checked separately; writing a file does not prove it is trusted.\n\n" +
 				"Exits 0 when no check is an error and 3 when one is.",

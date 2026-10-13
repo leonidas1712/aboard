@@ -45,10 +45,10 @@ func (h *Harness) InstalledChecks(ctx context.Context, _ harness.Env) ([]harness
 	if !cx.HasQueue(ctx) {
 		return []harness.CheckResult{{
 			Name: "codex", Level: harness.LevelError, Code: "codex_queue_missing",
-			Message: ver + ": no queue command, so messages can't be delivered to Codex", Fix: "update Codex",
+			Message: "Codex " + harness.VersionNumber(ver) + " can't receive Aboard messages", Fix: "update Codex",
 		}}, false
 	}
-	return []harness.CheckResult{{Name: "codex", Level: harness.LevelOK, Message: ver + ": queue available"}}, true
+	return []harness.CheckResult{{Name: "codex", Level: harness.LevelOK, Message: "Codex " + harness.VersionNumber(ver) + " found; it can receive Aboard messages"}}, true
 }
 
 // Adapter queues bundles with `codex queue`.
@@ -60,7 +60,7 @@ func (h *Harness) Adapter(clientVersion string) delivery.Adapter {
 func (h *Harness) Fix(reason string) string {
 	switch reason {
 	case delivery.ReasonTargetAbsent:
-		return "open that Codex thread again, or rejoin with aboard join"
+		return "run aboard doctor; check for --no-daemon or a CODEX_HOME mismatch, then restart Codex without --no-daemon and run aboard resume in that session"
 	case delivery.ReasonSubAgent:
 		return "run aboard resume from the root Codex conversation"
 	}

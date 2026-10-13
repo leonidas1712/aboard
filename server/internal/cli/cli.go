@@ -69,6 +69,7 @@ type app struct {
 	env             Env
 	serverSelection *serverSelection
 	json            bool
+	statusOverview  bool
 	// noColor is set by --no-color, which every command accepts.
 	noColor bool
 	// boardServerFlag is the --server of a person's board command (policy, add, remove,
@@ -333,7 +334,7 @@ func (a *app) emitChecked(v any, text string) error {
 				v = object
 			}
 		}
-		if !boardNamed && a.explainServer(selection) {
+		if !boardNamed && !a.statusOverview && a.explainServer(selection) {
 			why := map[string]string{"flag": "an explicit server", "project": "this folder's .aboard", "default": "this machine's default", "only": "the only known server", "local": "the local fallback"}[selection.Source]
 			text += fmt.Sprintf("Server: %s (%s), from %s.", selection.Server.Name, hostOf(selection.Server), why)
 			if selection.Server.URL != a.localServer().URL {

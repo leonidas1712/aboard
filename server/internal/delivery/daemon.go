@@ -200,6 +200,7 @@ func (d *Daemon) restore(ctx context.Context) error {
 		}
 		s.folder, s.locationBoot = r.Folder, r.LocationBoot
 		s.codexHome = r.CodexHome
+		s.deliveryWarning = r.DeliveryWarning
 		s.boot, s.open, s.proc, s.lost, s.started, s.turned = r.Boot, r.Open, r.Process, r.Lost, true, r.Turned
 		s.inTurn, s.seenTurns = r.InTurn, r.SeenTurns
 		s.peerTurnActive, s.peerTurn, s.busyAt = r.PeerTurnActive, r.PeerTurn, r.BusyAt
@@ -863,6 +864,9 @@ func (d *Daemon) call(ctx context.Context, req Request) Response {
 }
 
 func (d *Daemon) callBindingLocked(ctx context.Context, req Request) Response {
+	if req.DeliveryChecked && !validDeliveryWarning(req.DeliveryWarning) {
+		return errorResponse("invalid_request", "Unknown delivery warning.", "Use codex_no_daemon or codex_no_daemon_orca, or omit it.")
+	}
 	ad, ok := d.adapters[req.Harness]
 	if !ok || req.Session == "" {
 		return errorResponse("invalid_request", fmt.Sprintf("%q is not a harness the delivery daemon knows.", req.Harness),
@@ -891,6 +895,16 @@ func (d *Daemon) callBindingLocked(ctx context.Context, req Request) Response {
 		err := d.validateSession(vctx, ad, req)
 		cancel()
 		if r, failed := validationResponse(key, err); failed {
+			if errors.Is(err, ErrTargetAbsent) && req.Harness == "codex" && req.DeliveryChecked && req.DeliveryWarning != "" {
+				if known := d.session(key, false); known != nil {
+					reply := make(chan Response, 1)
+					known.mail.put(sessionMsg{deliveryCheck: &req, reply: reply})
+					select {
+					case <-reply:
+					case <-ctx.Done():
+					}
+				}
+			}
 			return r
 		}
 	}
@@ -942,7 +956,7 @@ func (d *Daemon) bindLaunch(ctx context.Context, req Request, ticket string, res
 	if !ok {
 		return resp
 	}
-	b := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, CodexHome: req.CodexHome, Agent: &agent})
+	b := d.call(ctx, Request{V: ProtocolVersion, Op: OpBind, Harness: req.Harness, Session: req.Session, CodexHome: req.CodexHome, DeliveryChecked: req.DeliveryChecked, DeliveryWarning: req.DeliveryWarning, Agent: &agent})
 	if b.Error != nil {
 		return b
 	}
@@ -1129,6 +1143,17 @@ func (d *Daemon) status(ctx context.Context) Response {
 	slices.SortFunc(st.Servers, func(a, b ServerStatus) int { return strings.Compare(a.URL, b.URL) })
 	slices.SortFunc(st.Agents, func(a, b AgentProblem) int { return compareAgents(a.Agent, b.Agent) })
 	slices.SortFunc(st.Bindings, func(a, b BindingStatus) int { return compareAgents(a.Agent, b.Agent) })
+	records, err := d.cfg.Journal.Sessions(ctx)
+	if err != nil {
+		return errorResponse("internal", "Couldn't read the delivery journal: "+err.Error(), "Look at the daemon log.")
+	}
+	for _, binding := range st.Bindings {
+		for _, record := range records {
+			if binding.Session == record.Key.String() && record.DeliveryWarning != "" {
+				st.DeliveryWarnings = append(st.DeliveryWarnings, WarningStatus{Session: binding.Session, Agent: binding.Agent, Reason: record.DeliveryWarning})
+			}
+		}
+	}
 	ds, err := d.cfg.Journal.Deliveries(ctx, StateAttention, StateSkipped)
 	if err != nil {
 		return errorResponse("internal", "Couldn't read the delivery journal: "+err.Error(), "Look at the daemon log.")

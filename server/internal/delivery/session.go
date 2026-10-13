@@ -17,8 +17,9 @@ import (
 
 // sessionMsg is one request to a session's goroutine. Exactly one group of fields is set.
 type sessionMsg struct {
-	noticeWake  bool
-	queueReport *queueReportResult
+	deliveryCheck *Request
+	noticeWake    bool
+	queueReport   *queueReportResult
 	// A control request, answered on reply.
 	req       Request
 	reply     chan<- Response
@@ -133,6 +134,7 @@ type session struct {
 	boot                 string
 	folder               string
 	codexHome            string
+	deliveryWarning      string
 	locationBoot         string
 	locationEpoch        atomic.Uint64
 	open                 bool
@@ -271,6 +273,9 @@ func (s *session) run(ctx context.Context) error {
 
 func (s *session) handle(ctx context.Context, m sessionMsg) {
 	switch {
+	case m.deliveryCheck != nil:
+		s.noteDeliveryWarning(ctx, *m.deliveryCheck, s.currentRuntimeHook(*m.deliveryCheck))
+		m.reply <- Response{V: ProtocolVersion}
 	case m.noticeWake:
 		s.armNotices(ctx)
 	case m.queueReport != nil:
@@ -358,6 +363,7 @@ func (s *session) handle(ctx context.Context, m sessionMsg) {
 func (s *session) onRequest(ctx context.Context, req Request) Response {
 	runtimeHook := s.currentRuntimeHook(req)
 	s.noteSessionHome(ctx, req, runtimeHook)
+	s.noteDeliveryWarning(ctx, req, runtimeHook)
 	ok := Response{V: ProtocolVersion}
 	if req.Op != OpQueued && req.Op != OpShown && req.Op != OpApprovalWatch {
 		s.noteProcess(ctx, req)
@@ -555,8 +561,9 @@ func (s *session) presence() Presence {
 
 // reportedPresence is what was last reported for an agent.
 type reportedPresence struct {
-	state Presence
-	mode  Mode
+	state   Presence
+	mode    Mode
+	warning string
 }
 
 // reportPresence reports the presence and delivery mode of each agent the session holds
@@ -570,12 +577,12 @@ func (s *session) reportPresence(renew bool) {
 		if a.adopting || a.gone() {
 			continue
 		}
-		now := reportedPresence{state: p, mode: s.d.mode(ref)}
+		now := reportedPresence{state: p, mode: s.d.mode(ref), warning: s.deliveryWarning}
 		if last, ok := s.reported[ref.Key()]; ok && last == now && (!renew || p == PresenceNoSession) {
 			continue
 		}
 		s.reported[ref.Key()] = now
-		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, generation: a.generation, state: now.state, mode: now.mode})
+		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, generation: a.generation, state: now.state, mode: now.mode, warning: now.warning})
 	}
 }
 
@@ -665,7 +672,7 @@ func (s *session) markTurned(ctx context.Context) {
 }
 
 func (s *session) saveSession(ctx context.Context) {
-	rec := SessionRecord{CodexHome: s.codexHome, Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, Folder: s.folder, LocationBoot: s.locationBoot, BusyAt: s.busyAt, UpdatedAt: s.now()}
+	rec := SessionRecord{DeliveryWarning: s.deliveryWarning, CodexHome: s.codexHome, Key: s.key, Boot: s.boot, Open: s.open, Process: s.proc, Lost: s.lost, Turned: s.turned, InTurn: s.inTurn, SeenTurns: s.seenTurns, PeerTurnActive: s.peerTurnActive, PeerTurn: s.peerTurn, Folder: s.folder, LocationBoot: s.locationBoot, BusyAt: s.busyAt, UpdatedAt: s.now()}
 	if err := s.d.cfg.Journal.SaveSession(ctx, rec); err != nil {
 		s.d.log.Error("save session", "session", s.key.String(), "error", err)
 	}
@@ -716,6 +723,7 @@ func (s *session) setState(ctx context.Context, dl *Delivery, st State) {
 func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 	runtimeHook := s.currentRuntimeHook(req)
 	s.noteSessionHome(ctx, req, runtimeHook)
+	s.noteDeliveryWarning(ctx, req, runtimeHook)
 	s.noteProcess(ctx, req)
 	if !req.Started.IsZero() && req.Started.Before(s.busyAt) {
 		// The stop hook of a turn that ended before the latest prompt, reaching the daemon

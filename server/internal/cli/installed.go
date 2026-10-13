@@ -104,7 +104,7 @@ func (a *app) checkExtension(h harness.Harness) []doctorCheck {
 	}
 	if len(installed) == 0 {
 		return []doctorCheck{problem(name, levelError, p.CheckName+"_extension_missing",
-			p.Harness+": Aboard's extension isn't installed, so its sessions have no agent and get no messages", "run aboard init")}
+			p.Harness+": Aboard isn't set up, so its sessions have no agent and get no messages", "run aboard init")}
 	}
 	return []doctorCheck{okCheck(name, p.Harness+": extension installed "+strings.Join(installed, " and "))}
 }

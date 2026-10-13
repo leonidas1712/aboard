@@ -7,8 +7,8 @@ import { type Page, expect, test } from "@playwright/test";
 
 // The finder in the board view, against a real server in an isolated home: ⌘K (Ctrl+K
 // off a Mac) or the board list's "Find or do anything" opens it, typing narrows it to
-// boards, the board's tasks and places, Enter goes to the one picked, and Escape closes
-// it with focus back where it was.
+// boards, the board's tasks, places and actions, Enter goes to the one picked or does it,
+// and Escape closes it with focus back where it was.
 
 const repo = resolve(__dirname, "../..");
 const home = mkdtempSync(join(tmpdir(), "aboard-finder-web-"));
@@ -89,10 +89,14 @@ test("the finder goes to a board and a task, and Escape closes it", async ({ pag
   await page.keyboard.press("ControlOrMeta+k");
   const box = finder(page);
   await expect(box).toBeVisible();
-  const field = box.getByRole("combobox", { name: "Find a board, a task or a place" });
+  const field = box.getByRole("combobox", { name: "Find a board or task, or do something" });
   await expect(field).toBeFocused();
   await expect(box.getByRole("option", { name: /harbor/ })).toBeVisible();
   await expect(box.getByRole("option", { name: new RegExp(task.ref) })).toBeVisible();
+  // Boards come in the sidebar's order.
+  const listed = await page.locator('nav[aria-label="Boards"] .board-nav a').allInnerTexts();
+  const offered = await box.getByRole("group", { name: "Boards" }).getByRole("option").allInnerTexts();
+  expect(offered.map((t) => t.split("\n")[0])).toEqual(listed.map((t) => t.split("\n")[0]));
 
   // Typing narrows the list; Enter goes to the board picked.
   await field.fill("harb");
@@ -148,7 +152,44 @@ test("the finder goes to a board and a task, and Escape closes it", async ({ pag
   // Escape in the finder is its own: the board stays on screen.
   await expect(page).toHaveURL(/[?&]board=atlas\b/);
 
-  // The keys sheet lists the key.
-  await page.keyboard.press("?");
-  await expect(page.getByRole("dialog", { name: "Keys on a board" })).toContainText("Find a board, or a task on the board you are on");
+  // An action does what its button does: "shortcuts" finds Show keys, which opens the
+  // keys sheet, and the sheet lists the finder's key.
+  await page.keyboard.press("ControlOrMeta+k");
+  await finder(page).getByRole("combobox").fill("shortcuts");
+  await expect(finder(page).getByRole("option")).toHaveCount(1);
+  await finder(page).getByRole("combobox").press("Enter");
+  await expect(finder(page)).toBeHidden();
+  const keys = page.getByRole("dialog", { name: "Keys on a board" });
+  await expect(keys).toBeVisible();
+  await expect(keys).toContainText("Find a board, a task on the board you are on, or something to do");
+  await keys.getByRole("button", { name: "Close" }).click();
+  await expect(keys).toBeHidden();
+
+  // "members" finds People and the board's agents; Settings goes to the settings page.
+  await page.keyboard.press("ControlOrMeta+k");
+  await finder(page).getByRole("combobox").fill("members");
+  await expect(finder(page).getByRole("option", { name: /^People/ })).toBeVisible();
+  await expect(finder(page).getByRole("option", { name: /^Agents/ })).toBeVisible();
+  await finder(page).getByRole("combobox").fill("settings");
+  await finder(page).getByRole("combobox").press("Enter");
+  await expect(page).toHaveURL(/[?&]view=settings\b/);
+  await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+});
+
+test("from the Inbox the finder offers places, actions and boards", async ({ page }) => {
+  const link = JSON.parse(aboard("open", "--board", "atlas", "--json"));
+  await page.goto(link.url);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^You are alex/ })).toBeVisible();
+  await page.goto(new URL("/?inbox", link.url).href);
+  await expect(page.getByRole("link", { name: "Inbox" }).first()).toHaveAttribute("aria-current", "page");
+
+  await page.keyboard.press("ControlOrMeta+k");
+  const box = finder(page);
+  await expect(box.getByRole("group", { name: "Go to" }).getByRole("option")).toHaveText([/^People/, /^Settings/]);
+  await expect(box.getByRole("option", { name: /^Show keys/ })).toBeVisible();
+  await expect(box.getByRole("option", { name: /atlas/ })).toBeVisible();
+  await box.getByRole("combobox").fill("people");
+  await box.getByRole("combobox").press("Enter");
+  await expect(page).toHaveURL(/[?&]view=people\b/);
 });

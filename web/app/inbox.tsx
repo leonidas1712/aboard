@@ -264,7 +264,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
       </section>
     </div>
     <KeysSheet open={keysOpen} onClose={() => setKeysOpen(false)} />
-    <Finder boards={boards} inInbox />
+    <Finder boards={boards} page="inbox" onKeys={() => setKeysOpen(true)} />
   </div></TooltipProvider>;
 }
 

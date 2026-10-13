@@ -22,7 +22,7 @@ export const allKeys: Key[] = [
   { id: "blur", keys: ["Escape"], label: "Esc", what: "Leave the message box or any field, keeping its text, so these keys work again.", places: ["board"] },
   { id: "previousBoard", keys: ["["], label: "[", what: "Go to the previous item in the sidebar: the Inbox, then your boards.", places: ["inbox", "board"] },
   { id: "nextBoard", keys: ["]"], label: "]", what: "Go to the next item in the sidebar: the Inbox, then your boards.", places: ["inbox", "board"] },
-  { id: "find", keys: ["mod+k"], label: "mod+K", what: "Find a board, or a task on the board you are on, and go there. Works in a field too.", places: ["inbox", "board"] },
+  { id: "find", keys: ["mod+k"], label: "mod+K", what: "Find a board, a task on the board you are on, or something to do. Works in a field too.", places: ["inbox", "board"] },
   { id: "help", keys: ["?"], label: "?", what: "Show these keys.", places: ["inbox", "board"] },
 ];
 

@@ -279,10 +279,13 @@ func runJoin(ctx context.Context, a *app, args []string) error {
 			return runJoinBoard(ctx, a, pos[0], *role, *agentName, *serverFlag)
 		}
 	}
-	if *role != "" || *serverFlag != "" {
-		return usageError("--role and --server work only with --board; a join line names its role and server.", use)
+	joinText := strings.Join(pos, " ")
+	_, bareCode := ids.NormalizeJoinCode(joinText)
+	if *role != "" || (*serverFlag != "" && !bareCode) {
+		return usageError("--role works only with --board. Use --server with a bare code or --board; a join line already names its server.", use)
 	}
-	srv, code, guest, err := a.joinTarget(strings.Join(pos, " "))
+	a.agentServerFlag = *serverFlag
+	srv, code, guest, err := a.joinTarget(joinText)
 	if err != nil {
 		return err
 	}
@@ -419,9 +422,9 @@ func (a *app) guestJoin(ctx context.Context, c *client, req api.GuestJoinRequest
 }
 
 // joinTarget finds the server and join code in a join line, or takes a bare code for
-// the project's server. A guest code's line ("as guest") naming a server this machine
-// has no key for is redeemed as a guest, with no key: guest is true, and the server is
-// the line's host over https, or over http when it is this machine.
+// the machine's selected server. A guest code's line ("as guest") naming a server
+// this machine has no key for is redeemed as a guest, with no key: guest is true.
+// The server is the line's host over https, or over http when it is this machine.
 func (a *app) joinTarget(text string) (srv serverRef, code string, guest bool, err error) {
 	line, lineErr := joinline.Parse(text)
 	if lineErr == nil {
@@ -445,15 +448,8 @@ func (a *app) joinTarget(text string) (srv serverRef, code string, guest bool, e
 			Err:     lineErr,
 		}
 	}
-	srv = a.localServer()
-	p, found, err := a.readProject()
-	if err != nil {
-		return serverRef{}, "", false, err
-	}
-	if found && p.Server.URL != "" {
-		srv = p.Server
-	}
-	return srv, code, false, nil
+	srv, err = a.resolveServer(a.selectedServerFlag())
+	return srv, code, false, err
 }
 
 // guestLineRole is what a guest code's join line says in place of a role.

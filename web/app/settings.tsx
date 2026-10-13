@@ -61,7 +61,7 @@ export default function Settings({ onSignOut }: { onSignOut: () => void }) {
             </div>
           </main>
         </div>
-        <Finder boards={boards} />
+        <Finder boards={boards} page="settings" />
       </div>
     </TooltipProvider>
   );

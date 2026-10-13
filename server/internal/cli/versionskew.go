@@ -60,7 +60,7 @@ func checkVersionSkew(server, client, remote string) doctorCheck {
 	message := fmt.Sprintf("server at %s runs aboard %s; this CLI runs aboard %s", server, remote, client)
 	cv, sv := skewVersion(client), skewVersion(remote)
 	if !cv.ok || !sv.ok {
-		return problem("server_version", levelWarning, "version_unknown", message+"; compatibility can't be assessed", "check aboard version and the server's version with its admin")
+		return problem("server_version", levelWarning, "version_unknown", message+"; can't tell whether these versions work together", "check aboard version and the server's version with its admin")
 	}
 	step := 0
 	if cv.core[0] == 0 && sv.core[0] == 0 {
@@ -69,13 +69,13 @@ func checkVersionSkew(server, client, remote string) doctorCheck {
 	// Subtract the smaller number so even the largest parsed version cannot overflow.
 	gap := max(cv.core[step], sv.core[step]) - min(cv.core[step], sv.core[step])
 	if gap <= 1 {
-		return okCheck("server_version", message+"; within the supported version window")
+		return okCheck("server_version", message+"; these versions can work together")
 	}
 	fix := "ask the server's admin to upgrade aboard on " + server
 	if compareVersions(client, remote) < 0 {
 		fix = "run aboard upgrade in your own terminal to update this CLI"
 	}
-	return problem("server_version", levelWarning, "version_skew", message+"; outside the supported version window", fix)
+	return problem("server_version", levelWarning, "version_skew", message+"; these versions may not work together", fix)
 }
 
 // skewVersion accepts semantic version labels, including a development build's metadata.

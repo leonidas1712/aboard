@@ -563,7 +563,9 @@ func TestDownWithAWaitingStopHook(t *testing.T) {
 	if down.code != 0 || field(t, down.json(t), "daemon_stopped") != true {
 		t.Fatalf("down with a stop hook waiting:\n%s", down)
 	}
-	eventually(t, 5*time.Second, "the waiting hook to start a daemon again", func() bool {
+	// The hook retries with a growing pause before it starts a daemon, which takes a few
+	// seconds on a loaded machine.
+	eventually(t, 15*time.Second, "the waiting hook to start a daemon again", func() bool {
 		pid := e.daemonPID()
 		return pid != 0 && pid != stopped && e.daemonRunning()
 	})

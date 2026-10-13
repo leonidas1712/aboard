@@ -60,9 +60,17 @@ func (a *app) personStatusBoards(ctx context.Context, srv serverRef) ([]statusBo
 	return rows, notices, nil
 }
 
+func (a *app) statusServerLabel(srv serverRef) string {
+	if a.statusOverview {
+		return fmt.Sprintf("%s (%s)", a.serverRefFor(srv.URL).Name, hostOf(srv))
+	}
+	return srv.URL
+}
+
 func statusBoardsText(rows []statusBoard) string {
 	var text strings.Builder
 	fmt.Fprintf(&text, "Boards: %d\n", len(rows))
+	var starter []string
 	for _, row := range rows {
 		unread := "unread unknown"
 		if row.Unread != nil {
@@ -70,7 +78,7 @@ func statusBoardsText(rows []statusBoard) string {
 		}
 		policy := string(row.Policy.Preset)
 		if policy == "starter" {
-			policy += " (a starting point; tighten with aboard board policy recommended)"
+			starter = append(starter, row.Name)
 		}
 		fmt.Fprintf(&text, "  %s · %s · policy %s\n", row.Name, unread, policy)
 		for _, agent := range row.Agents {
@@ -82,6 +90,9 @@ func statusBoardsText(rows []statusBoard) string {
 			loc := agent.Location
 			fmt.Fprintf(&text, " · %q · %q · %q · last active %s\n", deref(loc.Machine), loc.Harness, loc.Folder, loc.LastActive.Format("2006-01-02 15:04:05Z07:00"))
 		}
+	}
+	if len(starter) > 0 {
+		fmt.Fprintf(&text, "Starter policy on %s is a starting point; tighten with aboard board policy recommended.\n", strings.Join(starter, ", "))
 	}
 	return text.String()
 }

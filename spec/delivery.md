@@ -1067,6 +1067,15 @@ otherwise. A report that fails is logged and made again at the next change or re
 
 Presence is bookkeeping like a read position, never an event in the board's log.
 
+A Codex session can report `delivery_warning` as `codex_no_daemon` or
+`codex_no_daemon_orca`. The CLI reads the harness parent's argv and checks the control
+socket in that session's Codex home. It sends only the reason, never argv or environment
+values. The daemon keeps the reason across restarts and includes it with presence.
+A healthy checked report clears it; an older client that omits the check leaves it.
+Failed validation can annotate an existing session but cannot create or rebind one.
+Doctor and status show the recovery text. Presence states and delivery permissions do
+not change. The server keeps the last warning when presence expires to `no_session`.
+
 ## The delivery format
 
 Bundles use the format defined as `DeliveryText` in [cli.yaml](cli.yaml): each message

@@ -186,7 +186,9 @@ couldn't do its job exits 0, so it never blocks the thread, and prints one line 
 | `sandbox_blocks_network`, or `codex_aboard_not_allowed` in doctor | No rule lets `aboard` run outside the sandbox | `aboard init --yes --allow-commands` in a terminal |
 | `codex_queue_missing` | This Codex has no `queue` command | Update Codex |
 | `codex_hooks_missing` | The hooks aren't installed, so your messages wait for the end of a turn | `aboard init --yes`, then trust the hooks |
-| `codex_target_absent` | The bound thread no longer exists | Open that thread again, or rejoin with `aboard join` |
+| `codex_target_absent` | The thread is unavailable; check `--no-daemon` and `CODEX_HOME` | Run `aboard doctor`, restart Codex without `--no-daemon`, then run `aboard resume` |
+| `codex_no_daemon` | Codex has `--no-daemon`, or its home has no app-server control socket | Restart Codex without `--no-daemon`, then run `aboard resume` |
+| `codex_no_daemon_orca` | The reporting Codex process has an Orca environment | Set `export ORCA_CODEX_ISOLATE=0` in `~/.zshrc` (or run `command codex`), then restart Codex |
 | `codex_subagent_target` | `aboard join` ran in a sub-agent thread | Run it in the main conversation |
 | `daemon_in_sandbox` | A sandboxed command found no daemon | Trust aboard's hooks in `/hooks`, or run `aboard daemon start` in a terminal |
 

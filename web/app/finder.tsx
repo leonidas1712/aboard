@@ -1,18 +1,22 @@
 "use client";
 
 // The finder is one box that goes anywhere: ⌘K (Ctrl+K off a Mac), or "Find or do
-// anything" in the board list, opens it. Typing narrows a list of places (the Inbox and
-// the tabs of the board on screen), the person's boards and the tasks of the board on
-// screen; arrows pick one and Enter goes there. It reads only what the page has already
-// loaded, so it asks the server for nothing.
+// anything" in the board list, opens it. Typing narrows a list of places (the Inbox,
+// Settings, People and the tabs and panel of the board on screen), the person's boards
+// in the sidebar's order, things to do (export the board, mark it read, show the keys)
+// and the tasks of the board on screen; arrows pick one and Enter goes there or does it. Each
+// action is one the page already offers elsewhere. It reads only what the page has
+// already loaded, so it asks the server for nothing.
 
 import { Search } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { type Board, type Task, isArchived } from "./api";
+import { type ExportAction, exportActions } from "./export-menu";
 import { Kbd } from "./keys-sheet";
 import { keyLabel, pressed } from "./keys";
+import { sidebarOrder } from "./sidebars";
 import { taskState } from "./task-ui";
 import { boardLabel } from "./words";
 
@@ -41,14 +45,24 @@ export function FindRow() {
 
 export type View = "conversation" | "tasks" | "files";
 
-/** Here is the board on screen, as the finder needs it: its tabs and tasks, and how to show each. */
+/**
+ * Here is the board on screen, as the finder needs it: its tabs and tasks and how to show
+ * each, the board panel's members section, and the board's actions. An action left out
+ * isn't offered: exportAs while the board loads, markAllRead while nothing is unread.
+ */
 export type Here = {
   name: string;
   views: View[];
   tasks: Task[];
   setView: (v: View) => void;
   openTask: (ref: string) => void;
+  members: { title: string; show: () => void };
+  exportAs?: (a: ExportAction) => void;
+  markAllRead?: () => void;
 };
+
+/** Page is the page under the finder when it isn't a board; it is left out of the places. */
+export type Page = "inbox" | "settings";
 
 /** An item is one place the finder can go: ref is a task's reference, sub a second line. */
 type Item = { id: string; label: string; ref?: string; sub?: string; note?: string; words: string; go: () => void };
@@ -62,9 +76,9 @@ function goTo(href: string) {
 
 /**
  * Finder holds the finder for one page: its key works anywhere on the page, a text field
- * included, unless another dialog is open. inInbox leaves the Inbox out of the places.
+ * included, unless another dialog is open. onKeys shows the page's keys sheet, if it has one.
  */
-export function Finder({ boards, here, inInbox = false }: { boards: Board[] | null; here?: Here; inInbox?: boolean }) {
+export function Finder({ boards, here, page, onKeys }: { boards: Board[] | null; here?: Here; page?: Page; onKeys?: () => void }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const show = () => setOpen(true);
@@ -83,16 +97,28 @@ export function Finder({ boards, here, inInbox = false }: { boards: Board[] | nu
     };
   }, []);
   if (!open) return null;
-  return <Palette boards={boards ?? []} here={here} inInbox={inInbox} onClose={() => setOpen(false)} />;
+  return <Palette groups={groupsOf(boards ?? [], here, page, onKeys)} onClose={() => setOpen(false)} />;
 }
 
-function groupsOf(boards: Board[], here: Here | undefined, inInbox: boolean): Group[] {
+// An item's words hold the other names people type for it, such as "members" for People.
+function groupsOf(boards: Board[], here: Here | undefined, page: Page | undefined, onKeys: (() => void) | undefined): Group[] {
   const places: Item[] = [
-    ...(inInbox ? [] : [{ id: "inbox", label: "Inbox", note: "Asks to you, from every board", words: "inbox asks", go: () => goTo("/?inbox") }]),
+    ...(page === "inbox" ? [] : [{ id: "inbox", label: "Inbox", note: "Asks to you, from every board", words: "inbox asks questions", go: () => goTo("/?inbox") }]),
     ...(here?.views ?? []).map((v) => ({ id: `view-${v}`, label: viewNames[v], note: "This board", words: viewNames[v], go: () => here!.setView(v) })),
+    ...(here ? [{ id: "members", label: here.members.title, note: "This board", words: `${here.members.title} agents people members`, go: here.members.show }] : []),
+    { id: "people", label: "People", note: "Everyone on this server", words: "people members team users", go: () => goTo("/?view=people") },
+    ...(page === "settings" ? [] : [{ id: "settings", label: "Settings", note: "What your agents may do", words: "settings auto mode allowance preferences", go: () => goTo("/?view=settings") }]),
   ];
-  // Live boards first, then the archived; each keeps the order the list gave.
-  const sorted = [...boards.filter((b) => !isArchived(b)), ...boards.filter((b) => isArchived(b))];
+  const actions: Item[] = [
+    ...(here?.exportAs
+      ? exportActions.map((a) => ({ id: `export-${a.action}`, label: a.label, note: "Export this board", words: `${a.label} export download save markdown`, go: () => here.exportAs!(a.action) }))
+      : []),
+    ...(here?.markAllRead ? [{ id: "read", label: "Mark all as read", note: "This board", words: "mark all as read unread", go: here.markAllRead }] : []),
+    ...(onKeys ? [{ id: "keys", label: "Show keys", words: "show keys keyboard shortcuts help", go: onKeys }] : []),
+  ];
+  // The boards come in the sidebar's order: those that need the person, the rest, then the archived.
+  const { needs, others, archived } = sidebarOrder(boards);
+  const sorted = [...needs, ...others, ...archived];
   const boardItems: Item[] = sorted.map((b) => ({
     id: `board-${b.id}`,
     label: boardLabel(b),
@@ -115,6 +141,7 @@ function groupsOf(boards: Board[], here: Here | undefined, inInbox: boolean): Gr
   return [
     { key: "places", title: "Go to", items: places },
     { key: "boards", title: "Boards", items: boardItems },
+    { key: "actions", title: "Do", items: actions },
     { key: "tasks", title: "Tasks on this board", items: taskItems },
   ];
 }
@@ -125,12 +152,12 @@ function matches(item: Item, query: string): boolean {
   return query.toLowerCase().split(/\s+/).filter(Boolean).every((w) => words.includes(w));
 }
 
-function Palette({ boards, here, inInbox, onClose }: { boards: Board[]; here?: Here; inInbox: boolean; onClose: () => void }) {
+function Palette({ groups: all, onClose }: { groups: Group[]; onClose: () => void }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const groups = groupsOf(boards, here, inInbox).map((g) => ({ ...g, items: g.items.filter((i) => matches(i, query)) })).filter((g) => g.items.length > 0);
+  const groups = all.map((g) => ({ ...g, items: g.items.filter((i) => matches(i, query)) })).filter((g) => g.items.length > 0);
   const items = groups.flatMap((g) => g.items);
   const current = items[Math.min(active, items.length - 1)];
   const optionId = (item: Item) => `${id}-${item.id}`;
@@ -188,7 +215,7 @@ function Palette({ boards, here, inInbox, onClose }: { boards: Board[]; here?: H
       <div className="flex shrink-0 items-center gap-2.5 border-b border-rule px-4">
         <Search className="size-4 shrink-0 text-muted" strokeWidth={1.75} aria-hidden />
         <label htmlFor={`${id}-input`} className="sr-only">
-          Find a board, a task or a place
+          Find a board or task, or do something
         </label>
         <input
           id={`${id}-input`}
@@ -206,7 +233,7 @@ function Palette({ boards, here, inInbox, onClose }: { boards: Board[]; here?: H
             setActive(0);
           }}
           onKeyDown={onKeyDown}
-          placeholder="Find a board, a task or a place"
+          placeholder="Find a board or task, or do something"
           className="min-h-13 min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-muted"
         />
       </div>
@@ -251,7 +278,7 @@ function Palette({ boards, here, inInbox, onClose }: { boards: Board[]; here?: H
           <Kbd>↓</Kbd>to move
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <Kbd>↵</Kbd>to go
+          <Kbd>↵</Kbd>to go or do
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Kbd>Esc</Kbd>to close

@@ -337,7 +337,7 @@ Setup:  claude-code everywhere, codex everywhere
     "code": null,
     "fix": null,
     "level": "ok",
-    "message": "codex-cli 0.159.3: queue available",
+    "message": "Codex 0.159.3 found; it can receive Aboard messages",
     "name": "codex"
   },
   {
@@ -351,7 +351,7 @@ Setup:  claude-code everywhere, codex everywhere
     "code": "codex_hooks_unsupported",
     "fix": "update Codex to 0.160.0 or later, then run aboard init",
     "level": "warning",
-    "message": "codex: Codex 0.159.3 doesn't run Aboard's Stop and PostToolUse hooks, so turn-end delivery uses the harness queue and older versions use the pre-tool hook",
+    "message": "codex: Codex 0.159.3 needs an update for full Aboard support, so messages after a turn ends use Codex's built-in delivery and messages during a turn arrive before the next tool runs",
     "name": "codex_version"
   },
   {

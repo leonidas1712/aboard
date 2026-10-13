@@ -51,6 +51,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		// one this machine kept.
 		DeliveryUnconfirmed bool        `json:"delivery_unconfirmed"`
 		Presence            *string     `json:"presence"`
+		DeliveryWarning     *string     `json:"delivery_warning,omitempty"`
 		Agents              []string    `json:"agents"`
 		Policy              *api.Policy `json:"policy"`
 		People              []person    `json:"people"`
@@ -79,9 +80,9 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			failure.Details = map[string]any{"status": out}
 			result = failure
 			if statusText == "" {
-				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\n", out.Server.URL)
+				statusText = fmt.Sprintf("Server: %s status unavailable before timeout\n", a.statusServerLabel(out.Server))
 				if out.ServerRunning {
-					statusText = fmt.Sprintf("Server: %s reachable\n", out.Server.URL)
+					statusText = fmt.Sprintf("Server: %s reachable\n", a.statusServerLabel(out.Server))
 				}
 				statusText += "Daemon: status not collected before timeout\n" + setupLine
 				if len(out.Boards) > 0 {
@@ -89,13 +90,16 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 				}
 			}
 			if !a.json {
-				a.emit(out, styleStatus(statusText, a.out()))
+				a.emit(out, styleStatus(statusWarningText(statusText, out.DeliveryWarning), a.out()))
 			}
 		} else if result == nil {
-			a.emit(out, styleStatus(statusText, a.out()))
+			a.emit(out, styleStatus(statusWarningText(statusText, out.DeliveryWarning), a.out()))
 		}
 	}()
 	out.Setup, setupLine = a.setupStatus()
+	if reason := a.currentDeliveryWarning(); reason != "" && *as == "" && a.env.Getenv("ABOARD_AGENT") == "" {
+		out.DeliveryWarning = &reason
+	}
 	if *launch != "" {
 		if !launchtickets.Valid(*launch) {
 			return usageError(fmt.Sprintf("%q is not a launch ticket: one is lch_ and 24 hex digits.", *launch), use)
@@ -199,6 +203,7 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 		if out.ServerRunning {
 			t, err = a.humanBoard(ctx, *boardFlag)
 			if err != nil && asError(err).Code == "board_ambiguous" && *boardFlag == "" {
+				a.statusOverview = true
 				out.Boards, out.Added, err = a.personStatusBoards(ctx, srv)
 				if err != nil {
 					return err
@@ -290,6 +295,10 @@ func runStatus(ctx context.Context, a *app, args []string) (result error) {
 			if cred.MemberID != "" && mem.Id == cred.MemberID && mem.Kind == api.MemberKindAgent {
 				m = heldModeOf(mem)
 				out.Presence = presenceOf([]api.Member{mem}, mem.Name)
+				if mem.DeliveryWarning != nil {
+					warning := string(*mem.DeliveryWarning)
+					out.DeliveryWarning = &warning
+				}
 				if mem.Delivery != nil {
 					if parsed, ok := delivery.ParseMode(string(*mem.Delivery)); ok {
 						s := string(parsed)
@@ -483,7 +492,8 @@ type daemonReport struct {
 	// Stalled counts deliveries handed to an idle session that started no turn.
 	Stalled int `json:"stalled"`
 	// StoppedAgents are agents whose deliveries the daemon stopped, with why.
-	StoppedAgents []stoppedAgent `json:"stopped_agents,omitempty"`
+	StoppedAgents    []stoppedAgent `json:"stopped_agents,omitempty"`
+	DeliveryWarnings []stoppedAgent `json:"delivery_warnings,omitempty"`
 }
 
 // stoppedAgent is an agent whose deliveries the daemon stopped, such as one whose board
@@ -501,21 +511,22 @@ type stoppedAgent struct {
 // of "not running" and sets blocked.
 func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, blocked *bool, d *daemonReport, srv serverRef) {
 	*running = a.serverAnswers(ctx, srv)
+	label := a.statusServerLabel(srv)
 	local := srv.URL == a.localServer().URL
 	sandbox, noNetwork := a.networkBlocked()
 	switch {
 	case !*running && noNetwork:
 		*blocked = true
 		fmt.Fprintf(text, "Server: %s can't be reached from %s's sandbox, which blocks network access; "+
-			"run %s in a terminal, or approve this command outside the sandbox\n", srv.URL, sandbox, allowFix)
+			"run %s in a terminal, or approve this command outside the sandbox\n", label, sandbox, allowFix)
 	case *running && local:
-		fmt.Fprintf(text, "Server: %s running%s\n", srv.URL, a.localReplaced.text())
+		fmt.Fprintf(text, "Server: %s running%s\n", label, a.localReplaced.text())
 	case *running:
-		fmt.Fprintf(text, "Server: %s reachable\n", srv.URL)
+		fmt.Fprintf(text, "Server: %s reachable\n", label)
 	case local:
-		fmt.Fprintf(text, "Server: %s not running; aboard up starts it\n", srv.URL)
+		fmt.Fprintf(text, "Server: %s not running; aboard up starts it\n", label)
 	default:
-		fmt.Fprintf(text, "Server: %s unreachable\n", srv.URL)
+		fmt.Fprintf(text, "Server: %s unreachable\n", label)
 	}
 	st, _ := a.daemonStatus(ctx)
 	if st == nil && noNetwork {
@@ -529,6 +540,10 @@ func (a *app) runningLines(ctx context.Context, text *strings.Builder, running, 
 	}
 	pid := st.PID
 	*d = daemonReport{Running: true, PID: &pid, OpenSessions: st.OpenSessions, Replaced: a.daemonReplaced, Stalled: len(st.Stalled)}
+	for _, warning := range st.DeliveryWarnings {
+		d.DeliveryWarnings = append(d.DeliveryWarnings, stoppedAgent{Server: warning.Agent.Server, Board: warning.Agent.Board, Name: warning.Agent.Name, Reason: warning.Reason})
+		fmt.Fprintf(text, "        %s on %s: %s\n", warning.Agent.Name, warning.Agent.Board, deliverytext.DeliveryWarning(warning.Reason))
+	}
 	stalled := ""
 	if n := len(st.Stalled); n > 0 {
 		stalled = fmt.Sprintf("; %d %s stalled: handed to an idle session that started no turn (see aboard doctor)", n, plural(n, "delivery", "deliveries"))

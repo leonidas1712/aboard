@@ -407,6 +407,7 @@ $defs:
     type: object
     required: [server, board, name, member_id, role, delivery, unread]
     properties:
+      delivery_warning: { $ref: openapi.yaml#/components/schemas/DeliveryWarning }
       server: { type: string }
       board: { type: string }
       name: { type: string }
@@ -800,6 +801,9 @@ $defs:
   # ---------- aboard join --board NAME [--name NAME] [--role R] [--server URL], in a session ----------
   JoinOutput:
     description: |
+      A bare join code uses --server when given, otherwise the machine's saved
+      default, matching invite. A legacy folder link never selects its issuer.
+      A full join line keeps its embedded issuer and cannot be overridden by --server.
       A bare board name is equivalent to --board NAME unless it is a join code.
       In a session, aboard join --board NAME gives the session a seat on that board
       through the machine's delegation, which the delivery daemon holds (spec/control.md,
@@ -2381,6 +2385,10 @@ $defs:
       uses that version's core numbers. These warnings never count as errors.
       One check per part. Exit 0 when no check is an error, 3 otherwise. Text output is
       one line per check: "✓ …", "! …" (warning) or "✗ … Fix: …".
+      Missing Aboard setup uses "! … Fix: run aboard init" for every harness in
+      text output. JSON levels and exit codes stay unchanged; damaged configuration
+      files retain their error marker. Messages name the missing capability in plain
+      words, rather than hook event names or internal delivery commands.
       An installed skill or Aboard hook entries that differ from what this aboard writes
       are told apart with the install manifest (see InitOutput): skill_outdated or
       hooks_outdated when unchanged since an aboard wrote them, naming that version
@@ -2395,8 +2403,8 @@ $defs:
       instead of <check>_hooks: <check>_extension_missing (an error), extension_outdated
       or extension_edited. aboard init writes only the hooks the harness's version runs;
       a check named <check>_version warns about the rest: <check>_hooks_unsupported names
-      them and what the person loses ("claude-code: Claude Code 2.0.50 doesn't run
-      Aboard's Stop and PreToolUse hooks, so an idle session doesn't wake for new
+      what the person loses ("claude-code: Claude Code 2.0.50 needs an update for
+      full Aboard support, so an idle session doesn't wake for new
       messages and …", fix "update Claude Code to 2.1.69 or later, then run aboard
       init"), and <check>_version_unknown says the version couldn't be read, so only
       what the oldest supported version runs was installed.
@@ -2499,6 +2507,8 @@ $defs:
 
   # ---------- aboard status [--as AGENT] [--board NAME] [--launch TICKET] ----------
   StatusOutput:
+    # Person overview text names its server once. Each board retains its policy
+    # badge; starter boards share one notice and recovery hint below the list.
     description: |
       Which board and agent commands run here would use, and where each came from, and
       whether the server and the delivery daemon are running. With --as, ABOARD_AGENT,
@@ -2594,6 +2604,9 @@ $defs:
                   id: { type: string }
                   name: { type: string }
                   location: { $ref: openapi.yaml#/components/schemas/AgentLocation }
+      delivery_warning:
+        $ref: openapi.yaml#/components/schemas/DeliveryWarning
+        description: Optional delivery diagnostic reported for the selected seat.
       queued:
         $ref: "#/$defs/QueuedMessages"
       server: { $ref: "#/$defs/ServerRef" }
@@ -2624,6 +2637,17 @@ $defs:
           running: { type: boolean }
           pid: { type: [integer, "null"] }
           open_sessions: { type: integer }
+          delivery_warnings:
+            type: array
+            description: Last reported delivery diagnostics for seats bound on this machine.
+            items:
+              type: object
+              required: [server, board, name, reason]
+              properties:
+                server: { type: string }
+                board: { type: string }
+                name: { type: string }
+                reason: { $ref: openapi.yaml#/components/schemas/DeliveryWarning }
           replaced:
             $ref: "#/$defs/Replaced"
             description: The older daemon this command replaced, or null.
@@ -4529,6 +4553,14 @@ $defs:
 # people and invite list accept the exact current active non-guest seat, on its issuer,
 # never a person credential fallback. Invite revoke and other mutations retain their gates.
 
+# Codex unavailable delivery diagnostics: hooks and join/resume check the real parent
+# arguments and session-home control socket. Doctor prints one warning per known
+# affected seat; status and the board agent row show the same last-reported diagnostic.
+# Text: "Codex is running with --no-daemon, so Aboard can't deliver to it. Restart
+# Codex without --no-daemon." With an ORCA_ environment marker, also: "Orca adds
+# --no-daemon; set export ORCA_CODEX_ISOLATE=0 in ~/.zshrc (or run command codex),
+# then restart Codex." codex_target_absent hints name --no-daemon or a CODEX_HOME
+# mismatch and aboard doctor, instead of merely asking to reopen the thread.
   # ---------- aboard export [--board B] [--zip] [--out PATH] ----------
   ExportOutput:
     description: |
