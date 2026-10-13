@@ -33,6 +33,11 @@ site are rewritten for launch.
   Codex started with `--no-daemon` (with the Orca setting to change when Orca added it),
   or no shared Codex app-server for the session. The warning is kept until a healthy
   check clears it (#355).
+- When an upgrade or `aboard init` changed the hooks of a Claude Code or Codex session
+  that is still open, `aboard doctor` says so until that session is restarted, and for
+  Codex it reads whether the changed hooks are approved and gives the `/hooks` and
+  `codex resume --last` steps when they aren't. Doctor never approves hooks itself
+  (#356).
 
 ### Changed
 
@@ -73,6 +78,9 @@ site are rewritten for launch.
 - A bare join code (`aboard join 4VS-B3E`) goes to `--server` or the machine's default
   server, as `aboard invite` does, instead of the local server or a legacy folder link.
   A full join line still names its own server (#365).
+- Upgrading from the previous release keeps open Claude Code and Codex sessions
+  working, and each release is now proved that way from the actual released binary
+  before it ships (#356).
 - `aboard status` no longer fails after it replaces an older server or daemon that then
   answers: a slow first readiness check isn't reported once the server is up (#360).
 
@@ -102,6 +110,10 @@ site are rewritten for launch.
     harnesses whose hooks changed; absent when none did (#354).
   - An unknown `--board` returns `board_not_found` with `details.boards`, up to ten
     readable board names (#354).
+  - `aboard doctor` gains the diagnostics `claude_hooks_reload_required`,
+    `codex_hooks_reload_required`, `codex_hooks_need_review` and
+    `codex_hooks_review_unavailable`, and `aboard init` the error
+    `hook_recovery_unavailable`, which leaves changed hook files unwritten (#356).
   - `aboard join CODE` with a bare code uses `--server` or the saved default server;
     `aboard status` text names its server once. No JSON shape changes (#365).
 - `spec/delivery.md` and `spec/events.md` describe the delivery warning as presence
