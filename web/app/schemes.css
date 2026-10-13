@@ -1,6 +1,6 @@
 /* Colour schemes beyond light and dark (D220, first tried in the UI lab). Each is a full
    set of the tokens in tokens.css on the same names, so every component follows. A
-   scheme applies as data-theme on <html>, chosen in the account menu; "Same as this
+   scheme applies as data-theme on <html>, chosen in the account menu or Settings; "Same as this
    computer" keeps following the system's light or dark. Each follows the brand's rules:
    tinted neutrals, one accent that marks what needs a person, links in ink.
    lab/contrast.mjs checks each one against WCAG AA. */

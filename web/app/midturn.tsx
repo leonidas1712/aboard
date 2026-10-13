@@ -2,7 +2,7 @@
 
 // The mid-turn policy (D221): whether urgent messages from a person's own agents reach
 // their agents at the next step instead of waiting for the turn to end. One shared copy
-// of the person's setting feeds the account menu, the agent's menu and its details.
+// of the person's setting feeds Settings, the agent's menu and its details.
 
 import { useEffect, useSyncExternalStore } from "react";
 import { type MidturnPolicy, type MidturnView, getMidturn, setMidturn } from "./api";

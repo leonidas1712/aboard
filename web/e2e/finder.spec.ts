@@ -186,10 +186,12 @@ test("from the Inbox the finder offers places, actions and boards", async ({ pag
 
   await page.keyboard.press("ControlOrMeta+k");
   const box = finder(page);
-  await expect(box.getByRole("group", { name: "Go to" }).getByRole("option")).toHaveText([/^People/, /^Settings/]);
+  await expect(box.getByRole("group", { name: "Go to" }).getByRole("option")).toHaveText([/^People/, /^Settings/, /^Auto mode and urgent messages/, /^Theme/]);
   await expect(box.getByRole("option", { name: /^Show keys/ })).toBeVisible();
   await expect(box.getByRole("option", { name: /atlas/ })).toBeVisible();
   await box.getByRole("combobox").fill("people");
   await box.getByRole("combobox").press("Enter");
-  await expect(page).toHaveURL(/[?&]view=people\b/);
+  await expect(page).toHaveURL(/[?&]view=settings&tab=people\b/);
+  // alex is the admin of this local server, so Settings has People.
+  await expect(page.getByRole("tab", { name: "People" })).toHaveAttribute("aria-selected", "true");
 });

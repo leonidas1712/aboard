@@ -201,8 +201,8 @@ test("a request that always asks has no Allow always", async ({ page }) => {
 test("Settings turns on auto mode, and inviting only after its warning", async ({ page }) => {
   await openBoard(page, "onboarding-settings");
   await page.getByRole("button", { name: /^You are alex/ }).click();
-  await expect(page.getByRole("menuitem", { name: /Settings/ })).toContainText("Agents ask you");
   await page.getByRole("menuitem", { name: /Settings/ }).click();
+  await page.getByRole("tab", { name: "Agents" }).click();
   await expect(page.getByRole("heading", { name: "What your agents may do for you" })).toBeVisible();
   await page.getByRole("switch", { name: "Auto mode" }).click();
   await expect.poll(async () => (await api(ownerToken(), "GET", "/v1/me/allowance")).json.categories).toEqual(["add-people"]);

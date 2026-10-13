@@ -3,7 +3,6 @@
 import { lab } from "aboard-lab";
 import { useEffect, useState } from "react";
 import { type Session, type Started, signedOutEvent, start } from "./api";
-import People from "./people";
 import JoinPage from "./join";
 import Settings from "./settings";
 import BoardList from "./board-list";
@@ -89,12 +88,13 @@ export default function Page() {
     setNotice(null);
     setStarted({ ...started, session: null });
   };
+  // People lives in Settings; its old address, ?view=people, opens Settings at People.
   const peoplePage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "people";
   const settingsPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "settings";
   const inboxPage = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("inbox");
   const view = lab?.Place && lab.place?.() ? (
     <lab.Place onSignOut={onSignOut} />
-  ) : inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage ? <People onSignOut={onSignOut} /> : settingsPage ? <Settings onSignOut={onSignOut} /> : started.board ? (
+  ) : inboxPage ? <Inbox onSignOut={onSignOut} /> : peoplePage || settingsPage ? <Settings onSignOut={onSignOut} /> : started.board ? (
     <BoardView name={started.board} onSignOut={onSignOut} />
   ) : (
     <BoardList onSignOut={onSignOut} />
