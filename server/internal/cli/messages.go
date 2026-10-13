@@ -72,10 +72,13 @@ func runSay(ctx context.Context, a *app, args []string) error {
 	if optionGiven && (*reply == "" || *option < 1 || *option > 4) {
 		return usageError("--option takes 1 to 4 and needs --reply.", use)
 	}
-	if *option != 0 && !a.agentSelected(*as) {
-		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, strings.Join(pos, " "), to, *urgent, *expectReply, *waitFor, boardFiles, attach)
-	}
 	body := strings.Join(pos, " ")
+	if err := a.textFromStdin(&body); err != nil {
+		return err
+	}
+	if *option != 0 && !a.agentSelected(*as) {
+		return runAskOption(ctx, a, *boardFlag, *as, *task, *noTask, *reply, *option, body, to, *urgent, *expectReply, *waitFor, boardFiles, attach)
+	}
 	if strings.TrimSpace(body) == "" && *option == 0 {
 		return usageError("The message text is empty.", use)
 	}

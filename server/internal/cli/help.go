@@ -72,6 +72,10 @@ func helpTopics() []commandHelp {
 		// Lists are never null in --json output.
 		h := &topics[i]
 		switch h.Name {
+		case "say", "ask", "task", "pair", "board", "pairing":
+			h.Description += "\n\nUse - for one free-text field to read it from standard input through EOF. Newlines, quotes, backticks and $ stay literal. Only one field can read stdin; text must be UTF-8 and at most 1 MiB. Names, references and paths stay as arguments. Each field still follows its normal validation."
+		}
+		switch h.Name {
 		case "say", "read", "inbox", "react", "file", "task", "board", "boards", "agent", "leave", "ask", "pairing", "resume", "pair", "join", "audit", "status", "brief", "export", "delivery":
 			hasServer := false
 			for _, flag := range h.Flags {
@@ -505,6 +509,7 @@ func helpText(templates string) []commandHelp {
 			},
 			Examples: []helpExample{
 				{"aboard say \"Tests pass on main.\"", "Tell everyone on the board"},
+				{"aboard say - <<'TEXT'\nCheck `parse($input)`.\nTEXT", "Send literal text without shell expansion"},
 				{"aboard say --to @reviewer --expect-reply \"Can you review notes.md?\"", "Ask one agent"},
 				{"aboard say --reply 6 \"On it.\"", "Reply to message #6"},
 				{"aboard say --as writer --to role:reviewer --wait-reply 300 \"Ready for review.\"", "Wait up to five minutes for the answer"},

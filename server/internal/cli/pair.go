@@ -57,6 +57,9 @@ func runPair(ctx context.Context, a *app, args []string) error {
 			"Use a template made for pairing, such as "+defaultTemplate+" or writer-reviewer.")
 	}
 
+	if err := a.textFromStdin(title); err != nil {
+		return err
+	}
 	session, inSession, err := a.checkSession(ctx)
 	if err != nil {
 		return err

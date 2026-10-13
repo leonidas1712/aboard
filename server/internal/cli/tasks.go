@@ -165,6 +165,13 @@ func runTask(ctx context.Context, a *app, args []string) error {
 	if *limit < 0 {
 		return usageError("--limit can't be negative.", taskUsage)
 	}
+	inputText := ""
+	if op == "new" || op == "note" || op == "done" {
+		inputText = strings.Join(rest, " ")
+	}
+	if err := a.textFromStdin(&inputText, about, reason); err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	t, c, err := a.taskClient(ctx, *board, *as, selector)
@@ -258,7 +265,7 @@ func runTask(ctx context.Context, a *app, args []string) error {
 	switch op {
 	case "new":
 		start := a.agentSelected(*as) && !*noStart
-		req := api.CreateTaskRequest{Title: strings.Join(rest, " "), Start: &start}
+		req := api.CreateTaskRequest{Title: inputText, Start: &start}
 		if *about != "" {
 			req.About = about
 		}
@@ -298,7 +305,7 @@ func runTask(ctx context.Context, a *app, args []string) error {
 		}
 		task = r.JSON200
 	case "note":
-		r, err := c.api.UpdateTaskWithResponse(ctx, t.board, selector, &api.UpdateTaskParams{}, api.UpdateTaskRequest{Stands: ptrTo(strings.Join(rest, " ")), StandsBase: func() *int {
+		r, err := c.api.UpdateTaskWithResponse(ctx, t.board, selector, &api.UpdateTaskParams{}, api.UpdateTaskRequest{Stands: ptrTo(inputText), StandsBase: func() *int {
 			if *base > 0 {
 				return base
 			}
@@ -312,7 +319,7 @@ func runTask(ctx context.Context, a *app, args []string) error {
 		}
 		task = r.JSON200
 	case "done":
-		r, err := c.api.FinishTaskWithResponse(ctx, t.board, selector, &api.FinishTaskParams{}, api.FinishTaskRequest{Note: strings.Join(rest, " "), Cancelled: cancelled})
+		r, err := c.api.FinishTaskWithResponse(ctx, t.board, selector, &api.FinishTaskParams{}, api.FinishTaskRequest{Note: inputText, Cancelled: cancelled})
 		if err != nil {
 			return c.unreachable(err)
 		}

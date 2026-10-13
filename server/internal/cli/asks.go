@@ -69,6 +69,22 @@ func runAsk(ctx context.Context, a *app, args []string) error {
 			return usageError("Write a question and at most four options.", askUsage)
 		}
 	}
+	recipient := ""
+	if !*open && *withdraw == "" && len(pos) > 0 && strings.HasPrefix(pos[0], "@") {
+		recipient, pos = pos[0], pos[1:]
+	}
+	withdrawText := strings.Join(pos, " ")
+	fields := []*string{going}
+	if *withdraw != "" {
+		fields = append(fields, &withdrawText)
+	} else if !*open {
+		for i := range pos {
+			fields = append(fields, &pos[i])
+		}
+	}
+	if err := a.textFromStdin(fields...); err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	var t target
@@ -162,14 +178,13 @@ func runAsk(ctx context.Context, a *app, args []string) error {
 			return apiError(me.StatusCode(), me.Body)
 		}
 		req.To = ptrTo([]string{"@" + me.JSON200.Name})
-		req.Body = strings.Join(pos, " ")
+		req.Body = withdrawText
 		if req.Body == "" {
 			req.Body = "Withdrawing this ask."
 		}
 	} else {
-		if strings.HasPrefix(pos[0], "@") {
-			req.To = ptrTo([]string{pos[0]})
-			pos = pos[1:]
+		if recipient != "" {
+			req.To = ptrTo([]string{recipient})
 		}
 		if len(pos) == 0 {
 			return usageError("Write the question after its recipient.", askUsage)
