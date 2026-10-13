@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `aboard help board new` shows the board command's help, matching
+  `aboard board new --help`.
+
+### Contract changes
+
+- CLI help accepts a documented board subcommand after the command name. The JSON
+  output keeps the parent command's name and existing shape (additive).
+
 Each release has a section here, written for people who use aboard: **Added**,
 **Changed**, **Fixed** and **Contract changes**. Contract changes lists every change
 under `spec/`, each saying what changed, who is affected (CLI scripts, API clients,
