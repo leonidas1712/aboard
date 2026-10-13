@@ -147,9 +147,9 @@ load the hooks, and trust the hooks once in `/hooks` in each harness.
 aboard doctor --json
 ```
 
-Each check has a `level`. For each harness you set up, its hook and skill checks
-(`claude_hooks`, `claude_skill`, `codex_hooks`, `codex_skill`) are `ok` when the setup
-is current.
+Each check has a `level`. For each harness you set up, its hook (omp: extension) and
+skill checks (`claude_hooks`, `claude_skill`, `codex_hooks`, `codex_skill`,
+`omp_extension`, `omp_skill`) are `ok` when the setup is current.
 
 ## Update
 
@@ -187,7 +187,7 @@ make install
 aboard init --yes
 ```
 
-`aboard upgrade` on a source build or a Homebrew install changes nothing and prints the command to use instead.
+`aboard upgrade` on a source build changes nothing and prints the command to use instead.
 `aboard init --yes` updates the skill and hooks only where the new build writes
 something different, and says "Nothing to change." otherwise. `aboard version --json`
 shows the new version.
@@ -302,6 +302,8 @@ kept.
 | Claude Code, one project | `.claude/skills/aboard/SKILL.md` and `.claude/settings.local.json` in the project |
 | Codex, everywhere | `~/.agents/skills/aboard/SKILL.md`, hooks in `~/.codex/hooks.json`, the allow rule in `~/.codex/rules/aboard.rules`; the last two under `$CODEX_HOME` when it is set |
 | Codex, one project | `.agents/skills/aboard/SKILL.md`, `.codex/hooks.json` and `.codex/rules/aboard.rules` in the project |
+| omp, everywhere | `~/.omp/agent/skills/aboard/SKILL.md` and the extension `~/.omp/agent/extensions/aboard.ts`; under `$PI_CODING_AGENT_DIR` when it is set |
+| omp, one project | `.omp/skills/aboard/SKILL.md` and `.omp/extensions/aboard.ts` in the project |
 | Logins and agent credentials | `~/.config/aboard` (`$XDG_CONFIG_HOME/aboard`) |
 | The local server's database and log | `~/.local/share/aboard` (`$XDG_DATA_HOME/aboard`) |
 | The install manifest, the daemon's journal, log and socket | `~/.local/state/aboard` (`$XDG_STATE_HOME/aboard`) |

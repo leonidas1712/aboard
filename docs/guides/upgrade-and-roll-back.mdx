@@ -80,7 +80,7 @@ separately: the warning stays until Codex reports the hooks as trusted.
 ## Check it worked
 
 - `aboard version --json` shows the new commit.
-- `aboard doctor` reports every check `ok`. A harness you don't use, such as omp, shows
+- `aboard doctor` reports no failures. A harness you don't use, such as omp, shows
   `not installed`.
 - `ls ~/.local/share/aboard/backups/` shows `aboard-<time>-schema-<n>.db`, the copy
   from before the upgrade. Note its name.

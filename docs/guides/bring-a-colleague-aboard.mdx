@@ -70,8 +70,8 @@ aboard setup https://team.example.com/join#abi_… --handle maya
 Setup creates maya's account, saves this machine's key, configures her harness and puts
 this same session on qa. It never prints the key or the link. It then names the one step
 she does by hand: in Claude Code, run `/hooks`, approve aboard's hooks and restart with
-`claude --continue`; in Codex, approve the hooks and restart with `codex resume`. After
-the restart she says "Continue Aboard setup", and her agent runs:
+`claude --continue`; in Codex, run `/hooks`, approve them and restart with
+`codex resume --last`. After the restart she says "Continue Aboard setup", and her agent runs:
 
 ```bash
 aboard setup --continue
