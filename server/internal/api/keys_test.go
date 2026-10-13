@@ -326,9 +326,9 @@ func TestAnExpiredKeyEndsItsStreamsAndWaits(t *testing.T) {
 
 	st := s.openStream(phone)
 	st.head()
-	// The stream's keepalive and expiry, counted before the wait starts, so the wait's own
-	// two timers are always counted on top of them.
-	base := s.timersWaiting(2)
+	// The keepalive, the snapshot's discarded expiry timer and the active stream's
+	// expiry, counted before the inbox wait starts its own two timers.
+	base := s.timersWaiting(3)
 	wait := 600
 	waited := make(chan struct{})
 	go func() {
@@ -365,10 +365,15 @@ func TestABrowsersStreamEndsWhenItsLoginExpires(t *testing.T) {
 	browser := s.browserToken(s.owner)
 	st := s.openStream(browser)
 	st.head()
-	// The stream's keepalive and its login's expiry.
-	s.timersWaiting(2)
+	// The keepalive and both expiry timers: one discarded by the initial snapshot,
+	// then one watched by the stream. Two timers alone can precede the active wait.
+	s.timersWaiting(3)
 	s.clock.Advance(30*24*time.Hour - time.Second)
 	s.works(browser, true)
+	st.keepalive()
+	// The two old expiry timers remain pending. Wait for the new keepalive and
+	// active expiry timer after the tick, before advancing the final second.
+	s.timersWaiting(4)
 	s.clock.Advance(time.Second)
 	st.ends()
 	s.works(browser, false)

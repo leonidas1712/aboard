@@ -505,3 +505,13 @@ descriptions and consistent missing-setup symbols. JSON levels and exit codes st
 | Feature | Status |
 | --- | --- |
 | Visible board content as Markdown or a zip with unchanged latest file bytes; one read-only renderer for the CLI and board view | API/CLI in review (#327); approved for 0.1.5; focused acceptance and security pass clear, board-view menu separate |
+
+### Browser stream expiry test (GEN-44)
+
+Merged: repair the fake-clock readiness wait in
+`TestABrowsersStreamEndsWhenItsLoginExpires`. It failed on docs-only PR #369,
+commit `f71f971be9727b69fc884759ece4bd4045488977`, on ubuntu-latest:
+[CI job](https://github.com/leonidas1712/aboard/actions/runs/38346664457/job/115129571973).
+The original failure reproduced locally under race detection. Expiry assertions and
+deadlines stay unchanged; the tests wait for the active credential timer at startup
+and after keepalive. This changes test synchronization only.
