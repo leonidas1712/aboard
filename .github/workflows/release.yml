@@ -219,6 +219,19 @@ jobs:
           # The tag to release, when another tag (a candidate's) is on the same commit.
           GORELEASER_CURRENT_TAG: ${{ needs.checks.outputs.tag }}
         run: make release RELEASE_NOTES="$RUNNER_TEMP/notes.md"
+      # 0.1.4 and 0.1.5 went out with empty notes while GoReleaser's changelog step was
+      # off; fail loudly if a published release ever has none again.
+      - name: Check the release has its notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.checks.outputs.tag }}
+        run: |
+          body=$(gh release view "$TAG" --json body --jq .body)
+          if [ -z "$(printf %s "$body" | tr -d '[:space:]')" ]; then
+            echo "::error::Release $TAG was published with empty notes. Set them with: gh release edit $TAG --notes-file <(scripts/release-notes $TAG)"
+            exit 1
+          fi
 
   # Run by hand without a tag: the snapshot build of every archive and the image,
   # nothing published.

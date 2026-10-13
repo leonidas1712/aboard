@@ -106,9 +106,11 @@ release:
     - glob: ./scripts/install.sh
 
 # The release notes are the version's section of CHANGELOG.md, passed with
-# --release-notes by the release job; GoReleaser writes none of its own.
+# --release-notes by the release job. The changelog step stays on: it is the step that
+# reads that file, and disabling it published 0.1.4 and 0.1.5 with empty notes. Given
+# the file, GoReleaser writes none of its own.
 changelog:
-  disable: true
+  disable: false
 
 # Homebrew: off until the tap repository exists. engineering/release.md says how to
 # turn it on.
