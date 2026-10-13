@@ -184,14 +184,37 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
-// readThread starts `codex app-server`, initializes the connection and reads one thread.
+// readThread reads a thread through Codex's app server.
+func (a *Adapter) readThread(ctx context.Context, threadID, home string) (*thread, error) {
+	resp, err := a.callAppServer(ctx, home, "", "thread/read", map[string]any{"threadId": threadID, "includeTurns": false})
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != nil {
+		msg := strings.ToLower(resp.Error.Message)
+		if strings.Contains(msg, "thread not loaded") || strings.Contains(msg, "not found") || strings.Contains(msg, "invalid thread id") {
+			return nil, fmt.Errorf("%w: %s", delivery.ErrTargetAbsent, resp.Error.Message)
+		}
+		return nil, fmt.Errorf("codex app-server thread/read: %s (code %d)", resp.Error.Message, resp.Error.Code)
+	}
+	var result struct {
+		Thread *thread `json:"thread"`
+	}
+	if err := json.Unmarshal(resp.Result, &result); err != nil || result.Thread == nil {
+		return nil, fmt.Errorf("codex app-server thread/read: unexpected answer %.200s", resp.Result)
+	}
+	return result.Thread, nil
+}
+
+// callAppServer initializes the stdio connection and reads one response.
 // The app server writes one JSON message per line, with notifications in between and
 // without a "jsonrpc" field.
-func (a *Adapter) readThread(ctx context.Context, threadID, home string) (*thread, error) {
+func (a *Adapter) callAppServer(ctx context.Context, home, dir, method string, params any) (*rpcMessage, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "codex", "app-server")
 	cmd.Env = sessionEnvironment(home)
+	cmd.Dir = dir
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("codex app-server: %w", err)
@@ -250,24 +273,7 @@ func (a *Adapter) readThread(ctx context.Context, threadID, home string) (*threa
 	if err := enc.Encode(rpcRequest{Method: "initialized"}); err != nil {
 		return nil, fmt.Errorf("codex app-server initialized: %w", err)
 	}
-	resp, err := call(2, "thread/read", map[string]any{"threadId": threadID, "includeTurns": false})
-	if err != nil {
-		return nil, err
-	}
-	if resp.Error != nil {
-		msg := strings.ToLower(resp.Error.Message)
-		if strings.Contains(msg, "thread not loaded") || strings.Contains(msg, "not found") || strings.Contains(msg, "invalid thread id") {
-			return nil, fmt.Errorf("%w: %s", delivery.ErrTargetAbsent, resp.Error.Message)
-		}
-		return nil, fmt.Errorf("codex app-server thread/read: %s (code %d)", resp.Error.Message, resp.Error.Code)
-	}
-	var result struct {
-		Thread *thread `json:"thread"`
-	}
-	if err := json.Unmarshal(resp.Result, &result); err != nil || result.Thread == nil {
-		return nil, fmt.Errorf("codex app-server thread/read: unexpected answer %.200s", resp.Result)
-	}
-	return result.Thread, nil
+	return call(2, method, params)
 }
 
 func sessionEnvironment(home string) []string {

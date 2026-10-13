@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leonidas1712/aboard/server/internal/delivery"
 	"github.com/leonidas1712/aboard/server/internal/harness"
 )
 
@@ -89,8 +90,9 @@ type app struct {
 	daemonReplaced *replacement
 	localReplaced  *replacement
 	// homeAddr is the local server address read from ABOARD_HOME, once looked up.
-	statusReads *statusReads
-	homeAddr    string
+	statusReads      *statusReads
+	hookReloadBefore []delivery.SessionRecord
+	homeAddr         string
 	// harnesses are the harnesses Aboard knows, once listed.
 	harnesses harness.Set
 	// deadline, when set, replaces the timeout one request gets, and askLine replaces

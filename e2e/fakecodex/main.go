@@ -225,6 +225,43 @@ func appServer() int {
 				thread["agentNickname"], thread["agentRole"] = "Aquinas", "explorer"
 			}
 			reply(req.ID, map[string]any{"thread": thread})
+		case "hooks/list":
+			var params struct {
+				Cwds []string `json:"cwds"`
+			}
+			_ = json.Unmarshal(req.Params, &params)
+			var data []map[string]any
+			for _, cwd := range params.Cwds {
+				var hooks []map[string]any
+				for _, path := range []string{filepath.Join(os.Getenv("CODEX_HOME"), "hooks.json"), filepath.Join(cwd, ".codex", "hooks.json")} {
+					raw, _ := os.ReadFile(path) // #nosec G304 G703 -- The isolated fixture supplies the home and project config paths.
+					var file struct {
+						Hooks map[string][]struct {
+							Hooks []struct {
+								Command string `json:"command"`
+							} `json:"hooks"`
+						} `json:"hooks"`
+					}
+					_ = json.Unmarshal(raw, &file)
+					for _, groups := range file.Hooks {
+						for _, group := range groups {
+							for _, handler := range group.Hooks {
+								trust := os.Getenv("FAKE_CODEX_HOOK_TRUST")
+								if trust == "" {
+									trust = "trusted"
+								}
+								hooks = append(hooks, map[string]any{"command": handler.Command, "sourcePath": path, "trustStatus": trust, "currentHash": "fixture-hash", "enabled": true})
+							}
+						}
+					}
+				}
+				if os.Getenv("FAKE_CODEX_HOOK_LIST_PARTIAL") == "1" && len(hooks) > 1 {
+					hooks = hooks[:1]
+				}
+				hooks = append(hooks, map[string]any{"command": "echo another tool", "sourcePath": filepath.Join(cwd, ".codex", "hooks.json"), "trustStatus": "modified", "currentHash": "foreign-hash", "enabled": true})
+				data = append(data, map[string]any{"cwd": cwd, "hooks": hooks, "errors": []any{}, "warnings": []any{}})
+			}
+			reply(req.ID, map[string]any{"data": data})
 		default:
 			fail(req.ID, -32601, "method not found: "+req.Method)
 		}

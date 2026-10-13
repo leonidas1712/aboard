@@ -13,6 +13,8 @@ Checks the selected server without starting it, the delivery daemon (starting it
 
 A regular legacy .aboard folder-link file is ignored; its warning shows the command to delete that file. State directories and symlinks are not treated as folder links.
 
+When hooks change for an open session, approval and restart guidance stays visible until that session reloads. Codex hook approval is checked separately; writing a file does not prove it is trusted.
+
 Exits 0 when no check is an error and 3 when one is.
 
 ## Flags

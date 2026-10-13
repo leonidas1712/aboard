@@ -94,6 +94,18 @@ refresh that fails after the swap exits 1 with `upgrade_setup_failed` and says t
 
 ### Installed files are compared by content, not stamped
 
+Before a release, run the upgrade-continuity live proof for Claude Code and Codex.
+Start each session against the previous released Aboard binary, then replace only the
+lab's binary with the candidate. Keep the sessions open and require message delivery
+without a restart or approval. Compare hook bytes and check that messages are
+acknowledged once. A build of current source with an older version stamp does not
+prove continuity from a release.
+
+When hook content must change, init and upgrade name each affected harness and explain
+approval and resume. Doctor must keep the recovery visible until approval or a healthy
+resumed session is observed. Writing the hooks does not prove that the harness trusts
+them.
+
 Aboard doesn't write a version into the files it installs. A version mark would change
 every hook entry on every upgrade, and Claude Code and Codex ask the person to trust
 hooks again whenever an entry changes. Instead:
@@ -110,6 +122,13 @@ hooks again whenever an entry changes. Instead:
   or `skill_outdated`; `init --yes` updates it) from one the person edited
   (`hooks_edited` or `skill_edited`; `init` marks it edited in the list it shows
   before replacing it). *Today.*
+
+- When hooks change for an open session, the install manifest keeps its session id
+  and boot as a reload checkpoint. Doctor reads the journal without migrating or
+  writing it. An unchanged init or daemon restart keeps the warning; a closed session
+  or a new session boot resolves the runtime checkpoint. Codex approval is checked
+  separately through its read-only `hooks/list` response. Neither check grants
+  approval or changes a binding.
 
 ### Removing Aboard
 

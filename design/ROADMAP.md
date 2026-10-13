@@ -26,7 +26,10 @@ listed at the end, with the pull request that merged it.
 - **Review:** status reports recovered startup probes as healthy while retaining
   failures from final diagnostic reads and the overall five-second deadline.
 
-- **Review (#355, 0.1.5):** unavailable Codex delivery diagnostics in presence,
+- **Merged (#356, 0.1.5, GEN-68):** prove upgrades from the previous release with
+  open Claude Code and Codex sessions; keep required hook recovery visible in doctor.
+  Codex and Claude Code live proofs pass.
+- **Merged (#355, 0.1.5):** unavailable Codex delivery diagnostics in presence,
   doctor and status; detect --no-daemon and session-home socket absence without
   weakening validation. The board agent-row warning follows separately.
 
