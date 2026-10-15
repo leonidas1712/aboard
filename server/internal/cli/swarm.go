@@ -380,6 +380,7 @@ const (
 // runSwarmUp starts the agents of a board file.
 func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	flags := a.flags("swarm")
+	flags.StringVar(&a.boardServerFlag, "server", "", "the server for a new swarm")
 	file := flags.String("file", "", "the board file")
 	launcherFlag := flags.String("launcher", "", "the launcher of agents that don't name their own")
 	fresh := flags.Bool("fresh", false, "start new sessions instead of resuming")
@@ -391,9 +392,15 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	if *wait < 0 {
 		return usageError("--wait can't be negative.", swarmUsage)
 	}
+	if *swarmFlag != "" && a.selectedServerFlag() != "" {
+		return usageError("--swarm uses its recorded server; leave out --server.", swarmUsage)
+	}
 	command := "aboard swarm up" + swarmArg(*swarmFlag)
 	if *file != "" {
 		command += " --file " + shellWord(*file)
+	}
+	if server := a.selectedServerFlag(); server != "" {
+		command += " --server " + shellWord(server)
 	}
 	if err := a.refuseInSession("Starting agents", command); err != nil {
 		return err
@@ -545,14 +552,26 @@ func runSwarmUp(ctx context.Context, a *app, args []string) error {
 	return nil
 }
 
-// swarmServer is the server a swarm's board is on: the one this directory's .aboard
-// names, else the local server, which it starts if needed.
+// swarmServer follows the machine selection, preserving local bootstrap only when
+// this machine has no known server or non-local default yet.
 func (a *app) swarmServer(ctx context.Context) (serverRef, bool, error) {
-	srv := a.localServer()
-	if proj, ok, err := a.readProject(); err != nil {
-		return serverRef{}, false, err
-	} else if ok && proj.Server.URL != "" {
-		srv = proj.Server
+	srv, err := a.resolveServer(a.selectedServerFlag())
+	if err != nil {
+		if asError(err).Code != "server_not_selected" || strings.TrimSpace(a.selectedServerFlag()) != "" {
+			return serverRef{}, false, err
+		}
+		known, _, knownErr := a.knownServers()
+		if knownErr != nil {
+			return serverRef{}, false, knownErr
+		}
+		saved, savedErr := a.readServerLogins()
+		if savedErr != nil {
+			return serverRef{}, false, savedErr
+		}
+		if len(known) != 0 || saved.Default != "" && saved.Default != localServerName && saved.Default != a.localServer().URL {
+			return serverRef{}, false, err
+		}
+		srv = a.selectedServer(a.localServer(), "local")
 	}
 	if srv.URL != a.localServer().URL {
 		return srv, false, nil
