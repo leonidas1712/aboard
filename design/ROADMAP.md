@@ -239,7 +239,7 @@ the board.
 | Enhancement | Status | Decisions |
 | --- | --- | --- |
 | Swarms managed from anywhere: `aboard swarm list` (every swarm on the machine, its board, folder, launcher, how many agents run, last up), `swarm up|down|ps --swarm <name>` from any folder, `swarm show <name>` with each launcher's own commands (attach lines per agent), and an attach column in `ps` | done (#77) | D178 |
-| New swarms use an explicit server or the machine default; missing remote selection fails before launch, fresh local bootstrap is preserved, legacy folder links stay ignored, and recorded swarms retain their server (#402) | in review | D178, D203 |
+| New swarms use an explicit server or the machine default; missing remote selection fails before launch, fresh local bootstrap is preserved, legacy folder links stay ignored, and recorded swarms retain their server (#402) | merged (#403) | D178, D203 |
 | Swarm records follow a renamed seat by immutable ID, preserving its launcher handle and resume state | later, with seat renaming. Slice 5a refuses an unsupported renamed record until its original process is explicitly stopped; it does not promise transparent renamed-swarm resume | D178, D197 |
 | Install where people look: `npx aboard` and a Claude Code plugin-marketplace entry beside the install script and Homebrew; onboarding that can start inside an agent session | next | D86 |
 | Installable harness plugins: packages for Claude Code, Codex and omp; direct setup retained, with migration and upgrade ownership checked before switching | tabled (GEN-27 research complete): the binary is still required, so a plugin adds a second install step; [research and design](explorations/harness-plugins.md) | D86, D160, D164 |
