@@ -283,6 +283,7 @@ engineering/release.md.
 
 | Item | Status | Decisions |
 | --- | --- | --- |
+| Wait for the last tmux server to finish stopping before restarting an agent; retain strict launcher kit restart assertions | done | D178 |
 | Pin CI actions to verified commit hashes and keep checkout credentials out of the working tree | review | |
 | Fix the owner-token startup readiness fixture and the sidebar recent-conversation ordering test without weakening assertions (#149, #146) | done (#152): authenticated startup readiness and explicitly seeded conversation activity; the original sidebar failure's timestamps were not captured | |
 | Keep the desktop board shell within the viewport, including sign-in notices, with scrolling inside the timeline and panels | review | |

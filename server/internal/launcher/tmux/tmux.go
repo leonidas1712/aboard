@@ -40,9 +40,10 @@ func (Launcher) Info(context.Context) (launcher.Info, error) {
 
 // window is one window of a swarm's tmux server.
 type window struct {
-	id, name string
-	pid      int
-	dead     bool
+	id, name  string
+	pid       int
+	serverPID int
+	dead      bool
 }
 
 // Start opens a window for the agent in the swarm's tmux server, starting the server
@@ -61,7 +62,9 @@ func (l Launcher) Start(ctx context.Context, req launcher.StartRequest) (launche
 	live := wins[:0]
 	for _, w := range wins {
 		if w.name == req.Agent && w.dead {
-			_, _ = l.run(ctx, req.Swarm, "kill-window", "-t", w.id)
+			if _, err := l.Stop(ctx, launcher.Ref{Swarm: req.Swarm, Agent: req.Agent, Handle: req.Swarm + "/" + w.id}); err != nil {
+				return launcher.Started{}, err
+			}
 			continue
 		}
 		live = append(live, w)
@@ -109,10 +112,15 @@ func (l Launcher) Status(ctx context.Context, ref launcher.Ref) (launcher.State,
 }
 
 // Stop closes the window, which hangs up its program as closing a terminal does, and
-// waits until the program is gone. The tmux server exits by itself once its last window
-// closes.
+// waits until the program and window are gone. After the last window it also waits
+// for the tmux server, so the next start cannot race its shutdown.
 func (l Launcher) Stop(ctx context.Context, ref launcher.Ref) (launcher.State, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 	w, ok, err := l.find(ctx, ref)
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
 	if err != nil {
 		return "", err
 	}
@@ -121,10 +129,33 @@ func (l Launcher) Stop(ctx context.Context, ref launcher.Ref) (launcher.State, e
 	}
 	_, _ = l.run(ctx, ref.Swarm, "kill-window", "-t", w.id)
 	if w.pid > 0 && !gone(ctx, w.pid, 5*time.Second) {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
 		_ = syscall.Kill(w.pid, syscall.SIGKILL)
 		gone(ctx, w.pid, 5*time.Second)
 	}
-	return launcher.Exited, nil
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		wins, err := l.windows(ctx, ref.Swarm)
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		if err != nil {
+			return "", err
+		}
+		closed := !slices.ContainsFunc(wins, func(other window) bool { return other.id == w.id && other.serverPID == w.serverPID })
+		serverGone := w.serverPID > 0 && errors.Is(syscall.Kill(w.serverPID, 0), syscall.ESRCH)
+		if closed && (len(wins) > 0 || serverGone) {
+			return launcher.Exited, nil
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-tick.C:
+		}
+	}
 }
 
 // find returns the window a handle names.
@@ -149,7 +180,7 @@ func (l Launcher) find(ctx context.Context, ref launcher.Ref) (window, bool, err
 func (l Launcher) windows(ctx context.Context, swarm string) ([]window, error) {
 	// Spaces between the fields: names have none, and tmux without a UTF-8 locale writes a
 	// tab as another character.
-	out, err := l.run(ctx, swarm, "list-windows", "-a", "-F", "#{window_id} #{window_name} #{pane_pid} #{pane_dead}")
+	out, err := l.run(ctx, swarm, "list-windows", "-a", "-F", "#{window_id} #{window_name} #{pane_pid} #{pane_dead} #{pid}")
 	if err != nil {
 		var e *launcher.Error
 		if errors.As(err, &e) && e.Code == "host_unavailable" {
@@ -160,11 +191,12 @@ func (l Launcher) windows(ctx context.Context, swarm string) ([]window, error) {
 	var wins []window
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		f := strings.Fields(line)
-		if len(f) != 4 {
+		if len(f) != 5 {
 			continue
 		}
 		pid, _ := strconv.Atoi(f[2])
-		wins = append(wins, window{id: f[0], name: f[1], pid: pid, dead: f[3] == "1"})
+		serverPID, _ := strconv.Atoi(f[4])
+		wins = append(wins, window{id: f[0], name: f[1], pid: pid, dead: f[3] == "1", serverPID: serverPID})
 	}
 	return wins, nil
 }

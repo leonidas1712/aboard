@@ -14,6 +14,9 @@ the docs and help say exactly what aboard checks and where the board view runs.
 
 ### Fixed
 
+- The tmux launcher waits for window and server teardown before reporting a stop, so
+  restarting after the last agent stops does not race the old server.
+
 - A new `aboard swarm up` uses `--server`, or the machine's saved default server, instead
   of silently creating a same-named board on the local server and starting the agents
   there. A fresh machine with only the local server still starts with plain
