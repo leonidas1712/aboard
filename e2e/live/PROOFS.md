@@ -29,6 +29,11 @@ message with `SHARED-PONG`. HOME, CODEX_HOME and aboard state were isolated;
 real Codex config, hooks and auth checksums were unchanged. Authentication used
 an isolated copy rather than a link to the real file. No product code changed.
 
+After merging the swarm-server selection change from main, the same bounded
+proof passed again in 44.47 seconds with no skips. It retained one shared native
+server before and after seating and the same identity and delivery assertions.
+Real config, hooks and auth checksums remained unchanged.
+
 ## Running it
 
 ```bash
