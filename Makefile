@@ -93,8 +93,8 @@ e2e:
 	tests="$$(cd e2e && "$$bin" -test.list '.*' | ../scripts/e2e-shard "$${E2E_SHARD%/*}" "$${E2E_SHARD#*/}")"; \
 	if [ -z "$$tests" ]; then echo "$@: shard $(E2E_SHARD) has no tests"; exit 0; fi; \
 	log="$$(dirname "$$bin")/e2e.log"; \
-	(cd e2e && "$$bin" -test.v -test.timeout 20m -test.run "^($$tests)\$$") >"$$log" 2>&1; status=$$?; \
-	if [ $$status -ne 0 ]; then grep -v -E '^ *(=== |--- PASS)' "$$log"; exit $$status; fi; \
+	status=0; (cd e2e && "$$bin" -test.v -test.timeout 20m -test.run "^($$tests)\$$") >"$$log" 2>&1 || status=$$?; \
+	if [ $$status -ne 0 ]; then grep -v -E '^ *(=== |--- PASS)' "$$log" || true; exit $$status; fi; \
 	echo "PASS. Each test's seconds, slowest first (the format of e2e/testdata/test-seconds.txt):"; \
 	sed -n -E 's/^--- PASS: (Test[^ ]+) \(([0-9]+)\.[0-9]+s\)$$/\1 \2/p' "$$log" | sort -k2,2nr
 
