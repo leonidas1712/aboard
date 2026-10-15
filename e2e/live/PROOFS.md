@@ -8,6 +8,27 @@ model writes. It spends real model turns, so it is not part of `make check`. Run
 before a release, after any change to delivery, setup or upgrades, and whenever you want
 to see delivery work for real.
 
+## Shared Codex app-server process detection (#404)
+
+2026-10-15, Codex 0.162.1 with `gpt-6-luna`: the unchanged-main shared-server
+proof reproduced its process-assertion failure. The prompt hook ran under the
+prestarted managed server. The rejected process was tmux; the detector also
+counted the aboard server, Node launcher and interactive Codex client because
+their inherited PATH contained `app-server-daemon`. A daemon PID-update helper
+was also counted as a server.
+
+The detector regression failed first on those non-server roles. It now selects
+native `codex app-server` commands, excluding daemon-management commands, and
+retains a second real server in its regression fixture. The shared-server ancestry,
+no-extra-server, environment-identity and delivery assertions are unchanged.
+
+The bounded native proof passed in 28.57 seconds, with no skips. The same managed
+server ran before and after seating, its prompt hook took the launch ticket,
+its environment contained no `ABOARD_AGENT`, and the agent answered the owner's
+message with `SHARED-PONG`. HOME, CODEX_HOME and aboard state were isolated;
+real Codex config, hooks and auth checksums were unchanged. Authentication used
+an isolated copy rather than a link to the real file. No product code changed.
+
 ## Running it
 
 ```bash
