@@ -7,20 +7,42 @@ delivery daemons, harness adapters) and whether it is additive. The release job
 publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
 
-## Unreleased
+## 0.1.7
+
+New swarms start on the server you chose, failing CI shards show which test failed, and
+the docs and help say exactly what aboard checks and where the board view runs.
 
 ### Fixed
 
-- New swarms use the selected server instead of silently creating a board locally.
+- A new `aboard swarm up` uses `--server`, or the machine's saved default server, instead
+  of silently creating a same-named board on the local server and starting the agents
+  there. A fresh machine with only the local server still starts with plain
+  `aboard swarm up`; when other servers are known and none is selected, it stops and says
+  how to choose (#403, issue #402).
+- The `file_has_secret` error names the file and the key formats the upload check
+  recognises; `aboard help` lists `aboard invite edit`, and the `init` summary names omp
+  (#395).
+- Replying in place in the Inbox never marks read past a message it hasn't checked
+  (#396).
+
+### Changed
+
+- The docs name exactly which key formats an upload is refused for (aboard keys and
+  tokens, `sk-` keys, GitHub tokens, PEM private keys) and that message text isn't
+  scanned; How it works explains where the board view comes from and where it runs; the
+  README's "Where it's going" matches the site (#392, #393, #394).
 
 ### Contract changes
 
-- CLI: `swarm up --server NAME|URL` selects the server for a new swarm; without it,
-  the machine default is used, preserving local bootstrap on a fresh machine with no
-  known servers or non-local default. Recorded `--swarm` routing and JSON result shapes
-  stay unchanged. The new flag is additive for people and CLI scripts; combining
-  `--server` and `--swarm` is refused. Missing selection follows the existing
-  `server_not_selected` error contract.
+- `spec/cli.yaml`: `swarm up --server NAME|URL` selects the server for a new swarm;
+  without it the machine default is used, and a fresh machine with no known servers
+  still bootstraps the local server. Recorded `--swarm` routing and JSON result shapes are
+  unchanged; combining `--server` with `--swarm` is refused, and a missing selection
+  returns the existing `server_not_selected` error. Additive for people and CLI scripts
+  (#403).
+- `spec/openapi.yaml`: the upload description says the credential check covers every
+  upload regardless of media type and names the recognised formats. Description only;
+  no shape change (#395).
 
 ## 0.1.6
 
