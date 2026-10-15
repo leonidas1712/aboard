@@ -482,19 +482,9 @@ func codexAppServers(ctx context.Context, home string) []int {
 // command line and environment, as ps shows them for the person's own processes. The
 // environment is what tells the lab's apart: the daemon's command line names no folder.
 func codexAppServerEnvs(ctx context.Context, home string) map[int]string {
-	out, err := command(ctx, "ps", "eww", "-ax", "-o", "pid=,command=").Output()
-	if err != nil {
-		return nil
-	}
 	found := map[int]string{}
-	for _, line := range strings.Split(string(out), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 2 || !strings.Contains(line, "app-server") || !slices.Contains(fields, "CODEX_HOME="+home) {
-			continue
-		}
-		if pid, err := strconv.Atoi(fields[0]); err == nil {
-			found[pid] = line
-		}
+	for pid, process := range codexAppServerProcesses(ctx, home) {
+		found[pid] = process.line
 	}
 	return found
 }
@@ -502,23 +492,19 @@ func codexAppServerEnvs(ctx context.Context, home string) map[int]string {
 // codexAppServerParents maps each Codex app server running with CODEX_HOME home to its
 // parent process.
 func codexAppServerParents(ctx context.Context, home string) map[int]int {
+	found := map[int]int{}
+	for pid, process := range codexAppServerProcesses(ctx, home) {
+		found[pid] = process.parent
+	}
+	return found
+}
+
+func codexAppServerProcesses(ctx context.Context, home string) map[int]codexAppServerProcess {
 	out, err := command(ctx, "ps", "eww", "-ax", "-o", "pid=,ppid=,command=").Output()
 	if err != nil {
 		return nil
 	}
-	found := map[int]int{}
-	for _, line := range strings.Split(string(out), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 3 || !strings.Contains(line, "app-server") || !slices.Contains(fields, "CODEX_HOME="+home) {
-			continue
-		}
-		pid, errPid := strconv.Atoi(fields[0])
-		ppid, errParent := strconv.Atoi(fields[1])
-		if errPid == nil && errParent == nil {
-			found[pid] = ppid
-		}
-	}
-	return found
+	return parseCodexAppServers(string(out), home)
 }
 
 // An agent swarm up started, stopped with swarm down, is resumed by the next swarm up in
