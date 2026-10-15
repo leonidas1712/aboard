@@ -50,6 +50,19 @@ when `swarm up` creates it. The full schema is
 
 ## Start it
 
+New swarms use this machine's saved default server. To choose another server for this
+run, pass `--server NAME|URL`. With no usable default, the command stops and asks you to
+choose one with `aboard servers use NAME` or pass `--server`.
+
+```bash
+aboard swarm up --server team
+```
+
+For a local swarm, run `aboard up` first to make the local server available, then choose
+it with `aboard servers use local`. When the selected server is local, `swarm up`
+starts it again if needed. Selecting another server never starts a local replacement.
+Old `.aboard` folder links do not select the server and are ignored.
+
 ```bash
 aboard swarm up
 ```
@@ -163,6 +176,9 @@ aboard swarm ps --swarm trio
 aboard swarm down codex --swarm trio
 aboard swarm up --swarm trio
 ```
+
+`--swarm` always uses the server recorded for that swarm, even if the machine default
+has changed. Do not combine it with `--server`.
 
 `swarm up --swarm` reads the board file it last read for that swarm, and starts the
 agents in that file's folder. If the file moved, it stops with `board_file_not_found` and

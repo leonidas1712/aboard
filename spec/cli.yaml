@@ -3532,8 +3532,16 @@ $defs:
 
   SwarmUpOutput:
     description: |
-      aboard swarm up [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]
+      aboard swarm up [--server NAME|URL] [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]
       aboard swarm up --swarm NAME [--file PATH] [--launcher L] [--fresh] [--wait 2m] [--json]
+      Without --swarm, --server selects the server by saved name or URL; otherwise the
+      machine's saved default is required. Legacy .aboard folder links are ignored.
+      With no usable default, including several known servers without a default, it
+      fails with server_not_selected before creating a board or starting agents; the
+      hint names aboard servers use NAME and --server NAME|URL. An unknown explicit
+      name fails with server_unknown. Only selecting the local server may start it;
+      a non-local selection never falls back to local. Output identifies that server.
+      --server and --swarm cannot be combined (invalid_request, exit 2).
       With --swarm, a swarm this machine started (by its name or its board's), from any
       folder: it reads the board file swarm up last read for that swarm, on the server the
       swarm is on. If that file moved or was deleted it refuses with board_file_not_found
@@ -3564,7 +3572,7 @@ $defs:
       asking a question in its window, …" when it can't tell). Standard output is the
       same either way.
       Text output:
-        Using local Aboard at http://127.0.0.1:7400
+        Using Aboard at http://127.0.0.1:7400
         Created board trio from aboard.yaml
         Swarm aboard-trio-3f9a0c on trio:
           claude  claude-code  tmux  started  tmux -L aboard-trio-3f9a0c attach -t aboard-trio-3f9a0c:claude

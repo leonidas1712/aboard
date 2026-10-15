@@ -918,7 +918,7 @@ func helpText(templates string) []commandHelp {
 			Name: "swarm", Group: groupRun,
 			Summary: "Start, list and stop a board's agents from its board file",
 			Usage: []string{
-				"aboard swarm up [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]",
+				"aboard swarm up [--server NAME|URL] [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]",
 				"aboard swarm up --swarm NAME [--file PATH] [--launcher L] [--fresh] [--wait 2m] [--json]",
 				"aboard swarm ps [--file aboard.yaml | --board NAME | --swarm NAME] [--json]",
 				"aboard swarm down [agent...] [--file aboard.yaml | --board NAME | --swarm NAME] [--json]",
@@ -929,6 +929,8 @@ func helpText(templates string) []commandHelp {
 			Description: "swarm up reads the board file's agents section, creates the board if it doesn't exist, gives each agent a seat on your login the first time, " +
 				"and starts every agent that isn't running through its launcher: tmux (the default, a window each), headless (one non-interactive turn per batch of messages) " +
 				"or any aboard-launcher-<name> on your PATH, such as herdr. " +
+				"New swarms use --server NAME|URL, else this machine's saved default; .aboard folder links are ignored. " +
+				"With no usable default, choose one with aboard servers use NAME or pass --server. Only selecting local starts the local server if needed. " +
 				"Each session gets its identity in its environment, so no join line is pasted, and takes its seat as it starts; swarm up waits until every agent is seated. " +
 				"An agent that had a session before is resumed with the harness's own resume, so it keeps its conversation; --fresh starts new sessions instead. " +
 				"Running it again starts only the agents that aren't running.\n\n" +
@@ -942,6 +944,7 @@ func helpText(templates string) []commandHelp {
 				"These start processes on your machine with your login, so they are a person's commands: inside an agent's session they refuse and hand you the command.",
 			Flags: []helpFlag{
 				{"--file", "PATH", "The board file. Default: aboard.yaml in this directory, or with --swarm the file swarm up last read for it."},
+				{"--server", "NAME|URL", "The server for up without --swarm; otherwise the machine default. --swarm always uses its recorded server and cannot be combined with --server."},
 				{"--launcher", "L", "The launcher for agents that don't name their own, instead of the file's launcher."},
 				{"--fresh", "", "Start new sessions instead of resuming each agent's last one."},
 				{"--wait", "DURATION", "How long swarm up waits for every agent to take its seat, such as 2m (the default); 0 doesn't wait."},

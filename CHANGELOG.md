@@ -7,6 +7,20 @@ delivery daemons, harness adapters) and whether it is additive. The release job
 publishes a version's section as its release notes. How releases are cut is in
 [engineering/release.md](engineering/release.md).
 
+## Unreleased
+
+### Fixed
+
+- New swarms use the selected server instead of silently creating a board locally.
+
+### Contract changes
+
+- CLI: `swarm up --server NAME|URL` selects the server for a new swarm; without it,
+  the machine default is required. Recorded `--swarm` routing and JSON result shapes
+  stay unchanged. The new flag is additive for people and CLI scripts; combining
+  `--server` and `--swarm` is refused. Missing selection follows the existing
+  `server_not_selected` error contract.
+
 ## 0.1.6
 
 Replies agents are waiting for now wait in your Inbox, Settings has its own page, the
