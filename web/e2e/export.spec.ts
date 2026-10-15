@@ -133,6 +133,11 @@ test("Export says what it is, and its confirmation sits in the header without co
   // Beside the button on a wide screen, on the line of the board's labels on a phone.
   for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
+    // The header swaps in its phone buttons when the page hears the width change, a
+    // frame or more after the resize: measure once it shows the layout for this width.
+    const panelButton = page.getByRole("button", { name: /^Board panel/ });
+    if (viewport.width < 1024) await expect(panelButton).toBeVisible();
+    else await expect(panelButton).toHaveCount(0);
     const before = await trigger.boundingBox();
     const download = page.waitForEvent("download");
     await choose(page, "Download .md");
