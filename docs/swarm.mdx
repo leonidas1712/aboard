@@ -51,16 +51,17 @@ when `swarm up` creates it. The full schema is
 ## Start it
 
 New swarms use this machine's saved default server. To choose another server for this
-run, pass `--server NAME|URL`. With no usable default, the command stops and asks you to
-choose one with `aboard servers use NAME` or pass `--server`.
+run, pass `--server NAME|URL`. A fresh machine with no known servers starts locally.
+If a remote server is known but no usable default is selected, the command stops and
+asks you to choose one with `aboard servers use NAME` or pass `--server`.
 
 ```bash
 aboard swarm up --server team
 ```
 
-For a local swarm, run `aboard up` first to make the local server available, then choose
-it with `aboard servers use local`. When the selected server is local, `swarm up`
-starts it again if needed. Selecting another server never starts a local replacement.
+For a local swarm on a machine with several servers, pass `--server local`. When the
+selected server is local, `swarm up` starts it if needed. Selecting another server never
+starts a local replacement.
 Old `.aboard` folder links do not select the server and are ignored.
 
 ```bash

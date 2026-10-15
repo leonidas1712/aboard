@@ -930,7 +930,7 @@ func helpText(templates string) []commandHelp {
 				"and starts every agent that isn't running through its launcher: tmux (the default, a window each), headless (one non-interactive turn per batch of messages) " +
 				"or any aboard-launcher-<name> on your PATH, such as herdr. " +
 				"New swarms use --server NAME|URL, else this machine's saved default; .aboard folder links are ignored. " +
-				"With no usable default, choose one with aboard servers use NAME or pass --server. Only selecting local starts the local server if needed. " +
+				"A fresh machine with no known servers starts locally. With a known remote server and no usable default, choose one with aboard servers use NAME or pass --server. " +
 				"Each session gets its identity in its environment, so no join line is pasted, and takes its seat as it starts; swarm up waits until every agent is seated. " +
 				"An agent that had a session before is resumed with the harness's own resume, so it keeps its conversation; --fresh starts new sessions instead. " +
 				"Running it again starts only the agents that aren't running.\n\n" +

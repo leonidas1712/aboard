@@ -3535,8 +3535,9 @@ $defs:
       aboard swarm up [--server NAME|URL] [--file aboard.yaml] [--launcher L] [--fresh] [--wait 2m] [--json]
       aboard swarm up --swarm NAME [--file PATH] [--launcher L] [--fresh] [--wait 2m] [--json]
       Without --swarm, --server selects the server by saved name or URL; otherwise the
-      machine's saved default is required. Legacy .aboard folder links are ignored.
-      With no usable default, including several known servers without a default, it
+      machine's saved default is used. A fresh machine with no known servers and no
+      non-local saved default starts its local server. Legacy .aboard links are ignored.
+      With a known remote server and no usable default, or a stale non-local default, it
       fails with server_not_selected before creating a board or starting agents; the
       hint names aboard servers use NAME and --server NAME|URL. An unknown explicit
       name fails with server_unknown. Only selecting the local server may start it;

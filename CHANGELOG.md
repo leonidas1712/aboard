@@ -16,7 +16,8 @@ publishes a version's section as its release notes. How releases are cut is in
 ### Contract changes
 
 - CLI: `swarm up --server NAME|URL` selects the server for a new swarm; without it,
-  the machine default is required. Recorded `--swarm` routing and JSON result shapes
+  the machine default is used, preserving local bootstrap on a fresh machine with no
+  known servers or non-local default. Recorded `--swarm` routing and JSON result shapes
   stay unchanged. The new flag is additive for people and CLI scripts; combining
   `--server` and `--swarm` is refused. Missing selection follows the existing
   `server_not_selected` error contract.
