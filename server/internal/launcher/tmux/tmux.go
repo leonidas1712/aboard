@@ -128,7 +128,7 @@ func (l Launcher) Stop(ctx context.Context, ref launcher.Ref) (launcher.State, e
 		return launcher.Exited, nil
 	}
 	_, _ = l.run(ctx, ref.Swarm, "kill-window", "-t", w.id)
-	if w.pid > 0 && !gone(ctx, w.pid, 5*time.Second) {
+	if !w.dead && w.pid > 0 && !gone(ctx, w.pid, 5*time.Second) {
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}

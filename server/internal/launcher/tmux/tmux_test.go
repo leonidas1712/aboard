@@ -1,8 +1,10 @@
 package tmux_test
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +37,86 @@ func TestTmuxLauncherPassesTheKit(t *testing.T) {
 	})
 	env = append(env, "TMUX_TMPDIR="+sockets, "HOME="+sockets)
 	launchertest.Run(t, tmux.Launcher{Env: env})
+}
+
+func TestReplacingADeadWindowDoesNotSignalItsReusedPanePID(t *testing.T) {
+	dir, err := os.MkdirTemp("/tmp", "aboard-tmux-dead-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	env := slices.DeleteFunc(os.Environ(), func(kv string) bool {
+		return strings.HasPrefix(kv, "TMUX=") || strings.HasPrefix(kv, "TMUX_TMPDIR=") || strings.HasPrefix(kv, "HOME=")
+	})
+	env = append(env, "TMUX_TMPDIR="+dir, "HOME="+dir)
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	victim := exec.CommandContext(ctx, "/bin/cat")
+	input, err := victim.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := victim.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := victim.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = victim.Process.Kill(); _ = victim.Wait() })
+	realTmux, err := exec.LookPath("tmux")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env = append(env, "REAL_TMUX="+realTmux, "REUSED_PID="+strconv.Itoa(victim.Process.Pid))
+	l := tmux.Launcher{Env: env}
+	t.Cleanup(func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stop()
+		cmd := exec.CommandContext(cleanup, "tmux", "-L", "dead", "kill-server")
+		cmd.Env = env
+		_ = cmd.Run()
+	})
+	req := launcher.StartRequest{Swarm: "dead", Agent: "worker", Dir: dir, Mode: launcher.ModeInteractive, Argv: []string{"/bin/true"}}
+	first, err := l.Start(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := launcher.Ref{Swarm: req.Swarm, Agent: req.Agent, Handle: first.Handle}
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		state, err := l.Status(ctx, ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if state == launcher.Exited {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-tick.C:
+		}
+	}
+	// Model PID reuse at the external tmux boundary, keeping the real window/server.
+	shim := filepath.Join(dir, "tmux")
+	script := "#!/bin/sh\nif [ \"$3\" = list-windows ]; then\n  \"$REAL_TMUX\" \"$@\" | awk -v pid=\"$REUSED_PID\" '{if ($4 == 1) $3 = pid; print}'\nelse\n  exec \"$REAL_TMUX\" \"$@\"\nfi\n"
+	if err := os.WriteFile(shim, []byte(script), 0o700); err != nil { //nolint:gosec // the owned tmux stand-in must be executable
+		t.Fatal(err)
+	}
+	l.Command = shim
+	req.Argv = []string{"/bin/cat"}
+	_, startErr := l.Start(ctx, req)
+	if _, err := io.WriteString(input, "still alive\n"); err != nil {
+		t.Fatalf("replacement signaled an unrelated process: %v", err)
+	}
+	if line, err := bufio.NewReader(output).ReadString('\n'); err != nil || line != "still alive\n" {
+		t.Fatalf("unrelated process did not survive replacement: %q, %v", line, err)
+	}
+	if startErr != nil {
+		t.Fatal(startErr)
+	}
 }
 
 // A pending tmux command keeps the empty server alive after its last window closes.
