@@ -264,7 +264,7 @@ the board.
 | Generated SDKs for Go, Python and TypeScript; Python's hand-written layer | later | D55 |
 | `aboard swarm up`, `ps`, `down` from the board file's `agents` section | done (#61) | D61, D105, D178 |
 | Swarm resume acceptance waits for the saved first turn before stopping, and verifies the first prompt runs once | done (#178) | test-only fixture ordering; product resume rules unchanged |
-| Shared Codex swarm proof classifies native app-server commands without mistaking inherited paths, launchers or daemon helpers for servers | review (#404): detector regression failed first; bounded native shared-server proof passed with Codex 0.162.1, preserving identity and delivery checks | Test-only; shared-server and identity assertions retained |
+| Shared Codex swarm proof classifies native app-server commands without mistaking inherited paths, launchers or daemon helpers for servers | done (#405, issue #404): detector regression failed first; bounded native shared-server proofs passed on Codex 0.162.1, including combined with #403 | Test-only; shared-server and identity assertions retained |
 | Launchers: tmux and headless built in; herdr as the first external one; the launcher kit | done (#61, #64, #70) | D105, D131, D178 |
 | The status report ("what's the swarm doing?") | later | |
 | `aboard-lab` with benchmarks B1 and B3 | later | D58 |
