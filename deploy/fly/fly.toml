@@ -6,7 +6,7 @@ app = "aboard-example"
 primary_region = "sin"
 
 [build]
-  image = "ghcr.io/leonidas1712/aboard:0.1.6"
+  image = "ghcr.io/leonidas1712/aboard:0.1.7"
 
 [env]
   ABOARD_PUBLIC_URL = "https://aboard-example.fly.dev"
