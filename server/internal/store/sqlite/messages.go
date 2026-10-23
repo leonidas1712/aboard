@@ -203,13 +203,15 @@ func (t *tx) CountUnread(reader board.Member, addressedOnly, mentions bool) (int
 	return n, err
 }
 
+const needsReplyCountQuery = `SELECT COUNT(*) FROM messages m
+		WHERE m.board_id = ? AND m.expects_reply AND m.ask_json = 'null' AND m.sender_id <> ?
+		AND EXISTS (SELECT 1 FROM json_each(m.recipients_json) WHERE value = ?)
+		AND NOT EXISTS (SELECT 1 FROM messages r WHERE r.reply_to = m.id AND r.sender_id = ?)`
+
 // CountNeedsReply uses recorded recipient ids so a reused name cannot inherit questions.
 func (t *tx) CountNeedsReply(reader board.Member) (int64, error) {
 	var n int64
-	err := t.tx.QueryRowContext(t.ctx, `SELECT COUNT(*) FROM messages m
-		WHERE m.board_id = ? AND m.expects_reply AND m.ask_json = 'null' AND m.sender_id <> ?
-		AND EXISTS (SELECT 1 FROM json_each(m.recipients_json) WHERE value = ?)
-		AND NOT EXISTS (SELECT 1 FROM messages r WHERE r.reply_to = m.id AND r.sender_id = ?)`,
+	err := t.tx.QueryRowContext(t.ctx, needsReplyCountQuery,
 		reader.BoardID, reader.ID, reader.ID, reader.ID).Scan(&n)
 	return n, err
 }
