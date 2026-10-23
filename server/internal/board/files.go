@@ -331,7 +331,23 @@ func (s *Service) GetFile(ctx context.Context, p Principal, name, selector strin
 }
 
 func projectFile(tx ReadTx, b Board, me Member, f *File) error {
-	f.PostedIn = []FilePostedIn{}
+	return projectFiles(tx, b, me, []*File{f})
+}
+
+// Project a listing within the caller's transaction and visibility, reading history
+// once rather than decoding every message again for each file.
+func projectFiles(tx ReadTx, b Board, me Member, files []*File) error {
+	if len(files) == 0 {
+		return nil
+	}
+	byID := make(map[string]*File, len(files))
+	earliest := files[0].Versions[len(files[0].Versions)-1].Seq
+	for _, f := range files {
+		f.PostedIn = []FilePostedIn{}
+		byID[f.ID] = f
+		earliest = min(earliest, f.Versions[len(f.Versions)-1].Seq)
+	}
+	var messageSeqs, answerSeqs []int64
 	position := int64(0)
 	for {
 		messages, err := tx.Timeline(b.ID, me, readsAll(b, me), TimelineQuery{After: position, Limit: 200})
@@ -340,8 +356,12 @@ func projectFile(tx ReadTx, b Board, me Member, f *File) error {
 		}
 		for _, msg := range messages {
 			position = msg.Seq
+			messageSeqs = append(messageSeqs, msg.Seq)
+			if msg.Answer != nil {
+				answerSeqs = append(answerSeqs, msg.Seq)
+			}
 			for _, ref := range msg.Files {
-				if ref.ID == f.ID {
+				if f := byID[ref.ID]; f != nil {
 					f.PostedIn = append(f.PostedIn, FilePostedIn{MessageID: msg.ID, Seq: msg.Seq, ThreadRootSeq: msg.ThreadRootSeq, Version: ref.Version})
 				}
 			}
@@ -350,34 +370,8 @@ func projectFile(tx ReadTx, b Board, me Member, f *File) error {
 			break
 		}
 	}
-	for i := range f.Versions {
-		m, err := tx.MemberByID(f.Versions[i].ByID)
-		if err != nil {
-			return err
-		}
-		f.Versions[i].By = m
-	}
-	latest := f.Versions[len(f.Versions)-1].Seq
-	f.MessagesSince, f.AnswersSince = 0, 0
-	cursor := latest
-	for {
-		messages, err := tx.Timeline(b.ID, me, readsAll(b, me), TimelineQuery{After: cursor, Limit: 200})
-		if err != nil {
-			return err
-		}
-		f.MessagesSince += len(messages)
-		for _, m := range messages {
-			cursor = m.Seq
-			if m.Answer != nil {
-				f.AnswersSince++
-			}
-		}
-		if len(messages) < 200 {
-			break
-		}
-	}
-	f.TasksDoneSince = 0
-	after := latest
+	var taskSeqs []int64
+	after := earliest
 	for {
 		es, err := tx.Events(b.ID, after, 200)
 		if err != nil {
@@ -386,12 +380,35 @@ func projectFile(tx ReadTx, b Board, me Member, f *File) error {
 		for _, e := range es {
 			after = e.Seq
 			if e.Type == "task.done" {
-				f.TasksDoneSince++
+				taskSeqs = append(taskSeqs, e.Seq)
 			}
 		}
 		if len(es) < 200 {
 			break
 		}
+	}
+	members := map[string]Member{}
+	for _, f := range files {
+		for i := range f.Versions {
+			id := f.Versions[i].ByID
+			m, ok := members[id]
+			if !ok {
+				var err error
+				m, err = tx.MemberByID(id)
+				if err != nil {
+					return err
+				}
+				members[id] = m
+			}
+			f.Versions[i].By = m
+		}
+		latest := f.Versions[len(f.Versions)-1].Seq
+		since := func(seqs []int64) int {
+			return len(seqs) - sort.Search(len(seqs), func(i int) bool { return seqs[i] > latest })
+		}
+		f.MessagesSince = since(messageSeqs)
+		f.AnswersSince = since(answerSeqs)
+		f.TasksDoneSince = since(taskSeqs)
 	}
 	return nil
 }
@@ -532,12 +549,11 @@ func (s *Service) ListFiles(ctx context.Context, p Principal, name string, filte
 			}
 		}
 		out = selected
+		files := make([]*File, len(out))
 		for i := range out {
-			if err := projectFile(tx, b, me, &out[i]); err != nil {
-				return err
-			}
+			files[i] = &out[i]
 		}
-		return nil
+		return projectFiles(tx, b, me, files)
 	})
 	if err != nil {
 		return nil, false, err
