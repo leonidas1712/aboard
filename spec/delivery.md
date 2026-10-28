@@ -250,8 +250,11 @@ process died) keeps its binding. When the harness resumes it with the same sessi
 registers that id again, and the session is bound to the agent it filled, with no
 `aboard resume`: presence goes back from `no_session` to `idle`, the new boot id makes
 any bundle it never confirmed go again, and what waited for the agent is delivered as
-usual, which is when the session's first turn ends: Claude Code's stop hook waits only
-after a turn, and Codex runs no hook in a resumed thread until a turn starts. The hook
+usual. A resumed Claude Code session (2.1.312 and later) gets it at once: its
+`resume-wait` hook waits from the moment the session opens, as the stop hook does after a
+turn, so a message wakes it before anyone types. Older Claude Code gets it when the
+first turn ends, since its stop hook waits only after a turn, and Codex runs no hook in a
+resumed thread until a turn starts. The hook
 adds one line to the session's context, "Aboard: this session is reviewer on
 writer-reviewer again, as it was before it closed; messages that waited for reviewer
 arrive when this turn ends." Only that exact session id is matched: a new session, a
@@ -1076,6 +1079,18 @@ Failed validation can annotate an existing session but cannot create or rebind o
 Doctor and status show the recovery text. Presence states and delivery permissions do
 not change. The server keeps the last warning when presence expires to `no_session`.
 
+The daemon reports `delivery_warning` `not_waiting` on its own for a session of a
+harness that wakes only through a waiting hook or extension (Claude Code, omp) when the
+session has been open and idle for 5 seconds with nothing waiting to wake it: a resumed
+session on a Claude Code too old for `resume-wait`, before its first turn, or one whose
+waiting hook ended. Its messages then reach it only when its next turn starts. Presence
+stays `idle`; `aboard status` and `aboard doctor` show the recovery text ("Type anything
+in the session, or quit and resume it"), and `aboard say` reports such a recipient's
+outcome as `next_turn` rather than `now`. The 5 seconds cover the moment between a
+turn's end and its stop hook's wait, and a daemon restart while hooks reconnect. The
+warning clears at the next report once something waits again, or a turn runs. Hooks
+and commands can't report `not_waiting` to the daemon; only the daemon sends it.
+
 ## The delivery format
 
 Bundles use the format defined as `DeliveryText` in [cli.yaml](cli.yaml): each message
@@ -1204,6 +1219,7 @@ harness's hook input as JSON on standard input and never print tokens.
 | `aboard hook claude-code session-start` | SessionStart | Registers the session (session id from `session_id`, new boot id unless `source` is `compact`), appends `export ABOARD_SESSION=claude-code:<id>` and `export ABOARD_BOOT=<boot>` to `$CLAUDE_ENV_FILE`, and `unset CODEX_THREAD_ID` when Claude Code was started with it set (from a Codex command). For a session that comes back, prints the one line about its agent (see [A session that comes back](#binding-a-session-to-an-agent)), which Claude Code adds to the session's context. Exit 0. |
 | `aboard hook claude-code prompt` | UserPromptSubmit | Sends `turn_start`: marks the session busy and releases its waiting stop hook. When the answer has messages that waited for this turn, prints `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"<text>"}}`. Exit 0. |
 | `aboard hook claude-code stop` | Stop, with `asyncRewake: true` | Confirms any bundle handed to this session, then waits. On a delivery: writes the bundle to standard error and exits 2. When released: exits 0. If the daemon goes away, starts it again and keeps waiting. |
+| `aboard hook claude-code resume-wait` | SessionStart, matcher `resume`, with `asyncRewake: true` (Claude Code 2.1.312 and later) | Waits like the stop hook from the moment a resumed session opens, before its first turn, without confirming anything and without ending a turn. Claude Code runs it beside `session-start`; until that register reaches the daemon, the daemon answers `session_starting` and the hook asks again every 200 ms for up to 30 seconds. On a delivery: writes the bundle to standard error and exits 2. When released (a prompt): exits 0. |
 | `aboard hook claude-code tool` | PostToolBatch (before 2.1.118: PostToolUse and PostToolUseFailure) | If the owner's messages or a waiting notice are due, prints `{"hookSpecificOutput":{"hookEventName":"<the event>","additionalContext":"<text>"}}`, naming the event from the hook input. Exit 0. |
 | `aboard hook claude-code pre-tool` | PreToolUse, matcher `Bash` | Inside a subagent (`agent_id` set) and for a command that runs `aboard`, prints `{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":<tool_input with command "export ABOARD_SUBAGENT=<agent_id>; <command>">}}`. Prints nothing otherwise. Never denies; never contacts the daemon. Exit 0. |
 | `aboard hook claude-code end` | SessionEnd | Marks the session closed. Exit 0. |

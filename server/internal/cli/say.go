@@ -157,6 +157,11 @@ func recipientsOf(ctx context.Context, c *client, m *api.Message) []recipientNot
 				n.Delivery = &d
 			}
 			n.Outcome = agentOutcome(n.Presence, n.Delivery, delivery.Concerns(text, mem.Name))
+			if n.Outcome == outcomeNow && mem.DeliveryWarning != nil && *mem.DeliveryWarning == api.NotWaiting {
+				// Idle, but nothing waits to wake its session: a resumed one before its first
+				// turn, or one whose waiting hook ended.
+				n.Outcome = outcomeNextTurn
+			}
 			if n.Outcome == outcomeTurnEnd {
 				switch hints[mem.Name] {
 				case "peer_if_supported":

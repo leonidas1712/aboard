@@ -85,6 +85,8 @@ type Daemon struct {
 	open     map[SessionKey]bool
 	// turned holds the sessions that have run a turn, for status.
 	turned            map[SessionKey]bool
+	// unwaited are the open, idle sessions that nothing waits to wake (not_waiting).
+	unwaited map[string]bool
 	problems          map[AgentKey]string
 	extensionProblems map[SessionKey]bool
 	// handoffProblems holds the sessions whose handoffs fail to prepare.
@@ -113,7 +115,7 @@ func Run(ctx context.Context, cfg Config) error {
 	d := &Daemon{
 		cfg: cfg, adapters: map[string]Adapter{}, log: cfg.Log,
 		refs: map[AgentKey]AgentRef{}, sessions: map[SessionKey]*session{}, owners: map[AgentKey]*session{},
-		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, problems: map[AgentKey]string{},
+		servers: map[string]*serverConn{}, open: map[SessionKey]bool{}, turned: map[SessionKey]bool{}, unwaited: map[string]bool{}, problems: map[AgentKey]string{},
 		generations: map[AgentKey]uint64{}, modes: map[AgentKey]Mode{}, held: map[AgentKey]HeldMode{}, stalled: map[int64]StatusItem{}, openChanged: make(chan struct{}, 1),
 	}
 	if cfg.PairingFor != nil {
@@ -536,6 +538,16 @@ func (d *Daemon) setOpen(key SessionKey, open bool) {
 func (d *Daemon) setTurned(key SessionKey) {
 	d.mu.Lock()
 	d.turned[key] = true
+	d.mu.Unlock()
+}
+
+func (d *Daemon) setUnwaited(key SessionKey, unwaited bool) {
+	d.mu.Lock()
+	if unwaited {
+		d.unwaited[key.String()] = true
+	} else {
+		delete(d.unwaited, key.String())
+	}
 	d.mu.Unlock()
 }
 
@@ -1130,6 +1142,10 @@ func (d *Daemon) status(ctx context.Context) Response {
 	for a, reason := range d.problems {
 		st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: reason})
 	}
+	unwaited := make(map[string]bool, len(d.unwaited))
+	for k := range d.unwaited {
+		unwaited[k] = true
+	}
 	for a, s := range d.owners {
 		if d.extensionProblems[s.key] {
 			st.Agents = append(st.Agents, AgentProblem{Agent: d.refs[a], Reason: ReasonExtensionOutdated})
@@ -1148,10 +1164,15 @@ func (d *Daemon) status(ctx context.Context) Response {
 		return errorResponse("internal", "Couldn't read the delivery journal: "+err.Error(), "Look at the daemon log.")
 	}
 	for _, binding := range st.Bindings {
+		warned := false
 		for _, record := range records {
 			if binding.Session == record.Key.String() && record.DeliveryWarning != "" {
 				st.DeliveryWarnings = append(st.DeliveryWarnings, WarningStatus{Session: binding.Session, Agent: binding.Agent, Reason: record.DeliveryWarning})
+				warned = true
 			}
+		}
+		if !warned && binding.Open && unwaited[binding.Session] {
+			st.DeliveryWarnings = append(st.DeliveryWarnings, WarningStatus{Session: binding.Session, Agent: binding.Agent, Reason: WarningNotWaiting})
 		}
 	}
 	ds, err := d.cfg.Journal.Deliveries(ctx, StateAttention, StateSkipped)

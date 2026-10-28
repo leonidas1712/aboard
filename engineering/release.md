@@ -17,7 +17,10 @@ tracks the work.
   stamps its version with `-ldflags -X`; Go adds the commit and commit time.
   *Today:* `make install` builds and installs from source with the UI, and `make dev`
   builds `./.bin/aboard` as a dev build (`0.1.0+dev.<commit>`) that never replaces an
-  installed one.
+  installed one. `scripts/install-source [ref]` installs a dev build of `origin/main`
+  (or the ref) over the installed binary, from a worktree of its own, and refreshes the
+  skill and hooks as `aboard upgrade` does; its later commit makes it replace a running
+  daemon and local server of the same version.
 - **Built by one automated job.** Pushing a version tag runs GoReleaser in CI
   (`.github/workflows/release.yml` with `.goreleaser.yaml`), which builds every
   platform, writes a `checksums.txt`, signs it, generates a software bill of materials
@@ -61,6 +64,7 @@ tracks the work.
 | `brew install leonidas1712/aboard/aboard` | macOS and Linux with Homebrew | Configured but off. To turn it on: create the public repository `leonidas1712/homebrew-aboard`; add a fine-grained token with contents write on that repository only as the secret `HOMEBREW_TAP_TOKEN`; pass it to the release step's environment; set `skip_upload: false` under `homebrew_casks` in `.goreleaser.yaml`; and, while the macOS binaries aren't notarized, add a post-install hook that clears the quarantine attribute Homebrew sets on casks. |
 | `docker pull ghcr.io/leonidas1712/aboard:<version>` | Team servers | With the release job: a multi-arch image (linux/amd64, linux/arm64) built from the release binaries, tagged with the version and, for a release that isn't a prerelease, `latest`. It is built from `Dockerfile.release`, which copies the release binary from the build context's `$TARGETPLATFORM/aboard` into the same image the root `Dockerfile` builds from source: alpine, user 10001, `aboard serve --team` with its data in `/data/aboard` on a volume at `/data`. Building it from source instead: `docker build --build-arg VERSION=… .` with the root `Dockerfile`. |
 | `make install` | Building from source | Yes. Needs Go and Node. |
+| `scripts/install-source [ref]` | Running main between releases, over an install-script install | No. Needs Go and Node. |
 
 All of them install the same binary. The skill published for `npx skills` is generated
 from the same templates `aboard init` writes, so the two can't differ.

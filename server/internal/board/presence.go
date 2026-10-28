@@ -84,8 +84,8 @@ func (s *Service) SetPresence(ctx context.Context, p Principal, state, mode stri
 	if len(warnings) > 0 {
 		warning = warnings[0]
 	}
-	if warning != "" && warning != "codex_no_daemon" && warning != "codex_no_daemon_orca" {
-		return Board{}, Member{}, invalid("Unknown delivery warning.", "Use codex_no_daemon or codex_no_daemon_orca, or omit it to clear the warning.")
+	if warning != "" && warning != "codex_no_daemon" && warning != "codex_no_daemon_orca" && warning != "not_waiting" {
+		return Board{}, Member{}, invalid("Unknown delivery warning.", "Use codex_no_daemon, codex_no_daemon_orca or not_waiting, or omit it to clear the warning.")
 	}
 	var b Board
 	var me Member

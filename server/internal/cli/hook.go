@@ -383,13 +383,22 @@ func (h hookCall) markSubagent() error {
 // before giving up and letting the session go on without delivery.
 const stopRetries = 5
 
+// startPatience is how long a session-start hook's wait asks again while the session's
+// register hasn't reached the daemon.
+const startPatience = 30 * time.Second
+
 // stop waits while the session is idle. On a delivery it writes the bundle to standard
 // error and exits 2, which wakes the session with it; when released it exits 0. If the
 // daemon goes away, the hook starts it again and keeps waiting.
+//
+// A session-start hook's wait (its input names a source) waits the same way before the
+// session's first turn, so a resumed session wakes before anyone types. It ends no turn.
 func (h hookCall) stop(ctx context.Context) error {
 	var completion delivery.Request
 	continued := false
-	h.completion, h.continued = &completion, &continued
+	if h.in.Source == "" {
+		h.completion, h.continued = &completion, &continued
+	}
 	defer func() {
 		if !continued && completion.TurnID != 0 {
 			h.completeTurn(ctx, completion)
@@ -420,9 +429,21 @@ func (h hookCall) stop(ctx context.Context) error {
 		req := withHarnessProcess(h.request(delivery.OpWait))
 		req.V, req.Resumed, req.Started = delivery.ProtocolVersion, resumed, h.started
 		stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
-		code, done := h.waitOn(conn, req)
+		code, done, starting := h.waitOn(conn, req)
 		stop()
 		_ = conn.Close()
+		if starting {
+			if time.Since(h.started) > startPatience {
+				h.a.hookNote("the session's start never reached the delivery daemon, so it wakes for messages after its first turn")
+				return hookExit(0)
+			}
+			select {
+			case <-ctx.Done():
+				return hookExit(0)
+			case <-time.After(200 * time.Millisecond):
+			}
+			continue
+		}
 		if done {
 			return hookExit(code)
 		}
@@ -432,19 +453,20 @@ func (h hookCall) stop(ctx context.Context) error {
 }
 
 // waitOn sends a wait request and reads until a delivery or a release. done is false
-// when the connection closed first.
-func (h hookCall) waitOn(conn io.ReadWriter, req delivery.Request) (code int, done bool) {
+// when the connection closed first; starting is true when the daemon hasn't yet seen
+// the start of the session a session-start hook waits for.
+func (h hookCall) waitOn(conn io.ReadWriter, req delivery.Request) (code int, done, starting bool) {
 	if err := delivery.WriteFrame(conn, req); err != nil {
-		return 0, false
+		return 0, false, false
 	}
 	r := bufio.NewReader(conn)
 	for {
 		var resp delivery.Response
 		if err := delivery.ReadFrame(r, &resp); err != nil {
 			if errors.Is(err, delivery.ErrFrameTooLarge) {
-				return 0, true
+				return 0, true, false
 			}
-			return 0, false
+			return 0, false, false
 		}
 		switch {
 		case resp.Event == delivery.EventWaiting:
@@ -452,33 +474,35 @@ func (h hookCall) waitOn(conn io.ReadWriter, req delivery.Request) (code int, do
 				*h.completion = req
 				h.completion.Op, h.completion.TurnID, h.completion.Boot = delivery.OpTurnEnd, resp.TurnID, resp.Boot
 			}
+		case resp.Error != nil && resp.Error.Code == delivery.CodeSessionStarting:
+			return 0, false, true
 		case resp.Error != nil:
 			h.a.hookNote(resp.Error.Message)
-			return 0, true
+			return 0, true, false
 		case resp.Event == delivery.EventDeliver:
 			if h.harness == "codex" {
 				if err := json.NewEncoder(h.a.env.Stdout).Encode(struct {
 					Decision string `json:"decision"`
 					Reason   string `json:"reason"`
 				}{Decision: "block", Reason: resp.Bundle}); err != nil {
-					return 0, true
+					return 0, true, false
 				}
 				_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
 				if h.continued != nil {
 					*h.continued = true
 				}
-				return 0, true
+				return 0, true, false
 			}
 			if _, err := io.WriteString(h.a.env.Stderr, resp.Bundle+"\n\nAboard delivery: new messages for this session.\n"); err != nil {
-				return 0, true
+				return 0, true, false
 			}
 			_ = delivery.WriteFrame(conn, delivery.Request{V: delivery.ProtocolVersion, Op: delivery.OpReceived, HandoffID: resp.HandoffID})
 			if h.continued != nil {
 				*h.continued = true
 			}
-			return exitWake, true
+			return exitWake, true, false
 		case resp.Event == delivery.EventRelease:
-			return 0, true
+			return 0, true, false
 		}
 	}
 }

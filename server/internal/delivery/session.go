@@ -164,6 +164,12 @@ type session struct {
 	waiter Waiter
 	// ext is the harness extension's connection, for a session an extension registered.
 	ext *extConn
+	// noWaiterSince is when the session was last seen open and idle with no waiter, for
+	// a harness that wakes only through one; zero while it has one, or is busy or closed.
+	noWaiterSince time.Time
+	// registeredAt is when the session's start last reached the daemon. A wait from a
+	// session-start hook counts only after it.
+	registeredAt time.Time
 	// seenTurns is true once the session has reported a turn starting or ending, so the
 	// daemon can tell a session that started no turn from one whose turns it can't see
 	// (Codex with untrusted hooks).
@@ -391,6 +397,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		// agent meanwhile; then it starts with none, and the answer names the agent.
 		reopened := s.started && !s.open
 		s.inTurn, s.working = false, false
+		s.registeredAt = s.now()
 		if req.Boot != "" && req.Boot != s.boot {
 			s.newBoot(ctx, req.Boot)
 		} else {
@@ -572,18 +579,38 @@ type reportedPresence struct {
 // anyway.
 func (s *session) reportPresence(renew bool) {
 	p := s.presence()
+	warning := s.deliveryWarning
+	unwaited := s.unwaited()
+	s.d.setUnwaited(s.key, unwaited)
+	if unwaited && warning == "" {
+		warning = WarningNotWaiting
+	}
 	for _, a := range s.agents {
 		ref := a.ref
 		if a.adopting || a.gone() {
 			continue
 		}
-		now := reportedPresence{state: p, mode: s.d.mode(ref), warning: s.deliveryWarning}
+		now := reportedPresence{state: p, mode: s.d.mode(ref), warning: warning}
 		if last, ok := s.reported[ref.Key()]; ok && last == now && (!renew || p == PresenceNoSession) {
 			continue
 		}
 		s.reported[ref.Key()] = now
 		s.d.server(ref.Server).mail.put(srvMsg{presence: &ref, generation: a.generation, state: now.state, mode: now.mode, warning: now.warning})
 	}
+}
+
+// unwaited reports whether the session has been open and idle for notWaitingAfter with
+// nothing waiting to wake it, for a harness whose session wakes only through a waiting
+// hook or extension. Then a message reaches it only when its next turn starts.
+func (s *session) unwaited() bool {
+	if s.adapter == nil || !s.adapter.WaitsForIdle() || !s.open || s.working || s.waiter != nil {
+		s.noWaiterSince = time.Time{}
+		return false
+	}
+	if s.noWaiterSince.IsZero() {
+		s.noWaiterSince = s.now()
+	}
+	return !s.now().Before(s.noWaiterSince.Add(notWaitingAfter))
 }
 
 // leavePresence reports that an agent leaving the session has no session now, unless
@@ -732,6 +759,13 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		w.Release()
 		return
 	}
+	if req.Source != "" && !req.Resumed && !s.registeredSince(req.Started) {
+		// A wait from a session-start hook, which the harness runs beside the hook that
+		// registers the session. Until that register arrives, the session may still hold
+		// its last process's bundles, so the hook is told to ask again.
+		_ = w.write(errorResponse(CodeSessionStarting, "The session is still starting.", "Wait again in a moment."))
+		return
+	}
 	switch {
 	case !req.Resumed:
 		s.event(ctx, req.Boot)
@@ -759,6 +793,13 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		s.runtimeHookBoot = s.boot
 	}
 	s.refreshAll(true)
+}
+
+// registeredSince reports whether the session's start reached the daemon around or after
+// started, the time a session-start hook began: the hooks of one start run side by side,
+// so its register may arrive a little before.
+func (s *session) registeredSince(started time.Time) bool {
+	return s.open && !s.registeredAt.IsZero() && !s.registeredAt.Before(started.Add(-startSlack))
 }
 
 // bind persists a seat before replacing another seat on the same board.
@@ -1681,6 +1722,11 @@ func (s *session) nextTimer() time.Time {
 	for _, a := range s.agents {
 		if !a.adopting && a.problem == "" && a.fetched && !a.queueSending && !a.queueStopped && !a.queueNext.IsZero() && (next.IsZero() || a.queueNext.Before(next)) {
 			next = a.queueNext
+		}
+	}
+	if !s.noWaiterSince.IsZero() {
+		if at := s.noWaiterSince.Add(notWaitingAfter); s.now().Before(at) && (next.IsZero() || at.Before(next)) {
+			next = at
 		}
 	}
 	return next

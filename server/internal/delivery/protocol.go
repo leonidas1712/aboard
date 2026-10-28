@@ -90,6 +90,14 @@ const (
 	EventWelcome = "welcome"
 )
 
+// CodeSessionStarting answers a wait from a session-start hook that reached the daemon
+// before the session's register did; the hook waits again.
+const CodeSessionStarting = "session_starting"
+
+// startSlack is how long before a session-start hook began its session's register may
+// have arrived and still count as the same start.
+const startSlack = 10 * time.Second
+
 // Request is one message from a hook or the CLI to the daemon.
 type Request struct {
 	DeliveryChecked   bool           `json:"delivery_checked,omitempty"`
@@ -112,7 +120,8 @@ type Request struct {
 	Session           string         `json:"session,omitempty"`
 	// Boot is the session's boot id. Empty means the boot the daemon has on record.
 	Boot string `json:"boot,omitempty"`
-	// Source is what started the session: startup, resume, clear or compact.
+	// Source is what started the session: startup, resume, clear or compact. On a wait it
+	// marks one from a session-start hook, which waits before the session's first turn.
 	Source string `json:"source,omitempty"`
 	// Resumed marks a wait that reconnects after the daemon went away, so it doesn't
 	// count as the session's next event.

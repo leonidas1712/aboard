@@ -1,7 +1,21 @@
 package delivery
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
+// WarningNotWaiting is the warning the daemon reports for a session that is open and
+// idle with nothing waiting to wake it.
+const WarningNotWaiting = "not_waiting"
+
+// notWaitingAfter is how long such a session goes without a waiter before the warning:
+// a turn's end and its stop hook's wait arrive a moment apart, and waiting hooks
+// reconnect within a second of a daemon restart.
+const notWaitingAfter = 5 * time.Second
+
+// validDeliveryWarning reports whether a client may report the warning. not_waiting is
+// the daemon's own.
 func validDeliveryWarning(reason string) bool {
 	return reason == "" || reason == "codex_no_daemon" || reason == "codex_no_daemon_orca"
 }

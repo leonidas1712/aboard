@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Installs Aboard from source over the aboard on this machine: builds a ref of this
+# repository (origin/main unless you name one) with the web UI, puts the binary and the
+# launchers in ~/.local/bin (or ABOARD_INSTALL_DIR), and refreshes the skill and hooks
+# the way aboard upgrade does. The running daemon and local server are replaced by the
+# first command or hook that reaches them, since a dev build is newer than a release of
+# the same version.
+#
+# The build runs in a worktree of its own (ABOARD_SOURCE_DIR, default
+# ~/.cache/aboard-source), kept between runs so the web UI's packages are installed
+# once, and never switches the checkout you run this from.
+#
+#   scripts/install-source               # origin/main
+#   scripts/install-source my-branch     # any ref, after a fetch
+set -euo pipefail
+
+ref="${1:-origin/main}"
+repo="$(git rev-parse --show-toplevel)"
+src="${ABOARD_SOURCE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/aboard-source}"
+dest="${ABOARD_INSTALL_DIR:-$HOME/.local/bin}"
+
+git -C "$repo" fetch --quiet origin
+if [ -e "$src/.git" ]; then
+  git -C "$src" checkout --quiet --detach "$ref"
+else
+  git -C "$repo" worktree add --quiet --detach "$src" "$ref"
+fi
+echo "Building $(git -C "$src" log -1 --format='%h %s' HEAD)"
+
+make -C "$src" --no-print-directory web/out/.built dev
+mkdir -p "$dest"
+install -m 0755 "$src/.bin/aboard" "$dest/aboard.new"
+mv -f "$dest/aboard.new" "$dest/aboard"
+for d in "$src"/launchers/*/; do
+  name="$(basename "$d")"
+  (cd "$src" && go build -o "$dest/aboard-launcher-$name.new" "./launchers/$name")
+  mv -f "$dest/aboard-launcher-$name.new" "$dest/aboard-launcher-$name"
+done
+
+# The harnesses already set up for every project, as aboard upgrade refreshes them.
+# status exits 1 when the local server isn't running; its JSON still says.
+harnesses="$("$dest/aboard" status --json 2>/dev/null | python3 -c 'import json, sys; print(",".join(json.load(sys.stdin).get("setup", {}).get("global") or []))' || true)"
+if [ -n "$harnesses" ]; then
+  "$dest/aboard" init --yes --scope global --harness "$harnesses"
+fi
+"$dest/aboard" version
+echo "Installed in $dest. Open sessions pick up changed hooks once they restart."

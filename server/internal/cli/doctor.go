@@ -384,9 +384,13 @@ func (a *app) checkAllow(h harness.Harness, scopes []string) []doctorCheck {
 func (a *app) statusChecks(st *delivery.Status) []doctorCheck {
 	var checks []doctorCheck
 	for _, warning := range st.DeliveryWarnings {
+		text, fix := deliverytext.DeliveryWarning(warning.Reason), "Restart Codex without --no-daemon, then run aboard resume in that session."
+		if warning.Reason == delivery.WarningNotWaiting {
+			text = "its session is idle, but nothing waits to wake it, so messages reach it when its next turn starts"
+			fix = "type anything in that session, or quit it and resume it"
+		}
 		checks = append(checks, problem("delivery", levelWarning, warning.Reason,
-			fmt.Sprintf("%s on %s: %s", warning.Agent.Name, warning.Agent.Board, deliverytext.DeliveryWarning(warning.Reason)),
-			"Restart Codex without --no-daemon, then run aboard resume in that session."))
+			fmt.Sprintf("%s on %s: %s", warning.Agent.Name, warning.Agent.Board, text), fix))
 	}
 	for _, s := range st.Servers {
 		switch s.Problem {

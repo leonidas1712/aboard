@@ -28,7 +28,7 @@ func TestCodexStopReturnsJSONContinuation(t *testing.T) {
 	conn := &stopFrames{Reader: bytes.NewReader(frames.Bytes())}
 	var out, errout bytes.Buffer
 	h := hookCall{harness: "codex", a: &app{env: Env{Stdout: &out, Stderr: &errout}}}
-	code, done := h.waitOn(conn, delivery.Request{Op: delivery.OpWait})
+	code, done, _ := h.waitOn(conn, delivery.Request{Op: delivery.OpWait})
 	var got struct{ Decision, Reason string }
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("Stop output isn't JSON: %q (%v)", out.String(), err)
