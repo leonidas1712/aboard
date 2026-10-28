@@ -601,9 +601,11 @@ func (s *session) reportPresence(renew bool) {
 
 // unwaited reports whether the session has been open and idle for notWaitingAfter with
 // nothing waiting to wake it, for a harness whose session wakes only through a waiting
-// hook or extension. Then a message reaches it only when its next turn starts.
+// hook or extension. Then a message reaches it only when its next turn starts. Only a
+// session that has run a turn counts: one that never has is a new one, whose first
+// prompt is on its way.
 func (s *session) unwaited() bool {
-	if s.adapter == nil || !s.adapter.WaitsForIdle() || !s.open || s.working || s.waiter != nil {
+	if s.adapter == nil || !s.adapter.WaitsForIdle() || !s.turned || !s.open || s.working || s.waiter != nil {
 		s.noWaiterSince = time.Time{}
 		return false
 	}

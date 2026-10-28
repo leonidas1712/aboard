@@ -8,6 +8,7 @@ claude-code, in this project:
             PostToolBatch: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool
             PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
+            (Claude Code 2.1.288 doesn't run SessionStart (resume-wait); aboard doctor says what that leaves out)
 codex: not chosen
 omp: not found on this machine
 Run aboard init --yes --scope project --harness claude-code to make these changes.
@@ -170,6 +171,13 @@ Setup:  claude-code in this project
     "level": "ok",
     "message": "claude-code: hooks installed in this project ({HOME}/project/.claude/settings.local.json)",
     "name": "claude_hooks"
+  },
+  {
+    "code": "claude_hooks_unsupported",
+    "fix": "update Claude Code to 2.1.312 or later, then run aboard init",
+    "level": "warning",
+    "message": "claude-code: Claude Code 2.1.288 needs an update for full Aboard support, so a resumed session wakes for messages only after its first turn ends",
+    "name": "claude_version"
   },
   {
     "code": null,

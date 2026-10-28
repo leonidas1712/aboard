@@ -1054,8 +1054,8 @@ reaches the daemon (within 10 seconds of the hook's start), the daemon answers
 from Claude Code 2.1.312, the first version where `asyncRewake` on a session-start hook
 is verified live: a version that ran it in the foreground would hang the session's
 start. Separately, the daemon reports the delivery warning `not_waiting` for a session
-of a harness that wakes only through a waiting hook or extension when it has been open
-and idle for 5 seconds with nothing waiting; `status` and `doctor` show how to recover,
+of a harness that wakes only through a waiting hook or extension when it has run a turn
+and has been open and idle for 5 seconds with nothing waiting; `status` and `doctor` show how to recover,
 and `say` reports such a recipient as `next_turn`. Presence stays `idle`.
 
 Why: the maintainer's agents went quiet after every restart. Claude Code's

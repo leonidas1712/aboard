@@ -9,6 +9,7 @@ claude-code, everywhere:
             PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code pre-tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
             allow: Bash(aboard *)
+            (Claude Code 2.1.288 doesn't run SessionStart (resume-wait); aboard doctor says what that leaves out)
 codex, everywhere:
   create    ~/.agents/skills/aboard/SKILL.md (skill)
   create    ~/.codex/hooks.json (hooks)
@@ -17,7 +18,7 @@ codex, everywhere:
             Stop: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex stop
             PreToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook codex end
-            (Codex 0.159.3 doesn't run Stop and PostToolUse; aboard doctor says what that leaves out)
+            (Codex 0.159.3 doesn't run Stop (stop-continue) and PostToolUse; aboard doctor says what that leaves out)
   create    ~/.codex/rules/aboard.rules (permissions)
             prefix_rule(pattern=["aboard"], decision="allow")
             (Codex runs the commands it allows outside its sandbox.)
@@ -353,6 +354,13 @@ Setup:  claude-code everywhere, codex everywhere, omp everywhere
     "level": "ok",
     "message": "claude-code: hooks installed everywhere ({HOME}/.claude/settings.json)",
     "name": "claude_hooks"
+  },
+  {
+    "code": "claude_hooks_unsupported",
+    "fix": "update Claude Code to 2.1.312 or later, then run aboard init",
+    "level": "warning",
+    "message": "claude-code: Claude Code 2.1.288 needs an update for full Aboard support, so a resumed session wakes for messages only after its first turn ends",
+    "name": "claude_version"
   },
   {
     "code": null,

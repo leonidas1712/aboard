@@ -296,6 +296,11 @@ func leftOutNote(h harness.Harness, version string) string {
 	events := make([]string, len(left))
 	for i, s := range left {
 		events[i] = s.Event
+		// An event with two of Aboard's hooks, such as Claude Code's SessionStart and its
+		// resume-wait, is named with the hook left out.
+		if slices.ContainsFunc(p.Delivery.Hooks, func(o harness.HookSpec) bool { return o.Event == s.Event && o.Run != s.Run }) {
+			events[i] += " (" + s.Run + ")"
+		}
 	}
 	if n := harness.VersionNumber(version); n != "" {
 		return p.Name + " " + n + " doesn't run " + harness.AndList(events) + "; aboard doctor says what that leaves out"

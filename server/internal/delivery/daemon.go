@@ -84,9 +84,9 @@ type Daemon struct {
 	servers  map[string]*serverConn
 	open     map[SessionKey]bool
 	// turned holds the sessions that have run a turn, for status.
-	turned            map[SessionKey]bool
+	turned map[SessionKey]bool
 	// unwaited are the open, idle sessions that nothing waits to wake (not_waiting).
-	unwaited map[string]bool
+	unwaited          map[string]bool
 	problems          map[AgentKey]string
 	extensionProblems map[SessionKey]bool
 	// handoffProblems holds the sessions whose handoffs fail to prepare.

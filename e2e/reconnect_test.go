@@ -174,6 +174,7 @@ func TestIdleSessionWithNothingWaitingIsReported(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	writer, reviewer := pairedClaudeSessions(t, e)
+	reviewer.hook("prompt", `"prompt":"hello"`)
 	reviewer.hook("end", `"reason":"prompt_input_exit"`)
 	back := e.claudeSessionFrom(reviewer.id, "resume")
 

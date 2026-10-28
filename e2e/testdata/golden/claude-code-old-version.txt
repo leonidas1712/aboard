@@ -6,7 +6,7 @@ claude-code, everywhere:
             UserPromptSubmit: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code prompt
             PostToolUse: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code tool
             SessionEnd: ABOARD_HOME={ABOARD_HOME} {ABOARD} hook claude-code end
-            (Claude Code 2.0.50 doesn't run Stop and PreToolUse; aboard doctor says what that leaves out)
+            (Claude Code 2.0.50 doesn't run Stop, SessionStart (resume-wait) and PreToolUse; aboard doctor says what that leaves out)
 codex: not chosen
 omp: not found on this machine
 Run aboard init --yes --harness claude-code to make these changes.
@@ -148,9 +148,9 @@ Setup:  claude-code everywhere
   },
   {
     "code": "claude_hooks_unsupported",
-    "fix": "update Claude Code to 2.1.69 or later, then run aboard init",
+    "fix": "update Claude Code to 2.1.312 or later, then run aboard init",
     "level": "warning",
-    "message": "claude-code: Claude Code 2.0.50 needs an update for full Aboard support, so an idle session doesn't wake for new messages and a subagent's aboard commands act as your agent",
+    "message": "claude-code: Claude Code 2.0.50 needs an update for full Aboard support, so an idle session doesn't wake for new messages, a resumed session wakes for messages only after its first turn ends and a subagent's aboard commands act as your agent",
     "name": "claude_version"
   },
   {

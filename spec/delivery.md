@@ -1081,7 +1081,8 @@ not change. The server keeps the last warning when presence expires to `no_sessi
 
 The daemon reports `delivery_warning` `not_waiting` on its own for a session of a
 harness that wakes only through a waiting hook or extension (Claude Code, omp) when the
-session has been open and idle for 5 seconds with nothing waiting to wake it: a resumed
+session has run a turn and has been open and idle for 5 seconds with nothing waiting to
+wake it (a session that never ran a turn is new, and its first prompt is on its way): a resumed
 session on a Claude Code too old for `resume-wait`, before its first turn, or one whose
 waiting hook ended. Its messages then reach it only when its next turn starts. Presence
 stays `idle`; `aboard status` and `aboard doctor` show the recovery text ("Type anything

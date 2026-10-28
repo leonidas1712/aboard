@@ -97,6 +97,13 @@ Setup:  omp in this project
     "name": "claude_hooks"
   },
   {
+    "code": "claude_hooks_unsupported",
+    "fix": "update Claude Code to 2.1.312 or later, then run aboard init",
+    "level": "warning",
+    "message": "claude-code: Claude Code 2.1.288 needs an update for full Aboard support, so a resumed session wakes for messages only after its first turn ends",
+    "name": "claude_version"
+  },
+  {
     "code": null,
     "fix": null,
     "level": "ok",
