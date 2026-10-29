@@ -61,6 +61,7 @@ func (b *lockedHookOutput) Write(p []byte) (int, error) {
 	defer b.mu.Unlock()
 	return b.Buffer.Write(p)
 }
+
 func (b *lockedHookOutput) has(s string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -136,7 +137,6 @@ func TestPromptWritesBundleBeforeReceipt(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("no receipt after prompt output")
 			}
-
 		})
 	}
 }
