@@ -1177,6 +1177,12 @@ Connection resets are retryable; cancellation stops the wait immediately. After
 reconnecting it fetches every bound agent's inbox once, so a missed head change costs
 nothing: read positions live on the server.
 
+The daemon keeps separate connection pools for API requests and the event stream.
+After a request transport failure, later requests use a fresh pool; the failed
+request is returned to its caller and is not replayed by the transport. HTTP/2
+connections send a health ping after 15 seconds without a received frame, close
+after 10 seconds without its response, and bound stalled writes to 15 seconds.
+
 This needs one addition to the API: `GET /v1/stream`, a server-sent event stream for a
 human login, with one `head` event per change, a `read` event each time one of the
 human's agents' read position moves, and a comment line every 25 seconds so idle
