@@ -243,7 +243,20 @@ func newBootID(rnd io.Reader) (string, error) {
 // that waited for it (in focused mode, the quiet ones too). wake marks a prompt that
 // hands back a waiting hook's wake text: the wake itself, which must not count as the
 // session's next event. A daemon from before turn_start is sent prompt instead.
+// promptBudget leaves room before the harness's ten-second hook deadline.
+const promptBudget = 5 * time.Second
+
 func (h hookCall) turnStart(ctx context.Context, wake bool) error {
+	ctx, cancel := context.WithTimeout(ctx, promptBudget)
+	defer cancel()
+	// Optional board notices must not hold up a bundle already handed to this hook.
+	added := ""
+	if !wake {
+		noticeCtx, stop := context.WithTimeout(ctx, 500*time.Millisecond)
+		added = h.addedNote(noticeCtx, false)
+		stop()
+	}
+
 	if ticket := h.a.waitingTicket(ticketInPrompt(h.in.Prompt)); ticket != "" {
 		// A session aboard swarm up started with its launch ticket in its first prompt
 		// (Codex): the hook input carries the prompt, so the ticket binds the session to
@@ -254,7 +267,7 @@ func (h hookCall) turnStart(ctx context.Context, wake bool) error {
 			return err
 		}
 	}
-	req := h.request(delivery.OpTurnStart)
+	req := h.request(delivery.OpTurnStartReceipted)
 	req.Wake, req.Started = wake, h.started
 	resp, err := h.a.callDaemon(ctx, req)
 	var e *Error
@@ -263,14 +276,23 @@ func (h hookCall) turnStart(ctx context.Context, wake bool) error {
 		resp, err = h.a.callDaemon(ctx, req)
 	}
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil
+		}
 		return err
 	}
-	text := strings.TrimSpace(resp.Nudge + "\n\n" + resp.Bundle)
-	if !wake {
-		// Never with a wake: the line is quiet, for a turn the person started.
-		text += "\n\n" + h.addedNote(ctx, false)
+	text := strings.TrimSpace(resp.Nudge + "\n\n" + resp.Bundle + "\n\n" + added)
+	if err := h.addContext(text, "UserPromptSubmit"); err != nil {
+		return err
 	}
-	return h.addContext(strings.TrimSpace(text), "UserPromptSubmit")
+	if resp.HandoffID != "" {
+		receipt := h.request(delivery.OpReceived)
+		receipt.HandoffID, receipt.Boot = resp.HandoffID, resp.Boot
+		// Only acknowledge after stdout accepted the bundle. A missing receipt keeps
+		// the messages available for a later hook rather than silently losing them.
+		_, _ = h.a.callDaemon(ctx, receipt)
+	}
+	return nil
 }
 
 // tool adds to a busy turn, at a tool boundary, the owner's messages and a notice of the

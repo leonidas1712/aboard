@@ -1835,3 +1835,13 @@ read or acted on the notice. Failed output leaves it pending for retry.
 The person's Inbox also shows the colleague's arrival, naming the board and person,
 with the chosen agent when available. This is a fresh access-filtered view of
 existing membership and invite metadata, not an event or delivery confirmation.
+
+### Bounded prompt hooks
+
+Prompt hooks share a five-second budget, including optional board notices. Optional
+notices have at most 500 milliseconds and are fetched before requesting message
+context. A slow or unavailable daemon must not block the person's prompt beyond
+that budget. Receipt-gated turn-start context is printed before the hook sends its
+receipt; missing output or a timeout leaves the messages available for redelivery.
+With an older daemon, the hook reports the prompt without requesting turn-start
+context; the idle delivery hook remains responsible for pending messages.

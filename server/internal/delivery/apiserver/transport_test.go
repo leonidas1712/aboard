@@ -55,10 +55,18 @@ func TestRequestsRecoverAfterAConnectionStopsResponding(t *testing.T) {
 	t.Cleanup(peer.Close)
 	// Preserve the same system-trust configuration that New clones in production.
 	original := http.DefaultTransport
-	base := original.(*http.Transport).Clone()
+	defaultTransport, ok := original.(*http.Transport)
+	if !ok {
+		t.Fatal("expected standard default transport")
+	}
+	base := defaultTransport.Clone()
 	roots := x509.NewCertPool()
 	roots.AddCert(peer.Certificate())
-	base.TLSClientConfig = peer.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
+	peerTransport, ok := peer.Client().Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("expected test TLS transport")
+	}
+	base.TLSClientConfig = peerTransport.TLSClientConfig.Clone()
 	base.TLSClientConfig.InsecureSkipVerify = false
 	base.TLSClientConfig.RootCAs = roots
 	http.DefaultTransport = base
@@ -66,7 +74,7 @@ func TestRequestsRecoverAfterAConnectionStopsResponding(t *testing.T) {
 	srv := New(peer.URL, tokens{}, rand.Reader)
 	t.Cleanup(srv.http.CloseIdleConnections)
 	get := func(ctx context.Context) error {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, peer.URL, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, peer.URL, http.NoBody)
 		if err != nil {
 			return err
 		}
