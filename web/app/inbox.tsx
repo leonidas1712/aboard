@@ -187,7 +187,9 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const replyList = replies?.messages.filter((m) => !replied.includes(m.id)) ?? [];
   // J and K move through the asks, then the replies waiting, in the order listed.
   const items = waiting === null ? null : [...waiting, ...replyList];
-  const current = items?.find((a) => a.id === picked) ?? items?.[Math.min(slot.current, items.length - 1)] ?? null;
+  // A saved reply may arrive after the asks; keep its selection until that read settles.
+  const returning = picked === returned?.id && replies === null && !repliesFailed && !items?.some((item) => item.id === picked);
+  const current = returning ? null : items?.find((a) => a.id === picked) ?? items?.[Math.min(slot.current, items.length - 1)] ?? null;
   const index = current ? items!.indexOf(current) : -1;
   const obGroups = onboardingGroups(ob, dismissed);
   const obAll = [...obGroups.needs, ...obGroups.news, ...obGroups.pairing, ...obGroups.invites, ...obGroups.decided];
@@ -204,11 +206,11 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   }, [current, index, picked]);
   const restored = useRef(false);
   useEffect(() => {
-    if (!returned || restored.current || items === null) return;
+    if (!returned || restored.current || items === null || returning) return;
     restored.current = true;
     if (listing.current && listing.current.scrollHeight > listing.current.clientHeight) listing.current.scrollTop = returned.scroll;
     else window.scrollTo({ top: returned.scroll });
-  }, [returned, items]);
+  }, [returned, items, returning]);
   useEffect(() => {
     if (current) document.querySelector(`[data-ask="${CSS.escape(current.id)}"], [data-reply="${CSS.escape(current.id)}"]`)?.scrollIntoView({ block: "nearest" });
   }, [current]);
