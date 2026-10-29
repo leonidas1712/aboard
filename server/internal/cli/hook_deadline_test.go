@@ -65,7 +65,7 @@ func (b *lockedHookOutput) Write(p []byte) (int, error) {
 func (b *lockedHookOutput) has(s string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return bytes.Contains(b.Buffer.Bytes(), []byte(s))
+	return bytes.Contains(b.Bytes(), []byte(s))
 }
 
 func TestPromptWritesBundleBeforeReceipt(t *testing.T) {

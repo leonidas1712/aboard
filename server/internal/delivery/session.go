@@ -1963,7 +1963,7 @@ func (s *session) boundary(ctx context.Context, peers bool) (bundle, notice, han
 // the agent, quiet ones included, under MidTurnLimit bytes. They are handed into a turn
 // that is starting. Legacy callers confirm on the next event; receipted callers
 // must explicitly report that they printed the bundle. Oversized messages wait.
-func (s *session) atTurnStart(ctx context.Context, receipt bool) (string, string) {
+func (s *session) atTurnStart(ctx context.Context, receipt bool) (bundle, handoffID string) {
 	if !s.open {
 		return "", ""
 	}
