@@ -169,6 +169,7 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
     refresh.current = load;
     load();
     const stop = follow({
+      open: () => problem("stream"),
       head: (board) => { loadAsks(); loadReplies(); loadBoards(); refreshDetails(board); obRefresh.current(); },
       presence: (p) => refreshDetails(p.board),
       unavailable: () => { load(); obRefresh.current(); },
