@@ -25,9 +25,10 @@ type offer struct {
 
 // composed is what goes into one bundle.
 type composed struct {
-	peerBoundary bool
-	renderedAt   time.Time
-	parts        []offer
+	peerBoundary     bool
+	turnStartReceipt bool
+	renderedAt       time.Time
+	parts            []offer
 	// tooLarge are messages that don't fit in a bundle even on their own.
 	tooLarge  []offer
 	text      string

@@ -86,8 +86,8 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	for _, p := range c.parts {
 		a := s.agents[p.agent.Key()]
 		if a == nil || a.ref.MemberID == "" || a.generation == 0 {
-			if c.peerBoundary {
-				return nil, nil, fmt.Errorf("peer handoff needs verified seat identities")
+			if c.peerBoundary || c.turnStartReceipt {
+				return nil, nil, fmt.Errorf("receipted handoff needs verified seat identities")
 			}
 			if len(s.agents) > 1 {
 				return nil, nil, fmt.Errorf("a combined handoff needs verified seat identities")
@@ -113,6 +113,9 @@ func (s *session) prepare(ctx context.Context, c composed, prefix, text string) 
 	}
 	prefixHash := sha256.Sum256([]byte(prefix))
 	manifest := HandoffManifest{Session: s.key, Boot: s.boot, Class: handoffClass(c.parts), CreatedAt: renderedAt, RenderVersion: 1, PrefixHash: hex.EncodeToString(prefixHash[:]), MultiSeat: len(s.agents) > 1, MultiIssuer: s.multiIssuer()}
+	if c.turnStartReceipt {
+		manifest.Class = ClassTurnStart
+	}
 	if c.peerBoundary {
 		manifest.Class, manifest.PeerTurn = ClassMidturnPeer, s.peerTurn
 		seen := map[AgentKey]bool{}
@@ -256,7 +259,7 @@ func (s *session) confirmManifests(ctx context.Context, before time.Time) map[in
 				}
 			}
 		}
-		if !ready || h.manifest.Class == ClassMidturnPeer {
+		if !ready || h.manifest.Class == ClassMidturnPeer || h.manifest.Class == ClassTurnStart {
 			continue
 		}
 		confirmed, err := s.confirmHandoff(ctx, h)

@@ -51,7 +51,7 @@ func validateManifest(m delivery.HandoffManifest) error {
 	if _, err := hex.DecodeString(m.PayloadHash); err != nil {
 		return errors.New("invalid handoff payload hash")
 	}
-	if m.Class != delivery.ClassMixed && m.Class != delivery.ClassOwnerOnly && m.Class != delivery.ClassMidturnPeer {
+	if m.Class != delivery.ClassMixed && m.Class != delivery.ClassOwnerOnly && m.Class != delivery.ClassMidturnPeer && m.Class != delivery.ClassTurnStart {
 		return errors.New("invalid handoff class")
 	}
 	if m.Class == delivery.ClassMidturnPeer && (m.PeerTurn == 0 || len(m.PeerSenders) == 0) {
