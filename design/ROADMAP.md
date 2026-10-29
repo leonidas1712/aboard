@@ -23,8 +23,8 @@ listed at the end, with the pull request that merged it.
 - **Review (D225):** a resumed Claude Code session wakes before anyone types (a
   `resume-wait` session-start hook, from 2.1.312); the daemon reports `not_waiting` for
   an idle session with nothing waiting to wake it. `scripts/install-source` installs
-  main from source between releases. Live proof `TestResumedClaudeWakesBeforeAnyPrompt`
-  pending.
+  main from source between releases. `make live HARNESS=claude-code`
+  passes, `TestResumedClaudeWakesBeforeAnyPrompt` included (Claude Code 2.1.312).
 
 - **Merged (#365, 0.1.5):** pre-tag CLI QA: bare join codes follow the saved server
   default; status overview names its server once with one starter-policy hint.

@@ -106,7 +106,9 @@ It must report a release version and the commit of that version's Git tag; fetch
 tag if necessary. The candidate is built from the checkout. Set its next release
 version when the version bump has not landed yet. The test copies the previous binary
 into each isolated lab, starts a real session, replaces the copy and refreshes setup.
-It requires unchanged trusted hook bytes, two replies acknowledged once, and daemon
+It requires that the refresh keeps every hook the previous release wrote (a release
+may add hooks, which open sessions take up once they restart), that delivery never
+rewrites them, two replies acknowledged once, and daemon
 replacement without restarting the harness. A restamped build of current source is
 not accepted as the previous release. The download/signature path stays covered by
 the upgrade e2e tests and the release checklist's signing step.
