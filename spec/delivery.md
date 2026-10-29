@@ -1178,8 +1178,9 @@ reconnecting it fetches every bound agent's inbox once, so a missed head change 
 nothing: read positions live on the server.
 
 The daemon keeps separate connection pools for API requests and the event stream.
-After a request transport failure, later requests use a fresh pool; the failed
-request is returned to its caller and is not replayed by the transport. HTTP/2
+If a request fails before a response arrives, later requests use a fresh pool.
+Deliberate cancellation does not retire a pool. The recovery layer returns the
+original failure without replaying the request. HTTP/2
 connections send a health ping after 15 seconds without a received frame, close
 after 10 seconds without its response, and bound stalled writes to 15 seconds.
 

@@ -33,6 +33,7 @@ func (l *blackholeListener) Accept() (net.Conn, error) {
 	l.first.CompareAndSwap(nil, b)
 	return b, nil
 }
+
 func (c *blackholeConn) Write(p []byte) (int, error) {
 	if c.drop.Load() {
 		return len(p), nil
