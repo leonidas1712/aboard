@@ -1468,6 +1468,8 @@ $defs:
   # No agent path may use a human login. Recorded recipients are fixed at post time.
   SayOutput:
     description: |
+      Agent target resolution has a five-second budget and fails before posting when
+      the session identity cannot be checked. It never falls back to another identity.
       After the message is stored, advisory reads share a one-second budget. They never
       fail the successful send; unavailable notes are null. The budget includes the
       local inbox handshake, recipient notes, decision hint and task nudges. An explicit

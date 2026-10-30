@@ -111,3 +111,63 @@ func TestInboxReadHandshakeStopsWhenCallerCancels(t *testing.T) {
 		t.Fatal("inbox handshake ignored caller cancellation")
 	}
 }
+
+func TestSayBoundsSessionResolutionWithoutUsingSavedCredentials(t *testing.T) {
+	a := inboxApp(t)
+	getenv := a.env.Getenv
+	a.env.Getenv = func(key string) string {
+		if key == "ABOARD_SESSION" {
+			return "claude-code:stalled-selection"
+		}
+		return getenv(key)
+	}
+	a.env.Stdout, a.env.Stderr = io.Discard, io.Discard
+	a.daemonChecked = true
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	if err := a.saveCredential(agentCredential{Server: server.URL, Board: "review", Name: "reviewer", MemberID: "mem_review", Token: "test-seat"}); err != nil {
+		t.Fatal(err)
+	}
+	p, err := a.paths()
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := control.Listen(p.socket())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		conn, e := listener.Accept()
+		if e != nil {
+			return
+		}
+		defer func() { _ = conn.Close() }()
+		var req delivery.Request
+		_ = delivery.ReadFrame(bufio.NewReader(conn), &req)
+		if req.Op != delivery.OpAgents {
+			t.Errorf("expected session identity check, got %s", req.Op)
+		}
+		_, _ = io.Copy(io.Discard, conn)
+	}()
+	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+	defer cancel()
+	began := time.Now()
+	err = runSay(ctx, a, []string{"--as", "reviewer", "--board", "review", "must not post without session check"})
+	if err == nil {
+		t.Fatal("stalled identity check succeeded")
+	}
+	if time.Since(began) >= 7*time.Second {
+		t.Error("session selection waited for the caller cutoff")
+	}
+	if requests.Load() != 0 {
+		t.Fatalf("used stored credentials after identity check failed: %d requests", requests.Load())
+	}
+	<-finished
+}

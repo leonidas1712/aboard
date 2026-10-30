@@ -21,7 +21,8 @@ listed at the end, with the pull request that merged it.
 ## Now
 
 - **Review:** return successful sends despite stalled optional reads; bound the
-  local inbox handshake by its caller context and share one advisory read budget.
+  local inbox handshake by its caller context, share one advisory read budget,
+  and fail closed when agent selection stalls before posting.
 
 - **Review (D225):** a resumed Claude Code session wakes before anyone types (a
   `resume-wait` session-start hook, from 2.1.312); the daemon reports `not_waiting` for

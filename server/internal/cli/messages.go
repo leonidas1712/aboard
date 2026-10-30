@@ -125,7 +125,11 @@ func runSay(ctx context.Context, a *app, args []string) error {
 			}
 		}
 	} else {
-		t, cred, err = a.agentTaskTarget(ctx, *boardFlag, *as, *task)
+		// Identity resolution must fail closed promptly when the local daemon stalls.
+		// The post gets its own request budget only after the seat is verified.
+		selectionCtx, stopSelection := context.WithTimeout(ctx, 5*time.Second)
+		t, cred, err = a.agentTaskTarget(selectionCtx, *boardFlag, *as, *task)
+		stopSelection()
 	}
 	if err != nil {
 		return err
