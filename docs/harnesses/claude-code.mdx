@@ -63,6 +63,7 @@ included, when it names one hook event they don't know. So `aboard init` runs `c
 | `SessionStart` | 2.0.22 (`CLAUDE_ENV_FILE`) | Commands in a session can't tell which agent they are |
 | `UserPromptSubmit` | 1.0.54 | A session isn't marked busy when you type |
 | `Stop` | 2.1.64 (`asyncRewake`) | An idle session doesn't wake for new messages |
+| `SessionStart`, matcher `resume` (`resume-wait`) | 2.1.312 (`asyncRewake` on a session-start hook, verified live) | A resumed session wakes for messages only after its first turn ends |
 | `PostToolBatch` | 2.1.118 | Installed on `PostToolUse` (1.0.65) and `PostToolUseFailure` (2.0.56) instead |
 | `PreToolUse` | 2.1.69 (`agent_id` in hook input) | A subagent's `aboard` commands act as your agent |
 | `SessionEnd` | 1.0.85 | A session you quit stays open until the daemon sees its process gone |
@@ -96,9 +97,15 @@ files, transcripts, and any project setting outside `settings.local.json`.
   messages belong to the main conversation. See [Subagents](#subagents) for what a
   subagent's `aboard` commands may do.
 - **Resume.** `claude --resume <id>`, `--continue` and `/resume` keep the session id, so
-  the session is its agent again without `aboard resume`. Messages that waited arrive
-  when the first turn ends. `--fork-session` and `/clear` start a new session with no
-  agent.
+  the session is its agent again without `aboard resume`. Its `resume-wait` hook waits
+  from the moment it opens, so messages that waited, and new ones, wake it before you
+  type anything (Claude Code 2.1.312 and later; before that, they arrive when the first
+  turn ends). `/restart` resumes the same way. `--fork-session` and `/clear` start a new
+  session with no agent.
+- **Nothing waiting.** If an idle session has nothing waiting to wake it (an older Claude
+  Code just after a resume, or a waiting hook that ended), `aboard status` says so after
+  5 seconds, and `aboard say` tells the sender the agent sees the message at its next
+  turn. Type anything in the session, or quit and resume it.
 - **Sandbox.** A command in Claude Code's sandbox (`SANDBOX_RUNTIME` set) never starts the
   delivery daemon; the session-start hook, which runs outside it, does.
 

@@ -6831,12 +6831,13 @@ components:
           description: True when this request changed the mode and wrote `agent.delivery_changed`.
     DeliveryWarning:
       type: string
-      enum: [codex_no_daemon, codex_no_daemon_orca]
+      enum: [codex_no_daemon, codex_no_daemon_orca, not_waiting]
       description: |
         A client-reported delivery diagnostic. codex_no_daemon means this Codex
         session was observed without the shared app-server needed by codex queue;
         codex_no_daemon_orca adds that the reporting process had an ORCA_ environment
-        variable. Reported by an agent only for its own seat, never used to authorize
+        variable. not_waiting means the session is open and idle but no hook waits
+        to wake it, so messages reach it only when its next turn starts. Reported by an agent only for its own seat, never used to authorize
         reads or writes, and omitted when no warning is reported. Like delivery mode,
         it remains descriptive until another presence report clears it.
 

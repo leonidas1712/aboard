@@ -1041,3 +1041,27 @@ The simpler check can't grant access; at worst it reports delivery as working
 slightly optimistically. Why: aboard is an MVP with no users yet. The exact-endpoint
 proof made every restart, hand-read inbox and replaced session a multi-round fix, and
 protected against unlikely cases at the cost of the flow people actually meet.
+
+**D225. A resumed Claude Code session waits from the moment it opens, and a session
+that nothing waits to wake is reported (refines D157; maintainer, 2026-10-28).** Claude
+Code gets a second session-start hook, `resume-wait`, matched to `resume` and marked
+`asyncRewake`, that waits on the daemon as the stop hook does after a turn, so a
+resumed session (`claude --resume`, `--continue`, `/resume`, and `/restart` after an
+update) wakes for a message before anyone types. It ends no turn and confirms nothing.
+Claude Code runs it beside the hook that registers the session, so until that register
+reaches the daemon (within 10 seconds of the hook's start), the daemon answers
+`session_starting` and the hook asks again, for up to 30 seconds. It is installed only
+from Claude Code 2.1.312, the first version where `asyncRewake` on a session-start hook
+is verified live: a version that ran it in the foreground would hang the session's
+start. Separately, the daemon reports the delivery warning `not_waiting` for a session
+of a harness that wakes only through a waiting hook or extension when it has run a turn
+and has been open and idle for 5 seconds with nothing waiting; `status` and `doctor` show how to recover,
+and `say` reports such a recipient as `next_turn`. Presence stays `idle`.
+
+Why: the maintainer's agents went quiet after every restart. Claude Code's
+auto-update `/restart` resumes sessions with no prompt, so their messages waited until
+someone typed, while the board showed them idle. Found in the daemon log: a resumed
+session's first input was the maintainer typing that delivery wasn't working, ten
+minutes after the message it should have answered. Checked while finding it: peer
+messages announced mid-turn that seemed hours late had all been shown to the agent by
+`aboard read` as they arrived, which is why they woke nothing; that is unchanged.

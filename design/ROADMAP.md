@@ -20,6 +20,12 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Review (D225):** a resumed Claude Code session wakes before anyone types (a
+  `resume-wait` session-start hook, from 2.1.312); the daemon reports `not_waiting` for
+  an idle session with nothing waiting to wake it. `scripts/install-source` installs
+  main from source between releases. `make live HARNESS=claude-code`
+  passes, `TestResumedClaudeWakesBeforeAnyPrompt` included (Claude Code 2.1.312).
+
 - **Review:** delivery troubleshooting in the agent skill and CLI help: diagnose the
   affected seat, retry its binding once, preserve access boundaries, and verify a
   message starts a turn. Documentation only; no new automatic recovery behavior.

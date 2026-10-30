@@ -245,3 +245,39 @@ func TestSessionKeepsBothBoards(t *testing.T) {
 		})
 	}
 }
+
+// A resumed Claude Code session wakes for a message before anyone types (D225): its
+// resume-wait hook, a second session-start hook marked asyncRewake, waits from the moment
+// the session opens. The session quits, is resumed with no prompt, and a message sent
+// then is answered with nothing typed in the pane.
+func TestResumedClaudeWakesBeforeAnyPrompt(t *testing.T) {
+	only(t, "claude-code")
+	requireClaude(t)
+	parallel(t)
+	l := newLab(t)
+	l.pairCLI()
+	d := l.driverFor("claude")
+	writer := l.startClaude("writer", l.project("project", "claude-code"))
+	writer.bind("writer")
+	var id string
+	for _, s := range l.starts() {
+		if after, ok := strings.CutPrefix(s.Session, "claude-code:"); ok {
+			id = after
+		}
+	}
+	if id == "" {
+		t.Fatal("the daemon's log has no Claude Code session start")
+	}
+	l.waitPresence("writer", "idle", 30*time.Second)
+	writer.quit()
+	l.waitPresence("writer", "no_session", 15*time.Second)
+
+	resumed := time.Now()
+	writer.respawn(d.env(l), d.resumeArgv(l, id))
+	d.ready(writer)
+	l.waitFor(60*time.Second, "the resumed session's start hook", func() bool { return len(l.startsAfter(resumed)) > 0 })
+	ping := l.say("reviewer", "--to", "@writer", "--expect-reply", "Reply to this message with exactly EARLY-WAKE-1.")
+	wake := l.waitHanded(ping.At)
+	reply := l.waitMessage("writer", ping.At, "EARLY-WAKE-1", 3*time.Minute)
+	t.Logf("measured: handed %s and answered %s after the message, with nothing typed", wake.Time.Sub(ping.At), reply.At.Sub(ping.At))
+}

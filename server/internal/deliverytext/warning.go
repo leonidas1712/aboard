@@ -1,7 +1,10 @@
 package deliverytext
 
-// DeliveryWarning explains the reported Codex delivery limitation and its recovery.
+// DeliveryWarning explains a reported delivery limitation and its recovery.
 func DeliveryWarning(reason string) string {
+	if reason == "not_waiting" {
+		return "Its session is idle, but nothing waits to wake it, so messages reach it when its next turn starts. Type anything in the session, or quit and resume it."
+	}
 	if reason != "codex_no_daemon" && reason != "codex_no_daemon_orca" {
 		return ""
 	}

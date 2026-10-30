@@ -63,8 +63,11 @@ func TestReleasedUpgradeWithSessionsOpen(t *testing.T) {
 			// Package-manager installs and the install script both replace the binary;
 			// upgrade's setup refresh runs this same init against the installed path.
 			refresh := l.runIn(l.human, "init", "--yes", "--scope", "global", "--harness", d.p.Harness, "--allow-commands")
-			if !bytes.Equal(before, readFile(t, hooks)) {
-				t.Fatalf("upgrading from released %s changed %s\n%s", version, hooks, refresh)
+			// A release may add hooks, which open sessions take up once they restart; it
+			// never drops or rewrites one the previous release wrote.
+			after := readFile(t, hooks)
+			if missing := missingHookCommands(t, before, after); len(missing) > 0 {
+				t.Fatalf("upgrading from released %s dropped or rewrote hooks in %s: %q\n%s", version, hooks, missing, refresh)
 			}
 			installed := time.Now()
 			for i := 1; i <= 2; i++ {
@@ -81,11 +84,55 @@ func TestReleasedUpgradeWithSessionsOpen(t *testing.T) {
 			if pid := l.daemonPID(); pid == 0 || pid == oldDaemon {
 				t.Errorf("daemon was not replaced: %d -> %d", oldDaemon, pid)
 			}
-			if !bytes.Equal(before, readFile(t, hooks)) {
+			if !bytes.Equal(after, readFile(t, hooks)) {
 				t.Fatal("message delivery rewrote the trusted hooks")
 			}
 		})
 	}
+}
+
+// missingHookCommands returns each hook command in the before file that the after file
+// doesn't have.
+func missingHookCommands(t *testing.T, before, after []byte) []string {
+	t.Helper()
+	have := map[string]bool{}
+	for _, c := range hookCommands(t, after) {
+		have[c] = true
+	}
+	var missing []string
+	for _, c := range hookCommands(t, before) {
+		if !have[c] {
+			missing = append(missing, c)
+		}
+	}
+	return missing
+}
+
+func hookCommands(t *testing.T, raw []byte) []string {
+	t.Helper()
+	var doc any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("hooks file: %v", err)
+	}
+	var out []string
+	var walk func(any)
+	walk = func(v any) {
+		switch v := v.(type) {
+		case map[string]any:
+			if c, ok := v["command"].(string); ok {
+				out = append(out, c)
+			}
+			for _, x := range v {
+				walk(x)
+			}
+		case []any:
+			for _, x := range v {
+				walk(x)
+			}
+		}
+	}
+	walk(doc)
+	return out
 }
 
 func previousRelease(t *testing.T) (path, version string) {

@@ -1485,7 +1485,9 @@ $defs:
         per-turn cap; this is eligibility, not a delivery confirmation),
         `turn_end_owner_only` (its person permits only person input mid-turn), `next_turn` (its mode is `focused` and the
         message doesn't concern it, so it doesn't wake it: it sees the message at the
-        start of its next turn; spec/delivery.md, "Delivery modes"), `not_woken` (its
+        start of its next turn; spec/delivery.md, "Delivery modes"; also an idle agent
+        whose session nothing waits to wake, its `delivery_warning` being `not_waiting`),
+        `not_woken` (its
         delivery mode is `off`, or `humans` and the sender is an agent; it sees the
         message when it checks its inbox), `no_session` (disconnected: no session is open
         for it; it sees the message in its inbox or when its session reconnects, or
@@ -1497,7 +1499,8 @@ $defs:
         "Mentions") is listed too, with `mentioned` true, whether or not the message is
         addressed to it. A mention that wakes an agent counts as addressing it, so its
         outcome is `now`, `turn_end`, `no_session` or `not_woken` (its mode is `off`, or
-        `humans` and the sender is an agent), never `next_turn`. A mentioned agent the
+        `humans` and the sender is an agent), and `next_turn` only when its session is
+        `not_waiting`. A mentioned agent the
         message isn't addressed to and the mention can't wake has one of two more
         outcomes: `cannot_read` (the board's visibility is `addressed`, so the agent may
         not read the message, and a mention doesn't change that) or `over_limit` (the

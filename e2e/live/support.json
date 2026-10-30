@@ -1,210 +1,216 @@
 {
   "harnesses": {
     "claude-code": {
-      "version": "2.1.294 (Claude Code)",
+      "version": "2.1.312 (Claude Code)",
       "scenarios": {
         "AgentLocationMatchesItsRealHarnessSession": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestAgentLocationMatchesItsRealHarnessSession/claude-code"
+        },
+        "ApprovedInviteWakesIdleOrigin": {
+          "result": "pass",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
+          "test": "TestApprovedInviteWakesIdleOrigin/claude-code"
         },
         "AskAnsweredInTheBoardViewWakesTheAsker": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestAskAnsweredInTheBoardViewWakesTheAsker/claude-code"
         },
         "AttachedFileReachesTheHarness": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestAttachedFileReachesTheHarness/claude-code"
         },
         "BriefGetEditPutFromTheHarness": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestBriefGetEditPutFromTheHarness/claude-code"
         },
         "BrowserApprovedInviteReachesItsOriginalSession": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestBrowserApprovedInviteReachesItsOriginalSession/claude-code"
         },
         "InvitedSetupVerifiesTwoPeopleExactSessions": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestInvitedSetupVerifiesTwoPeopleExactSessions/claude-code"
         },
         "JoinsAndTalks": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         },
         "KilledSessionRedelivers": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestKilledSessionRedelivers/claude-code"
         },
         "MentionWakesAnIdleAgent": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestMentionWakesAnIdleAgentWithoutChangingTo/claude-code"
         },
         "MultiIssuerEqualBoardSequences": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestMultiIssuerEqualBoardSequences/claude-code"
         },
         "MultiSeatEqualSequences": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestMultiSeatEqualSequences/claude-code"
         },
         "OwnerReachesBusy": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestOwnerReachesBusy/claude-code"
         },
         "OwnerTargetsWakeEachCurrentAgent": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestOwnerTargetsWakeEachCurrentAgent/claude-code"
         },
         "PairingVerifiesBothExactHarnessSessions": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestPairingVerifiesBothExactHarnessSessions/claude-code"
         },
         "PeerWaitsButNoticeArrives": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestPeerWaitsButNoticeArrives/claude-code"
         },
         "PingPong": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestPingPong/claude-code"
         },
         "PingPongAcrossHarnesses": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestProjectScopeSetup/claude-code"
         },
         "QuietArrivesWithTheNextPrompt": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestQuietMessageArrivesWithTheOwnersNextPrompt/claude-code"
         },
         "RenamedPersonKeepsAgentDelivery": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestRenamedPersonKeepsAgentDelivery/claude-code"
         },
         "RepliesReachPromptly": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestRepliesReachPromptly/claude-code"
         },
         "ReplyWakesOnlyTheAsker": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestReplyWakesOnlyTheAsker/claude-code"
         },
         "RestartsLoseNothing": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestRestartsLoseNothing/claude-code"
         },
         "ResumeReconnects": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestResumeReconnects/claude-code"
         },
         "SameOwnerUrgentPeer": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestSameOwnerUrgentPeerReachesOneToolBoundary/claude-code"
         },
         "ServerHeldModeStopsAndRestartsNativeDelivery": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestServerHeldModeStopsAndRestartsNativeDelivery/claude-code"
         },
         "SubagentCannotActAsItsParent": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestSubagentCannotActAsItsParent/claude-code"
         },
         "SwarmUpResumesTheLastSession": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestSwarmUpResumesTheLastSession/claude-code"
         },
         "SwarmUpStartsEveryHarness": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestSwarmUpStartsEveryHarness/herdr"
         },
         "SwarmUpStartsFreshAfterNoTurn": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestSwarmUpStartsFreshAfterNoTurn/claude-code"
         },
         "TaskWorkflowFromSkill": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestTaskWorkflowFromSkill/claude-code"
         },
         "WakesAndReplies": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "2.1.294 (Claude Code)",
+          "date": "2026-10-29",
+          "version": "2.1.312 (Claude Code)",
           "test": "TestWakesAndReplies/claude-code"
         }
       },
       "handover": {
-        "aboard_ms": 2022,
-        "harness_ms": 2777,
-        "deliveries": 41,
-        "date": "2026-10-10"
+        "aboard_ms": 2515,
+        "harness_ms": 2992,
+        "deliveries": 2,
+        "date": "2026-10-29"
       }
     },
     "codex": {
-      "version": "codex-cli 0.160.0",
+      "version": "codex-cli 0.164.0",
       "notes": {
         "baseline": "needs `aboard init --allow-commands`: Codex's sandbox blocks network access, so `aboard` runs outside it",
         "owner_mid_turn": "once Aboard's hooks are trusted in /hooks; until then the owner's messages wait for the turn's end",
@@ -309,9 +315,9 @@
         },
         "PingPongAcrossHarnesses": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "codex-cli 0.160.0",
-          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
+          "date": "2026-10-29",
+          "version": "codex-cli 0.164.0",
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-codex"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -387,8 +393,8 @@
         },
         "SwarmUpStartsEveryHarness": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "codex-cli 0.160.0",
+          "date": "2026-10-29",
+          "version": "codex-cli 0.164.0",
           "test": "TestSwarmUpStartsEveryHarness/herdr"
         },
         "SwarmUpStartsFreshAfterNoTurn": {
@@ -411,14 +417,14 @@
         }
       },
       "handover": {
-        "aboard_ms": 2006,
-        "harness_ms": 38,
-        "deliveries": 4,
-        "date": "2026-10-10"
+        "aboard_ms": 2464,
+        "harness_ms": 3926,
+        "deliveries": 2,
+        "date": "2026-10-29"
       }
     },
     "omp": {
-      "version": "omp/18.5.1",
+      "version": "omp/18.12.1",
       "scenarios": {
         "AgentLocationMatchesItsRealHarnessSession": {
           "result": "pass",
@@ -518,9 +524,9 @@
         },
         "PingPongAcrossHarnesses": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "omp/18.5.1",
-          "test": "TestPingPongAcrossHarnesses/codex-with-omp"
+          "date": "2026-10-29",
+          "version": "omp/18.12.1",
+          "test": "TestPingPongAcrossHarnesses/claude-code-with-omp"
         },
         "ProjectScopeSetup": {
           "result": "pass",
@@ -590,8 +596,8 @@
         },
         "SwarmUpStartsEveryHarness": {
           "result": "pass",
-          "date": "2026-10-10",
-          "version": "omp/18.5.1",
+          "date": "2026-10-29",
+          "version": "omp/18.12.1",
           "test": "TestSwarmUpStartsEveryHarness/herdr"
         },
         "SwarmUpStartsFreshAfterNoTurn": {
@@ -614,10 +620,10 @@
         }
       },
       "handover": {
-        "aboard_ms": 2007,
-        "harness_ms": 2,
-        "deliveries": 4,
-        "date": "2026-10-10"
+        "aboard_ms": 2009,
+        "harness_ms": 1,
+        "deliveries": 3,
+        "date": "2026-10-29"
       }
     }
   }
