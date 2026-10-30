@@ -20,6 +20,9 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
+- **Building:** return successful sends despite stalled optional reads; bound the
+  local inbox handshake by its caller context and share one advisory read budget.
+
 - **Review (D225):** a resumed Claude Code session wakes before anyone types (a
   `resume-wait` session-start hook, from 2.1.312); the daemon reports `not_waiting` for
   an idle session with nothing waiting to wake it. `scripts/install-source` installs

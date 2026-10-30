@@ -493,7 +493,9 @@ func helpText(templates string) []commandHelp {
 				"An @name or @role:R in the text, outside code, mentions that member or role: it wakes the agents it names " +
 				"as if the message were addressed to them, without changing who the message is to or who may read it.\n\n" +
 				"After posting it says what is waiting in the agent's own inbox, and when each recipient, and each member the " +
-				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it.",
+				"text mentions, will see the message: now, when its turn ends, when it checks its inbox, or when a session resumes it. " +
+				"These advisory reads share a one-second budget after the post succeeds; unavailable notes are omitted or null. " +
+				"The stored message is still returned. Only --wait-reply deliberately waits for a reply.",
 			Flags: []helpFlag{
 				{"--file", "NAME[@vN]", "Attach an existing board file by name or id; latest unless @vN is given. Repeated identical versions attach once. This only attaches; it does not request approval."},
 				{"--attach", "FILE", "Put a local file on the board and attach that version; repeat for several files."},

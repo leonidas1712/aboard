@@ -1468,8 +1468,10 @@ $defs:
   # No agent path may use a human login. Recorded recipients are fixed at post time.
   SayOutput:
     description: |
-      Returns as soon as the message is stored, with two advisory notes that never fail
-      or hold up the post (each is null when it couldn't be worked out):
+      After the message is stored, advisory reads share a one-second budget. They never
+      fail the successful send; unavailable notes are null. The budget includes the
+      local inbox handshake, recipient notes, decision hint and task nudges. An explicit
+      --wait-reply still waits for its requested duration. The two advisory notes are:
 
       - `unread`: the sender's own unread messages on the board, whatever the message's
         target, so it doesn't post without knowing what is waiting for it. A message its
