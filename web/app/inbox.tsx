@@ -70,39 +70,112 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const refresh = useRef<() => void>(() => {});
   useEffect(() => {
     let live = true;
-    let generation = 0;
-    const load = async () => {
-      const gen = ++generation;
-      try {
-        const [list, questions, person, waitingReplies] = await Promise.all([get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }), get<AskList>("/v1/asks", { to_me: true, state: "open", limit: 200 }), get<Me>("/v1/me"), repliesWaiting(50).catch(() => null)]);
-        if (!live || gen !== generation) return;
-        setRepliesFailed(waitingReplies === null);
-        if (waitingReplies) { setReplies(waitingReplies); setReplied([]); }
-        setBoards(list.boards);
-        setFacts((previous) => previous.filter((f) => list.boards.some((b) => b.id === f.board.id && b.on_board && b.lifecycle !== "archived")));
-        setAsks(orderedAsks(questions.asks));
-        setMore(questions.more);
-        setMe(person.name);
-        setError(null);
-        const details = await Promise.allSettled(list.boards.filter((b) => b.on_board && b.lifecycle !== "archived").map(async (board) => {
-          const [members, tasks] = await Promise.all([get<{ members: Member[] }>(`/v1/boards/${encodeURIComponent(board.name)}/members`), listTasks(board.name)]);
-          return { board, members: members.members, tasks: tasks.tasks };
-        }));
-        if (!live || gen !== generation) return;
-        setFacts(details.flatMap((r) => r.status === "fulfilled" ? [r.value] : []));
-        setUnavailable(details.filter((r) => r.status === "rejected").length);
-      } catch (e) {
-        if (!live || gen !== generation) return;
-        setAsks(null);
-        setFacts([]);
-        setError(e);
+    // A stream burst must not invalidate a read already in flight or launch another
+    // copy of it. Each section publishes as soon as its own request answers.
+    const failures = new Map<string, unknown>();
+    const problem = (section: string, e?: unknown) => {
+      if (!live) return;
+      if (e === undefined) failures.delete(section); else failures.set(section, e);
+      setError(failures.values().next().value ?? null);
+    };
+    const coalesce = (read: () => Promise<void>) => {
+      let running = false;
+      let pending = false;
+      return () => {
+        pending = true;
+        if (running) return;
+        running = true;
+        void (async () => {
+          try {
+            while (live && pending) { pending = false; await read(); }
+          } finally { running = false; }
+        })();
+      };
+    };
+    let currentBoards = new Map<string, Board>();
+    const detailsPending = new Set<string>();
+    const detailsRunning = new Set<string>();
+    const detailsFailed = new Set<string>();
+    const detailsLoaded = new Map<string, string>();
+    const readDetails = () => {
+      if (!live) return;
+      for (const name of detailsPending) {
+        if (detailsRunning.size >= 3) break;
+        if (detailsRunning.has(name)) continue;
+        detailsPending.delete(name);
+        const board = currentBoards.get(name);
+        if (!board?.on_board || board.lifecycle === "archived") continue;
+        detailsRunning.add(name);
+        void Promise.all([get<{ members: Member[] }>(`/v1/boards/${encodeURIComponent(name)}/members`), listTasks(name)]).then(([members, tasks]) => {
+          if (!live || currentBoards.get(name)?.id !== board.id) return;
+          detailsFailed.delete(name);
+          detailsLoaded.set(name, board.id);
+          setFacts((previous) => {
+            const facts = new Map(previous.map((f) => [f.board.id, f]));
+            facts.set(board.id, { board, members: members.members, tasks: tasks.tasks });
+            return [...currentBoards.values()].flatMap((b) => facts.get(b.id) ?? []);
+          });
+        }, () => {
+          if (!live || currentBoards.get(name)?.id !== board.id) return;
+          detailsFailed.add(name);
+          setFacts((previous) => previous.filter((f) => f.board.id !== board.id));
+        }).finally(() => {
+          detailsRunning.delete(name);
+          if (!live) return;
+          setUnavailable(detailsFailed.size);
+          readDetails();
+        });
       }
     };
-    refresh.current = () => { void load(); };
-    void load();
-    const again = () => { void load(); obRefresh.current(); };
-    const stop = follow({ head: again, presence: again, unavailable: again, error: (e) => live && setError(e) });
-    const changed = () => void load();
+    const refreshDetails = (name: string) => { detailsPending.add(name); readDetails(); };
+    const loadBoards = coalesce(async () => {
+      try {
+        const list = await get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" });
+        if (!live) return;
+        setBoards(list.boards);
+        currentBoards = new Map(list.boards.filter((b) => b.on_board && b.lifecycle !== "archived").map((b) => [b.name, b]));
+        setFacts((previous) => previous.filter((f) => currentBoards.get(f.board.name)?.id === f.board.id));
+        for (const name of detailsFailed) if (!currentBoards.has(name)) detailsFailed.delete(name);
+        setUnavailable(detailsFailed.size);
+        for (const [name, board] of currentBoards) if (detailsLoaded.get(name) !== board.id) detailsPending.add(name);
+        readDetails();
+        problem("boards");
+      } catch (e) { problem("boards", e); }
+    });
+    const loadAsks = coalesce(async () => {
+      try {
+        const questions = await get<AskList>("/v1/asks", { to_me: true, state: "open", limit: 200 });
+        if (!live) return;
+        setAsks(orderedAsks(questions.asks));
+        setMore(questions.more);
+        problem("asks");
+      } catch (e) { problem("asks", e); }
+    });
+    const loadReplies = coalesce(async () => {
+      try {
+        const waitingReplies = await repliesWaiting(50);
+        if (!live) return;
+        setReplies(waitingReplies); setReplied([]); setRepliesFailed(false);
+      } catch { if (live) setRepliesFailed(true); }
+    });
+    const loadPerson = coalesce(async () => {
+      try {
+        const person = await get<Me>("/v1/me");
+        if (live) setMe(person.name);
+        problem("person");
+      } catch (e) { problem("person", e); }
+    });
+    const load = () => { loadAsks(); loadReplies(); loadBoards(); loadPerson(); };
+    refresh.current = load;
+    load();
+    const stop = follow({
+      open: () => problem("stream"),
+      head: (board) => { loadAsks(); loadReplies(); loadBoards(); refreshDetails(board); obRefresh.current(); },
+      presence: (p) => refreshDetails(p.board),
+      unavailable: () => { load(); obRefresh.current(); },
+      error: (e) => problem("stream", e),
+    });
+    const changed = () => load();
     window.addEventListener(askChanged, changed);
     const tick = setInterval(() => setNow(Date.now()), 30_000);
     return () => { live = false; stop(); clearInterval(tick); window.removeEventListener(askChanged, changed); };
@@ -114,7 +187,9 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   const replyList = replies?.messages.filter((m) => !replied.includes(m.id)) ?? [];
   // J and K move through the asks, then the replies waiting, in the order listed.
   const items = waiting === null ? null : [...waiting, ...replyList];
-  const current = items?.find((a) => a.id === picked) ?? items?.[Math.min(slot.current, items.length - 1)] ?? null;
+  // A saved reply may arrive after the asks; keep its selection until that read settles.
+  const returning = picked === returned?.id && replies === null && !repliesFailed && !items?.some((item) => item.id === picked);
+  const current = returning ? null : items?.find((a) => a.id === picked) ?? items?.[Math.min(slot.current, items.length - 1)] ?? null;
   const index = current ? items!.indexOf(current) : -1;
   const obGroups = onboardingGroups(ob, dismissed);
   const obAll = [...obGroups.needs, ...obGroups.news, ...obGroups.pairing, ...obGroups.invites, ...obGroups.decided];
@@ -131,11 +206,11 @@ export default function Inbox({ onSignOut }: { onSignOut: () => void }) {
   }, [current, index, picked]);
   const restored = useRef(false);
   useEffect(() => {
-    if (!returned || restored.current || items === null) return;
+    if (!returned || restored.current || items === null || returning) return;
     restored.current = true;
     if (listing.current && listing.current.scrollHeight > listing.current.clientHeight) listing.current.scrollTop = returned.scroll;
     else window.scrollTo({ top: returned.scroll });
-  }, [returned, items]);
+  }, [returned, items, returning]);
   useEffect(() => {
     if (current) document.querySelector(`[data-ask="${CSS.escape(current.id)}"], [data-reply="${CSS.escape(current.id)}"]`)?.scrollIntoView({ block: "nearest" });
   }, [current]);

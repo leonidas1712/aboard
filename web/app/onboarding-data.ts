@@ -56,35 +56,42 @@ export function useOnboarding({ follows = true }: { follows?: boolean } = {}): O
   const [me, setMe] = useState<Me | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const generation = useRef(0);
+  const loading = useRef(false);
+  const pending = useRef(false);
   const load = useCallback(async () => {
-    const gen = ++generation.current;
-    // Each part answers on its own: a server or account without one of them still shows the rest.
-    const [a, n, ib, p, al, ag, pe, b, m] = await Promise.all([
-      listApprovals("all").then((r) => r.approvals, (e: unknown) => (setError(e), null)),
-      settle(listInviteNotices().then((r) => r.notices)),
-      settle(getOnboardingInbox()),
-      settle(listPairing().then((r) => r.requests)),
-      settle(getAllowance()),
-      settle(listOwnAgents().then((r) => r.agents)),
-      settle(listPeople().then((r) => r.people)),
-      settle(get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }).then((r) => r.boards)),
-      settle(get<Me>("/v1/me")),
-    ]);
-    if (gen !== generation.current) return;
-    if (a) {
-      setApprovals(a);
-      setError(null);
-    }
-    if (n) setNotices(n);
-    setInbox(ib ? { board_adds: ib.board_adds ?? [], arrivals: ib.arrivals ?? [] } : noInbox);
-    if (p) setPairing(p);
-    setAllowance(al);
-    if (ag) setAgents(ag);
-    if (pe) setPeople(pe);
-    if (b) setBoards(b);
-    if (m) setMe(m);
-    setLoaded(true);
+    pending.current = true;
+    if (loading.current) return;
+    loading.current = true;
+    try {
+      while (pending.current) {
+        pending.current = false;
+        // Each part answers on its own: a server or account without one of them still shows the rest.
+        const [a, n, ib, p, al, ag, pe, b, m] = await Promise.all([
+          listApprovals("all").then((r) => r.approvals, (e: unknown) => (setError(e), null)),
+          settle(listInviteNotices().then((r) => r.notices)),
+          settle(getOnboardingInbox()),
+          settle(listPairing().then((r) => r.requests)),
+          settle(getAllowance()),
+          settle(listOwnAgents().then((r) => r.agents)),
+          settle(listPeople().then((r) => r.people)),
+          settle(get<{ boards: Board[] }>("/v1/boards", { lifecycle: "all" }).then((r) => r.boards)),
+          settle(get<Me>("/v1/me")),
+        ]);
+        if (a) {
+          setApprovals(a);
+          setError(null);
+        }
+        if (n) setNotices(n);
+        setInbox(ib ? { board_adds: ib.board_adds ?? [], arrivals: ib.arrivals ?? [] } : noInbox);
+        if (p) setPairing(p);
+        setAllowance(al);
+        if (ag) setAgents(ag);
+        if (pe) setPeople(pe);
+        if (b) setBoards(b);
+        if (m) setMe(m);
+        setLoaded(true);
+      }
+    } finally { loading.current = false; }
   }, []);
   useEffect(() => {
     void load();

@@ -471,3 +471,49 @@ test("a draft survives a board switch and a reload, and is cleared once sent", a
   await expect(field).toHaveValue("");
   expect(await page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.startsWith("aboard.draft.")))).toEqual([]);
 });
+
+
+test("Inbox shows asks while board details and replies are still loading", async ({ page }) => {
+  const board = "asks-progressive";
+  await openBoard(page, board);
+  await makeAsk(board, "Show this decision immediately");
+  let release!: () => void;
+  const held = new Promise<void>((done) => { release = done; });
+  await page.route(/\/v1\/(?:boards\?lifecycle=all|me\/replies-waiting|boards\/[^/]+\/(?:members|tasks))/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  try {
+    await page.getByRole("link", { name: /^Inbox/ }).click();
+    await expect(page.getByRole("group", { name: "Needs you asks" })).toContainText("Show this decision immediately", { timeout: 3000 });
+    await expect(page.getByText("Loading asks…", { exact: true })).toHaveCount(0);
+  } finally { release(); }
+});
+
+
+test("Inbox coalesces refreshes while an ask read is in flight", async ({ page }) => {
+  const board = "asks-coalesced";
+  await openBoard(page, board);
+  await makeAsk(board, "Keep the in-flight decision read");
+  let release!: () => void;
+  const held = new Promise<void>((done) => { release = done; });
+  let requested!: () => void;
+  const started = new Promise<void>((done) => { requested = done; });
+  let reads = 0;
+  await page.route("**/v1/asks?*", async (route) => {
+    reads++;
+    requested();
+    await held;
+    await route.continue();
+  });
+  try {
+    await page.getByRole("link", { name: /^Inbox/ }).click();
+    await started;
+    await page.evaluate(() => {
+      for (let n = 0; n < 20; n++) window.dispatchEvent(new CustomEvent("aboard:ask-changed"));
+    });
+    expect(reads).toBe(1);
+    release();
+    await expect(page.getByRole("group", { name: "Needs you asks" })).toContainText("Keep the in-flight decision read");
+  } finally { release(); }
+});
