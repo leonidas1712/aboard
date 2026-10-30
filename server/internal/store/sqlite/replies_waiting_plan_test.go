@@ -37,6 +37,7 @@ func TestRepliesWaitingSearchesOnlyTheSendersThread(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				defer func() { _ = rows.Close() }()
 				found := false
 				var plan []string
 				for rows.Next() {
@@ -51,9 +52,6 @@ func TestRepliesWaitingSearchesOnlyTheSendersThread(t *testing.T) {
 					}
 				}
 				if err := rows.Err(); err != nil {
-					t.Fatal(err)
-				}
-				if err := rows.Close(); err != nil {
 					t.Fatal(err)
 				}
 				if !found {
