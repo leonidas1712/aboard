@@ -20,7 +20,7 @@ listed at the end, with the pull request that merged it.
 
 ## Now
 
-- **Building:** return successful sends despite stalled optional reads; bound the
+- **Review:** return successful sends despite stalled optional reads; bound the
   local inbox handshake by its caller context and share one advisory read budget.
 
 - **Review (D225):** a resumed Claude Code session wakes before anyone types (a
