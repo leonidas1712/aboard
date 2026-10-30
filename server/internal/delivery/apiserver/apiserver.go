@@ -57,8 +57,8 @@ var _ delivery.Server = (*Server)(nil)
 func New(url string, tokens Tokens, rand io.Reader) *Server {
 	return &Server{
 		url: strings.TrimRight(url, "/"), tokens: tokens, rand: rand,
-		http:   &http.Client{Timeout: 30 * time.Second, CheckRedirect: noRedirects},
-		stream: &http.Client{CheckRedirect: noRedirects},
+		http:   &http.Client{Timeout: 30 * time.Second, CheckRedirect: noRedirects, Transport: newTransport()},
+		stream: &http.Client{CheckRedirect: noRedirects, Transport: newTransport()},
 	}
 }
 

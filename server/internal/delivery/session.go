@@ -375,7 +375,7 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 		s.noteProcess(ctx, req)
 	}
 	switch req.Op {
-	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent:
+	case OpPrompt, OpTurnStart, OpTurnStartReceipted, OpBoundary, OpUrgent:
 		if s.started && !s.open {
 			// A turn runs, so the session is open again, with the agent it still holds: a
 			// harness that resumes a session without running its session-start hook (Codex
@@ -416,9 +416,10 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			"agents", len(ok.Agents), "lost", s.lost != nil && len(ok.Agents) == 0)
 	case OpApprovalWatch:
 		return s.watchApproval(ctx, req)
-	case OpPrompt, OpTurnStart:
+	case OpPrompt, OpTurnStart, OpTurnStartReceipted:
+		s.requeueUnreceivedTurnStarts(ctx)
 		s.beginPeerTurn()
-		if req.Op == OpTurnStart || req.Harness != "omp" {
+		if req.Op == OpTurnStart || req.Op == OpTurnStartReceipted || req.Harness != "omp" {
 			ok.Nudge = s.briefStartNudge(ctx)
 		}
 		s.busyAt = s.now()
@@ -433,8 +434,11 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			s.waiter.Release()
 			s.waiter = nil
 		}
-		if req.Op == OpTurnStart {
-			ok.Bundle = s.atTurnStart(ctx)
+		if req.Op == OpTurnStart || req.Op == OpTurnStartReceipted {
+			ok.Bundle, ok.HandoffID = s.atTurnStart(ctx, req.Op == OpTurnStartReceipted)
+			if ok.HandoffID != "" {
+				ok.Boot = s.boot
+			}
 		}
 		if req.Boot == "" || req.Boot == s.boot {
 			ok.Nudge = strings.TrimSpace(ok.Nudge + "\n\n" + s.approvalNotices(ctx))
@@ -460,6 +464,9 @@ func (s *session) onRequest(ctx context.Context, req Request) Response {
 			ok.Boot, ok.TurnID = s.boot, s.peerTurn
 		}
 	case OpReceived:
+		if h := s.handoffs[req.HandoffID]; h != nil && h.manifest.Class == ClassTurnStart {
+			return s.receiveTurnStart(ctx, req)
+		}
 		return s.receivePeerBoundary(ctx, req)
 	case OpTurnEnd:
 		if req.TurnID != 0 && (req.TurnID != s.peerTurn || req.Boot == "" || req.Boot != s.boot) {
@@ -779,6 +786,7 @@ func (s *session) onWait(ctx context.Context, req Request, w *waiter) {
 		s.unhand(ctx)
 	}
 	s.requeueUnreceivedPeers(ctx)
+	s.requeueUnreceivedTurnStarts(ctx)
 	if s.waiter != nil && s.waiter != w {
 		s.waiter.Release()
 	}
@@ -2001,20 +2009,20 @@ func (s *session) boundary(ctx context.Context, peers bool) (bundle, notice, han
 
 // atTurnStart answers a turn's start: in focused mode, every message still waiting for
 // the agent, quiet ones included, under MidTurnLimit bytes. They are handed into a turn
-// that is starting, so the session's next event confirms them, as it does a bundle. A
-// message too large for here waits for the next bundle.
-func (s *session) atTurnStart(ctx context.Context) string {
+// that is starting. Legacy callers confirm on the next event; receipted callers
+// must explicitly report that they printed the bundle. Oversized messages wait.
+func (s *session) atTurnStart(ctx context.Context, receipt bool) (bundle, handoffID string) {
 	if !s.open {
-		return ""
+		return "", ""
 	}
 	notes, told := s.modeNotes()
 	s.markTold(told)
 	if len(s.offers(turnStart)) == 0 {
-		return notes
+		return notes, ""
 	}
 	// The server is the authority on what the agent has read.
 	if !s.recheck(ctx) {
-		return notes
+		return notes, ""
 	}
 	limit := MidTurnLimit
 	if notes != "" {
@@ -2022,12 +2030,13 @@ func (s *session) atTurnStart(ctx context.Context) string {
 	}
 	c := s.composePending(s.offers(turnStart), limit, s.compositionOptions(MidTurnLimit), notes)
 	if len(c.parts) == 0 {
-		return notes
+		return notes, ""
 	}
-	_, deliveries, err := s.prepare(ctx, c, notes, withNotes(notes, c.text))
+	c.turnStartReceipt = receipt
+	h, deliveries, err := s.prepare(ctx, c, notes, withNotes(notes, c.text))
 	if err != nil {
 		s.prepareFailed("prepare turn-start handoff", err)
-		return notes
+		return notes, ""
 	}
 	s.prepared()
 	now := s.now()
@@ -2036,7 +2045,10 @@ func (s *session) atTurnStart(ctx context.Context) string {
 		s.saveDelivery(ctx, dl)
 	}
 	s.d.log.Info("turn start", "session", s.key.String(), "board", partBoard(c.parts), "seqs", partSeqs(c.parts), "bytes", len(c.text))
-	return withNotes(notes, c.text)
+	if receipt {
+		return withNotes(notes, c.text), h.manifest.ID
+	}
+	return withNotes(notes, c.text), ""
 }
 
 // modeNotes writes a line for each of the session's agents whose delivery mode changed
@@ -2237,7 +2249,7 @@ func (s *session) currentRuntimeHook(req Request) bool {
 	switch req.Op {
 	case OpRegister:
 		return true
-	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent, OpTurnEnd, OpWait:
+	case OpPrompt, OpTurnStart, OpTurnStartReceipted, OpBoundary, OpUrgent, OpTurnEnd, OpWait:
 		return req.Boot == s.boot && (req.Started.IsZero() || !req.Started.Before(s.busyAt))
 	default:
 		return false

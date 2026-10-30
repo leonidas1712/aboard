@@ -91,6 +91,7 @@
             "group": "Work with your agents",
             "pages": [
               "guides/pairing",
+              "guides/recover-delivery",
               "guides/board-view",
               "guides/asks-and-inbox",
               "guides/tasks",

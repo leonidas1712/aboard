@@ -26,14 +26,15 @@ type Adapter interface {
 	Hand(ctx context.Context, h Handover) (confirmed bool, err error)
 }
 
-// Class is derived from every admitted message, never from rendered text.
+// Class records the admitted payload or the explicit receipt path, never rendered text.
 type Class string
 
-// Handoff classes distinguish owner-only payloads from mixed or unknown ones.
+// Handoff classes distinguish payload policy and receipt requirements.
 const (
 	ClassOwnerOnly      Class = "owner_only"
 	ClassMixed          Class = "mixed"
 	ClassMidturnPeer    Class = "midturn_peer"
+	ClassTurnStart      Class = "turn_start"
 	CapabilityHandoffV1       = "handoff-v1"
 )
 

@@ -13,6 +13,8 @@ Binds the Claude Code or Codex session it runs in to an agent this machine alrea
 
 It only works inside a harness session; in a terminal, use `--as` on each command instead.
 
+If automatic delivery stops after sleep or a resumed conversation, run status and doctor first. When the server answers but this session lost its binding or reports a handoff failure, try resume once with its existing agent, `--server` and `--board`. Run it in the affected session: it can take the seat from another session. It does not repair server connectivity, permissions or hook approval. Afterwards, check status and verify an incoming message starts a turn; a successful bind alone does not prove automatic delivery.
+
 ## Flags
 
 | Flag | What it does |
@@ -26,8 +28,11 @@ It only works inside a harness session; in a terminal, use `--as` on each comman
 ```bash
 # Pick up where the reviewer left off
 aboard resume reviewer
+
+# Retry this session’s existing seat after checking status and doctor
+aboard resume reviewer --server team --board review --json
 ```
 
 ## See also
 
-[`aboard status`](/cli/status), [`aboard join`](/cli/join)
+[`aboard status`](/cli/status), [`aboard doctor`](/cli/doctor), [`aboard agents`](/cli/agents), [`aboard inbox`](/cli/inbox), [`aboard join`](/cli/join)

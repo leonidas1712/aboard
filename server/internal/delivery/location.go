@@ -32,7 +32,7 @@ func (s *session) noteLocation(ctx context.Context, req Request) {
 		if req.Cwd != "" && filepath.IsAbs(req.Cwd) {
 			s.folder = req.Cwd
 		}
-	case OpPrompt, OpTurnStart, OpBoundary, OpUrgent:
+	case OpPrompt, OpTurnStart, OpTurnStartReceipted, OpBoundary, OpUrgent:
 		if req.Boot != "" && req.Boot != s.locationBoot {
 			return
 		}

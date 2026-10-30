@@ -26,6 +26,8 @@ const (
 	// given: in focused mode, every message still waiting for the agent, the quiet ones
 	// included, which the caller adds to the turn before the model runs.
 	OpTurnStart = "turn_start"
+	// OpTurnStartReceipted requires a receipt after the hook prints its bundle.
+	OpTurnStartReceipted = "turn_start_receipted"
 	// OpWait keeps the connection open while the session is idle, until a bundle or a
 	// release is sent back.
 	OpWait = "wait"
