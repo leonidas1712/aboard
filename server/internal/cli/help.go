@@ -876,10 +876,14 @@ func helpText(templates string) []commandHelp {
 			Description: "Binds the Claude Code or Codex session it runs in to an agent this machine already has, " +
 				"so the agent's unread messages are delivered to this session. A session can hold several seats across boards and servers; " +
 				"resuming adds this seat and keeps the others.\n\n" +
-				"It only works inside a harness session; in a terminal, use --as on each command instead.",
+				"It only works inside a harness session; in a terminal, use --as on each command instead.\n\n" +
+				"If automatic delivery stops after sleep or a resumed conversation, run status and doctor first. " +
+				"When the server answers but this session lost its binding or reports a handoff failure, try resume once with its existing agent, --server and --board. " +
+				"Run it in the affected session: it can take the seat from another session. It does not repair server connectivity, permissions or hook approval. " +
+				"Afterwards, check status and verify an incoming message starts a turn; a successful bind alone does not prove automatic delivery.",
 			Flags:    []helpFlag{flagBoard, {"--server", "NAME|URL", "Select the saved agent seat’s issuer."}, flagJSON},
-			Examples: []helpExample{{"aboard resume reviewer", "Pick up where the reviewer left off"}},
-			SeeAlso:  []string{"status", "join"},
+			Examples: []helpExample{{"aboard resume reviewer", "Pick up where the reviewer left off"}, {"aboard resume reviewer --server team --board review --json", "Retry this session’s existing seat after checking status and doctor"}},
+			SeeAlso:  []string{"status", "doctor", "agents", "inbox", "join"},
 		},
 		{
 			Name: "up", Group: groupRun,
@@ -909,6 +913,7 @@ func helpText(templates string) []commandHelp {
 			Usage:   []string{"aboard daemon [start] [--json]"},
 			Description: "The delivery daemon brings messages into open harness sessions. Sessions start it through their hooks, so you rarely run it yourself.\n\n" +
 				"aboard daemon start starts it in the background, or says it already runs. " +
+				"It does not force-restart a current daemon; an older daemon can be replaced during the normal upgrade check. Use doctor to distinguish connection, session and hook problems before changing anything. " +
 				"Plain aboard daemon runs it in the foreground, for debugging. It stops on its own once no session has been open for ten minutes.",
 			Flags:    []helpFlag{flagJSON},
 			Examples: []helpExample{{"aboard daemon start", "Start it in the background"}},
@@ -971,6 +976,9 @@ func helpText(templates string) []commandHelp {
 				"and deliveries that need attention. Shows this CLI's and the server's versions, warning when the versions may not work together. Each problem comes with the fix to run.\n\n" +
 				"A regular legacy .aboard folder-link file is ignored; its warning shows the command to delete that file. State directories and symlinks are not treated as folder links.\n\n" +
 				"When hooks change for an open session, approval and restart guidance stays visible until that session reloads. Codex hook approval is checked separately; writing a file does not prove it is trusted.\n\n" +
+				"For stopped automatic delivery, run this on the affected session’s machine and match each problem to its server and agent. " +
+				"A healthy server and daemon do not prove a message started a harness turn. Use status to check the binding and delivery mode; " +
+				"resume can retry the intended session’s existing seat, but does not repair access or hook approval.\n\n" +
 				"Exits 0 when no check is an error and 3 when one is.",
 			Flags:    []helpFlag{flagJSON},
 			Examples: []helpExample{{"aboard doctor", "Check everything"}, {"aboard doctor --json", "The same, for a script or an agent"}},
