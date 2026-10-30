@@ -125,7 +125,11 @@ func runSay(ctx context.Context, a *app, args []string) error {
 			}
 		}
 	} else {
-		t, cred, err = a.agentTaskTarget(ctx, *boardFlag, *as, *task)
+		// Identity resolution must fail closed promptly when the local daemon stalls.
+		// The post gets its own request budget only after the seat is verified.
+		selectionCtx, stopSelection := context.WithTimeout(ctx, 5*time.Second)
+		t, cred, err = a.agentTaskTarget(selectionCtx, *boardFlag, *as, *task)
+		stopSelection()
 	}
 	if err != nil {
 		return err
@@ -193,16 +197,24 @@ func runSay(ctx context.Context, a *app, args []string) error {
 		return apiError(r.StatusCode(), r.Body)
 	}
 	m := r.JSON201
+	// The write is committed. Optional context must not hide its receipt behind a
+	// slow read or local daemon handshake.
+	noteCtx, stopNotes := context.WithTimeout(ctx, time.Second)
+	defer stopNotes()
 	agent := delivery.AgentRef{Server: t.server.URL, Board: t.board, Name: cred.Name, MemberID: cred.MemberID}
 	var unread *unreadNote
 	if !mine {
-		unread = a.unreadAfterSay(ctx, c, agent)
+		unread = a.unreadAfterSay(noteCtx, c, agent)
 	}
-	recipients := recipientsOf(ctx, c, m)
+	recipients := recipientsOf(noteCtx, c, m)
 	out := sayOutput{Message: cliMessage{Message: *m}, Unread: unread, Recipients: recipients, Warning: wakeWarning(m, recipients)}
 	if m.ExpectsReply {
-		out.DecisionHint = decisionHint(ctx, c, m)
+		out.DecisionHint = decisionHint(noteCtx, c, m)
 	}
+	if !mine {
+		out.Nudges = a.taskNudges(noteCtx, c, agent, c.taskInbox(noteCtx), "say", *boardFlag != "", m)
+	}
+	stopNotes()
 	text := fmt.Sprintf("Sent #%d to %s on %s", m.Seq, targetsText(m.To), m.Board)
 	if m.About != nil && len(*m.About) > 0 {
 		refs := []string{}
@@ -236,9 +248,6 @@ func runSay(ctx context.Context, a *app, args []string) error {
 			*out.Reply = &reply
 		}
 		text += waitedText(m, *waitFor, w)
-	}
-	if !mine {
-		out.Nudges = a.taskNudges(ctx, c, agent, c.taskInbox(ctx), "say", *boardFlag != "", m)
 	}
 	text += nudgesText(out.Nudges)
 	a.emit(out, text)

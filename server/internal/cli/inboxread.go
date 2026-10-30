@@ -5,7 +5,6 @@ import (
 	"context"
 	"net"
 	"slices"
-	"time"
 
 	"github.com/leonidas1712/aboard/server/internal/api"
 	"github.com/leonidas1712/aboard/server/internal/delivery"
@@ -52,7 +51,12 @@ func (a *app) startInboxRead(ctx context.Context, agent delivery.AgentRef, confi
 	}
 	rd := &inboxRead{conn: conn, r: bufio.NewReader(conn)}
 	var resp delivery.Response
-	_ = conn.SetDeadline(time.Now().Add(daemonCallTimeout))
+	// DialContext only covers connecting. The handshake must also obey cancellation
+	// and a shorter caller budget after the socket has accepted the connection.
+	deadline, _ := dctx.Deadline()
+	_ = conn.SetDeadline(deadline)
+	stop := context.AfterFunc(dctx, func() { _ = conn.Close() })
+	defer stop()
 	if delivery.WriteFrame(conn, req) != nil || delivery.ReadFrame(rd.r, &resp) != nil || resp.Error != nil || !resp.Held {
 		_ = conn.Close()
 		return &inboxRead{}
