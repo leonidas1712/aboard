@@ -1177,6 +1177,13 @@ Connection resets are retryable; cancellation stops the wait immediately. After
 reconnecting it fetches every bound agent's inbox once, so a missed head change costs
 nothing: read positions live on the server.
 
+The daemon keeps separate connection pools for API requests and the event stream.
+If a request fails before a response arrives, later requests use a fresh pool.
+Deliberate cancellation does not retire a pool. The recovery layer returns the
+original failure without replaying the request. HTTP/2
+connections send a health ping after 15 seconds without a received frame, close
+after 10 seconds without its response, and bound stalled writes to 15 seconds.
+
 This needs one addition to the API: `GET /v1/stream`, a server-sent event stream for a
 human login, with one `head` event per change, a `read` event each time one of the
 human's agents' read position moves, and a comment line every 25 seconds so idle
@@ -1828,3 +1835,13 @@ read or acted on the notice. Failed output leaves it pending for retry.
 The person's Inbox also shows the colleague's arrival, naming the board and person,
 with the chosen agent when available. This is a fresh access-filtered view of
 existing membership and invite metadata, not an event or delivery confirmation.
+
+### Bounded prompt hooks
+
+Prompt hooks share a five-second budget, including optional board notices. Optional
+notices have at most 500 milliseconds and are fetched before requesting message
+context. A slow or unavailable daemon must not block the person's prompt beyond
+that budget. Receipt-gated turn-start context is printed before the hook sends its
+receipt; missing output or a timeout leaves the messages available for redelivery.
+With an older daemon, the hook reports the prompt without requesting turn-start
+context; the idle delivery hook remains responsible for pending messages.

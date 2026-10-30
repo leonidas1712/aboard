@@ -119,7 +119,7 @@ optional; each operation says which it reads.
 | `reply_to` | integer | The message whose replies a hold keeps out of bundles |
 | `seqs` | array of integers | Messages a claim records as received |
 | `id` | integer | The delivery an extension confirms on the legacy one-seat path; never substitutes for `handoff_id` |
-| `handoff_id` | string | On `received`: the exact combined handoff being confirmed, when the connection negotiated `handoff-v1` |
+| `handoff_id` | string | On `received`: the exact handoff being confirmed, for negotiated `handoff-v1` or `turn_start_receipted` |
 | `capabilities` | array of strings | On `hello`: optional extension capabilities, including `handoff-v1` ("Combined handoffs"); a supported tool hook may declare `tool-boundary` and `midturn-peer` on `boundary`, while an extension also needs its current live negotiation |
 | `cwd` | string | The root harness session's working directory, on hook events or extension hello; absent when unavailable |
 | `harness_version` | string | The harness's version, as it reports it |
@@ -138,7 +138,7 @@ on a connection that stays open.
 | `turn_id` | integer | On `waiting`: the logical turn id, retained through Stop continuation and reconnect; a newer hook uses it to report completed turn end |
 | `bundle` | string | Messages in the delivery format (delivery.md, "The delivery format") |
 | `id` | integer | The delivery a legacy one-seat `deliver` event carries; kept for compatibility |
-| `handoff_id` | string | On a negotiated combined `deliver`: its immutable handoff id, independent of delivery ids |
+| `handoff_id` | string | On a negotiated combined `deliver` or `turn_start_receipted`: its immutable handoff id, independent of delivery ids |
 | `delivery_class` | string | On a negotiated combined `deliver`: `owner_only` or `mixed`, computed by the daemon from all messages in the payload |
 | `capabilities` | array of strings | On `welcome`: the extension capabilities this connection negotiated. On `agents`: capabilities of the session's current live extension; absent means none are established |
 | `notice` | string | The waiting notice: names waiting messages without their content |
@@ -239,6 +239,22 @@ the hook then sends `prompt`.
 {"v":1,"op":"turn_start","harness":"claude-code","session":"5f1c2d3e-0000-4000-8000-000000000001","boot":"9a1f0c2b7d4e6f80","started":"2026-10-03T14:02:11.5Z"}
 {"v":1,"bundle":"Aboard: while you were away, 1 other message arrived on writer-reviewer. They didn't wake you; read them, and answer only if one needs you:\n<aboard-messages board=\"writer-reviewer\" count=\"1\" quiet=\"true\">…</aboard-messages>"}
 ```
+
+### `turn_start_receipted`: a bounded prompt handoff
+
+This additive operation has the same turn-start behavior as `turn_start`, but any
+message bundle requires an explicit receipt. Its answer includes `handoff_id` and
+`boot`. After successfully adding the bundle to the harness context, the caller sends
+`received` with that exact handoff id and boot on its session. A later session event
+never confirms an unreceived `turn_start` handoff class. The next prompt or waiting
+hook requeues it. Receipt validation requires the current session, boot, immutable
+seat identities and binding generations. Seats without verified identities receive
+no message bundle through this operation; there is no legacy implicit-confirmation
+fallback. Old `turn_start` callers retain their existing behavior.
+
+An older daemon rejects this operation before preparing a bundle. A bounded caller
+may then send `prompt`, which carries no bundle; it must not fall back to legacy
+`turn_start`.
 
 ### `turn_end`: a turn ended
 

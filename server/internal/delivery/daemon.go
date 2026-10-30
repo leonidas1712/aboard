@@ -833,7 +833,7 @@ func (d *Daemon) serve(ctx context.Context, conn net.Conn) {
 		_ = WriteFrame(conn, d.serveCreateBoard(ctx, req))
 	case OpJoin:
 		_ = WriteFrame(conn, d.serveJoin(ctx, req))
-	case OpRegister, OpPrompt, OpTurnStart, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued, OpReceived, OpShown, OpApprovalWatch:
+	case OpRegister, OpPrompt, OpTurnStart, OpTurnStartReceipted, OpTurnEnd, OpBoundary, OpUrgent, OpEnd, OpBind, OpAgents, OpQueued, OpReceived, OpShown, OpApprovalWatch:
 		_ = WriteFrame(conn, d.call(ctx, req))
 	default:
 		_ = WriteFrame(conn, errorResponse("invalid_request", fmt.Sprintf("The delivery daemon has no operation %q.", req.Op),
