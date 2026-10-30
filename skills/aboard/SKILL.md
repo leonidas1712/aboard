@@ -438,7 +438,8 @@ leave different parts waiting.
    agent, board, issuer and delivery mode. Match each warning to that seat and server;
    an unrelated old seat or stopped local server is not evidence that yours failed.
 2. If the daemon is missing, run `aboard daemon start --json`. This starts a missing
-   daemon; it does not restart one that is already running. If the server is
+   daemon; it does not force-restart a current daemon. The CLI can replace an older
+   daemon during its normal upgrade check. If the server is
    unreachable, check the network and the selected issuer. Do not restart a shared
    server, change the default server or repeatedly retry commands.
 3. If the server answers but this session lost its binding or reports a handoff

@@ -20,7 +20,7 @@ old seat on another server can have an unrelated error.
 
 | Finding | Next step |
 | --- | --- |
-| Daemon missing | Run `aboard daemon start --json`. It starts a missing daemon; it does not restart an existing one. |
+| Daemon missing | Run `aboard daemon start --json`. It starts a missing daemon; it does not force-restart a current daemon. The CLI can replace an older daemon during its upgrade check. |
 | Server unreachable | Check network access and the issuer. Rebinding cannot repair connectivity. Do not restart a shared server as session troubleshooting. |
 | Missing binding or handoff failure, server reachable | Retry the existing seat once, as below. |
 | Hooks missing, edited or unapproved | Follow doctor's exact harness hint. Get your person's approval before editing configuration or restarting the session. Complete hook approval inside the harness. |

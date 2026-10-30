@@ -913,7 +913,7 @@ func helpText(templates string) []commandHelp {
 			Usage:   []string{"aboard daemon [start] [--json]"},
 			Description: "The delivery daemon brings messages into open harness sessions. Sessions start it through their hooks, so you rarely run it yourself.\n\n" +
 				"aboard daemon start starts it in the background, or says it already runs. " +
-				"It does not restart a daemon that is already running. Use doctor to distinguish connection, session and hook problems before changing anything. " +
+				"It does not force-restart a current daemon; an older daemon can be replaced during the normal upgrade check. Use doctor to distinguish connection, session and hook problems before changing anything. " +
 				"Plain aboard daemon runs it in the foreground, for debugging. It stops on its own once no session has been open for ten minutes.",
 			Flags:    []helpFlag{flagJSON},
 			Examples: []helpExample{{"aboard daemon start", "Start it in the background"}},

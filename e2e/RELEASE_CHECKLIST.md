@@ -272,7 +272,7 @@ In an isolated sandbox with two real harness sessions and a server named `team`,
 board `review`, and agent `reviewer`:
 
 - [ ] Run `aboard status --json`, `aboard doctor --json`, and `aboard agents --json` in the affected session. Match the seat, issuer and mode; ignore an unrelated stale seat's errors.
-- [ ] With no daemon running, `aboard daemon start --json` starts it. Repeating the command leaves the running daemon in place.
+- [ ] With no daemon running, `aboard daemon start --json` starts it. Repeating the command leaves the current-build daemon in place; an older build can be replaced by the upgrade check.
 - [ ] After resuming the conversation, run `aboard resume reviewer --server team --board review --json` once in its intended session, then status. Verify the seat name and history remain unchanged and no extra agent is created.
 - [ ] Run `aboard inbox --server team --json` once at a checkpoint, then finish the turn. It catches up but is not counted as automatic delivery proof.
 - [ ] With permission for the skill's ping-pong test, verify two rounds arrive and start replies without user input. If receipt succeeds without a turn, report that distinction.
