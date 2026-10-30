@@ -51,11 +51,14 @@ func (s *Service) TaskWork(ctx context.Context, p Principal) (AgentWork, error) 
 
 func (s *Service) taskWork(tx ReadTx, b Board, me Member) (AgentWork, error) {
 	out := AgentWork{Nudges: b.Policy.Nudges != "off"}
-	brief, e := projectBrief(tx, b, me)
+	brief, e := activeBrief(tx, b)
 	if e != nil {
 		return out, e
 	}
 	if brief != nil && brief.Versions[len(brief.Versions)-1].ByID == me.ID {
+		if e := projectFile(tx, b, me, brief); e != nil {
+			return out, e
+		}
 		out.Brief = brief
 	}
 	tasks, e := tx.Tasks(b.ID)
