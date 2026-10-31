@@ -1480,7 +1480,7 @@ func (s *session) earliestRetry() time.Time {
 
 // tryDeliver hands the next bundle over if the session can take one now.
 func (s *session) tryDeliver(ctx context.Context) {
-	if !s.open || len(s.refreshing) > 0 || !s.canTake() {
+	if !s.canDeliver() {
 		return
 	}
 	if s.gatherUntil.IsZero() || s.now().Before(s.gatherUntil) {
@@ -1711,11 +1711,19 @@ func (s *session) canTake() bool {
 	return s.waiter != nil || (!s.inTurn && len(s.awaitingTurn) == 0)
 }
 
+// canDeliver is when tryDeliver can hand a bundle: the session is open, no refresh is in
+// flight and the harness can take one.
+func (s *session) canDeliver() bool {
+	return s.open && len(s.refreshing) == 0 && s.canTake()
+}
+
 // nextTimer is when the session next has something to do on its own: hand a bundle once
 // its messages are gathered, or check for stalls; zero for nothing.
 func (s *session) nextTimer() time.Time {
 	next := s.gatherUntil
-	if !s.canTake() {
+	// Only when tryDeliver would act on it: it leaves the deadline as it is otherwise, so
+	// a passed one would wake the session again at once, over and over.
+	if !s.canDeliver() {
 		next = time.Time{}
 	}
 	if !s.stallAt.IsZero() && (next.IsZero() || s.stallAt.Before(next)) {
