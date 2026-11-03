@@ -133,10 +133,16 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+      # The runner's distro-installed Stable Chrome carries Ubuntu's AppArmor sandbox
+      # profile; Playwright must use it instead of a downloaded browser or --no-sandbox.
+      - name: Update and verify the Stable Chrome sandbox profile path
+        run: |
+          sudo apt-get update
+          sudo apt-get install --only-upgrade -y google-chrome-stable
+          test -x /opt/google/chrome/chrome
+          /opt/google/chrome/chrome --version
       - name: make web
         run: make web
-      - name: Install Chromium for the smoke test
-        run: cd web && npx playwright install --with-deps chromium
       - name: make web-check, browser tests part ${{ matrix.shard }} of 2
         run: ${{ matrix.shard == 1 && 'make web-check WEB_SHARD=1/2' || 'make web-e2e WEB_SHARD=2/2' }}
 
