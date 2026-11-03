@@ -13,7 +13,7 @@ export default defineConfig({
   workers: 2,
   use: {
     ...devices["Desktop Chrome"],
-    // Local runs use system Stable Chrome; CI passes the browser installed by its action.
+    // Use system Stable Chrome unless an operator explicitly supplies its executable.
     channel: chromeExecutablePath ? undefined : "chrome",
     launchOptions: {
       ...(chromeExecutablePath ? { executablePath: chromeExecutablePath } : {}),

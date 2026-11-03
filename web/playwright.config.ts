@@ -11,8 +11,8 @@ export default defineConfig({
   workers: 1,
   use: {
     ...devices["Desktop Chrome"],
-    // Local runs use system Stable Chrome. CI supplies the path produced by its Chrome
-    // setup action, making the browser under test explicit rather than bundled.
+    // Use system Stable Chrome unless an operator explicitly supplies its executable.
+    // CI relies on the runner's distro package and never falls back to bundled Chromium.
     channel: chromeExecutablePath ? undefined : "chrome",
     launchOptions: {
       ...(chromeExecutablePath ? { executablePath: chromeExecutablePath } : {}),
