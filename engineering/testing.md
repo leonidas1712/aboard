@@ -212,9 +212,12 @@ a mock was called.
 ### UI tests
 
 The Playwright test builds `aboard` with the UI embedded, on its own home directory and
-port, and drives a board in Chromium. It runs each screen in the light and the dark
-theme, and runs an automated accessibility check (axe) on each, failing on any
-violation. (The accessibility check is not added yet.)
+port, and drives a board in system-managed Stable Chrome with Chrome's sandbox enabled.
+It does not use Playwright's bundled Chromium. Set `ABOARD_CHROME_PATH` to use an
+explicit Chrome executable, as CI does after installing the current Stable browser. It
+runs each screen in the light and the dark theme, and runs an automated accessibility
+check (axe) on each, failing on any violation. (The accessibility check is not added
+yet.)
 
 ## Practices
 

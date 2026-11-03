@@ -133,12 +133,20 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+      # Playwright is configured to use Stable Chrome rather than its bundled Chromium,
+      # so CI installs the same independently patched browser before the smoke tests.
+      - id: chrome
+        uses: browser-actions/setup-chrome@c785b87e244131f27c9f19c1a33e2ead956ab7ce # v1.7.3
+      - name: Verify the Stable Chrome executable
+        run: |
+          test -x "${{ steps.chrome.outputs.chrome-path }}"
+          "${{ steps.chrome.outputs.chrome-path }}" --version
       - name: make web
         run: make web
-      - name: Install Chromium for the smoke test
-        run: cd web && npx playwright install --with-deps chromium
       - name: make web-check, browser tests part ${{ matrix.shard }} of 2
         run: ${{ matrix.shard == 1 && 'make web-check WEB_SHARD=1/2' || 'make web-e2e WEB_SHARD=2/2' }}
+        env:
+          ABOARD_CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
 
   # The docs site: broken links and a strict build with the Mintlify CLI, pinned in
   # docs/package.json. make check already fails on a stale CLI reference or API spec copy.

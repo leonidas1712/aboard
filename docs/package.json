@@ -3,6 +3,20 @@
   "private": true,
   "description": "The Mintlify CLI, pinned, for previewing and checking the docs site locally (make docs-preview, make docs-links).",
   "devDependencies": {
-    "mint": "4.2.1000"
+    "mint": "4.2.1190"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "adm-zip": "0.6.1",
+    "axios": "1.20.0",
+    "body-parser@1.20.8": "1.20.9",
+    "follow-redirects": "1.16.2",
+    "fflate@0.7.3": "0.7.5",
+    "fflate@0.8.2": "0.8.3",
+    "image-size": "2.0.3",
+    "js-yaml@4.3.1": "4.3.2",
+    "re2js": "2.8.7",
+    "sharp@0.33.5": "0.35.5",
+    "smol-toml": "1.9.1"
   }
 }

@@ -292,7 +292,7 @@ lab-shots:
 	@test -d web/node_modules || (cd web && npm ci)
 	cd web && $(WEB_ENV) npm run lab:shots
 
-# Builds aboard with the UI (after make web) and drives a board in Chromium.
+# Builds aboard with the UI (after make web) and drives a board in Stable Chrome.
 web-e2e:
 	cd web && $(WEB_ENV) npx playwright test $(if $(WEB_SHARD),--shard=$(WEB_SHARD))
 

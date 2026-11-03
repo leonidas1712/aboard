@@ -186,6 +186,9 @@ tests, the harness conformance kit, the extension tests (which need
 [Bun](https://bun.sh)) and `govulncheck`. The end-to-end tests also need
 [tmux](https://github.com/tmux/tmux), for the swarm and launcher tests. Tools are pinned and installed into `.bin/` on
 first use. A change to the web UI also runs `make web-check`.
+Browser tests require a system-managed Stable Chrome; Playwright does not download or
+fall back to its bundled Chromium. Set `ABOARD_CHROME_PATH` when Chrome is installed
+outside Playwright's normal system location.
 
 `make quick` runs the static checks alone (formatting, lint, vet, the generated-code
 check and the core's size) in about a minute; run it before asking for review.
